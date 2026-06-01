@@ -1,0 +1,217 @@
+/* wireframe.css — base wireframe component classes ported from the prototype's
+   #wf-theme + #wf-styles blocks. Variables and the sprint-row classes
+   (.wf-card, .wf-sprintrow, .wf-active, .wf-dash, .wf-event, .wf-pts, .wf-mono)
+   live in tokens.css; this file adds the rest. ${WF.*} interpolations from the
+   prototype map to var(--wf-*). */
+
+:root {
+  --wf-backdrop: rgba(35, 38, 43, 0.42);
+  --wf-shadow: rgba(0, 0, 0, 0.28);
+}
+:root[data-theme='dark'] {
+  --wf-backdrop: rgba(6, 7, 9, 0.6);
+  --wf-shadow: rgba(0, 0, 0, 0.55);
+}
+
+/* theme-swap transition */
+html,
+body {
+  transition: background-color 0.25s ease;
+}
+body {
+  margin: 0;
+}
+.wf-screen,
+.pt-modal,
+.wf-card,
+.pt-in,
+.pt-btn,
+.pt-iconbtn {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+/* base */
+.wf {
+  font-family: var(--wf-sans);
+  color: var(--wf-ink);
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+.wf * {
+  box-sizing: border-box;
+}
+.wf-screen {
+  width: 100%;
+  height: 100%;
+  background: var(--wf-bg);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* placeholder text bar */
+.wf-bar {
+  height: 9px;
+  border-radius: 5px;
+  background: var(--wf-fill);
+  display: block;
+}
+.wf-bar.d {
+  background: var(--wf-fill-deep);
+}
+
+/* buttons (display-only variants from the kit; interactive ones live in proto.css) */
+.wf-btn {
+  font-family: var(--wf-sans);
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 8px;
+  padding: 10px 16px;
+  border: 1.5px solid var(--wf-ink);
+  background: var(--wf-ink);
+  color: var(--wf-on-ink);
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.wf-btn.ghost {
+  background: transparent;
+  color: var(--wf-ink);
+}
+.wf-btn.subtle {
+  background: var(--wf-paper);
+  color: var(--wf-t2);
+  border-color: var(--wf-line);
+}
+.wf-btn.sm {
+  padding: 7px 11px;
+  font-size: 12.5px;
+  border-radius: 7px;
+  gap: 6px;
+}
+
+/* fields */
+.wf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.wf-flabel {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--wf-t3);
+}
+.wf-input {
+  border: 1.5px solid var(--wf-line-strong);
+  background: var(--wf-paper);
+  border-radius: 9px;
+  padding: 12px 13px;
+  font-size: 15px;
+  color: var(--wf-t3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 46px;
+}
+.wf-input > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wf-input.filled {
+  color: var(--wf-ink);
+  font-weight: 500;
+}
+
+/* chips */
+.wf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 999px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.wf-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.wf-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--wf-fill-deep);
+  border: 1.5px solid var(--wf-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--wf-t2);
+}
+.wf-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wf-t3);
+}
+.wf-now {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--wf-st-ac-dot);
+  border-radius: 4px;
+  padding: 2px 5px;
+  line-height: 1;
+}
+.wf-area {
+  border: 1.5px solid var(--wf-line-strong);
+  background: var(--wf-paper);
+  border-radius: 9px;
+  padding: 12px 13px;
+  font-size: 14px;
+  color: var(--wf-t3);
+  min-height: 74px;
+  display: block;
+  line-height: 1.5;
+}
+.wf-calc {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+.wf-calc .k {
+  color: var(--wf-t2);
+  white-space: nowrap;
+}
+.wf-calc .v {
+  font-family: var(--wf-mono);
+  font-weight: 600;
+  color: var(--wf-ink);
+  white-space: nowrap;
+}
+.wf-divider {
+  height: 1.5px;
+  background: var(--wf-line);
+  border: 0;
+  width: 100%;
+}
