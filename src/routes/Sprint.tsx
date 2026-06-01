@@ -82,7 +82,7 @@ export function Sprint() {
             <PButton variant="subtle" sm icon={Icon.cal} onClick={() => openModal({ type: 'sprint', releaseId: id, sprintN: sp.n })}>
               Edit sprint
             </PButton>
-            <SyncButton onSync={onSync} />
+            <SyncButton release={r} onSync={() => onSync(id)} />
             <PButton sm icon={Icon.plus} onClick={() => openModal({ type: 'item', releaseId: id, presetSprintN: sp.n })}>
               New work item
             </PButton>

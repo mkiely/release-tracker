@@ -1,11 +1,12 @@
 // Home / Releases — new-release form + grid of release cards.
 // Ported from HomeScreen in proto-app.jsx.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { todayISO, fmtShort } from '../lib/dates';
 import { selItemsFor, selTeam, useStore } from '../store/store';
 import { getActions } from '../store/store';
+import { connectorLabel, syncClient, type ConnectorMeta } from '../sync/client';
 import { useApp } from '../app-context';
 import { Brand, TopBar } from '../components/chrome';
 import { Icon } from '../components/Icon';
@@ -21,10 +22,33 @@ export function Home() {
   const [name, setName] = useState('');
   const [start, setStart] = useState(todayISO());
   const [teamId, setTeamId] = useState(st.teams[0] ? st.teams[0].id : '');
-  const canCreate = !!name.trim() && !!start && !!teamId;
+
+  // Connector catalog is advertised by the sync service (fixtures today).
+  const [connectors, setConnectors] = useState<ConnectorMeta[]>([]);
+  const [connType, setConnType] = useState(''); // '' = Local (no sync)
+  const [config, setConfig] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let alive = true;
+    syncClient
+      .listConnectors()
+      .then((cs) => alive && setConnectors(cs))
+      .catch(() => alive && setConnectors([])); // service unreachable → Local-only
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const meta = connectors.find((c) => c.type === connType);
+  const configComplete = !meta || meta.configFields.every((f) => !f.required || config[f.key]?.trim());
+
+  const canCreate = !!name.trim() && !!start && !!teamId && configComplete;
   const create = () => {
-    const r = getActions().createRelease({ name: name.trim(), startISO: start, teamId });
+    const connector = meta ? { type: connType, config } : null;
+    const r = getActions().createRelease({ name: name.trim(), startISO: start, teamId, connector });
     navigate(`/releases/${r.id}`);
+  };
+
+  const loadDemoData = () => {
+    getActions().reset();
   };
 
   const card = (r: Release) => {
@@ -55,6 +79,11 @@ export function Home() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: WF.t3, fontSize: 13, whiteSpace: 'nowrap' }}>
           {Icon.users}
           <span>{team ? team.name : '—'}</span>
+          {r.connector && (
+            <span className="wf-tag" style={{ marginLeft: 'auto', flex: '0 0 auto' }}>
+              {connectorLabel(r.connector.type)}
+            </span>
+          )}
         </div>
         <Meter v={done} />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: WF.t3 }}>
@@ -72,9 +101,16 @@ export function Home() {
         left={<Brand />}
         title={null}
         right={
-          <PButton variant="subtle" sm icon={Icon.users} onClick={() => navigate('/teams')}>
-            Teams
-          </PButton>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {import.meta.env.DEV && (
+              <PButton variant="subtle" sm onClick={loadDemoData}>
+                Load demo data
+              </PButton>
+            )}
+            <PButton variant="subtle" sm icon={Icon.users} onClick={() => navigate('/teams')}>
+              Teams
+            </PButton>
+          </div>
         }
       />
       <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 28px', gap: 40 }}>
@@ -87,7 +123,7 @@ export function Home() {
             <PField label="Release name">
               <PInput
                 value={name}
-                placeholder="e.g. Atlas 4.0"
+                placeholder="e.g. Orion 2.0"
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && canCreate) create();
@@ -110,6 +146,31 @@ export function Home() {
                 <IconButton icon={Icon.plus} title="New team" onClick={() => openModal({ type: 'team' })} style={{ minHeight: 46, width: 46 }} />
               </div>
             </PField>
+            {connectors.length > 0 && (
+              <PField label="Connector" hint="pull work from an external system">
+                <PSelect value={connType} onChange={(e) => setConnType(e.target.value)}>
+                  <option value="">Local (no sync)</option>
+                  {connectors.map((c) => (
+                    <option key={c.type} value={c.type}>
+                      {c.label}
+                    </option>
+                  ))}
+                </PSelect>
+              </PField>
+            )}
+            {meta && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '14px 14px 2px', borderLeft: `2px solid ${WF.line}`, marginLeft: 2 }}>
+                {meta.configFields.map((f) => (
+                  <PField key={f.key} label={f.label} hint={f.required ? undefined : 'optional'}>
+                    <PInput
+                      value={config[f.key] ?? ''}
+                      placeholder={f.hint}
+                      onChange={(e) => setConfig((c) => ({ ...c, [f.key]: e.target.value }))}
+                    />
+                  </PField>
+                ))}
+              </div>
+            )}
             <PButton onClick={create} disabled={!canCreate} style={{ justifyContent: 'center', marginTop: 4 }}>
               Create release
             </PButton>

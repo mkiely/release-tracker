@@ -28,7 +28,7 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
       getActions().updateTeam(teamId, {
         name: name.trim(),
         velocity: Number(velocity) || 0,
-        members: members.filter((m) => m.trim()).map((m) => ({ id: `m_${Math.random().toString(36).slice(2)}`, name: m.trim() })),
+        members: members.filter((m) => m.trim()).map((m) => ({ id: `m_${Math.random().toString(36).slice(2)}`, name: m.trim(), externalId: null })),
       });
     } else {
       getActions().createTeam({ name, velocity, members });
@@ -373,6 +373,9 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       </Modal>
     );
   }
+  // Synced items are owned by the external system: their fields are locked and
+  // overwritten on the next sync (external wins). Local items stay fully editable.
+  const synced = !!it.externalId;
   const save = () => {
     getActions().updateItem(itemId, {
       subject: subject.trim() || it.subject,
@@ -397,27 +400,43 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
         </span>
       }
       footer={
-        <>
+        synced ? (
           <PButton variant="subtle" onClick={onClose}>
             Close
           </PButton>
-          <PButton onClick={save}>Save changes</PButton>
-        </>
+        ) : (
+          <>
+            <PButton variant="subtle" onClick={onClose}>
+              Close
+            </PButton>
+            <PButton onClick={save}>Save changes</PButton>
+          </>
+        )
       }
     >
+      {synced && (
+        <div
+          className="wf-card"
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', marginBottom: 14, fontSize: 12.5, color: WF.t2, background: WF.fill }}
+        >
+          {Icon.sync}
+          <span>Synced from an external system — fields are read-only and refresh on the next sync.</span>
+        </div>
+      )}
       <PField label="Subject">
-        <PInput value={subject} onChange={(e) => setSubject(e.target.value)} />
+        <PInput value={subject} disabled={synced} onChange={(e) => setSubject(e.target.value)} />
       </PField>
       <PField label="Description">
         <PTextarea
           value={desc}
+          disabled={synced}
           placeholder="No description yet — add detail, acceptance criteria, links…"
           onChange={(e) => setDesc(e.target.value)}
         />
       </PField>
       <div style={{ display: 'flex', gap: 12 }}>
         <PField label="Work stream" style={{ flex: 1 }}>
-          <PSelect value={wsId} onChange={(e) => setWsId(e.target.value)}>
+          <PSelect value={wsId} disabled={synced} onChange={(e) => setWsId(e.target.value)}>
             {r.workStreams.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}
@@ -426,7 +445,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           </PSelect>
         </PField>
         <PField label="Sprint" style={{ flex: 1 }}>
-          <PSelect value={sprintN} onChange={(e) => setSprintN(e.target.value)}>
+          <PSelect value={sprintN} disabled={synced} onChange={(e) => setSprintN(e.target.value)}>
             {r.sprints.map((s) => (
               <option key={s.n} value={s.n}>
                 {s.name}
@@ -437,7 +456,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       </div>
       <div style={{ display: 'flex', gap: 12 }}>
         <PField label="Status" style={{ flex: 1 }}>
-          <PSelect value={status} onChange={(e) => setStatus(e.target.value as Status)}>
+          <PSelect value={status} disabled={synced} onChange={(e) => setStatus(e.target.value as Status)}>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -446,7 +465,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           </PSelect>
         </PField>
         <PField label="Points" style={{ flex: 1.4 }}>
-          <PointSeg value={points} onChange={setPoints} />
+          <PointSeg value={points} onChange={setPoints} disabled={synced} />
         </PField>
       </div>
     </Modal>

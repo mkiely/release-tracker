@@ -6,11 +6,12 @@ export type Status = (typeof STATUSES)[number];
 export const WORKDAYS = 10; // working days per 2-week sprint
 export const SPRINT_LEN_DAYS = 14;
 export const SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export interface Member {
   id: string;
   name: string;
+  externalId: string | null;
 }
 
 export interface Team {
@@ -18,17 +19,20 @@ export interface Team {
   name: string;
   velocity: number;
   members: Member[];
+  externalId: string | null;
 }
 
 export interface WorkStream {
   id: string;
   name: string;
+  externalId: string | null;
 }
 
 export interface ReleaseEvent {
   id: string;
   label: string;
   dateISO: string;
+  externalId: string | null;
 }
 
 export interface Sprint {
@@ -37,6 +41,28 @@ export interface Sprint {
   startISO: string;
   endISO: string;
   daysOff: number;
+  externalId: string | null;
+}
+
+/** Connector type id, e.g. 'jira'. The set is defined by the local sync service. */
+export type ConnectorType = string;
+
+/**
+ * A release's binding to an external system. Held on the release so sync knows
+ * what to pull. `config` carries only non-secret routing params (which
+ * project/board/version) — credentials live in the sync service, never here.
+ * A "Local" release has `connector === null` and never syncs.
+ */
+export interface ReleaseConnector {
+  type: ConnectorType;
+  config: Record<string, string>;
+}
+
+/** Per-release sync state, surfaced in the UI (badge + toast). */
+export interface SyncStatus {
+  lastISO: string | null;
+  state: 'idle' | 'ok' | 'error';
+  message: string | null;
 }
 
 export interface Release {
@@ -47,6 +73,9 @@ export interface Release {
   workStreams: WorkStream[];
   events: ReleaseEvent[];
   sprints: Sprint[];
+  externalId: string | null;
+  connector: ReleaseConnector | null;
+  sync: SyncStatus | null;
 }
 
 export interface WorkItem {
@@ -59,6 +88,7 @@ export interface WorkItem {
   description: string;
   status: Status;
   points: number;
+  externalId: string | null;
 }
 
 export interface AppState {

@@ -18,7 +18,7 @@ export type ModalSpec =
 interface AppCtx {
   openModal: (m: ModalSpec) => void;
   notify: (msg: string) => void;
-  onSync: () => void;
+  onSync: (releaseId: string) => Promise<void>;
 }
 
 const Ctx = createContext<AppCtx | null>(null);
@@ -39,9 +39,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2400);
   };
-  const onSync = () => {
-    getActions().sync();
-    notify('Changes synced to backend');
+  const onSync = async (releaseId: string) => {
+    const outcome = await getActions().syncRelease(releaseId);
+    if (!outcome.ok) {
+      notify(
+        outcome.reason === 'no-connector'
+          ? 'This release isn’t connected to an external system'
+          : `Sync failed: ${outcome.message}`,
+      );
+      return;
+    }
+    const { created, updated, skipped } = outcome.result;
+    notify(`Synced · ${created} new, ${updated} updated${skipped ? `, ${skipped} skipped` : ''}`);
   };
 
   return (

@@ -1,0 +1,432 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Release Tracker Schema",
+  "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems.",
+  "version": "1.0.0",
+  "definitions": {
+    "Member": {
+      "type": "object",
+      "description": "A team member",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^m_[a-z0-9]+$",
+          "description": "Unique member identifier"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Member display name"
+        },
+        "externalId": {
+          "type": ["string", "null"],
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+        }
+      },
+      "required": ["id", "name", "externalId"],
+      "additionalProperties": false
+    },
+    "Team": {
+      "type": "object",
+      "description": "A team that owns releases. Defines baseline velocity used to calculate sprint capacity.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^team_[a-z0-9]+$",
+          "description": "Unique team identifier"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Team name"
+        },
+        "velocity": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Points per 2-week sprint (baseline, no days off). Used to compute sprint capacity."
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Member"
+          },
+          "description": "Team roster"
+        },
+        "externalId": {
+          "type": ["string", "null"],
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+        }
+      },
+      "required": ["id", "name", "velocity", "members", "externalId"],
+      "additionalProperties": false
+    },
+    "WorkStream": {
+      "type": "object",
+      "description": "A logical work category within a release (e.g. 'Checkout API', 'Search Revamp'). Work items are organized into streams; streams are displayed as columns in sprint and work-stream views.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^ws_[a-z0-9]+$",
+          "description": "Unique work-stream identifier"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Work-stream name"
+        },
+        "externalId": {
+          "type": ["string", "null"],
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+        }
+      },
+      "required": ["id", "name", "externalId"],
+      "additionalProperties": false
+    },
+    "Sprint": {
+      "type": "object",
+      "description": "A 2-week time period within a release. Sprints are numbered 1–8 per release.",
+      "properties": {
+        "n": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8,
+          "description": "Sprint number (1–8)"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Sprint name (e.g. 'Sprint 1')"
+        },
+        "startISO": {
+          "type": "string",
+          "format": "date",
+          "description": "Sprint start date (ISO 8601, e.g. '2026-04-13')"
+        },
+        "endISO": {
+          "type": "string",
+          "format": "date",
+          "description": "Sprint end date (ISO 8601, inclusive; typically 13 days after start)"
+        },
+        "daysOff": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "date"
+          },
+          "description": "Dates in [startISO, endISO] when the team is unavailable (e.g. holidays). Used to reduce sprint capacity."
+        },
+        "externalId": {
+          "type": ["string", "null"],
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+        }
+      },
+      "required": ["n", "name", "startISO", "endISO", "daysOff", "externalId"],
+      "additionalProperties": false
+    },
+    "Event": {
+      "type": "object",
+      "description": "A milestone or calendar marker within a release (e.g. 'Code freeze', 'GA'). Events are rendered as badges in the sprint row.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^ev_[a-z0-9]+$",
+          "description": "Unique event identifier"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Event label (e.g. 'Code freeze')"
+        },
+        "dateISO": {
+          "type": "string",
+          "format": "date",
+          "description": "Event date (ISO 8601)"
+        },
+        "externalId": {
+          "type": ["string", "null"],
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+        }
+      },
+      "required": ["id", "label", "dateISO", "externalId"],
+      "additionalProperties": false
+    },
+    "Status": {
+      "type": "string",
+      "enum": ["Not Started", "Active", "Blocked", "Complete"],
+      "description": "Work-item status"
+    },
+    "WorkItem": {
+      "type": "object",
+      "description": "A unit of work within a release. Belongs to exactly one work stream and one sprint at a time.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^it_[a-z0-9]+$",
+          "description": "Unique work-item identifier"
+        },
+        "releaseId": {
+          "type": "string",
+          "pattern": "^rel_[a-z0-9]+$",
+          "description": "ID of the release this item belongs to"
+        },
+        "workStreamId": {
+          "type": "string",
+          "pattern": "^ws_[a-z0-9]+$",
+          "description": "ID of the work stream this item belongs to"
+        },
+        "sprintN": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8,
+          "description": "Sprint number (1–8) containing this item"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^[A-Z]+-\\d+$",
+          "description": "Human-readable key (e.g. 'PROJ-100'). Format: release prefix (3 letters max) + hyphen + sequential number."
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Work-item title"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description"
+        },
+        "status": {
+          "$ref": "#/definitions/Status"
+        },
+        "points": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Story points estimate. Used to compute velocity and capacity."
+        },
+        "externalId": {
+          "type": ["string", "null"],
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+        }
+      },
+      "required": ["id", "releaseId", "workStreamId", "sprintN", "key", "subject", "description", "status", "points", "externalId"],
+      "additionalProperties": false
+    },
+    "Release": {
+      "type": "object",
+      "description": "A release cycle. Spans 8 sprints (16 weeks). Organized into work streams; contains work items.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^rel_[a-z0-9]+$",
+          "description": "Unique release identifier"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Release name (e.g. 'Orion 2.0')"
+        },
+        "startISO": {
+          "type": "string",
+          "format": "date",
+          "description": "Release start date (ISO 8601). First sprint starts on this date."
+        },
+        "teamId": {
+          "type": "string",
+          "pattern": "^team_[a-z0-9]+$",
+          "description": "ID of the team owning this release"
+        },
+        "workStreams": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WorkStream"
+          },
+          "description": "Work streams in this release"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Event"
+          },
+          "description": "Milestones in this release"
+        },
+        "sprints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Sprint"
+          },
+          "minItems": 8,
+          "maxItems": 8,
+          "description": "Exactly 8 sprints per release, each 2 weeks (14 calendar days)"
+        },
+        "externalId": {
+          "type": ["string", "null"],
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+        }
+      },
+      "required": ["id", "name", "startISO", "teamId", "workStreams", "events", "sprints", "externalId"],
+      "additionalProperties": false
+    },
+    "AppState": {
+      "type": "object",
+      "description": "Root application state. Persists to localStorage.",
+      "properties": {
+        "version": {
+          "type": "integer",
+          "description": "Schema version for migrations"
+        },
+        "teams": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Team"
+          },
+          "description": "All teams"
+        },
+        "releases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Release"
+          },
+          "description": "All releases"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WorkItem"
+          },
+          "description": "All work items across all releases"
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "lastSyncISO": {
+              "type": ["string", "null"],
+              "format": "date-time",
+              "description": "ISO 8601 timestamp of last sync with backend"
+            }
+          },
+          "required": ["lastSyncISO"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["version", "teams", "releases", "items", "meta"],
+      "additionalProperties": false
+    }
+  },
+  "constants": {
+    "SCHEMA_VERSION": {
+      "type": "integer",
+      "value": 1,
+      "description": "Current schema version for localStorage persistence"
+    },
+    "SPRINTS_PER_RELEASE": {
+      "type": "integer",
+      "value": 8,
+      "description": "Always 8 sprints per release"
+    },
+    "SPRINT_LENGTH_DAYS": {
+      "type": "integer",
+      "value": 14,
+      "description": "Sprint duration in calendar days"
+    },
+    "WORKDAYS_PER_SPRINT": {
+      "type": "integer",
+      "value": 10,
+      "description": "Nominal working days per sprint (2-week period, assuming 5-day work week)"
+    },
+    "STATUSES": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Status"
+      },
+      "value": ["Not Started", "Active", "Blocked", "Complete"],
+      "description": "All valid work-item statuses"
+    }
+  },
+  "derivations": {
+    "sprintCapacity": {
+      "description": "Planned capacity for a sprint in story points. Accounts for team velocity and days off.",
+      "formula": "sprintCapacity = round(team.velocity * ((WORKDAYS_PER_SPRINT - daysOffCount) / WORKDAYS_PER_SPRINT))",
+      "example": {
+        "scenario": "Team velocity 40, sprint has 2 days off",
+        "calculation": "40 * ((10 - 2) / 10) = 40 * 0.8 = 32"
+      }
+    },
+    "activeSprint": {
+      "description": "The sprint whose date range contains today (startISO <= today <= endISO). Used to highlight the current sprint in the release plan view.",
+      "note": "If today falls outside all sprint ranges, no sprint is active."
+    },
+    "releaseCompletion": {
+      "description": "Percentage of work items in a release with status 'Complete'.",
+      "formula": "releaseCompletion = (count of items with status='Complete') / (total count of items) * 100",
+      "range": [0, 100]
+    },
+    "statusSegments": {
+      "description": "For a set of work items, count items per status for rendering a segmented bar.",
+      "output": {
+        "Complete": "integer",
+        "Active": "integer",
+        "Blocked": "integer",
+        "Not Started": "integer"
+      }
+    },
+    "eventsInSprint": {
+      "description": "Filter release events to those whose dateISO falls within [sprint.startISO, sprint.endISO]. Sorted by dateISO ascending.",
+      "example": {
+        "sprint": "startISO=2026-04-13, endISO=2026-04-26",
+        "events": [
+          { "label": "Kickoff", "dateISO": "2026-04-13" },
+          { "label": "Design review", "dateISO": "2026-05-15" }
+        ],
+        "result": [{ "label": "Kickoff", "dateISO": "2026-04-13" }]
+      }
+    }
+  },
+  "relationships": {
+    "Team → Release": {
+      "type": "one-to-many",
+      "description": "A team owns zero or more releases. teamId on Release points to Team."
+    },
+    "Release → WorkStream": {
+      "type": "one-to-many",
+      "description": "A release contains zero or more work streams. Embedded as Release.workStreams[]."
+    },
+    "Release → Event": {
+      "type": "one-to-many",
+      "description": "A release has zero or more events. Embedded as Release.events[]."
+    },
+    "Release → Sprint": {
+      "type": "one-to-many",
+      "description": "A release always has exactly 8 sprints. Embedded as Release.sprints[]."
+    },
+    "Release → WorkItem": {
+      "type": "one-to-many",
+      "description": "A release contains one or more work items. WorkItem.releaseId points to Release."
+    },
+    "WorkStream → WorkItem": {
+      "type": "one-to-many",
+      "description": "A work stream contains one or more work items. WorkItem.workStreamId points to WorkStream."
+    },
+    "Sprint → WorkItem": {
+      "type": "one-to-many",
+      "description": "A sprint contains zero or more work items. WorkItem.sprintN points to Sprint.n within the same Release."
+    }
+  },
+  "adaptationGuide": {
+    "overview": "This schema describes the Release Tracker data model. Use it to build adapters that translate between Release Tracker and other backend ticketing systems (Jira, Linear, Azure DevOps, etc.).",
+    "keyMapping": {
+      "Release Tracker Release": "Maps to a project, epic, or initiative in target system",
+      "Release Tracker WorkStream": "Maps to a component, team, or feature area in target system",
+      "Release Tracker WorkItem": "Maps to an issue/task/story in target system",
+      "Release Tracker Sprint": "Maps to a sprint/iteration in target system"
+    },
+    "notes": [
+      "WorkItem.key is auto-generated (e.g. 'PROJ-100'). If importing from a target system, preserve the original external ID and decide whether to map it.",
+      "Release Tracker sprints are always 2 weeks; adapt as needed for target systems with different sprint lengths.",
+      "Status enum is fixed ('Not Started', 'Active', 'Blocked', 'Complete'). Map to target system statuses as needed.",
+      "Points are integers with no ceiling; adapt to target system's point scale if different.",
+      "Team.velocity is a Fibonacci-like constant used for capacity planning. May not map directly to target system metrics.",
+      "daysOff on sprints represent team unavailability (holidays, planned time off). Map to target system's capacity reduction mechanism if present.",
+      "Events are one-way markers (milestones); they do not block or constrain work items.",
+      "Release Tracker stores nested objects (workStreams, events, sprints, items); normalize for target systems that expect separate tables/collections."
+    ]
+  }
+}

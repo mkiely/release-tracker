@@ -48,7 +48,7 @@ export function WorkStream() {
             <span style={{ fontSize: 12.5, color: WF.t3 }}>
               {items.length} items · {totalPts} pts · drag cards between sprints
             </span>
-            <SyncButton onSync={onSync} />
+            <SyncButton release={r} onSync={() => onSync(id)} />
             <PButton sm icon={Icon.plus} onClick={() => openModal({ type: 'item', releaseId: id, presetStreamId: ws.id })}>
               New work item
             </PButton>

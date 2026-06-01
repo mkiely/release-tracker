@@ -2,6 +2,9 @@
 .claude/
 CLAUDE.md
 
+# Working design docs (kept local)
+documents/
+
 # Dependencies
 node_modules/
 package-lock.json

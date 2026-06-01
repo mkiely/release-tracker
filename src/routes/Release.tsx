@@ -7,8 +7,10 @@ import { STATUSES } from '../types';
 import { dOf, fmtShort } from '../lib/dates';
 import { activeSprint, eventsIn, sprintVel, statusSegs } from '../lib/derive';
 import { selItemsForStream, selRelease, selTeam, useStore } from '../store/store';
+import { releaseToTSV } from '../lib/exportRelease';
 import { useApp } from '../app-context';
 import { NotFound, SyncButton, TopBar } from '../components/chrome';
+import { connectorLabel } from '../sync/client';
 import { Icon } from '../components/Icon';
 import { SegBar } from '../components/badges';
 import { CapBarInline } from '../components/CapBarInline';
@@ -30,10 +32,33 @@ const StatusLegend = () => (
 export function Release() {
   const st = useStore();
   const navigate = useNavigate();
-  const { openModal, onSync } = useApp();
+  const { openModal, onSync, notify } = useApp();
   const { id = '' } = useParams();
   const r = selRelease(st, id);
   if (!r) return <NotFound label="Release not found." />;
+
+  // Copy the release as TSV (rows by work stream, columns by sprint) for pasting
+  // into a Google Sheet. Falls back to a hidden textarea if the async clipboard
+  // API is unavailable (e.g. non-secure context).
+  const onExport = async () => {
+    const tsv = releaseToTSV(st, id);
+    try {
+      await navigator.clipboard.writeText(tsv);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = tsv;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+      } finally {
+        document.body.removeChild(ta);
+      }
+    }
+    notify('Release copied as TSV — paste into a sheet');
+  };
   const team = selTeam(st, r.teamId);
   const items = st.items.filter((i) => i.releaseId === r.id);
   const active = activeSprint(r);
@@ -61,11 +86,22 @@ export function Release() {
             <span>
               {fmtShort(r.startISO)} – {fmtShort(last.endISO)}, {dOf(last.endISO).getFullYear()}
             </span>
+            {r.connector && (
+              <>
+                <span style={{ opacity: 0.5 }}>·</span>
+                <span className="wf-tag" style={{ flex: '0 0 auto' }}>
+                  {connectorLabel(r.connector.type)}
+                </span>
+              </>
+            )}
           </>
         }
         right={
           <>
-            <SyncButton onSync={onSync} />
+            <SyncButton release={r} onSync={() => onSync(id)} />
+            <PButton variant="subtle" sm icon={Icon.copy} onClick={onExport}>
+              Export TSV
+            </PButton>
             <PButton variant="subtle" sm icon={Icon.cal} onClick={() => openModal({ type: 'event', releaseId: id })}>
               New event
             </PButton>

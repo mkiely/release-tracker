@@ -51,6 +51,7 @@ export function PButton({
   icon,
   onClick,
   disabled,
+  title,
   style,
 }: {
   children: ReactNode;
@@ -59,6 +60,7 @@ export function PButton({
   icon?: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
+  title?: string;
   style?: CSSProperties;
 }) {
   return (
@@ -66,6 +68,7 @@ export function PButton({
       className={'pt-btn' + (variant ? ' ' + variant : '') + (sm ? ' sm' : '')}
       onClick={onClick}
       disabled={disabled}
+      title={title}
       style={style}
     >
       {icon}
@@ -147,15 +150,17 @@ export function PointSeg({
   value,
   onChange,
   options = [1, 2, 3, 5, 8, 13],
+  disabled,
 }: {
   value: number;
   onChange: (n: number) => void;
   options?: number[];
+  disabled?: boolean;
 }) {
   return (
-    <div className="pt-seg">
+    <div className="pt-seg" style={disabled ? { opacity: 0.55, pointerEvents: 'none' } : undefined}>
       {options.map((p) => (
-        <button key={p} type="button" className={p === value ? 'on' : ''} onClick={() => onChange(p)}>
+        <button key={p} type="button" disabled={disabled} className={p === value ? 'on' : ''} onClick={() => onChange(p)}>
           {p}
         </button>
       ))}

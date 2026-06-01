@@ -7,7 +7,8 @@ const team = (members: number, velocity: number): Team => ({
   id: 't',
   name: 'T',
   velocity,
-  members: Array.from({ length: members }, (_, i) => ({ id: `m${i}`, name: `M${i}` })),
+  members: Array.from({ length: members }, (_, i) => ({ id: `m${i}`, name: `M${i}`, externalId: null })),
+  externalId: null,
 });
 
 describe('fullCap', () => {
@@ -63,12 +64,15 @@ describe('eventsIn', () => {
     teamId: 't',
     workStreams: [],
     events: [
-      { id: 'e3', label: 'C', dateISO: '2026-04-25' },
-      { id: 'e1', label: 'A', dateISO: '2026-04-13' },
-      { id: 'e2', label: 'B', dateISO: '2026-04-20' },
-      { id: 'e4', label: 'D', dateISO: '2026-05-01' }, // outside sprint 1
+      { id: 'e3', label: 'C', dateISO: '2026-04-25', externalId: null },
+      { id: 'e1', label: 'A', dateISO: '2026-04-13', externalId: null },
+      { id: 'e2', label: 'B', dateISO: '2026-04-20', externalId: null },
+      { id: 'e4', label: 'D', dateISO: '2026-05-01', externalId: null }, // outside sprint 1
     ],
     sprints: buildSprints('2026-04-13', {}),
+    externalId: null,
+    connector: null,
+    sync: null,
   });
 
   it('returns events inside the sprint range, sorted ascending', () => {
@@ -96,6 +100,7 @@ describe('statusSegs', () => {
     description: '',
     status,
     points: 1,
+    externalId: null,
   });
 
   it('counts per status and drops zeros', () => {

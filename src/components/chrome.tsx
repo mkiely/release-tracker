@@ -1,10 +1,10 @@
 // Shared chrome — TopBar, Brand, SyncButton, ThemeToggle, NotFound.
 // Ported from proto-app.jsx.
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../store/store';
 import { ThemeStore, useTheme } from '../store/theme';
+import type { Release } from '../types';
 import { Icon } from './Icon';
 import { IconButton, PButton } from './primitives';
 import { WF } from './tokens';
@@ -90,12 +90,45 @@ export function Brand() {
   );
 }
 
-export function SyncButton({ onSync }: { onSync: () => void }) {
-  const last = useStore((s) => s.meta.lastSyncISO);
-  const ago = last ? new Date(last) : null;
-  const label = ago ? `Synced ${ago.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Sync';
+// Per-release sync control. Hidden entirely for Local releases (no connector).
+// Reflects the release's own sync status: time on success, red on error, spinner
+// while in flight.
+export function SyncButton({ release, onSync }: { release: Release; onSync: () => void | Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  if (!release.connector) return null;
+
+  const sync = release.sync;
+  const ok = sync?.state === 'ok' && sync.lastISO;
+  const err = sync?.state === 'error';
+  const label = busy
+    ? 'Syncing…'
+    : ok
+      ? `Synced ${new Date(sync!.lastISO!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+      : err
+        ? 'Sync failed'
+        : 'Sync';
+  const color = busy ? undefined : ok ? WF.status.Complete.text : err ? WF.status.Blocked.text : undefined;
+
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await onSync();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <PButton variant="subtle" sm icon={Icon.sync} onClick={onSync} style={last ? { color: WF.status.Complete.text } : undefined}>
+    <PButton
+      variant="subtle"
+      sm
+      icon={Icon.sync}
+      onClick={run}
+      disabled={busy}
+      title={err && sync?.message ? sync.message : undefined}
+      style={color ? { color } : undefined}
+    >
       {label}
     </PButton>
   );

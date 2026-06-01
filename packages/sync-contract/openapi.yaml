@@ -1,0 +1,183 @@
+openapi: 3.0.3
+info:
+  title: Release Tracker Sync Contract
+  version: 0.1.0
+  description: >-
+    Consumer-driven contract between the Release Tracker app and a local sync
+    service. The APP OWNS this spec; the service CONFORMS to it. The service is an
+    anti-corruption layer that translates any external work tracking backend
+    into these app-shaped types. Only work streams, sprints, and work items are
+    synced — events and teams/members are local to the app and intentionally absent.
+
+servers:
+  - url: http://localhost:8787
+    description: Local sync service (dev)
+
+paths:
+  /connectors:
+    get:
+      operationId: listConnectors
+      summary: List available connectors and the config each one needs.
+      responses:
+        '200':
+          description: Available connectors.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ConnectorMeta' }
+
+  /connectors/{type}/validate:
+    post:
+      operationId: validateConnector
+      summary: Validate a connector's config (and optionally creds) before saving.
+      parameters:
+        - { name: type, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ValidateRequest' }
+      responses:
+        '200':
+          description: Validation outcome.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidateResult' }
+
+  /releases/{id}/sync:
+    post:
+      operationId: syncRelease
+      summary: Fetch + map external data for a release into the app's schema.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SyncRequest' }
+      responses:
+        '200':
+          description: The mapped release payload.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MappedRelease' }
+
+components:
+  schemas:
+    Status:
+      type: string
+      description: The app's four canonical work-item statuses. The service must coerce to one of these.
+      enum: [Not Started, Active, Blocked, Complete]
+
+    MappedWorkStream:
+      type: object
+      required: [externalId, fields]
+      properties:
+        externalId: { type: string }
+        fields:
+          type: object
+          required: [name]
+          properties:
+            name: { type: string }
+
+    MappedSprint:
+      type: object
+      required: [externalId, fields]
+      properties:
+        externalId: { type: string }
+        fields:
+          type: object
+          required: [name, startISO, endISO]
+          properties:
+            name: { type: string }
+            startISO: { type: string, description: 'YYYY-MM-DD' }
+            endISO: { type: string, description: 'YYYY-MM-DD' }
+
+    MappedItem:
+      type: object
+      required: [externalId, extWorkStreamId, extSprintId, fields]
+      properties:
+        externalId: { type: string }
+        extWorkStreamId:
+          type: string
+          nullable: true
+          description: External epic id; the app resolves it to a local work stream.
+        extSprintId:
+          type: string
+          nullable: true
+          description: External sprint id; the app resolves it to a local sprint number.
+        fields:
+          type: object
+          required: [key, subject, description, status, points]
+          properties:
+            key: { type: string, description: 'External-provided, e.g. PROJ-123' }
+            subject: { type: string }
+            description: { type: string }
+            status: { $ref: '#/components/schemas/Status' }
+            points: { type: number }
+
+    MappedRelease:
+      type: object
+      description: The sync payload for one release. Normalized, keyed by externalId.
+      required: [workStreams, sprints, items]
+      properties:
+        workStreams:
+          type: array
+          items: { $ref: '#/components/schemas/MappedWorkStream' }
+        sprints:
+          type: array
+          items: { $ref: '#/components/schemas/MappedSprint' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/MappedItem' }
+
+    ConnectorConfigField:
+      type: object
+      required: [key, label, required]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        required: { type: boolean }
+        hint: { type: string }
+
+    ConnectorMeta:
+      type: object
+      required: [type, label, configFields]
+      properties:
+        type: { type: string, description: "e.g. 'jira'" }
+        label: { type: string, description: "e.g. 'Jira'" }
+        configFields:
+          type: array
+          items: { $ref: '#/components/schemas/ConnectorConfigField' }
+
+    ReleaseConnector:
+      type: object
+      description: A release's binding to a backend. config holds only non-secret routing params.
+      required: [type, config]
+      properties:
+        type: { type: string }
+        config:
+          type: object
+          additionalProperties: { type: string }
+
+    ValidateRequest:
+      type: object
+      required: [config]
+      properties:
+        config:
+          type: object
+          additionalProperties: { type: string }
+
+    ValidateResult:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+        error: { type: string }
+
+    SyncRequest:
+      type: object
+      required: [connector]
+      properties:
+        connector: { $ref: '#/components/schemas/ReleaseConnector' }

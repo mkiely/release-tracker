@@ -8,6 +8,7 @@ import {
   type AppState,
   type Member,
   type Release,
+  type ReleaseConnector,
   type Sprint,
   type Status,
   type Team,
@@ -16,20 +17,45 @@ import {
 } from '../types';
 import { buildSprints, todayISO, uid } from '../lib/dates';
 import { seed } from '../lib/seed';
+import { applySync } from '../sync/applySync';
+import { syncClient } from '../sync/client';
+import type { SyncResult } from '../sync/schema';
+
+/** Result of a sync attempt, shaped so the UI can craft a precise toast. */
+export type SyncOutcome =
+  | { ok: true; result: SyncResult }
+  | { ok: false; reason: 'no-connector' | 'error'; message: string };
 
 const LS_KEY = 'release-tracker:v1';
+
+// Migrate a persisted state forward to the current SCHEMA_VERSION. Returns null
+// if the stored shape is too old/unknown to upgrade safely.
+function migrate(p: AppState): AppState | null {
+  let s = p;
+  // v1 → v2: connector sync. Releases gain `connector`/`sync` (default null).
+  if (s.version === 1) {
+    s = {
+      ...s,
+      version: 2,
+      releases: s.releases.map((r) => ({ ...r, connector: r.connector ?? null, sync: r.sync ?? null })),
+    };
+  }
+  return s.version === SCHEMA_VERSION ? s : null;
+}
 
 function load(): AppState {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const p = JSON.parse(raw) as AppState;
-      if (p && p.version === SCHEMA_VERSION) return p;
+      if (p?.version === SCHEMA_VERSION) return p;
+      const migrated = p && migrate(p);
+      if (migrated) return migrated;
     }
   } catch {
     /* ignore */
   }
-  return seed();
+  return { version: SCHEMA_VERSION, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };
 }
 
 function persist(state: AppState) {
@@ -44,7 +70,7 @@ interface Actions {
   reset: () => void;
   createTeam: (input: { name: string; velocity: number | string; members: string[] }) => Team;
   updateTeam: (id: string, patch: Partial<Pick<Team, 'name' | 'velocity' | 'members'>>) => void;
-  createRelease: (input: { name: string; startISO: string; teamId: string }) => Release;
+  createRelease: (input: { name: string; startISO: string; teamId: string; connector?: ReleaseConnector | null }) => Release;
   createWorkStream: (releaseId: string, name: string) => WorkStream | null;
   createEvent: (releaseId: string, input: { label: string; dateISO: string }) => void;
   updateSprint: (releaseId: string, n: number, patch: Partial<Sprint>) => void;
@@ -53,7 +79,8 @@ interface Actions {
     input: { workStreamId: string; sprintN: number | string; subject: string; description?: string; status?: Status; points?: number },
   ) => WorkItem | null;
   updateItem: (id: string, patch: Partial<WorkItem>) => void;
-  sync: () => string;
+  /** Pull from this release's connector and upsert the result. No-op for Local releases. */
+  syncRelease: (releaseId: string) => Promise<SyncOutcome>;
 }
 
 type StoreState = AppState & { actions: Actions };
@@ -89,7 +116,8 @@ export const useStore = create<StoreState>((set, get) => {
         id: uid('team'),
         name: name || 'Untitled team',
         velocity: Number(velocity) || 0,
-        members: (members || []).filter((m) => m.trim()).map((m) => ({ id: uid('m'), name: m.trim() })),
+        externalId: null,
+        members: (members || []).filter((m) => m.trim()).map((m) => ({ id: uid('m'), name: m.trim(), externalId: null })),
       };
       commit((d) => { d.teams = [...d.teams, t]; });
       return t;
@@ -101,7 +129,7 @@ export const useStore = create<StoreState>((set, get) => {
       });
     },
 
-    createRelease: ({ name, startISO, teamId }) => {
+    createRelease: ({ name, startISO, teamId, connector }) => {
       const start = startISO || todayISO();
       const r: Release = {
         id: uid('rel'),
@@ -111,6 +139,9 @@ export const useStore = create<StoreState>((set, get) => {
         workStreams: [],
         events: [],
         sprints: buildSprints(start, {}),
+        externalId: null,
+        connector: connector ?? null,
+        sync: null,
       };
       commit((d) => { d.releases = [...d.releases, r]; });
       return r;
@@ -118,7 +149,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     createWorkStream: (releaseId, name) => {
       if (!release(releaseId)) return null;
-      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream' };
+      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null };
       commit((d) => {
         d.releases = d.releases.map((r) =>
           r.id === releaseId ? { ...r, workStreams: [...r.workStreams, ws] } : r,
@@ -129,7 +160,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     createEvent: (releaseId, { label, dateISO }) => {
       if (!release(releaseId)) return;
-      const ev = { id: uid('ev'), label: label || 'Event', dateISO: dateISO || todayISO() };
+      const ev = { id: uid('ev'), label: label || 'Event', dateISO: dateISO || todayISO(), externalId: null };
       commit((d) => {
         d.releases = d.releases.map((r) =>
           r.id === releaseId ? { ...r, events: [...r.events, ev] } : r,
@@ -162,6 +193,7 @@ export const useStore = create<StoreState>((set, get) => {
         description: description || '',
         status: status || 'Not Started',
         points: Number(points) || 0,
+        externalId: null,
       };
       commit((d) => { d.items = [...d.items, it]; });
       return it;
@@ -173,12 +205,37 @@ export const useStore = create<StoreState>((set, get) => {
       });
     },
 
-    sync: () => {
-      const stamp = new Date().toISOString();
-      commit((d) => { d.meta = { ...d.meta, lastSyncISO: stamp }; });
-      // sync seam: a real backend adapter would push `snapshot` here.
-      window.dispatchEvent(new CustomEvent('release-tracker:sync', { detail: { snapshot: snapshot(get()) } }));
-      return stamp;
+    syncRelease: async (releaseId) => {
+      const r = release(releaseId);
+      if (!r) return { ok: false, reason: 'error', message: 'Release not found' };
+      if (!r.connector) return { ok: false, reason: 'no-connector', message: 'Release is not connected' };
+
+      const stamp = () => new Date().toISOString();
+      try {
+        // The SyncClient is the only seam to the external system (fixtures today,
+        // a real local service later). It returns app-schema data; applySync upserts it.
+        const mapped = await syncClient.sync(r.connector);
+        const { next, result } = applySync(snapshot(get()), releaseId, mapped);
+        const at = stamp();
+        next.meta = { ...next.meta, lastSyncISO: at };
+        next.releases = next.releases.map((rel) =>
+          rel.id === releaseId
+            ? { ...rel, sync: { lastISO: at, state: 'ok' as const, message: `${result.created} new, ${result.updated} updated` } }
+            : rel,
+        );
+        persist(next);
+        set({ ...next });
+        window.dispatchEvent(new CustomEvent('release-tracker:sync', { detail: { snapshot: next } }));
+        return { ok: true, result };
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        commit((d) => {
+          d.releases = d.releases.map((rel) =>
+            rel.id === releaseId ? { ...rel, sync: { lastISO: stamp(), state: 'error', message } } : rel,
+          );
+        });
+        return { ok: false, reason: 'error', message };
+      }
     },
   };
 

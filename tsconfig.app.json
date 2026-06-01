@@ -9,6 +9,10 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@release-tracker/sync-contract": ["packages/sync-contract/src/index.ts"]
+    },
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,

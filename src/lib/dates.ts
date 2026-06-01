@@ -49,7 +49,7 @@ export const buildSprints = (
     const n = i + 1;
     const s = addDays(startISO, i * SPRINT_LEN_DAYS);
     const e = addDays(s, SPRINT_LEN_DAYS - 1);
-    arr.push({ n, name: `Sprint ${n}`, startISO: s, endISO: e, daysOff: overrides[n] || 0 });
+    arr.push({ n, name: `Sprint ${n}`, startISO: s, endISO: e, daysOff: overrides[n] || 0, externalId: null });
   }
   return arr;
 };
