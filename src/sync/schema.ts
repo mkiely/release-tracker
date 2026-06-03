@@ -18,6 +18,6 @@ export type {
 export interface SyncResult {
   created: number;
   updated: number;
-  skipped: number; // unresolved refs, overflow sprints
+  skipped: number; // unresolved refs; overflow sprints (local releases only)
   warnings: string[];
 }

@@ -3,10 +3,13 @@
 export const STATUSES = ['Not Started', 'Active', 'Blocked', 'Complete'] as const;
 export type Status = (typeof STATUSES)[number];
 
-export const WORKDAYS = 10; // working days per 2-week sprint
+// Reference value: working days in a standard 2-week sprint. No longer used in
+// derivations — capacity now uses workdaysInRange() over a sprint's actual range
+// to support variable-length (connector) sprints. Kept for documentation.
+export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
-export const SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 2;
+export const DEFAULT_SPRINT_COUNT = 8;
+export const SCHEMA_VERSION = 3;
 
 export interface Member {
   id: string;
@@ -36,7 +39,7 @@ export interface ReleaseEvent {
 }
 
 export interface Sprint {
-  n: number;
+  id: string;
   name: string;
   startISO: string;
   endISO: string;
@@ -82,7 +85,7 @@ export interface WorkItem {
   id: string;
   releaseId: string;
   workStreamId: string;
-  sprintN: number;
+  sprintId: string | null;
   key: string;
   subject: string;
   description: string;

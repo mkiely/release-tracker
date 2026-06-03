@@ -25,7 +25,7 @@ export function releaseToTSV(state: AppState, releaseId: string): string {
   const release = state.releases.find((r) => r.id === releaseId);
   if (!release) return '';
 
-  const sprints = [...release.sprints].sort((a, b) => a.n - b.n);
+  const sprints = [...release.sprints].sort((a, b) => a.startISO.localeCompare(b.startISO));
   const rows: string[][] = [
     ['Work Stream', ...sprints.map((s) => cell(s.name))],
     ['Dates', ...sprints.map((s) => `${fmtShort(s.startISO)} – ${fmtShort(s.endISO)}`)],
@@ -35,21 +35,21 @@ export function releaseToTSV(state: AppState, releaseId: string): string {
 
   for (const ws of release.workStreams) {
     // group this stream's items by sprint, sorted within a cell by key
-    const bySprint = new Map<number, WorkItem[]>(sprints.map((s) => [s.n, []]));
+    const bySprint = new Map<string, WorkItem[]>(sprints.map((s) => [s.id, []]));
     for (const it of state.items) {
       if (it.releaseId !== releaseId || it.workStreamId !== ws.id) continue;
-      bySprint.get(it.sprintN)?.push(it);
+      if (it.sprintId !== null) bySprint.get(it.sprintId)?.push(it);
     }
     for (const arr of bySprint.values()) {
       arr.sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }));
     }
 
     // one row per item depth; at least one row so empty streams still show
-    const depth = Math.max(1, ...sprints.map((s) => bySprint.get(s.n)!.length));
+    const depth = Math.max(1, ...sprints.map((s) => bySprint.get(s.id)!.length));
     for (let r = 0; r < depth; r++) {
       const row = [r === 0 ? cell(ws.name) : ''];
       for (const s of sprints) {
-        const it = bySprint.get(s.n)![r];
+        const it = bySprint.get(s.id)![r];
         row.push(it ? itemLabel(it) : '');
       }
       rows.push(row);

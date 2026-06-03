@@ -18,20 +18,19 @@ export function Sprint() {
   const st = useStore();
   const navigate = useNavigate();
   const { openModal, onSync, notify } = useApp();
-  const { id = '', n = '' } = useParams();
-  const sprintN = Number(n);
+  const { id = '', sprintId = '' } = useParams();
   const r = selRelease(st, id);
   if (!r) return <NotFound label="Release not found." />;
-  const sp = r.sprints.find((s) => s.n === sprintN);
+  const sp = r.sprints.find((s) => s.id === sprintId);
   if (!sp) return <NotFound label="Sprint not found." />;
   const team = selTeam(st, r.teamId);
   const allItems = st.items.filter((i) => i.releaseId === r.id);
-  const items = allItems.filter((i) => i.sprintN === sp.n);
+  const items = allItems.filter((i) => i.sprintId === sp.id);
   const off = sp.daysOff;
-  const pct = Math.round(capPct(team, off) * 100);
-  const vel = sprintVel(team, off);
+  const pct = Math.round(capPct(team, sp, off) * 100);
+  const vel = sprintVel(team, sp, off);
   const act = activeSprint(r);
-  const isAct = !!act && act.n === sp.n;
+  const isAct = !!act && act.id === sp.id;
   const evts = eventsIn(r, sp);
   const totalPts = items.reduce((a, i) => a + i.points, 0);
   // columns = work streams that have items in this sprint
@@ -79,11 +78,11 @@ export function Sprint() {
         }
         right={
           <>
-            <PButton variant="subtle" sm icon={Icon.cal} onClick={() => openModal({ type: 'sprint', releaseId: id, sprintN: sp.n })}>
+            <PButton variant="subtle" sm icon={Icon.cal} onClick={() => openModal({ type: 'sprint', releaseId: id, sprintId: sp.id })}>
               Edit sprint
             </PButton>
             <SyncButton release={r} onSync={() => onSync(id)} />
-            <PButton sm icon={Icon.plus} onClick={() => openModal({ type: 'item', releaseId: id, presetSprintN: sp.n })}>
+            <PButton sm icon={Icon.plus} onClick={() => openModal({ type: 'item', releaseId: id, presetSprintId: sp.id })}>
               New work item
             </PButton>
           </>
@@ -103,11 +102,11 @@ export function Sprint() {
 
       <SprintRail
         release={r}
-        currentN={sp.n}
+        currentSprintId={sp.id}
         team={team}
         allItems={allItems}
         notify={notify}
-        onGo={(num) => navigate(`/releases/${id}/sprints/${num}`)}
+        onGo={(sid) => navigate(`/releases/${id}/sprints/${sid}`)}
       />
 
       <div style={{ flex: 1, overflow: 'auto', padding: '18px 24px' }}>

@@ -62,13 +62,13 @@ export function Release() {
   const team = selTeam(st, r.teamId);
   const items = st.items.filter((i) => i.releaseId === r.id);
   const active = activeSprint(r);
-  const last = r.sprints[r.sprints.length - 1];
+  const last = r.sprints.length ? r.sprints[r.sprints.length - 1] : null;
 
   // lane entries for a sprint: streams that have items in it, count + status segs, width ∝ count
-  const laneFor = (spN: number) =>
+  const laneFor = (spId: string) =>
     r.workStreams
       .map((ws) => {
-        const its = items.filter((i) => i.workStreamId === ws.id && i.sprintN === spN);
+        const its = items.filter((i) => i.workStreamId === ws.id && i.sprintId === spId);
         return { ws, n: its.length, segs: statusSegs(its) };
       })
       .filter((e) => e.n > 0);
@@ -84,7 +84,9 @@ export function Release() {
             <span>{team ? team.name : '—'}</span>
             <span style={{ opacity: 0.5 }}>·</span>
             <span>
-              {fmtShort(r.startISO)} – {fmtShort(last.endISO)}, {dOf(last.endISO).getFullYear()}
+              {last
+                ? `${fmtShort(r.startISO)} – ${fmtShort(last.endISO)}, ${dOf(last.endISO).getFullYear()}`
+                : `${fmtShort(r.startISO)}, ${dOf(r.startISO).getFullYear()}`}
             </span>
             {r.connector && (
               <>
@@ -125,18 +127,25 @@ export function Release() {
             <StatusLegend />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {r.sprints.map((sp) => {
+            {r.sprints.length === 0 ? (
+              <div className="wf-card wf-dash" style={{ padding: 40, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
+                {r.connector
+                  ? 'No sprints yet. Run a sync to populate the release plan.'
+                  : 'No sprints configured.'}
+              </div>
+            ) : (
+              r.sprints.map((sp) => {
               const off = sp.daysOff;
-              const vel = sprintVel(team, off);
-              const planned = items.filter((i) => i.sprintN === sp.n).reduce((a, i) => a + i.points, 0);
-              const isAct = !!active && active.n === sp.n;
+              const vel = sprintVel(team, sp, off);
+              const planned = items.filter((i) => i.sprintId === sp.id).reduce((a, i) => a + i.points, 0);
+              const isAct = !!active && active.id === sp.id;
               const evts = eventsIn(r, sp);
-              const lane = laneFor(sp.n);
+              const lane = laneFor(sp.id);
               return (
                 <div
-                  key={sp.n}
+                  key={sp.id}
                   className={'wf-card wf-sprintrow pt-link' + (isAct ? ' wf-active' : '')}
-                  onClick={() => navigate(`/releases/${id}/sprints/${sp.n}`)}
+                  onClick={() => navigate(`/releases/${id}/sprints/${sp.id}`)}
                   style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', cursor: 'pointer' }}
                 >
                   {/* meta strip — horizontal across the top, fixed height so every row matches */}
@@ -195,7 +204,8 @@ export function Release() {
                   </div>
                 </div>
               );
-            })}
+            })
+            )}
           </div>
         </div>
         {/* right rail: work streams */}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { capPct, eventsIn, fullCap, sprintVel, statusSegs } from './derive';
-import { buildSprints } from './dates';
-import type { Release, Team, WorkItem } from '../types';
+import { buildSprints, workdaysInRange } from './dates';
+import type { Release, Sprint, Team, WorkItem } from '../types';
 
 const team = (members: number, velocity: number): Team => ({
   id: 't',
@@ -11,48 +11,71 @@ const team = (members: number, velocity: number): Team => ({
   externalId: null,
 });
 
+const sprint = (startISO: string, endISO: string): Sprint => ({
+  id: 'sp', name: 'S', startISO, endISO, daysOff: 0, externalId: null,
+});
+
+// standard 14-day sprint: Mon Apr 13 → Sun Apr 26, 2026 = 10 business days
+const s14 = sprint('2026-04-13', '2026-04-26');
+
+describe('workdaysInRange', () => {
+  it('is 10 for a standard 14-day sprint (parity with the old WORKDAYS constant)', () => {
+    expect(workdaysInRange('2026-04-13', '2026-04-26')).toBe(10);
+  });
+  it('counts only Mon–Fri for shorter ranges', () => {
+    expect(workdaysInRange('2026-04-13', '2026-04-19')).toBe(5); // one week
+  });
+  it('scales for longer ranges', () => {
+    expect(workdaysInRange('2026-04-13', '2026-05-03')).toBe(15); // three weeks
+  });
+});
+
 describe('fullCap', () => {
-  it('is members × 10 workdays', () => {
-    expect(fullCap(team(5, 40))).toBe(50);
-    expect(fullCap(team(3, 24))).toBe(30);
+  it('is members × the sprint workdays (10 for a standard 14-day sprint)', () => {
+    expect(fullCap(team(5, 40), s14)).toBe(50);
+    expect(fullCap(team(3, 24), s14)).toBe(30);
+  });
+  it('tracks non-standard sprint lengths', () => {
+    expect(fullCap(team(2, 20), sprint('2026-04-13', '2026-04-19'))).toBe(10); // 5 workdays × 2
+    expect(fullCap(team(2, 20), sprint('2026-04-13', '2026-05-03'))).toBe(30); // 15 workdays × 2
   });
   it('is 0 for undefined team', () => {
-    expect(fullCap(undefined)).toBe(0);
+    expect(fullCap(undefined, s14)).toBe(0);
   });
 });
 
 describe('capPct', () => {
   it('is 1 at no days off', () => {
-    expect(capPct(team(5, 40), 0)).toBe(1);
+    expect(capPct(team(5, 40), s14, 0)).toBe(1);
   });
   it('scales linearly with days off', () => {
     // full = 50; 10 off → 40/50 = 0.8
-    expect(capPct(team(5, 40), 10)).toBeCloseTo(0.8);
+    expect(capPct(team(5, 40), s14, 10)).toBeCloseTo(0.8);
   });
   it('clamps at 0, never negative', () => {
-    expect(capPct(team(5, 40), 999)).toBe(0);
+    expect(capPct(team(5, 40), s14, 999)).toBe(0);
   });
   it('is 0 when team has no capacity', () => {
-    expect(capPct(team(0, 40), 0)).toBe(0);
+    expect(capPct(team(0, 40), s14, 0)).toBe(0);
   });
 });
 
 describe('sprintVel', () => {
   it('is velocity at full capacity', () => {
-    expect(sprintVel(team(5, 40), 0)).toBe(40);
+    expect(sprintVel(team(5, 40), s14, 0)).toBe(40);
   });
   it('rounds velocity × capacity%', () => {
     // 40 × 0.8 = 32
-    expect(sprintVel(team(5, 40), 10)).toBe(32);
+    expect(sprintVel(team(5, 40), s14, 10)).toBe(32);
     // full = 50; 5 off → 45/50 = 0.9; 40 × 0.9 = 36
-    expect(sprintVel(team(5, 40), 5)).toBe(36);
+    expect(sprintVel(team(5, 40), s14, 5)).toBe(36);
   });
   it('rounds to nearest integer', () => {
     // full = 30; 5 off → 25/30 = 0.8333; 24 × 0.8333 = 20 (19.999→20)
-    expect(sprintVel(team(3, 24), 5)).toBe(20);
+    expect(sprintVel(team(3, 24), s14, 5)).toBe(20);
   });
   it('is 0 for undefined team', () => {
-    expect(sprintVel(undefined, 0)).toBe(0);
+    expect(sprintVel(undefined, s14, 0)).toBe(0);
   });
 });
 
@@ -94,7 +117,7 @@ describe('statusSegs', () => {
     id: Math.random().toString(),
     releaseId: 'r',
     workStreamId: 'w',
-    sprintN: 1,
+    sprintId: 'sp1',
     key: 'K',
     subject: 's',
     description: '',

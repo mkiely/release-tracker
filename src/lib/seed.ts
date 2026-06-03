@@ -64,6 +64,7 @@ export function seed(): AppState {
   let keyN = 100;
   let ptI = 0;
   Object.entries(RELEASE_MATRIX).forEach(([sprintN, byStream]) => {
+    const sprintId = demo.sprints[Number(sprintN) - 1].id; // matrix key is 1-based position
     Object.entries(byStream).forEach(([streamName, counts]) => {
       counts.forEach(([status, k]) => {
         for (let i = 0; i < k; i++) {
@@ -72,7 +73,7 @@ export function seed(): AppState {
           const subject = pool[subjIdx[streamName] % pool.length];
           subjIdx[streamName]++;
           items.push({
-            id: uid('it'), releaseId: 'rel_demo', workStreamId: wsId(streamName), sprintN: Number(sprintN),
+            id: uid('it'), releaseId: 'rel_demo', workStreamId: wsId(streamName), sprintId,
             key: `ORN-${keyN++}`, subject, description: '', status, points: PT_POOL[ptI++ % PT_POOL.length], externalId: null,
           });
         }
@@ -100,17 +101,18 @@ export function seed(): AppState {
     sync: null,
   };
   // a few items for the lighter releases
+  const sprintIdFor = (rel: Release, sn: number) => rel.sprints[sn - 1].id;
   ([
-    ['rel_co', co.workStreams[0].id, 1, 'Active'],
-    ['rel_co', co.workStreams[0].id, 1, 'Complete'],
-    ['rel_co', co.workStreams[1].id, 2, 'Active'],
-    ['rel_co', co.workStreams[1].id, 2, 'Not Started'],
-    ['rel_ob', ob.workStreams[0].id, 1, 'Complete'],
-    ['rel_ob', ob.workStreams[0].id, 2, 'Active'],
-  ] as [string, string, number, Status][]).forEach(([rid, wid, sn, stt], i) =>
+    [co, co.workStreams[0].id, 1, 'Active'],
+    [co, co.workStreams[0].id, 1, 'Complete'],
+    [co, co.workStreams[1].id, 2, 'Active'],
+    [co, co.workStreams[1].id, 2, 'Not Started'],
+    [ob, ob.workStreams[0].id, 1, 'Complete'],
+    [ob, ob.workStreams[0].id, 2, 'Active'],
+  ] as [Release, string, number, Status][]).forEach(([rel, wid, sn, stt], i) =>
     items.push({
-      id: uid('it'), releaseId: rid, workStreamId: wid, sprintN: sn,
-      key: `${rid === 'rel_co' ? 'CO' : 'OB'}-${10 + i}`, subject: 'Work item ' + (i + 1),
+      id: uid('it'), releaseId: rel.id, workStreamId: wid, sprintId: sprintIdFor(rel, sn),
+      key: `${rel.id === 'rel_co' ? 'CO' : 'OB'}-${10 + i}`, subject: 'Work item ' + (i + 1),
       description: '', status: stt, points: PT_POOL[i % PT_POOL.length], externalId: null,
     }),
   );

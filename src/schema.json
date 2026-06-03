@@ -86,16 +86,15 @@
       "type": "object",
       "description": "A 2-week time period within a release. Sprints are numbered 1–8 per release.",
       "properties": {
-        "n": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 8,
-          "description": "Sprint number (1–8)"
+        "id": {
+          "type": "string",
+          "pattern": "^sp_[a-z0-9]+$",
+          "description": "Unique sprint identifier. Display order is determined by startISO ascending, not a positional index."
         },
         "name": {
           "type": "string",
           "minLength": 1,
-          "description": "Sprint name (e.g. 'Sprint 1')"
+          "description": "Sprint name (e.g. 'Sprint 1'); for connector releases the name comes from the external system"
         },
         "startISO": {
           "type": "string",
@@ -120,7 +119,7 @@
           "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
         }
       },
-      "required": ["n", "name", "startISO", "endISO", "daysOff", "externalId"],
+      "required": ["id", "name", "startISO", "endISO", "daysOff", "externalId"],
       "additionalProperties": false
     },
     "Event": {
@@ -174,11 +173,10 @@
           "pattern": "^ws_[a-z0-9]+$",
           "description": "ID of the work stream this item belongs to"
         },
-        "sprintN": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 8,
-          "description": "Sprint number (1–8) containing this item"
+        "sprintId": {
+          "type": ["string", "null"],
+          "pattern": "^sp_[a-z0-9]+$",
+          "description": "ID of the sprint containing this item, or null for the backlog (unscheduled)"
         },
         "key": {
           "type": "string",
@@ -207,12 +205,12 @@
           "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
         }
       },
-      "required": ["id", "releaseId", "workStreamId", "sprintN", "key", "subject", "description", "status", "points", "externalId"],
+      "required": ["id", "releaseId", "workStreamId", "sprintId", "key", "subject", "description", "status", "points", "externalId"],
       "additionalProperties": false
     },
     "Release": {
       "type": "object",
-      "description": "A release cycle. Spans 8 sprints (16 weeks). Organized into work streams; contains work items.",
+      "description": "A release cycle. Local releases span 8 two-week sprints (16 weeks) by default; connector releases take their sprint count from the external system. Organized into work streams; contains work items.",
       "properties": {
         "id": {
           "type": "string",
@@ -343,11 +341,11 @@
   },
   "derivations": {
     "sprintCapacity": {
-      "description": "Planned capacity for a sprint in story points. Accounts for team velocity and days off.",
-      "formula": "sprintCapacity = round(team.velocity * ((WORKDAYS_PER_SPRINT - daysOffCount) / WORKDAYS_PER_SPRINT))",
+      "description": "Planned capacity for a sprint in story points. Accounts for team velocity and days off. Full capacity uses the sprint's actual business days (Mon–Fri within [startISO, endISO]) so variable-length connector sprints compute correctly; a standard 14-day sprint yields 10.",
+      "formula": "fullCap = team.members.length * workdaysInRange(sprint.startISO, sprint.endISO); sprintCapacity = round(team.velocity * ((fullCap - daysOff) / fullCap))",
       "example": {
-        "scenario": "Team velocity 40, sprint has 2 days off",
-        "calculation": "40 * ((10 - 2) / 10) = 40 * 0.8 = 32"
+        "scenario": "Team of 5, velocity 40, standard 14-day sprint (10 workdays → fullCap 50), 10 person-days off",
+        "calculation": "40 * ((50 - 10) / 50) = 40 * 0.8 = 32"
       }
     },
     "activeSprint": {
@@ -395,7 +393,7 @@
     },
     "Release → Sprint": {
       "type": "one-to-many",
-      "description": "A release always has exactly 8 sprints. Embedded as Release.sprints[]."
+      "description": "A release has zero or more sprints. Embedded as Release.sprints[]. Local releases default to 8 fixed two-week sprints; connector releases start empty and have sprints created from the external system on sync. Display order is by startISO ascending."
     },
     "Release → WorkItem": {
       "type": "one-to-many",
@@ -407,7 +405,7 @@
     },
     "Sprint → WorkItem": {
       "type": "one-to-many",
-      "description": "A sprint contains zero or more work items. WorkItem.sprintN points to Sprint.n within the same Release."
+      "description": "A sprint contains zero or more work items. WorkItem.sprintId points to Sprint.id within the same Release; null means the item is in the backlog (unscheduled)."
     }
   },
   "adaptationGuide": {

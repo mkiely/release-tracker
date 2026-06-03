@@ -8,7 +8,7 @@ const SPRINT_DATES: Record<number, [string, string]> = {
   2: ['2026-04-27', '2026-05-10'],
 };
 const sprint = (n: number) => ({
-  n,
+  id: `sp${n}`,
   name: `Sprint ${n}`,
   startISO: SPRINT_DATES[n][0],
   endISO: SPRINT_DATES[n][1],
@@ -36,7 +36,7 @@ const item = (over: Partial<WorkItem>): WorkItem => ({
   id: Math.random().toString(),
   releaseId: 'rel',
   workStreamId: 'ws1',
-  sprintN: 1,
+  sprintId: 'sp1',
   key: 'ORN-100',
   subject: 'Item',
   description: '',
@@ -82,8 +82,8 @@ describe('releaseToTSV', () => {
   it('places items in the column for their sprint as "KEY Subject"', () => {
     const tsv = releaseToTSV(
       state([
-        item({ workStreamId: 'ws1', sprintN: 1, key: 'ORN-100', subject: 'Login' }),
-        item({ workStreamId: 'ws1', sprintN: 2, key: 'ORN-101', subject: 'Logout' }),
+        item({ workStreamId: 'ws1', sprintId: 'sp1', key: 'ORN-100', subject: 'Login' }),
+        item({ workStreamId: 'ws1', sprintId: 'sp2', key: 'ORN-101', subject: 'Logout' }),
       ]),
       'rel',
     );
@@ -94,8 +94,8 @@ describe('releaseToTSV', () => {
   it('stacks multiple items in one cell into extra rows, label only on first', () => {
     const tsv = releaseToTSV(
       state([
-        item({ workStreamId: 'ws1', sprintN: 1, key: 'ORN-100', subject: 'A' }),
-        item({ workStreamId: 'ws1', sprintN: 1, key: 'ORN-101', subject: 'B' }),
+        item({ workStreamId: 'ws1', sprintId: 'sp1', key: 'ORN-100', subject: 'A' }),
+        item({ workStreamId: 'ws1', sprintId: 'sp1', key: 'ORN-101', subject: 'B' }),
       ]),
       'rel',
     );

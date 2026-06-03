@@ -4,6 +4,7 @@ import { buildSprints } from '../lib/dates';
 import type { AppState, Release, WorkItem } from '../types';
 import type { MappedRelease } from './schema';
 
+// A connector release starts with NO sprints — the external system supplies them.
 const baseRelease = (): Release => ({
   id: 'rel_1',
   name: 'Orion 2.0',
@@ -11,14 +12,21 @@ const baseRelease = (): Release => ({
   teamId: 'team_1',
   workStreams: [],
   events: [],
-  sprints: buildSprints('2026-04-13', {}),
+  sprints: [],
   externalId: null,
   connector: { type: 'jira', config: {} },
   sync: null,
 });
 
+// A local release keeps the fixed grid and never creates sprints from a sync.
+const localRelease = (): Release => ({
+  ...baseRelease(),
+  connector: null,
+  sprints: buildSprints('2026-04-13', {}),
+});
+
 const baseState = (overrides: Partial<AppState> = {}): AppState => ({
-  version: 2,
+  version: 3,
   teams: [],
   releases: [baseRelease()],
   items: [],
@@ -35,24 +43,40 @@ const mapped = (over: Partial<MappedRelease> = {}): MappedRelease => ({
   ...over,
 });
 
-describe('applySync — creation', () => {
-  it('creates new work streams, links sprints, and creates items', () => {
+describe('applySync — connector release creates sprints', () => {
+  it('creates work streams, sprints (with external dates), and items', () => {
     const { next, result } = applySync(baseState(), 'rel_1', mapped());
     const r = next.releases[0];
 
     expect(r.workStreams).toHaveLength(1);
     expect(r.workStreams[0]).toMatchObject({ name: 'Checkout API', externalId: 'EPIC-A' });
-    // sprint linked onto slot 1 (chronologically first free slot)
-    expect(r.sprints[0]).toMatchObject({ n: 1, externalId: 'JSPR-1', name: 'Sprint 1' });
-    // dates stay owned by the fixed grid (option A) — not overwritten
-    expect(r.sprints[0].startISO).toBe('2026-04-13');
+
+    // sprint created on demand; the external system owns its dates; daysOff is app-owned
+    expect(r.sprints).toHaveLength(1);
+    expect(r.sprints[0]).toMatchObject({
+      externalId: 'JSPR-1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 0,
+    });
 
     expect(next.items).toHaveLength(1);
     expect(next.items[0]).toMatchObject({
       releaseId: 'rel_1', externalId: 'EXT-1', key: 'EXT-1',
-      workStreamId: r.workStreams[0].id, sprintN: 1, status: 'Active', points: 5,
+      workStreamId: r.workStreams[0].id, sprintId: r.sprints[0].id, status: 'Active', points: 5,
     });
-    expect(result).toMatchObject({ created: 2, updated: 0 }); // 1 ws + 1 item
+    expect(result).toMatchObject({ created: 3, updated: 0 }); // 1 ws + 1 sprint + 1 item
+  });
+
+  it('creates incoming sprints in chronological order regardless of input order', () => {
+    const m = mapped({
+      sprints: [
+        // intentionally out of order; engine sorts by startISO
+        { externalId: 'JSPR-2', fields: { name: 'S2', startISO: '2026-04-27', endISO: '2026-05-10' } },
+        { externalId: 'JSPR-1', fields: { name: 'S1', startISO: '2026-04-13', endISO: '2026-04-26' } },
+      ],
+      items: [],
+    });
+    const { next, result } = applySync(baseState(), 'rel_1', m);
+    expect(next.releases[0].sprints.map((s) => s.externalId)).toEqual(['JSPR-1', 'JSPR-2']);
+    expect(result.created).toBe(3); // 1 ws + 2 sprints
   });
 });
 
@@ -74,7 +98,30 @@ describe('applySync — external wins on re-sync', () => {
     expect(result).toMatchObject({ created: 0, updated: 2 }); // ws + item re-matched
   });
 
-  it('matches the same work stream / sprint slot rather than duplicating', () => {
+  it('updates the dates of an already-linked sprint on the next sync', () => {
+    const first = applySync(baseState(), 'rel_1', mapped());
+    const sprintId = first.next.releases[0].sprints[0].id;
+
+    const changed = mapped({
+      sprints: [{ externalId: 'JSPR-1', fields: { name: 'Sprint 1 (shifted)', startISO: '2026-04-20', endISO: '2026-05-03' } }],
+      items: [],
+    });
+    const { next } = applySync(first.next, 'rel_1', changed);
+
+    expect(next.releases[0].sprints).toHaveLength(1); // re-linked, not duplicated
+    expect(next.releases[0].sprints[0]).toMatchObject({
+      id: sprintId, name: 'Sprint 1 (shifted)', startISO: '2026-04-20', endISO: '2026-05-03',
+    });
+  });
+
+  it('preserves app-owned daysOff on a synced sprint across re-sync', () => {
+    const first = applySync(baseState(), 'rel_1', mapped());
+    first.next.releases[0].sprints[0].daysOff = 4; // user adjusts local holidays
+    const { next } = applySync(first.next, 'rel_1', mapped());
+    expect(next.releases[0].sprints[0].daysOff).toBe(4);
+  });
+
+  it('matches the same work stream / sprint rather than duplicating', () => {
     const first = applySync(baseState(), 'rel_1', mapped());
     const { next } = applySync(first.next, 'rel_1', mapped());
     expect(next.releases[0].workStreams).toHaveLength(1);
@@ -85,7 +132,7 @@ describe('applySync — external wins on re-sync', () => {
 describe('applySync — local-only entities are untouched', () => {
   it('never matches or modifies items with externalId === null', () => {
     const local: WorkItem = {
-      id: 'it_local', releaseId: 'rel_1', workStreamId: 'ws_x', sprintN: 2,
+      id: 'it_local', releaseId: 'rel_1', workStreamId: 'ws_x', sprintId: 'sp_x',
       key: 'LOCAL-1', subject: 'Hand-entered', description: '', status: 'Not Started', points: 1, externalId: null,
     };
     const { next } = applySync(baseState({ items: [local] }), 'rel_1', mapped());
@@ -108,14 +155,14 @@ describe('applySync — reference resolution', () => {
     expect(result.warnings.some((w) => w.includes('EXT-9'))).toBe(true);
   });
 
-  it('places an item with an unresolved sprint into the backlog (sprintN 0)', () => {
+  it('places an item with an unresolved sprint into the backlog (sprintId null)', () => {
     const m = mapped({
       items: [
         { externalId: 'EXT-2', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-UNKNOWN', fields: { key: 'EXT-2', subject: 's', description: '', status: 'Active', points: 2 } },
       ],
     });
     const { next, result } = applySync(baseState(), 'rel_1', m);
-    expect(next.items[0].sprintN).toBe(0);
+    expect(next.items[0].sprintId).toBeNull();
     expect(result.warnings.some((w) => w.includes('backlog'))).toBe(true);
   });
 
@@ -126,31 +173,42 @@ describe('applySync — reference resolution', () => {
       ],
     });
     const { next } = applySync(baseState(), 'rel_1', m);
-    expect(next.items[0].sprintN).toBe(0);
+    expect(next.items[0].sprintId).toBeNull();
   });
 });
 
-describe('applySync — sprint linking', () => {
-  it('links sprints onto free slots in chronological order', () => {
+describe('applySync — local release sprint grid', () => {
+  it('links sprints onto free grid slots in chronological order', () => {
     const m = mapped({
       sprints: [
-        // intentionally out of order; engine sorts by startISO
         { externalId: 'JSPR-2', fields: { name: 'S2', startISO: '2026-04-27', endISO: '2026-05-10' } },
         { externalId: 'JSPR-1', fields: { name: 'S1', startISO: '2026-04-13', endISO: '2026-04-26' } },
       ],
       items: [],
     });
-    const { next } = applySync(baseState(), 'rel_1', m);
-    expect(next.releases[0].sprints[0]).toMatchObject({ n: 1, externalId: 'JSPR-1' });
-    expect(next.releases[0].sprints[1]).toMatchObject({ n: 2, externalId: 'JSPR-2' });
+    const { next } = applySync(baseState({ releases: [localRelease()] }), 'rel_1', m);
+    expect(next.releases[0].sprints[0]).toMatchObject({ externalId: 'JSPR-1' });
+    expect(next.releases[0].sprints[1]).toMatchObject({ externalId: 'JSPR-2' });
+    expect(next.releases[0].sprints).toHaveLength(8); // grid size unchanged — no creation
   });
 
-  it('drops + warns external sprints beyond the 8-slot grid', () => {
+  it('does not overwrite the local grid dates with external dates', () => {
+    const m = mapped({
+      sprints: [{ externalId: 'JSPR-1', fields: { name: 'S1', startISO: '2030-01-01', endISO: '2030-01-14' } }],
+      items: [],
+    });
+    const { next } = applySync(baseState({ releases: [localRelease()] }), 'rel_1', m);
+    const linked = next.releases[0].sprints.find((s) => s.externalId === 'JSPR-1')!;
+    expect(linked.startISO).toBe('2026-04-13'); // grid keeps owning dates (option A)
+  });
+
+  it('drops + warns external sprints beyond the fixed grid', () => {
     const sprints = Array.from({ length: 9 }, (_, i) => ({
       externalId: `JSPR-${i}`,
       fields: { name: `S${i}`, startISO: `2026-04-${String(13 + i).padStart(2, '0')}`, endISO: '2026-12-31' },
     }));
-    const { result } = applySync(baseState(), 'rel_1', mapped({ sprints, items: [] }));
+    const { next, result } = applySync(baseState({ releases: [localRelease()] }), 'rel_1', mapped({ sprints, items: [] }));
+    expect(next.releases[0].sprints).toHaveLength(8); // never grows
     expect(result.skipped).toBe(1);
     expect(result.warnings.some((w) => w.includes('No free sprint slot'))).toBe(true);
   });

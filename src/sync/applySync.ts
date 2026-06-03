@@ -6,10 +6,14 @@
 //  - External wins: matched synced fields are overwritten.
 //  - Locally-created entities (externalId === null) are never matched or touched.
 //  - No deletion of synced-but-now-missing entities this iteration.
-//  - Sprints use the fixed 8-slot grid: link by chronological order, never create;
-//    the grid keeps owning sprint dates (option A).
-//  - Items with an unresolved work stream are skipped + warned; an unresolved
-//    sprint lands the item in the backlog (sprintN 0).
+//  - Sprints depend on the release kind:
+//      · Connector releases (connector !== null): the external system is the
+//        calendar authority. Incoming sprints are created on demand and their
+//        start/end dates are written (external wins). `daysOff` stays app-owned.
+//      · Local releases (connector === null): the fixed grid links by chronological
+//        order, never creates, and keeps owning sprint dates.
+//  - Items with an unresolved work stream are skipped + warned; an unresolved or
+//    unset sprint lands the item in the backlog (sprintId null).
 
 import type { AppState, Sprint, WorkItem, WorkStream } from '../types';
 import { uid } from '../lib/dates';
@@ -45,11 +49,14 @@ export function applySync(
     }
   }
 
-  // --- 2. Sprints: fixed grid, link (never create) by chronological order ---
+  // --- 2. Sprints ---
+  // Connector releases create sprints from external data and take external dates;
+  // local releases link onto the fixed grid in chronological order (never create).
+  const isConnector = release.connector !== null;
   const sprints: Sprint[] = release.sprints.map((s) => ({ ...s }));
-  const sprintByExt = new Map<string, number>(); // external id -> local sprint n
+  const sprintByExt = new Map<string, string>(); // external id -> local sprint id
   for (const s of sprints) {
-    if (s.externalId) sprintByExt.set(s.externalId, s.n); // pre-seed existing links
+    if (s.externalId) sprintByExt.set(s.externalId, s.id); // pre-seed existing links
   }
   const incoming = [...mapped.sprints].sort((a, b) =>
     a.fields.startISO.localeCompare(b.fields.startISO),
@@ -57,21 +64,44 @@ export function applySync(
   for (const m of incoming) {
     const linked = sprints.find((s) => s.externalId === m.externalId);
     if (linked) {
-      linked.name = m.fields.name; // refresh name on an already-linked slot
+      linked.name = m.fields.name; // refresh name on an already-linked sprint
+      if (isConnector) {
+        linked.startISO = m.fields.startISO; // external owns dates for connector releases
+        linked.endISO = m.fields.endISO;
+      }
+      sprintByExt.set(m.externalId, linked.id);
       continue;
     }
-    const slot = sprints.find((s) => s.externalId === null); // next free slot, in n order
-    if (!slot) {
-      result.skipped++;
-      result.warnings.push(
-        `No free sprint slot for external sprint "${m.fields.name}" (${m.externalId}); dropped.`,
-      );
+    if (!isConnector) {
+      // local grid: link onto the next free slot in chronological order, else drop
+      const slot = sprints.find((s) => s.externalId === null);
+      if (!slot) {
+        result.skipped++;
+        result.warnings.push(
+          `No free sprint slot for external sprint "${m.fields.name}" (${m.externalId}); dropped.`,
+        );
+        continue;
+      }
+      slot.externalId = m.externalId;
+      slot.name = m.fields.name;
+      sprintByExt.set(m.externalId, slot.id);
       continue;
     }
-    slot.externalId = m.externalId;
-    slot.name = m.fields.name;
-    sprintByExt.set(m.externalId, slot.n);
+    // connector release: create the sprint from external data
+    const sp: Sprint = {
+      id: uid('sp'),
+      name: m.fields.name,
+      startISO: m.fields.startISO,
+      endISO: m.fields.endISO,
+      daysOff: 0, // app-owned enrichment; adjusted separately, never overwritten by sync
+      externalId: m.externalId,
+    };
+    sprints.push(sp);
+    sprintByExt.set(m.externalId, sp.id);
+    result.created++;
   }
+  // sort by startISO after any additions — this also drives visual display order
+  sprints.sort((a, b) => a.startISO.localeCompare(b.startISO));
 
   // --- 3. Items: resolve refs, then match by externalId or create ---
   const items: WorkItem[] = state.items.map((i) => ({ ...i }));
@@ -85,20 +115,20 @@ export function applySync(
       continue;
     }
 
-    let sprintN = 0; // backlog by default
+    let sprintId: string | null = null; // backlog by default
     if (m.extSprintId !== null) {
       const resolved = sprintByExt.get(m.extSprintId);
       if (resolved === undefined) {
         result.warnings.push(`Item ${m.fields.key}: sprint ${m.extSprintId} not mapped; placed in backlog.`);
       } else {
-        sprintN = resolved;
+        sprintId = resolved;
       }
     }
 
     const existing = items.find((i) => i.releaseId === releaseId && i.externalId === m.externalId);
     if (existing) {
       existing.workStreamId = workStreamId;
-      existing.sprintN = sprintN;
+      existing.sprintId = sprintId;
       existing.key = m.fields.key;
       existing.subject = m.fields.subject;
       existing.description = m.fields.description;
@@ -110,7 +140,7 @@ export function applySync(
         id: uid('it'),
         releaseId,
         workStreamId,
-        sprintN,
+        sprintId,
         key: m.fields.key,
         subject: m.fields.subject,
         description: m.fields.description,

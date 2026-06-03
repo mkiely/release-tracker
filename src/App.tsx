@@ -2,7 +2,7 @@
 //   /                          → Home / Releases
 //   /teams                     → Teams
 //   /releases/:id              → Release Overview (release plan view)
-//   /releases/:id/sprints/:n   → Sprint view
+//   /releases/:id/sprints/:sprintId → Sprint view
 //   /releases/:id/streams/:wsId→ Work Stream view
 // The browser URL persists routing across reloads.
 
@@ -22,7 +22,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/teams" element={<Teams />} />
           <Route path="/releases/:id" element={<Release />} />
-          <Route path="/releases/:id/sprints/:n" element={<Sprint />} />
+          <Route path="/releases/:id/sprints/:sprintId" element={<Sprint />} />
           <Route path="/releases/:id/streams/:wsId" element={<WorkStream />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

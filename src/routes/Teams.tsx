@@ -2,7 +2,7 @@
 // Ported from TeamsScreen in proto-app.jsx.
 
 import { useNavigate } from 'react-router-dom';
-import { fullCap } from '../lib/derive';
+import { WORKDAYS } from '../types';
 import { getActions, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { TopBar } from '../components/chrome';
@@ -54,7 +54,7 @@ export function Teams() {
                 </PField>
                 <div style={{ flex: 1, paddingBottom: 13 }}>
                   <div style={{ fontSize: 11.5, color: WF.t3 }}>Full capacity</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: WF.t2 }}>{fullCap(t)} person-days / sprint</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: WF.t2 }}>{t.members.length * WORKDAYS} person-days / sprint</div>
                 </div>
               </div>
               <hr className="wf-divider" />

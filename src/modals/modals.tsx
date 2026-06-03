@@ -2,9 +2,8 @@
 
 import { useState, type ReactNode } from 'react';
 import { STATUSES, type Status } from '../types';
-import { between, fmtShort } from '../lib/dates';
+import { between, fmtShort, workdaysInRange } from '../lib/dates';
 import { capPct, fullCap, sprintVel } from '../lib/derive';
-import { WORKDAYS } from '../types';
 import { getActions, selItem, selRelease, selTeam, useStore } from '../store/store';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
@@ -208,19 +207,20 @@ function Row({ k, v, big }: { k: ReactNode; v: ReactNode; big?: boolean }) {
   );
 }
 
-export function SprintModal({ releaseId, sprintN, onClose }: { releaseId: string; sprintN: number; onClose: () => void }) {
+export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: string; sprintId: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId))!;
   const team = useStore((s) => selTeam(s, r.teamId));
-  const sp = r.sprints.find((s) => s.n === sprintN)!;
+  const sp = r.sprints.find((s) => s.id === sprintId)!;
   const [name, setName] = useState(sp.name);
   const [daysOff, setDaysOff] = useState(String(sp.daysOff));
   const off = Math.max(0, Number(daysOff) || 0);
-  const full = fullCap(team);
-  const pct = Math.round(capPct(team, off) * 100);
-  const vel = sprintVel(team, off);
+  const workdays = workdaysInRange(sp.startISO, sp.endISO);
+  const full = fullCap(team, sp);
+  const pct = Math.round(capPct(team, sp, off) * 100);
+  const vel = sprintVel(team, sp, off);
   const memberCount = team ? team.members.length : 0;
   const save = () => {
-    getActions().updateSprint(releaseId, sprintN, { name: name.trim() || sp.name, daysOff: off });
+    getActions().updateSprint(releaseId, sprintId, { name: name.trim() || sp.name, daysOff: off });
     onClose();
   };
   return (
@@ -259,7 +259,7 @@ export function SprintModal({ releaseId, sprintN, onClose }: { releaseId: string
           Expected velocity
         </span>
         <Row k="Team velocity" v={`${team ? team.velocity : 0} pts`} />
-        <Row k="Full capacity" v={`${memberCount} × ${WORKDAYS} = ${full} person-days`} />
+        <Row k="Full capacity" v={`${memberCount} × ${workdays} = ${full} person-days`} />
         <Row k="Days off" v={`− ${off}`} />
         <Row k="% of capacity" v={`${full - off} / ${full} = ${pct}%`} />
         <hr className="wf-divider" style={{ margin: '3px 0' }} />
@@ -273,28 +273,28 @@ export function SprintModal({ releaseId, sprintN, onClose }: { releaseId: string
 export function WorkItemModal({
   releaseId,
   presetStreamId,
-  presetSprintN,
+  presetSprintId,
   onClose,
 }: {
   releaseId: string;
   presetStreamId?: string;
-  presetSprintN?: number;
+  presetSprintId?: string;
   onClose: () => void;
 }) {
   const r = useStore((s) => selRelease(s, releaseId))!;
-  const activeN = (() => {
+  const defaultSprintId = (() => {
     const a = r.sprints.find((s) => between(new Date().toISOString().slice(0, 10), s.startISO, s.endISO));
-    return a ? a.n : 1;
+    return a ? a.id : (r.sprints[0]?.id ?? null); // active sprint, else first, else backlog
   })();
   const [subject, setSubject] = useState('');
   const [desc, setDesc] = useState('');
   const [wsId, setWsId] = useState(presetStreamId || (r.workStreams[0] && r.workStreams[0].id) || '');
-  const [sprintN, setSprintN] = useState(String(presetSprintN || activeN));
+  const [sprintId, setSprintId] = useState<string | null>(presetSprintId ?? defaultSprintId);
   const [status, setStatus] = useState<Status>('Not Started');
   const [points, setPoints] = useState(3);
   const canSave = !!subject.trim() && !!wsId;
   const save = () => {
-    getActions().createItem(releaseId, { workStreamId: wsId, sprintN, subject: subject.trim(), description: desc, status, points });
+    getActions().createItem(releaseId, { workStreamId: wsId, sprintId, subject: subject.trim(), description: desc, status, points });
     onClose();
   };
   return (
@@ -331,9 +331,10 @@ export function WorkItemModal({
           </PSelect>
         </PField>
         <PField label="Sprint" style={{ flex: 1 }}>
-          <PSelect value={sprintN} onChange={(e) => setSprintN(e.target.value)}>
+          <PSelect value={sprintId ?? ''} onChange={(e) => setSprintId(e.target.value || null)}>
+            <option value="">Backlog</option>
             {r.sprints.map((s) => (
-              <option key={s.n} value={s.n}>
+              <option key={s.id} value={s.id}>
                 {s.name}
               </option>
             ))}
@@ -363,7 +364,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const [subject, setSubject] = useState(it ? it.subject : '');
   const [desc, setDesc] = useState(it ? it.description : '');
   const [wsId, setWsId] = useState(it ? it.workStreamId : '');
-  const [sprintN, setSprintN] = useState(it ? String(it.sprintN) : '1');
+  const [sprintId, setSprintId] = useState<string | null>(it?.sprintId ?? null);
   const [status, setStatus] = useState<Status>(it ? it.status : 'Not Started');
   const [points, setPoints] = useState(it ? it.points : 3);
   if (!it || !r) {
@@ -381,7 +382,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       subject: subject.trim() || it.subject,
       description: desc,
       workStreamId: wsId,
-      sprintN: Number(sprintN),
+      sprintId,
       status,
       points,
     });
@@ -445,9 +446,10 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           </PSelect>
         </PField>
         <PField label="Sprint" style={{ flex: 1 }}>
-          <PSelect value={sprintN} disabled={synced} onChange={(e) => setSprintN(e.target.value)}>
+          <PSelect value={sprintId ?? ''} disabled={synced} onChange={(e) => setSprintId(e.target.value || null)}>
+            <option value="">Backlog</option>
             {r.sprints.map((s) => (
-              <option key={s.n} value={s.n}>
+              <option key={s.id} value={s.id}>
                 {s.name}
               </option>
             ))}

@@ -24,7 +24,7 @@ export function WorkStream() {
   const team = selTeam(st, r.teamId);
   const allItems = st.items.filter((i) => i.releaseId === r.id);
   const act = activeSprint(r);
-  const curN = act ? act.n : null;
+  const curId = act ? act.id : null;
   const totalPts = items.reduce((a, i) => a + i.points, 0);
 
   return (
@@ -65,11 +65,11 @@ export function WorkStream() {
           <div style={{ display: 'flex', gap: 14, alignItems: 'stretch', minHeight: '100%' }}>
             {r.sprints.map((sp) => (
               <StreamSprintColumn
-                key={sp.n}
+                key={sp.id}
                 sp={sp}
                 team={team}
-                isCur={sp.n === curN}
-                streamItems={items.filter((i) => i.sprintN === sp.n)}
+                isCur={sp.id === curId}
+                streamItems={items.filter((i) => i.sprintId === sp.id)}
                 allItems={allItems}
                 notify={notify}
                 renderCard={(it) => (

@@ -14,13 +14,13 @@ export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose
     case 'event':
       return <EventModal releaseId={modal.releaseId} onClose={onClose} />;
     case 'sprint':
-      return <SprintModal releaseId={modal.releaseId} sprintN={modal.sprintN} onClose={onClose} />;
+      return <SprintModal releaseId={modal.releaseId} sprintId={modal.sprintId} onClose={onClose} />;
     case 'item':
       return (
         <WorkItemModal
           releaseId={modal.releaseId}
           presetStreamId={modal.presetStreamId}
-          presetSprintN={modal.presetSprintN}
+          presetSprintId={modal.presetSprintId}
           onClose={onClose}
         />
       );

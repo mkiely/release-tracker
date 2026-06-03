@@ -152,17 +152,17 @@ function SprintPill({
 
 export function SprintRail({
   release,
-  currentN,
+  currentSprintId,
   team,
   allItems,
   onGo,
   notify,
 }: {
   release: Release;
-  currentN: number;
+  currentSprintId: string | null;
   team: Team | undefined;
   allItems: WorkItem[];
-  onGo: (n: number) => void;
+  onGo: (sprintId: string) => void;
   notify: (msg: string) => void;
 }) {
   const draggingItem = useDrag();
@@ -182,20 +182,20 @@ export function SprintRail({
         Sprints
       </span>
       {release.sprints.map((sp) => {
-        const planned = allItems.filter((i) => i.sprintN === sp.n).reduce((a, i) => a + i.points, 0);
-        const cap = sprintVel(team, sp.daysOff);
+        const planned = allItems.filter((i) => i.sprintId === sp.id).reduce((a, i) => a + i.points, 0);
+        const cap = sprintVel(team, sp, sp.daysOff);
         return (
           <SprintPill
-            key={sp.n}
+            key={sp.id}
             sp={sp}
             planned={planned}
             cap={cap}
-            isCur={sp.n === currentN}
+            isCur={sp.id === currentSprintId}
             draggingItem={draggingItem}
-            onGo={() => onGo(sp.n)}
+            onGo={() => onGo(sp.id)}
             onDropItem={(it) => {
-              if (it.sprintN !== sp.n) {
-                getActions().updateItem(it.id, { sprintN: sp.n });
+              if (it.sprintId !== sp.id) {
+                getActions().updateItem(it.id, { sprintId: sp.id });
                 notify(`Moved ${it.key} → ${sp.name}`);
               }
             }}
@@ -226,10 +226,10 @@ export function StreamSprintColumn({
 }) {
   const draggingItem = useDrag();
   const [over, setOver] = useState(false);
-  const planned = allItems.filter((i) => i.sprintN === sp.n).reduce((a, i) => a + i.points, 0);
-  const cap = sprintVel(team, sp.daysOff);
+  const planned = allItems.filter((i) => i.sprintId === sp.id).reduce((a, i) => a + i.points, 0);
+  const cap = sprintVel(team, sp, sp.daysOff);
   const streamPts = streamItems.reduce((a, i) => a + i.points, 0);
-  const canDropVisual = !!draggingItem && draggingItem.sprintN !== sp.n;
+  const canDropVisual = !!draggingItem && draggingItem.sprintId !== sp.id;
   return (
     <div style={{ flex: 1, minWidth: 158, display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div
@@ -264,7 +264,7 @@ export function StreamSprintColumn({
       <div
         onDragOver={(e) => {
           const it = Drag.get();
-          if (it && it.sprintN !== sp.n) {
+          if (it && it.sprintId !== sp.id) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             if (!over) setOver(true);
@@ -275,9 +275,9 @@ export function StreamSprintColumn({
         }}
         onDrop={(e) => {
           const it = Drag.get();
-          if (it && it.sprintN !== sp.n) {
+          if (it && it.sprintId !== sp.id) {
             e.preventDefault();
-            getActions().updateItem(it.id, { sprintN: sp.n });
+            getActions().updateItem(it.id, { sprintId: sp.id });
             notify(`Moved ${it.key} → ${sp.name}`);
           }
           setOver(false);

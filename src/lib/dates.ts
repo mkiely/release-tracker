@@ -1,7 +1,7 @@
 // Date utilities — ported verbatim from proto-store.jsx. All dates are local
 // "YYYY-MM-DD" ISO strings to avoid timezone drift.
 
-import { SPRINT_COUNT, SPRINT_LEN_DAYS, type Sprint } from '../types';
+import { DEFAULT_SPRINT_COUNT, SPRINT_LEN_DAYS, type Sprint } from '../types';
 
 const PMON = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -39,17 +39,31 @@ export const between = (iso: string, a: string, b: string): boolean => {
   return t >= dOf(a).getTime() && t <= dOf(b).getTime();
 };
 
-// build 8 contiguous sprints from a release start date
+// Count Mon–Fri business days within an inclusive date range. Used for capacity
+// math on variable-length sprints (connector sprints aren't always 14 days).
+export const workdaysInRange = (startISO: string, endISO: string): number => {
+  let count = 0;
+  const end = dOf(endISO);
+  for (let d = dOf(startISO); d <= end; d.setDate(d.getDate() + 1)) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) count++;
+  }
+  return count;
+};
+
+// build `count` contiguous fixed-length sprints from a release start date.
+// `overrides` maps 1-based sprint position → person-days off.
 export const buildSprints = (
   startISO: string,
   overrides: Record<number, number> = {},
+  count = DEFAULT_SPRINT_COUNT,
 ): Sprint[] => {
   const arr: Sprint[] = [];
-  for (let i = 0; i < SPRINT_COUNT; i++) {
+  for (let i = 0; i < count; i++) {
     const n = i + 1;
     const s = addDays(startISO, i * SPRINT_LEN_DAYS);
     const e = addDays(s, SPRINT_LEN_DAYS - 1);
-    arr.push({ n, name: `Sprint ${n}`, startISO: s, endISO: e, daysOff: overrides[n] || 0, externalId: null });
+    arr.push({ id: uid('sp'), name: `Sprint ${n}`, startISO: s, endISO: e, daysOff: overrides[n] || 0, externalId: null });
   }
   return arr;
 };

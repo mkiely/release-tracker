@@ -40,6 +40,29 @@ function migrate(p: AppState): AppState | null {
       releases: s.releases.map((r) => ({ ...r, connector: r.connector ?? null, sync: r.sync ?? null })),
     };
   }
+  // v2 → v3: sprints keyed by string id (was positional `n`); items reference
+  // sprints by `sprintId` (was `sprintN`, with 0 meaning backlog → null).
+  if (s.version === 2) {
+    const releaseSprintMap = new Map<string, Map<number, string>>();
+    const releases = s.releases.map((r) => {
+      const nToId = new Map<number, string>();
+      const sprints = r.sprints.map((sp: any) => {
+        const id = uid('sp');
+        nToId.set(sp.n, id);
+        const { n, ...rest } = sp;
+        return { ...rest, id };
+      });
+      releaseSprintMap.set(r.id, nToId);
+      return { ...r, sprints };
+    });
+    const items = s.items.map((it: any) => {
+      const nToId = releaseSprintMap.get(it.releaseId);
+      const sprintId = it.sprintN === 0 ? null : (nToId?.get(it.sprintN) ?? null);
+      const { sprintN, ...rest } = it;
+      return { ...rest, sprintId };
+    });
+    s = { ...s, version: 3, releases, items };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -73,10 +96,10 @@ interface Actions {
   createRelease: (input: { name: string; startISO: string; teamId: string; connector?: ReleaseConnector | null }) => Release;
   createWorkStream: (releaseId: string, name: string) => WorkStream | null;
   createEvent: (releaseId: string, input: { label: string; dateISO: string }) => void;
-  updateSprint: (releaseId: string, n: number, patch: Partial<Sprint>) => void;
+  updateSprint: (releaseId: string, sprintId: string, patch: Partial<Sprint>) => void;
   createItem: (
     releaseId: string,
-    input: { workStreamId: string; sprintN: number | string; subject: string; description?: string; status?: Status; points?: number },
+    input: { workStreamId: string; sprintId: string | null; subject: string; description?: string; status?: Status; points?: number },
   ) => WorkItem | null;
   updateItem: (id: string, patch: Partial<WorkItem>) => void;
   /** Pull from this release's connector and upsert the result. No-op for Local releases. */
@@ -138,7 +161,9 @@ export const useStore = create<StoreState>((set, get) => {
         teamId,
         workStreams: [],
         events: [],
-        sprints: buildSprints(start, {}),
+        // Connector releases get their sprints from the external system on first
+        // sync; local releases start with the default fixed two-week grid.
+        sprints: connector ? [] : buildSprints(start, {}),
         externalId: null,
         connector: connector ?? null,
         sync: null,
@@ -168,17 +193,17 @@ export const useStore = create<StoreState>((set, get) => {
       });
     },
 
-    updateSprint: (releaseId, n, patch) => {
+    updateSprint: (releaseId, sprintId, patch) => {
       commit((d) => {
         d.releases = d.releases.map((r) =>
           r.id === releaseId
-            ? { ...r, sprints: r.sprints.map((s) => (s.n === n ? { ...s, ...patch } : s)) }
+            ? { ...r, sprints: r.sprints.map((s) => (s.id === sprintId ? { ...s, ...patch } : s)) }
             : r,
         );
       });
     },
 
-    createItem: (releaseId, { workStreamId, sprintN, subject, description, status, points }) => {
+    createItem: (releaseId, { workStreamId, sprintId, subject, description, status, points }) => {
       const r = release(releaseId);
       if (!r) return null;
       const prefix = (r.name.match(/[A-Za-z]/g) || ['I']).slice(0, 3).join('').toUpperCase();
@@ -187,7 +212,7 @@ export const useStore = create<StoreState>((set, get) => {
         id: uid('it'),
         releaseId,
         workStreamId,
-        sprintN: Number(sprintN),
+        sprintId,
         key: `${prefix}-${100 + count}`,
         subject: subject || 'Untitled item',
         description: description || '',
