@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { todayISO, fmtShort } from '../lib/dates';
+import { DEFAULT_SPRINT_COUNT } from '../types';
 import { selItemsFor, selTeam, useStore } from '../store/store';
 import { getActions } from '../store/store';
 import { connectorLabel, syncClient, type ConnectorMeta } from '../sync/client';
@@ -27,6 +28,7 @@ export function Home() {
   const [connectors, setConnectors] = useState<ConnectorMeta[]>([]);
   const [connType, setConnType] = useState(''); // '' = Local (no sync)
   const [config, setConfig] = useState<Record<string, string>>({});
+  const [sprintCount, setSprintCount] = useState(DEFAULT_SPRINT_COUNT);
   useEffect(() => {
     let alive = true;
     syncClient
@@ -43,7 +45,7 @@ export function Home() {
   const canCreate = !!name.trim() && !!start && !!teamId && configComplete;
   const create = () => {
     const connector = meta ? { type: connType, config } : null;
-    const r = getActions().createRelease({ name: name.trim(), startISO: start, teamId, connector });
+    const r = getActions().createRelease({ name: name.trim(), startISO: start, teamId, connector, sprintCount: connector ? undefined : sprintCount });
     navigate(`/releases/${r.id}`);
   };
 
@@ -133,6 +135,18 @@ export function Home() {
             <PField label="Start date">
               <PInput type="date" value={start} onChange={(e) => setStart(e.target.value)} />
             </PField>
+            {!meta && (
+              <PField label="Number of sprints" hint="2-week sprints; default is 8">
+                <PInput
+                  type="number"
+                  value={sprintCount}
+                  min={1}
+                  max={26}
+                  step={1}
+                  onChange={(e) => setSprintCount(Math.max(1, Math.min(26, parseInt(e.target.value, 10) || DEFAULT_SPRINT_COUNT)))}
+                />
+              </PField>
+            )}
             <PField label="Team">
               <div style={{ display: 'flex', gap: 9 }}>
                 <PSelect value={teamId} onChange={(e) => setTeamId(e.target.value)} style={{ flex: 1 }}>

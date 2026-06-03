@@ -93,7 +93,7 @@ interface Actions {
   reset: () => void;
   createTeam: (input: { name: string; velocity: number | string; members: string[] }) => Team;
   updateTeam: (id: string, patch: Partial<Pick<Team, 'name' | 'velocity' | 'members'>>) => void;
-  createRelease: (input: { name: string; startISO: string; teamId: string; connector?: ReleaseConnector | null }) => Release;
+  createRelease: (input: { name: string; startISO: string; teamId: string; connector?: ReleaseConnector | null; sprintCount?: number }) => Release;
   createWorkStream: (releaseId: string, name: string) => WorkStream | null;
   createEvent: (releaseId: string, input: { label: string; dateISO: string }) => void;
   updateSprint: (releaseId: string, sprintId: string, patch: Partial<Sprint>) => void;
@@ -152,7 +152,7 @@ export const useStore = create<StoreState>((set, get) => {
       });
     },
 
-    createRelease: ({ name, startISO, teamId, connector }) => {
+    createRelease: ({ name, startISO, teamId, connector, sprintCount }) => {
       const start = startISO || todayISO();
       const r: Release = {
         id: uid('rel'),
@@ -163,7 +163,7 @@ export const useStore = create<StoreState>((set, get) => {
         events: [],
         // Connector releases get their sprints from the external system on first
         // sync; local releases start with the default fixed two-week grid.
-        sprints: connector ? [] : buildSprints(start, {}),
+        sprints: connector ? [] : buildSprints(start, {}, sprintCount),
         externalId: null,
         connector: connector ?? null,
         sync: null,

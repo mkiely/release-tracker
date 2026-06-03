@@ -8,7 +8,7 @@
 
 import type { AppState, WorkItem } from '../types';
 import { fmtShort } from './dates';
-import { eventsIn } from './derive';
+import { eventsIn, sprintVel } from './derive';
 
 const TAB = '\t';
 
@@ -25,12 +25,15 @@ export function releaseToTSV(state: AppState, releaseId: string): string {
   const release = state.releases.find((r) => r.id === releaseId);
   if (!release) return '';
 
+  const team = state.teams.find((t) => t.id === release.teamId);
   const sprints = [...release.sprints].sort((a, b) => a.startISO.localeCompare(b.startISO));
   const rows: string[][] = [
     ['Work Stream', ...sprints.map((s) => cell(s.name))],
     ['Dates', ...sprints.map((s) => `${fmtShort(s.startISO)} – ${fmtShort(s.endISO)}`)],
     ['Days off', ...sprints.map((s) => String(s.daysOff))],
     ['Events', ...sprints.map((s) => cell(eventsIn(release, s).map((e) => `${e.label} (${fmtShort(e.dateISO)})`).join('; ')))],
+    ['Capacity', ...sprints.map((s) => String(sprintVel(team, s, s.daysOff)))],
+    ['Planned', ...sprints.map((s) => String(state.items.filter((i) => i.releaseId === releaseId && i.sprintId === s.id).reduce((sum, i) => sum + i.points, 0)))],
   ];
 
   for (const ws of release.workStreams) {

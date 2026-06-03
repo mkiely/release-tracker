@@ -56,8 +56,8 @@ const state = (items: WorkItem[]): AppState => ({
 
 const lines = (tsv: string) => tsv.split('\n').map((l) => l.split('\t'));
 
-// Row layout: header (0), Dates (1), Days off (2), Events (3), then work streams.
-const BODY = 4;
+// Row layout: header (0), Dates (1), Days off (2), Events (3), Capacity (4), Planned (5), then work streams.
+const BODY = 6;
 
 describe('releaseToTSV', () => {
   it('has a header of Work Stream + sprint names', () => {
@@ -77,6 +77,28 @@ describe('releaseToTSV', () => {
     expect(rows[1]).toEqual(['Dates', 'Apr 13 – Apr 26', 'Apr 27 – May 10']);
     expect(rows[2]).toEqual(['Days off', '3', '0']);
     expect(rows[3]).toEqual(['Events', 'Code freeze (Apr 13)', 'Release (May 10)']);
+  });
+
+  it('emits capacity and planned rows below the event row', () => {
+    const r = release();
+    const team = { id: 't', name: 'Core', velocity: 20, members: [{ id: 'm1', name: 'Alice', externalId: null }], externalId: null };
+    r.sprints[0].daysOff = 0;
+    const st: AppState = {
+      version: 1,
+      teams: [team],
+      releases: [r],
+      items: [item({ workStreamId: 'ws1', sprintId: 'sp1', points: 3 }), item({ workStreamId: 'ws1', sprintId: 'sp2', points: 5 })],
+      meta: { lastSyncISO: null },
+    };
+    const rows = lines(releaseToTSV(st, 'rel'));
+    // Capacity row: sprintVel(team, sprint, daysOff) — one member × 10 workdays, velocity 20 → capPct=1, vel=20
+    expect(rows[4][0]).toBe('Capacity');
+    expect(rows[4][1]).toBe('20');
+    expect(rows[4][2]).toBe('20');
+    // Planned row: sum of item points per sprint
+    expect(rows[5][0]).toBe('Planned');
+    expect(rows[5][1]).toBe('3');
+    expect(rows[5][2]).toBe('5');
   });
 
   it('places items in the column for their sprint as "KEY Subject"', () => {
