@@ -11,7 +11,7 @@ import { WF } from './tokens';
 export function StatusSelect({ value, onChange }: { value: Status; onChange: (v: Status) => void }) {
   const c = WF.status[value];
   return (
-    <div style={{ position: 'relative', alignSelf: 'flex-start' }} onClick={(e) => e.stopPropagation()}>
+    <div style={{ position: 'relative', alignSelf: 'center' }} onClick={(e) => e.stopPropagation()}>
       <span className="wf-chip" style={{ background: c.soft, color: c.text, paddingRight: 22 }}>
         <span className="wf-dot" style={{ background: c.dot }} />
         {value}
@@ -33,7 +33,7 @@ export function StatusSelect({ value, onChange }: { value: Status; onChange: (v:
 }
 
 /** Compact initials avatar for a member name. */
-function MemberAvatar({ name, size = 20 }: { name: string; size?: number }) {
+function MemberAvatar({ name, size = 40 }: { name: string; size?: number }) {
   const initials = name.trim().split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
   return (
     <span
@@ -152,17 +152,10 @@ export function WorkItemCard({
         ) : (
           <span
             title="Unassigned"
-            style={{
-              width: 20,
-              height: 20,
-              borderRadius: '50%',
-              border: `1.5px dashed ${WF.line}`,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          />
+            style={{ color: WF.line, display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
+          >
+            {Icon.member}
+          </span>
         )}
       </div>
     </div>

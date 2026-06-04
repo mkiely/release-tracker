@@ -140,6 +140,11 @@ export interface components {
             label: string;
             required: boolean;
             hint?: string;
+            /**
+             * @description Input type hint for the UI; controls which input control is rendered. Omit or use text for plain text inputs.
+             * @enum {string}
+             */
+            type?: "text" | "date" | "number" | "password";
         };
         ConnectorMeta: {
             /** @description e.g. 'jira' */

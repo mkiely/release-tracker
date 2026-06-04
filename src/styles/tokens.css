@@ -157,11 +157,11 @@
 /* calendar-event badge */
 .wf-event {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 11.5px; font-weight: 600; color: var(--wf-t2);
-  background: var(--wf-paper); border: 1.5px solid var(--wf-line);
+  font-size: 11.5px; font-weight: 700; color: var(--wf-ink);
+  background: var(--wf-fill); border: 1.5px solid var(--wf-line-strong);
   border-radius: 6px; padding: 3px 8px; line-height: 1; white-space: nowrap;
 }
-.wf-event .wf-flag { width: 7px; height: 7px; border-radius: 2px; background: var(--wf-t3); }
+.wf-event .wf-flag { width: 7px; height: 7px; border-radius: 2px; background: var(--wf-ink); }
 
 /* mono pill — used for the capacity number and the "+N" event-overflow chip */
 .wf-pts {

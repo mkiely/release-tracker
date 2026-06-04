@@ -51,7 +51,7 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
   return (
     <Modal
       title={editing ? 'Edit team' : 'Create team'}
-      icon={Icon.users}
+      icon={Icon.team}
       onClose={onClose}
       width={470}
       footer={
@@ -129,6 +129,7 @@ export function WorkStreamModal({ releaseId, onClose }: { releaseId: string; onC
   return (
     <Modal
       title="New work stream"
+      icon={Icon.stream}
       onClose={onClose}
       width={440}
       footer={
@@ -173,7 +174,7 @@ export function EventModal({ releaseId, onClose }: { releaseId: string; onClose:
   return (
     <Modal
       title="New event"
-      icon={Icon.cal}
+      icon={Icon.event}
       onClose={onClose}
       width={460}
       footer={
@@ -249,7 +250,7 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
   return (
     <Modal
       title={`Edit ${sp.name}`}
-      icon={Icon.cal}
+      icon={Icon.sprint}
       onClose={onClose}
       width={500}
       footer={
@@ -325,6 +326,7 @@ export function WorkItemModal({
   return (
     <Modal
       title="New work item"
+      icon={Icon.item}
       onClose={onClose}
       width={520}
       footer={
@@ -410,7 +412,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
 
   if (!it || !r) {
     return (
-      <Modal title="Work item" onClose={onClose} width={520}>
+      <Modal title="Work item" icon={Icon.item} onClose={onClose} width={520}>
         <span style={{ color: WF.t3 }}>This item no longer exists.</span>
       </Modal>
     );

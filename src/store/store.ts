@@ -36,7 +36,7 @@ const LS_KEY = 'release-tracker:v1';
 
 // Migrate a persisted state forward to the current SCHEMA_VERSION. Returns null
 // if the stored shape is too old/unknown to upgrade safely.
-function migrate(p: AppState): AppState | null {
+export function migrate(p: AppState): AppState | null {
   let s = p;
   // v1 → v2: connector sync. Releases gain `connector`/`sync` (default null).
   if (s.version === 1) {

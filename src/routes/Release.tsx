@@ -80,7 +80,7 @@ export function Release() {
         title={r.name}
         sub={
           <>
-            {Icon.users}
+            {Icon.team}
             <span>{team ? team.name : '—'}</span>
             <span style={{ opacity: 0.5 }}>·</span>
             <span>
@@ -105,7 +105,7 @@ export function Release() {
             <PButton variant="subtle" sm icon={Icon.copy} onClick={onExport}>
               Export TSV
             </PButton>
-            <PButton variant="subtle" sm icon={Icon.cal} onClick={() => openModal({ type: 'event', releaseId: id })}>
+            <PButton variant="subtle" sm icon={Icon.event} onClick={() => openModal({ type: 'event', releaseId: id })}>
               New event
             </PButton>
             <PButton sm icon={Icon.plus} onClick={() => openModal({ type: 'stream', releaseId: id })}>
@@ -128,7 +128,7 @@ export function Release() {
           flexShrink: 0,
         }}
       >
-        <span className="wf-tag" style={{ flexShrink: 0, marginRight: 4 }}>Work streams</span>
+        <span className="wf-tag" style={{ flexShrink: 0, marginRight: 4, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{Icon.stream}Work streams</span>
         <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
         {r.workStreams.length === 0 ? (
           <span style={{ fontSize: 12.5, color: WF.t3 }}>No work streams yet — add one with the button above.</span>
@@ -157,10 +157,11 @@ export function Release() {
         <div style={{ height: '100%', padding: '16px 22px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <span className="wf-tag">Sprints · {r.sprints.length}</span>
-              <span style={{ fontSize: 11.5, color: WF.t3 }}>
-                {team ? team.name : '—'} · velocity {team ? team.velocity : 0} pts · click a sprint to open it
-              </span>
+              <span className="wf-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>{Icon.sprint}Sprints · {r.sprints.length}</span>
+              <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
+              <span style={{ fontSize: 11.5, color: WF.t3 }}>{team ? team.name : '—'}</span>
+              <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
+              <span style={{ fontSize: 11.5, color: WF.t3 }}>Velocity {team ? team.velocity : 0} pts</span>
             </div>
             <StatusLegend />
           </div>
@@ -207,9 +208,11 @@ export function Release() {
                     <span style={{ fontSize: 11.5, color: WF.t3, whiteSpace: 'nowrap', flex: '0 0 auto' }}>
                       {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
                     </span>
+                    <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
                     <span className="wf-mono" style={{ fontSize: 11, fontWeight: 700, color: WF.t3, whiteSpace: 'nowrap', flex: '0 0 auto' }}>
                       {spItems.length} item{spItems.length !== 1 ? 's' : ''}
                     </span>
+                    <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
                     <CapBarInline planned={planned} cap={vel} />
                     <EventStrip events={evts} align="flex-end" />
                   </div>
@@ -239,7 +242,7 @@ export function Release() {
                                 {e.n}
                               </span>
                             </div>
-                            <SegBar segs={e.segs} height={6} />
+                            <SegBar segs={e.segs} height={9} />
                           </div>
                         ))}
                       </div>

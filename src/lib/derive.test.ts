@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { capPct, eventsIn, fullCap, sprintVel, statusSegs } from './derive';
-import { buildSprints, workdaysInRange } from './dates';
+import { activeSprint, capPct, eventsIn, fullCap, sprintVel, statusSegs } from './derive';
+import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
 import type { Release, Sprint, Team, WorkItem } from '../types';
 
 const team = (members: number, velocity: number): Team => ({
@@ -109,6 +109,48 @@ describe('eventsIn', () => {
     const r = release();
     const sp1 = r.sprints[0];
     expect(eventsIn(r, sp1).some((e) => e.dateISO === sp1.startISO)).toBe(true);
+  });
+});
+
+describe('activeSprint', () => {
+  // Build a release whose sprints bracket today so tests don't depend on the
+  // calendar date they run on. todayISO() and addDays() are pure utilities.
+  const makeRelease = (sprints: Sprint[]): Release => ({
+    id: 'r', name: 'R', startISO: sprints[0]?.startISO ?? '2026-01-01',
+    teamId: 't', workStreams: [], events: [], sprints, externalId: null,
+    connector: null, sync: null,
+  });
+
+  it('returns the sprint whose window contains today', () => {
+    const today = todayISO();
+    const active: Sprint = { id: 'sp_active', name: 'Active', startISO: addDays(today, -5), endISO: addDays(today, 5), daysOff: 0, externalId: null };
+    const past: Sprint = { id: 'sp_past', name: 'Past', startISO: addDays(today, -20), endISO: addDays(today, -7), daysOff: 0, externalId: null };
+    const future: Sprint = { id: 'sp_future', name: 'Future', startISO: addDays(today, 7), endISO: addDays(today, 20), daysOff: 0, externalId: null };
+    const r = makeRelease([past, active, future]);
+    expect(activeSprint(r)?.id).toBe('sp_active');
+  });
+
+  it('returns null when today falls between sprints', () => {
+    const today = todayISO();
+    const past: Sprint = { id: 'sp_past', name: 'Past', startISO: addDays(today, -30), endISO: addDays(today, -16), daysOff: 0, externalId: null };
+    const future: Sprint = { id: 'sp_future', name: 'Future', startISO: addDays(today, 2), endISO: addDays(today, 15), daysOff: 0, externalId: null };
+    expect(activeSprint(makeRelease([past, future]))).toBeNull();
+  });
+
+  it('returns null for a release with no sprints', () => {
+    expect(activeSprint(makeRelease([]))).toBeNull();
+  });
+
+  it('matches on the boundary start date', () => {
+    const today = todayISO();
+    const sp: Sprint = { id: 'sp1', name: 'S', startISO: today, endISO: addDays(today, 13), daysOff: 0, externalId: null };
+    expect(activeSprint(makeRelease([sp]))?.id).toBe('sp1');
+  });
+
+  it('matches on the boundary end date', () => {
+    const today = todayISO();
+    const sp: Sprint = { id: 'sp1', name: 'S', startISO: addDays(today, -13), endISO: today, daysOff: 0, externalId: null };
+    expect(activeSprint(makeRelease([sp]))?.id).toBe('sp1');
   });
 });
 

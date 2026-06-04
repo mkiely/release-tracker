@@ -83,7 +83,7 @@ export function Home() {
           <span style={{ fontSize: 12.5, fontWeight: 700, color: WF.t2, flex: '0 0 auto' }}>{Math.round(done * 100)}%</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: WF.t3, fontSize: 13, whiteSpace: 'nowrap' }}>
-          {Icon.users}
+          {Icon.team}
           <span>{team ? team.name : '—'}</span>
           {r.connector && (
             <span className="wf-tag" style={{ marginLeft: 'auto', flex: '0 0 auto' }}>
@@ -93,9 +93,9 @@ export function Home() {
         </div>
         <Meter v={done} />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: WF.t3 }}>
-          <span>{r.workStreams.length} streams</span>
-          <span>{items.length} items</span>
-          <span>{fmtShort(r.startISO)}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icon.stream}{r.workStreams.length}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icon.item}{items.length}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icon.cal}{fmtShort(r.startISO)}</span>
         </div>
       </div>
     );
@@ -113,7 +113,7 @@ export function Home() {
                 Load demo data
               </PButton>
             )}
-            <PButton variant="subtle" sm icon={Icon.users} onClick={() => navigate('/teams')}>
+            <PButton variant="subtle" sm icon={Icon.team} onClick={() => navigate('/teams')}>
               Teams
             </PButton>
           </div>
@@ -182,6 +182,7 @@ export function Home() {
                 {meta.configFields.map((f) => (
                   <PField key={f.key} label={f.label} hint={f.required ? undefined : 'optional'}>
                     <PInput
+                      type={f.type ?? 'text'}
                       value={config[f.key] ?? ''}
                       placeholder={f.hint}
                       onChange={(e) => setConfig((c) => ({ ...c, [f.key]: e.target.value }))}

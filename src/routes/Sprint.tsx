@@ -79,7 +79,7 @@ export function Sprint() {
   const statusCols = STATUSES.map((s) => ({
     status: s,
     items: filteredItems.filter((i) => i.status === s),
-  })).filter((c) => c.items.length > 0);
+  }));
 
   const isFiltered = memberFilter.size > 0 || statusFilter.size > 0;
 
@@ -123,12 +123,12 @@ export function Sprint() {
         }
         right={
           <>
-            <PButton variant="subtle" sm icon={Icon.cal} onClick={() => openModal({ type: 'sprint', releaseId: id, sprintId: sp.id })}>
+            <PButton variant="subtle" sm icon={Icon.sprint} onClick={() => openModal({ type: 'sprint', releaseId: id, sprintId: sp.id })}>
               Edit sprint
             </PButton>
             <PushButton release={r} onPush={() => onPush(id)} />
             <SyncButton release={r} onSync={() => onSync(id)} />
-            <PButton sm icon={Icon.plus} onClick={() => openModal({ type: 'item', releaseId: id, presetSprintId: sp.id })}>
+            <PButton sm icon={Icon.item} onClick={() => openModal({ type: 'item', releaseId: id, presetSprintId: sp.id })}>
               New work item
             </PButton>
           </>

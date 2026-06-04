@@ -1,7 +1,7 @@
 // Seed data — ported from proto-store.jsx seed(). Builds a primary demo
 // release plus two lighter releases so the home list feels real.
 
-import { SCHEMA_VERSION, type AppState, type Release, type Status, type WorkItem } from '../types';
+import { SCHEMA_VERSION, type AppState, type Release, type Sprint, type Status, type WorkItem } from '../types';
 import { buildSprints, uid } from './dates';
 
 // curated subjects per work stream so generated items read believably
@@ -12,6 +12,15 @@ const SUBJECTS: Record<string, string[]> = {
   'Billing Migration': ['Dual-write ledger', 'Invoice template port', 'Proration engine', 'Legacy data backfill', 'Cutover runbook', 'Reconciliation report'],
   Notifications: ['Email digest scheduler', 'In-app inbox', 'Preference center', 'Delivery status tracking', 'Template localization'],
   'Admin Console': ['Role + permission editor', 'Audit log viewer', 'Bulk user import', 'Feature-flag toggles', 'Usage dashboards', 'Org settings page'],
+};
+
+const CONNECTOR_SUBJECTS: Record<string, string[]> = {
+  'Data Ingestion': ['Schema registry setup', 'Kafka topic configuration', 'Dead letter queue handler', 'Backfill pipeline', 'Data validation rules', 'Throughput benchmarks', 'Connector health checks', 'Event deduplication logic', 'Streaming metrics dashboard', 'Lag monitoring alerts'],
+  'API Gateway': ['Route configuration', 'Auth middleware', 'Rate limiting policies', 'Request transformation', 'Response caching layer', 'OpenAPI spec generation', 'Circuit breaker logic', 'Retry & timeout tuning', 'API versioning strategy', 'Traffic routing rules'],
+  'Auth & SSO': ['OIDC provider integration', 'JWT validation service', 'Token refresh flow', 'SAML assertion handler', 'Group membership sync', 'MFA enforcement rules', 'Session expiry handling', 'Permission scopes audit', 'SSO error recovery'],
+  'Reporting & Analytics': ['Dashboard framework setup', 'KPI metric definitions', 'Data export pipeline', 'Report scheduling system', 'Drill-down filter logic', 'Chart component library', 'Cohort analysis queries', 'Retention funnel model', 'Usage trend aggregation'],
+  'Webhooks': ['Webhook registry service', 'Event fan-out dispatcher', 'Signature verification', 'Delivery retry policy', 'Subscriber management UI', 'Payload schema versioning', 'Test event simulator', 'Delivery log viewer'],
+  'SDK & Developer Tools': ['Client SDK scaffolding', 'Code sample library', 'Interactive API explorer', 'Sandbox environment', 'SDK versioning toolchain', 'Error code documentation', 'Integration test harness', 'Developer portal pages', 'Changelog automation'],
 };
 
 // item-count matrix per sprint per stream: [Complete, Active, Blocked, NotStarted]
@@ -28,6 +37,19 @@ const RELEASE_MATRIX: Record<number, Record<string, [Status, number][]>> = {
   7: { 'Mobile Onboarding': M(0, 0, 0, 3), 'Search Revamp': M(0, 0, 0, 2), 'Admin Console': M(0, 0, 0, 1) },
   8: { 'Checkout API': M(0, 0, 0, 2), Notifications: M(0, 0, 0, 3) },
 };
+// Connector release (Nexus 1.0): 6 streams × 8 sprints, ~100 items. Sprints have
+// variable names and lengths to show connector-style scheduling.
+const CONNECTOR_MATRIX: Record<number, Record<string, [Status, number][]>> = {
+  1: { 'Data Ingestion': M(3,0,0,0), 'API Gateway': M(2,0,0,0), 'Auth & SSO': M(2,0,0,0), 'Reporting & Analytics': M(1,0,0,0), 'Webhooks': M(1,0,0,0), 'SDK & Developer Tools': M(2,0,0,0) },
+  2: { 'Data Ingestion': M(3,0,0,0), 'API Gateway': M(3,0,0,0), 'Auth & SSO': M(2,0,0,0), 'Reporting & Analytics': M(2,0,0,0), 'Webhooks': M(2,0,0,0), 'SDK & Developer Tools': M(2,0,0,0) },
+  3: { 'Data Ingestion': M(2,0,0,0), 'API Gateway': M(2,0,0,0), 'Auth & SSO': M(3,0,0,0), 'Reporting & Analytics': M(2,0,0,0), 'Webhooks': M(2,0,0,0), 'SDK & Developer Tools': M(1,0,0,0) },
+  4: { 'Data Ingestion': M(2,0,0,0), 'API Gateway': M(2,0,0,0), 'Auth & SSO': M(2,0,0,0), 'Reporting & Analytics': M(2,0,0,0), 'Webhooks': M(1,0,0,0), 'SDK & Developer Tools': M(2,0,0,0) },
+  5: { 'Data Ingestion': M(1,0,0,0), 'API Gateway': M(2,0,0,0), 'Auth & SSO': M(1,0,0,0), 'Reporting & Analytics': M(2,0,0,0), 'Webhooks': M(2,0,0,0), 'SDK & Developer Tools': M(2,0,0,0) },
+  6: { 'Data Ingestion': M(0,2,1,1), 'API Gateway': M(0,2,0,2), 'Auth & SSO': M(0,1,1,1), 'Reporting & Analytics': M(0,2,0,1), 'Webhooks': M(0,1,0,2), 'SDK & Developer Tools': M(0,1,1,1) },
+  7: { 'Data Ingestion': M(0,0,0,2), 'API Gateway': M(0,0,0,3), 'Auth & SSO': M(0,0,0,2), 'Reporting & Analytics': M(0,0,0,2), 'Webhooks': M(0,0,0,2), 'SDK & Developer Tools': M(0,0,0,2) },
+  8: { 'Data Ingestion': M(0,0,0,1), 'API Gateway': M(0,0,0,2), 'Auth & SSO': M(0,0,0,2), 'Reporting & Analytics': M(0,0,0,1), 'Webhooks': M(0,0,0,1), 'SDK & Developer Tools': M(0,0,0,2) },
+};
+
 const PT_POOL = [2, 3, 5, 1, 8, 3, 2, 5];
 
 export function seed(): AppState {
@@ -35,6 +57,7 @@ export function seed(): AppState {
     { id: 'team_core', name: 'Platform Core', velocity: 40, externalId: null, members: ['Ada L.', 'Marco P.', 'Wei C.', 'Devi R.', 'Tom B.'].map((n) => ({ id: uid('m'), name: n, externalId: null })) },
     { id: 'team_growth', name: 'Growth', velocity: 24, externalId: null, members: ['Jen K.', 'Sam O.', 'Priya N.'].map((n) => ({ id: uid('m'), name: n, externalId: null })) },
     { id: 'team_pay', name: 'Payments', velocity: 32, externalId: null, members: ['Lou H.', 'Bea S.', 'Ravi M.', 'Nina D.'].map((n) => ({ id: uid('m'), name: n, externalId: null })) },
+    { id: 'team_integrations', name: 'Platform Integrations', velocity: 48, externalId: 'JIRA-TEAM-NXS', members: ['Yara F.', 'Cass L.', 'Jin S.', 'Obi T.', 'Meg R.', 'Dev A.'].map((n) => ({ id: uid('m'), name: n, externalId: null })) },
   ];
 
   const streamNames = ['Checkout API', 'Search Revamp', 'Mobile Onboarding', 'Billing Migration', 'Notifications', 'Admin Console'];
@@ -122,5 +145,67 @@ export function seed(): AppState {
     }),
   );
 
-  return { version: SCHEMA_VERSION, teams, releases: [demo, co, ob], items, meta: { lastSyncISO: null } };
+  // Connector release: Nexus 1.0 — Jira-linked, 6 streams, custom sprint names.
+  // Sprint 6 "Load Testing & Hardening" (2026-05-21 → 2026-06-10) is the active sprint
+  // (today 2026-06-04 falls inside it). Sprint lengths deliberately vary: 10, 14, 14,
+  // 14, 14, 21, 14, 14 days to show the connector-style scheduling model.
+  const nexusStreamNames = ['Data Ingestion', 'API Gateway', 'Auth & SSO', 'Reporting & Analytics', 'Webhooks', 'SDK & Developer Tools'];
+  const nexusStreams = nexusStreamNames.map((n, i) => ({
+    id: uid('ws'), name: n, externalId: `EPIC-NXS-${i + 1}`,
+  }));
+  const nexusSprints: Sprint[] = [
+    { id: uid('sp'), name: 'Kickoff',                   startISO: '2026-03-16', endISO: '2026-03-25', daysOff: 0, externalId: 'JSPR-2241' },
+    { id: uid('sp'), name: 'Foundation',                startISO: '2026-03-26', endISO: '2026-04-08', daysOff: 0, externalId: 'JSPR-2242' },
+    { id: uid('sp'), name: 'Core Build',                startISO: '2026-04-09', endISO: '2026-04-22', daysOff: 2, externalId: 'JSPR-2243' },
+    { id: uid('sp'), name: 'Integration Prep',          startISO: '2026-04-23', endISO: '2026-05-06', daysOff: 0, externalId: 'JSPR-2244' },
+    { id: uid('sp'), name: 'Integration & Testing',     startISO: '2026-05-07', endISO: '2026-05-20', daysOff: 0, externalId: 'JSPR-2245' },
+    { id: uid('sp'), name: 'Load Testing & Hardening',  startISO: '2026-05-21', endISO: '2026-06-10', daysOff: 0, externalId: 'JSPR-2246' },
+    { id: uid('sp'), name: 'Pre-release Stabilization', startISO: '2026-06-11', endISO: '2026-06-24', daysOff: 2, externalId: 'JSPR-2247' },
+    { id: uid('sp'), name: 'GA Readiness',              startISO: '2026-06-25', endISO: '2026-07-08', daysOff: 0, externalId: 'JSPR-2248' },
+  ];
+  const nexus: Release = {
+    id: 'rel_nexus', name: 'Nexus 1.0', startISO: '2026-03-16', teamId: 'team_integrations',
+    workStreams: nexusStreams,
+    events: [
+      { id: uid('ev'), label: 'Kick',               dateISO: '2026-03-16', externalId: 'NXS-EV-1' },
+      { id: uid('ev'), label: 'Alpha',              dateISO: '2026-04-22', externalId: 'NXS-EV-2' },
+      { id: uid('ev'), label: 'Integration lock',   dateISO: '2026-05-20', externalId: 'NXS-EV-3' },
+      { id: uid('ev'), label: 'Load test complete', dateISO: '2026-06-10', externalId: 'NXS-EV-4' },
+      { id: uid('ev'), label: 'Code freeze',        dateISO: '2026-06-20', externalId: 'NXS-EV-5' },
+      { id: uid('ev'), label: 'RC cut',             dateISO: '2026-06-28', externalId: 'NXS-EV-6' },
+      { id: uid('ev'), label: 'GA',                 dateISO: '2026-07-08', externalId: 'NXS-EV-7' },
+    ],
+    sprints: nexusSprints,
+    externalId: 'NEXUS',
+    connector: { type: 'jira', config: { projectKey: 'NXS', boardId: '88', fixVersion: '1.0', siteUrl: 'acme.atlassian.net' } },
+    sync: { lastISO: '2026-06-04T09:30:00.000Z', state: 'ok', message: null },
+  };
+  const nxsWsId = (name: string) => nexusStreams.find((w) => w.name === name)!.id;
+  const nxsMembers = teams[3].members;
+  const nxsSubjIdx: Record<string, number> = {};
+  let nxsKeyN = 101;
+  let nxsPtI = 0;
+  let nxsMemberIdx = 0;
+  Object.entries(CONNECTOR_MATRIX).forEach(([sprintPos, byStream]) => {
+    const sprintId = nexusSprints[Number(sprintPos) - 1].id;
+    Object.entries(byStream).forEach(([streamName, counts]) => {
+      counts.forEach(([status, k]) => {
+        for (let i = 0; i < k; i++) {
+          const pool = CONNECTOR_SUBJECTS[streamName];
+          nxsSubjIdx[streamName] = nxsSubjIdx[streamName] ?? 0;
+          const subject = pool[nxsSubjIdx[streamName]++ % pool.length];
+          items.push({
+            id: uid('it'), releaseId: 'rel_nexus', workStreamId: nxsWsId(streamName), sprintId,
+            key: `NXS-${nxsKeyN}`, subject, description: '', status,
+            points: PT_POOL[nxsPtI++ % PT_POOL.length],
+            externalId: `NXS-${nxsKeyN++}`,
+            assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
+            dirtyFields: [],
+          });
+        }
+      });
+    });
+  });
+
+  return { version: SCHEMA_VERSION, teams, releases: [demo, co, ob, nexus], items, meta: { lastSyncISO: null } };
 }

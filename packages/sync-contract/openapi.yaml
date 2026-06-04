@@ -192,6 +192,10 @@ components:
         label: { type: string }
         required: { type: boolean }
         hint: { type: string }
+        type:
+          type: string
+          enum: [text, date, number, password]
+          description: 'Input type hint for the UI; controls which input control is rendered. Omit or use text for plain text inputs.'
 
     ConnectorMeta:
       type: object
