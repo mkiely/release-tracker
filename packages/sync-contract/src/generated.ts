@@ -125,6 +125,8 @@ export interface components {
                 description: string;
                 status: components["schemas"]["Status"];
                 points: number;
+                /** @description Optional build/release label for patch items originating from a prior release (e.g. "Orion 1.5"). Set by the connector when the item's fix version differs from the current release. Null for native items. */
+                build?: string | null;
             };
         };
         /** @description The sync payload for one release. Normalized, keyed by externalId. */

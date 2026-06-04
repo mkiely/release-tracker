@@ -1,7 +1,7 @@
 // Sprint view — columns by work stream or status, with assignee + status
 // filters. Draggable item cards, sprint rail, capacity + events.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fmtShort } from '../lib/dates';
 import { activeSprint, capPct, eventsIn, sprintVel } from '../lib/derive';
@@ -27,6 +27,13 @@ export function Sprint() {
   const [groupBy, setGroupBy] = useState<GroupBy>('stream');
   const [memberFilter, setMemberFilter] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<Set<Status>>(new Set());
+  const [buildFilter, setBuildFilter] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setMemberFilter(new Set());
+    setStatusFilter(new Set());
+    setBuildFilter(new Set());
+  }, [sprintId]);
 
   const r = selRelease(st, id);
   if (!r) return <NotFound label="Release not found." />;
@@ -42,6 +49,18 @@ export function Sprint() {
   const isAct = !!act && act.id === sp.id;
   const evts = eventsIn(r, sp);
   const totalPts = items.reduce((a, i) => a + i.points, 0);
+
+  // Unique build labels present in this sprint (patch items from prior releases)
+  const sprintBuilds = [...new Set(items.map((i) => i.build).filter((b): b is string => b !== null))];
+
+  function toggleBuild(b: string) {
+    setBuildFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(b)) next.delete(b);
+      else next.add(b);
+      return next;
+    });
+  }
 
   // Members who have at least one item in this sprint
   const sprintMembers = (team?.members ?? []).filter((m) =>
@@ -68,7 +87,8 @@ export function Sprint() {
 
   const filteredItems = items
     .filter((i) => memberFilter.size === 0 || memberFilter.has(i.assignedMemberId ?? ''))
-    .filter((i) => statusFilter.size === 0 || statusFilter.has(i.status));
+    .filter((i) => statusFilter.size === 0 || statusFilter.has(i.status))
+    .filter((i) => buildFilter.size === 0 || buildFilter.has(i.build ?? ''));
 
   // Stream columns (filtered)
   const streamCols = r.workStreams
@@ -81,7 +101,7 @@ export function Sprint() {
     items: filteredItems.filter((i) => i.status === s),
   }));
 
-  const isFiltered = memberFilter.size > 0 || statusFilter.size > 0;
+  const isFiltered = memberFilter.size > 0 || statusFilter.size > 0 || buildFilter.size > 0;
 
   return (
     <div className="wf wf-screen pt-root">
@@ -250,6 +270,40 @@ export function Sprint() {
           );
         })}
 
+        {sprintBuilds.length > 0 && (
+          <>
+            <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />
+            {sprintBuilds.map((b) => {
+              const active = buildFilter.has(b);
+              return (
+                <button
+                  key={b}
+                  onClick={() => toggleBuild(b)}
+                  title={active ? `Remove filter: ${b}` : `Filter: ${b}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '2px 9px 2px 7px',
+                    borderRadius: 20,
+                    border: `1.5px solid ${active ? WF.ink : WF.line}`,
+                    background: active ? WF.fill : 'transparent',
+                    color: active ? WF.ink : WF.t3,
+                    cursor: 'pointer',
+                    fontSize: 11.5,
+                    fontWeight: active ? 700 : 500,
+                    fontFamily: WF.sans,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: 2, background: active ? WF.ink : WF.t3, flexShrink: 0 }} />
+                  {b}
+                </button>
+              );
+            })}
+          </>
+        )}
+
         {isFiltered && (
           <>
             <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />
@@ -257,6 +311,7 @@ export function Sprint() {
               onClick={() => {
                 setMemberFilter(new Set());
                 setStatusFilter(new Set());
+                setBuildFilter(new Set());
               }}
               title="Clear all filters"
               style={{

@@ -484,12 +484,26 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   return (
     <Modal
       onClose={onClose}
-      width={520}
+      width={640}
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <span className="wf-mono" style={{ fontSize: 12.5, color: WF.t3, background: WF.fill, padding: '3px 7px', borderRadius: 5 }}>
             {it.key}
           </span>
+          {it.build && (
+            <span
+              title={`Build: ${it.build}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                fontSize: 11.5, fontWeight: 600, color: WF.t3,
+                background: WF.fill, border: `1.5px solid ${WF.line}`,
+                borderRadius: 5, padding: '2px 8px',
+              }}
+            >
+              <span style={{ width: 5, height: 5, borderRadius: 1, background: WF.t3, flexShrink: 0 }} />
+              {it.build}
+            </span>
+          )}
           <span style={{ fontSize: 17, fontWeight: 750 }}>Work item</span>
           {isDirty && (
             <span
@@ -526,6 +540,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           disabled={readOnlyCore}
           placeholder="No description yet — add detail, acceptance criteria, links…"
           onChange={(e) => setDesc(e.target.value)}
+          style={{ minHeight: 140 }}
         />
       </PField>
       <div style={{ display: 'flex', gap: 12 }}>

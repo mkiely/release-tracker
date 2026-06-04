@@ -101,10 +101,29 @@ export function seed(): AppState {
             id: uid('it'), releaseId: 'rel_demo', workStreamId: wsId(streamName), sprintId,
             key: `ORN-${keyN++}`, subject, description: '', status, points: PT_POOL[ptI++ % PT_POOL.length], externalId: null,
             assignedMemberId: coreMembers[memberIdx++ % coreMembers.length].id,
-            dirtyFields: [],
+            build: null, dirtyFields: [],
           });
         }
       });
+    });
+  });
+
+  // Patch items from Orion 1.5 carried into active + upcoming sprints
+  const orionPatches: { stream: string; sprintIdx: number; subject: string; status: Status; pts: number }[] = [
+    { stream: 'Checkout API',     sprintIdx: 3, subject: 'Fix decimal rounding on EUR refunds',      status: 'Active',      pts: 3 },
+    { stream: 'Checkout API',     sprintIdx: 3, subject: 'Patch idempotency key collision on retry', status: 'Not Started', pts: 2 },
+    { stream: 'Billing Migration',sprintIdx: 3, subject: 'Backport proration fix for annual plans',  status: 'Active',      pts: 5 },
+    { stream: 'Notifications',    sprintIdx: 4, subject: 'Fix email digest double-send on timezone boundary', status: 'Not Started', pts: 2 },
+    { stream: 'Checkout API',     sprintIdx: 4, subject: 'Hotfix: Apple Pay session expiry handling', status: 'Not Started', pts: 3 },
+  ];
+  orionPatches.forEach(({ stream, sprintIdx, subject, status, pts }) => {
+    items.push({
+      id: uid('it'), releaseId: 'rel_demo', workStreamId: wsId(stream),
+      sprintId: demo.sprints[sprintIdx].id,
+      key: `ORN-${keyN++}`, subject, description: '', status,
+      points: pts, externalId: null,
+      assignedMemberId: coreMembers[memberIdx++ % coreMembers.length].id,
+      build: 'Orion 1.5', dirtyFields: [],
     });
   });
 
@@ -141,7 +160,7 @@ export function seed(): AppState {
       id: uid('it'), releaseId: rel.id, workStreamId: wid, sprintId: sprintIdFor(rel, sn),
       key: `${rel.id === 'rel_co' ? 'CO' : 'OB'}-${10 + i}`, subject: 'Work item ' + (i + 1),
       description: '', status: stt, points: PT_POOL[i % PT_POOL.length], externalId: null,
-      assignedMemberId: null, dirtyFields: [],
+      assignedMemberId: null, build: null, dirtyFields: [],
     }),
   );
 
@@ -200,10 +219,29 @@ export function seed(): AppState {
             points: PT_POOL[nxsPtI++ % PT_POOL.length],
             externalId: `NXS-${nxsKeyN++}`,
             assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
-            dirtyFields: [],
+            build: null, dirtyFields: [],
           });
         }
       });
+    });
+  });
+
+  // Patch items from Nexus Beta 2 carried into the active sprint (sprint 6)
+  const nexusPatches: { stream: string; subject: string; status: Status; pts: number }[] = [
+    { stream: 'Auth & SSO',          subject: 'Backport JWT clock-skew tolerance fix',        status: 'Active',      pts: 2 },
+    { stream: 'API Gateway',         subject: 'Patch circuit-breaker false-positive on 429',  status: 'Active',      pts: 3 },
+    { stream: 'Data Ingestion',      subject: 'Fix dedup window off-by-one under high lag',    status: 'Not Started', pts: 5 },
+    { stream: 'Webhooks',            subject: 'Retry storm fix from Beta 2 load test',         status: 'Not Started', pts: 3 },
+  ];
+  const nexusActiveSprint = nexusSprints[5]; // sprint 6 — Load Testing & Hardening
+  nexusPatches.forEach(({ stream, subject, status, pts }) => {
+    items.push({
+      id: uid('it'), releaseId: 'rel_nexus', workStreamId: nxsWsId(stream),
+      sprintId: nexusActiveSprint.id,
+      key: `NXS-${nxsKeyN}`, subject, description: '', status,
+      points: pts, externalId: `NXS-${nxsKeyN++}`,
+      assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
+      build: 'Nexus Beta 2', dirtyFields: [],
     });
   });
 

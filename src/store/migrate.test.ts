@@ -24,6 +24,11 @@ const v3Item = () => ({
   key: 'K-1', subject: 'S', description: '', status: 'Active', points: 3, externalId: null,
 });
 
+// Minimal v4 item — no build field.
+const v4Item = () => ({
+  ...v3Item(), assignedMemberId: null, dirtyFields: [],
+});
+
 describe('migrate — v1 → current', () => {
   const v1 = { version: 1, teams: [], releases: [v1Release()], items: [], meta: { lastSyncISO: null } };
 
@@ -121,6 +126,35 @@ describe('migrate — v3 → current', () => {
     const v3WithAssignee = { ...v3, items: [{ ...v3Item(), assignedMemberId: 'm1' }] };
     const next = migrate(v3WithAssignee as any)!;
     expect(next.items[0].assignedMemberId).toBe('m1');
+  });
+});
+
+describe('migrate — v4 → current', () => {
+  const v4 = {
+    version: 4, teams: [], meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), sprints: [{ id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 0, externalId: null }] }],
+    items: [v4Item()],
+  };
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v4 as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('adds build: null to items that lack it', () => {
+    const next = migrate(v4 as any)!;
+    expect(next.items[0].build).toBeNull();
+  });
+
+  it('preserves an existing build value when already set', () => {
+    const v4WithBuild = { ...v4, items: [{ ...v4Item(), build: 'Orion 1.5' }] };
+    const next = migrate(v4WithBuild as any)!;
+    expect(next.items[0].build).toBe('Orion 1.5');
+  });
+
+  it('sets build: null on every item when multiple items are present', () => {
+    const v4Multi = { ...v4, items: [v4Item(), { ...v4Item(), id: 'it2', key: 'K-2' }] };
+    const next = migrate(v4Multi as any)!;
+    expect(next.items.every((i) => i.build === null)).toBe(true);
   });
 });
 

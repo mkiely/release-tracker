@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.2.0
+  version: 0.3.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
@@ -163,6 +163,13 @@ components:
             description: { type: string }
             status: { $ref: '#/components/schemas/Status' }
             points: { type: number }
+            build:
+              type: string
+              nullable: true
+              description: >-
+                Optional build/release label for patch items originating from a prior
+                release (e.g. "Orion 1.5"). Set by the connector when the item's fix
+                version differs from the current release. Null for native items.
 
     MappedRelease:
       type: object

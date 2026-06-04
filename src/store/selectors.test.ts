@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { selDirtyCount, selItem, selItemsFor, selItemsForStream, selRelease, selTeam } from './store';
+import { SCHEMA_VERSION } from '../types';
 import type { AppState, Release, Team, WorkItem } from '../types';
 
 const team = (id: string): Team => ({
@@ -16,12 +17,12 @@ const release = (id: string): Release => ({
 const item = (id: string, releaseId: string, wsId = 'ws1', dirty: string[] = []): WorkItem => ({
   id, releaseId, workStreamId: wsId, sprintId: null,
   key: `K-${id}`, subject: 'S', description: '', status: 'Not Started',
-  points: 1, externalId: null, assignedMemberId: null, dirtyFields: dirty,
+  points: 1, externalId: null, assignedMemberId: null, build: null, dirtyFields: dirty,
 });
 
 const state = (...overrides: Partial<AppState>[]): AppState =>
   Object.assign(
-    { version: 4, teams: [team('t1'), team('t2')], releases: [release('r1'), release('r2')], items: [], meta: { lastSyncISO: null } },
+    { version: SCHEMA_VERSION, teams: [team('t1'), team('t2')], releases: [release('r1'), release('r2')], items: [], meta: { lastSyncISO: null } },
     ...overrides,
   );
 

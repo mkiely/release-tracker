@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applySync } from './applySync';
 import { buildSprints } from '../lib/dates';
+import { SCHEMA_VERSION } from '../types';
 import type { AppState, Release, WorkItem } from '../types';
 import type { MappedRelease } from './schema';
 
@@ -26,7 +27,7 @@ const localRelease = (): Release => ({
 });
 
 const baseState = (overrides: Partial<AppState> = {}): AppState => ({
-  version: 4,
+  version: SCHEMA_VERSION,
   teams: [],
   releases: [baseRelease()],
   items: [],
@@ -135,7 +136,7 @@ describe('applySync — local-only entities are untouched', () => {
     const local: WorkItem = {
       id: 'it_local', releaseId: 'rel_1', workStreamId: 'ws_x', sprintId: 'sp_x',
       key: 'LOCAL-1', subject: 'Hand-entered', description: '', status: 'Not Started', points: 1, externalId: null,
-      assignedMemberId: null, dirtyFields: [],
+      assignedMemberId: null, build: null, dirtyFields: [],
     };
     const { next } = applySync(baseState({ items: [local] }), 'rel_1', mapped());
     const stillThere = next.items.find((i) => i.id === 'it_local');
@@ -368,6 +369,37 @@ describe('applySync — dirty-aware pull', () => {
     expect(next.items[0].subject).toBe('Updated subject'); // read-only, external wins
     expect(next.items[0].status).toBe('Complete'); // read-only, external wins
     expect(next.items[0].points).toBe(13); // writeable + dirty, preserved
+  });
+});
+
+describe('applySync — build field', () => {
+  const itemWithBuild = (build: string | null) => ({
+    externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null,
+    fields: { key: 'EXT-1', subject: 's', description: '', status: 'Active' as const, points: 3, build },
+  });
+
+  it('sets build from the mapped field on item create', () => {
+    const m = mapped({ items: [itemWithBuild('Orion 1.5')] });
+    const { next } = applySync(baseState(), 'rel_1', m);
+    expect(next.items[0].build).toBe('Orion 1.5');
+  });
+
+  it('sets build: null when the connector omits the field', () => {
+    const { next } = applySync(baseState(), 'rel_1', mapped());
+    expect(next.items[0].build).toBeNull();
+  });
+
+  it('updates build on re-sync', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [itemWithBuild(null)] }));
+    const m2 = mapped({ items: [itemWithBuild('Orion 1.5')] });
+    const { next } = applySync(first.next, 'rel_1', m2);
+    expect(next.items[0].build).toBe('Orion 1.5');
+  });
+
+  it('clears build to null when the connector removes it on re-sync', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [itemWithBuild('Orion 1.5')] }));
+    const { next } = applySync(first.next, 'rel_1', mapped({ items: [itemWithBuild(null)] }));
+    expect(next.items[0].build).toBeNull();
   });
 });
 

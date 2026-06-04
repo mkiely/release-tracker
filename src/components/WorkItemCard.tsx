@@ -128,6 +128,21 @@ export function WorkItemCard({
               }}
             />
           )}
+          {it.build && (
+            <span
+              title={`Build: ${it.build}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 10.5, fontWeight: 600, color: WF.t3,
+                background: WF.fill, border: `1px solid ${WF.line}`,
+                borderRadius: 4, padding: '1px 6px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span style={{ width: 5, height: 5, borderRadius: 1, background: WF.t3, flexShrink: 0 }} />
+              {it.build}
+            </span>
+          )}
           <span className="wf-pts">{it.points} pts</span>
         </div>
       </div>

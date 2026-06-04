@@ -188,6 +188,7 @@ export function applySync(
       existing.description = m.fields.description;
       existing.status = m.fields.status;
       existing.assignedMemberId = assignedMemberId;
+      existing.build = m.fields.build ?? null;
       // Dirty-aware: preserve local value for writeable fields pending push.
       const sprintDirty = writeableItemFields.includes('sprint') && existing.dirtyFields.includes('sprint');
       const pointsDirty = writeableItemFields.includes('points') && existing.dirtyFields.includes('points');
@@ -207,6 +208,7 @@ export function applySync(
         points: m.fields.points,
         externalId: m.externalId,
         assignedMemberId,
+        build: m.fields.build ?? null,
         dirtyFields: [],
       });
       result.created++;

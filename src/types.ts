@@ -9,7 +9,7 @@ export type Status = (typeof STATUSES)[number];
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export interface Member {
   id: string;
@@ -93,6 +93,8 @@ export interface WorkItem {
   points: number;
   externalId: string | null;
   assignedMemberId: string | null;
+  /** The build/release label this item originated from, if it was pulled from a prior release. Set by the connector. */
+  build: string | null;
   /** Writeable fields edited locally since last sync/push, awaiting push. Empty for clean items. */
   dirtyFields: string[];
 }

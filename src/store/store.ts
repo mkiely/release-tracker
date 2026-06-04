@@ -81,6 +81,14 @@ export function migrate(p: AppState): AppState | null {
       })),
     };
   }
+  // v4 → v5: work items gain build (cross-release patch label, set by connector).
+  if (s.version === 4) {
+    s = {
+      ...s,
+      version: 5,
+      items: s.items.map((it) => ({ ...it, build: (it as any).build ?? null })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -96,7 +104,7 @@ function load(): AppState {
   } catch {
     /* ignore */
   }
-  return { version: SCHEMA_VERSION, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };
+  return seed();
 }
 
 function persist(state: AppState) {
@@ -264,6 +272,7 @@ export const useStore = create<StoreState>((set, get) => {
         points: Number(points) || 0,
         externalId: null,
         assignedMemberId: assignedMemberId ?? null,
+        build: null,
         dirtyFields: [],
       };
       commit((d) => { d.items = [...d.items, it]; });
