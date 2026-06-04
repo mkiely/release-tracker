@@ -9,7 +9,7 @@ export type Status = (typeof STATUSES)[number];
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export interface Member {
   id: string;
@@ -84,7 +84,7 @@ export interface Release {
 export interface WorkItem {
   id: string;
   releaseId: string;
-  workStreamId: string;
+  workStreamId: string | null;
   sprintId: string | null;
   key: string;
   subject: string;

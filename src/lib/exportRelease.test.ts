@@ -44,6 +44,7 @@ const item = (over: Partial<WorkItem>): WorkItem => ({
   points: 1,
   externalId: null,
   assignedMemberId: null,
+  build: null,
   dirtyFields: [],
   ...over,
 });

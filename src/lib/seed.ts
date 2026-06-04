@@ -127,6 +127,34 @@ export function seed(): AppState {
     });
   });
 
+  // Unassigned items — no work stream, to exercise workStreamId: null
+  items.push(
+    {
+      id: uid('it'), releaseId: 'rel_demo', workStreamId: null,
+      sprintId: demo.sprints[2].id,
+      key: `ORN-${keyN++}`, subject: 'Define third-party cookie deprecation plan',
+      description: 'Cross-cutting concern; stream TBD once owner is identified.',
+      status: 'Not Started', points: 3, externalId: null,
+      assignedMemberId: null, build: null, dirtyFields: [],
+    },
+    {
+      id: uid('it'), releaseId: 'rel_demo', workStreamId: null,
+      sprintId: demo.sprints[3].id,
+      key: `ORN-${keyN++}`, subject: 'Security audit findings — triage and assign',
+      description: 'Raw findings from pentest; stream assignment pending review.',
+      status: 'Active', points: 5, externalId: null,
+      assignedMemberId: coreMembers[0].id, build: null, dirtyFields: [],
+    },
+    {
+      id: uid('it'), releaseId: 'rel_demo', workStreamId: null,
+      sprintId: null,
+      key: `ORN-${keyN++}`, subject: 'Migrate internal tooling to new auth provider',
+      description: 'Backlog item; not yet assigned to a stream or sprint.',
+      status: 'Not Started', points: 2, externalId: null,
+      assignedMemberId: null, build: null, dirtyFields: [],
+    },
+  );
+
   // two lighter releases so the home list feels real
   const co: Release = {
     id: 'rel_co', name: 'Q3 Checkout', startISO: '2026-05-19', teamId: 'team_pay',

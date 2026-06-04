@@ -158,6 +158,18 @@ describe('applySync — reference resolution', () => {
     expect(result.warnings.some((w) => w.includes('EXT-9'))).toBe(true);
   });
 
+  it('accepts an item with extWorkStreamId null as unassigned (workStreamId null)', () => {
+    const m = mapped({
+      items: [
+        { externalId: 'EXT-U', extWorkStreamId: null, extSprintId: 'JSPR-1', extAssigneeId: null, fields: { key: 'EXT-U', subject: 'unassigned item', description: '', status: 'Not Started', points: 1 } },
+      ],
+    });
+    const { next, result } = applySync(baseState(), 'rel_1', m);
+    expect(next.items).toHaveLength(1);
+    expect(next.items[0].workStreamId).toBeNull();
+    expect(result.skipped).toBe(0);
+  });
+
   it('places an item with an unresolved sprint into the backlog (sprintId null)', () => {
     const m = mapped({
       items: [

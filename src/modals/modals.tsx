@@ -350,12 +350,12 @@ export function WorkItemModal({
   })();
   const [subject, setSubject] = useState('');
   const [desc, setDesc] = useState('');
-  const [wsId, setWsId] = useState(presetStreamId || (r.workStreams[0] && r.workStreams[0].id) || '');
+  const [wsId, setWsId] = useState<string | null>(presetStreamId || (r.workStreams[0] && r.workStreams[0].id) || null);
   const [sprintId, setSprintId] = useState<string | null>(presetSprintId ?? defaultSprintId);
   const [status, setStatus] = useState<Status>('Not Started');
   const [points, setPoints] = useState(3);
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(null);
-  const canSave = !!subject.trim() && !!wsId;
+  const canSave = !!subject.trim();
   const save = () => {
     getActions().createItem(releaseId, { workStreamId: wsId, sprintId, subject: subject.trim(), description: desc, status, points, assignedMemberId });
     onClose();
@@ -385,8 +385,8 @@ export function WorkItemModal({
       </PField>
       <div style={{ display: 'flex', gap: 12 }}>
         <PField label="Work stream" style={{ flex: 1 }}>
-          <PSelect value={wsId} onChange={(e) => setWsId(e.target.value)}>
-            {r.workStreams.length === 0 && <option value="">No streams yet</option>}
+          <PSelect value={wsId ?? ''} onChange={(e) => setWsId(e.target.value || null)}>
+            <option value="">None (unassigned)</option>
             {r.workStreams.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}
@@ -441,7 +441,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
 
   const [subject, setSubject] = useState(it ? it.subject : '');
   const [desc, setDesc] = useState(it ? it.description : '');
-  const [wsId, setWsId] = useState(it ? it.workStreamId : '');
+  const [wsId, setWsId] = useState<string | null>(it ? it.workStreamId : null);
   const [sprintId, setSprintId] = useState<string | null>(it?.sprintId ?? null);
   const [status, setStatus] = useState<Status>(it ? it.status : 'Not Started');
   const [points, setPoints] = useState(it ? it.points : 3);
@@ -545,7 +545,8 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       </PField>
       <div style={{ display: 'flex', gap: 12 }}>
         <PField label="Work stream" style={{ flex: 1 }}>
-          <PSelect value={wsId} disabled={readOnlyCore} onChange={(e) => setWsId(e.target.value)}>
+          <PSelect value={wsId ?? ''} disabled={readOnlyCore} onChange={(e) => setWsId(e.target.value || null)}>
+            <option value="">None (unassigned)</option>
             {r.workStreams.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}

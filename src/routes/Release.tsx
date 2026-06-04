@@ -6,7 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { STATUSES } from '../types';
 import { dOf, fmtShort } from '../lib/dates';
 import { activeSprint, eventsIn, sprintVel, statusSegs } from '../lib/derive';
-import { selItemsForStream, selRelease, selTeam, useStore } from '../store/store';
+import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } from '../store/store';
 import { releaseToTSV } from '../lib/exportRelease';
 import { useApp } from '../app-context';
 import { NotFound, PushButton, SyncButton, TopBar } from '../components/chrome';
@@ -65,13 +65,20 @@ export function Release() {
   const last = r.sprints.length ? r.sprints[r.sprints.length - 1] : null;
 
   // lane entries for a sprint: streams that have items in it, count + status segs, width ∝ count
-  const laneFor = (spId: string) =>
-    r.workStreams
+  const unassigned = selUnassignedItems(st, r.id);
+  const laneFor = (spId: string) => {
+    const cols = r.workStreams
       .map((ws) => {
         const its = items.filter((i) => i.workStreamId === ws.id && i.sprintId === spId);
-        return { ws, n: its.length, segs: statusSegs(its) };
+        return { ws: ws as { id: string; name: string } | null, n: its.length, segs: statusSegs(its) };
       })
       .filter((e) => e.n > 0);
+    const unassignedInSprint = unassigned.filter((i) => i.sprintId === spId);
+    if (unassignedInSprint.length > 0) {
+      cols.push({ ws: null, n: unassignedInSprint.length, segs: statusSegs(unassignedInSprint) });
+    }
+    return cols;
+  };
 
   return (
     <div className="wf wf-screen pt-root">
@@ -130,25 +137,37 @@ export function Release() {
       >
         <span className="wf-tag" style={{ flexShrink: 0, marginRight: 4, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{Icon.stream}Work streams</span>
         <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
-        {r.workStreams.length === 0 ? (
+        {r.workStreams.length === 0 && unassigned.length === 0 ? (
           <span style={{ fontSize: 12.5, color: WF.t3 }}>No work streams yet — add one with the button above.</span>
         ) : (
-          r.workStreams.map((ws) => {
-            const its = selItemsForStream(st, r.id, ws.id);
-            const segs = statusSegs(its);
-            return (
+          <>
+            {r.workStreams.map((ws) => {
+              const its = selItemsForStream(st, r.id, ws.id);
+              const segs = statusSegs(its);
+              return (
+                <div
+                  key={ws.id}
+                  className="wf-card pt-link"
+                  onClick={() => navigate(`/releases/${id}/streams/${ws.id}`)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', flexShrink: 0, background: WF.paper }}
+                >
+                  <span style={{ fontSize: 12.5, fontWeight: 650, whiteSpace: 'nowrap', color: WF.ink }}>{ws.name}</span>
+                  <span className="wf-mono" style={{ fontSize: 11, color: WF.t3 }}>{its.length}</span>
+                  {its.length > 0 && <SegBar segs={segs} height={4} />}
+                </div>
+              );
+            })}
+            {unassigned.length > 0 && (
               <div
-                key={ws.id}
-                className="wf-card pt-link"
-                onClick={() => navigate(`/releases/${id}/streams/${ws.id}`)}
+                className="wf-card"
                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', flexShrink: 0, background: WF.paper }}
               >
-                <span style={{ fontSize: 12.5, fontWeight: 650, whiteSpace: 'nowrap', color: WF.ink }}>{ws.name}</span>
-                <span className="wf-mono" style={{ fontSize: 11, color: WF.t3 }}>{its.length}</span>
-                {its.length > 0 && <SegBar segs={segs} height={4} />}
+                <span style={{ fontSize: 12.5, fontWeight: 650, whiteSpace: 'nowrap', color: WF.t3, fontStyle: 'italic' }}>Unassigned</span>
+                <span className="wf-mono" style={{ fontSize: 11, color: WF.t3 }}>{unassigned.length}</span>
+                <SegBar segs={statusSegs(unassigned)} height={4} />
               </div>
-            );
-          })
+            )}
+          </>
         )}
       </div>
 
@@ -226,17 +245,14 @@ export function Release() {
                       <div style={{ display: 'flex', gap: 7, minWidth: 0 }}>
                         {lane.map((e) => (
                           <div
-                            key={e.ws.id}
-                            className="wf-card pt-link"
-                            onClick={(ev) => {
-                              ev.stopPropagation();
-                              navigate(`/releases/${id}/streams/${e.ws.id}`);
-                            }}
-                            style={{ flex: `${e.n} 1 0`, minWidth: 86, padding: '8px 11px', display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden', background: WF.paper }}
+                            key={e.ws ? e.ws.id : '__unassigned__'}
+                            className={'wf-card' + (e.ws ? ' pt-link' : '')}
+                            onClick={e.ws ? (ev) => { ev.stopPropagation(); navigate(`/releases/${id}/streams/${e.ws!.id}`); } : undefined}
+                            style={{ flex: `${e.n} 1 0`, minWidth: 86, padding: '8px 11px', display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden', background: WF.paper, cursor: e.ws ? 'pointer' : 'default' }}
                           >
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                              <span style={{ fontSize: 13, fontWeight: 650, color: WF.t2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
-                                {e.ws.name}
+                              <span style={{ fontSize: 13, fontWeight: 650, color: e.ws ? WF.t2 : WF.t3, fontStyle: e.ws ? undefined : 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
+                                {e.ws ? e.ws.name : 'Unassigned'}
                               </span>
                               <span className="wf-mono" style={{ fontSize: 11.5, color: WF.t3, flex: '0 0 auto' }}>
                                 {e.n}

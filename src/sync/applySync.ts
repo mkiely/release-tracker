@@ -156,13 +156,17 @@ export function applySync(
   // --- 3. Items: resolve refs, then match by externalId or create ---
   const items: WorkItem[] = state.items.map((i) => ({ ...i }));
   for (const m of mapped.items) {
-    const workStreamId = m.extWorkStreamId !== null ? wsByExt.get(m.extWorkStreamId) : undefined;
-    if (!workStreamId) {
-      result.skipped++;
-      result.warnings.push(
-        `Item ${m.fields.key} skipped: unresolved work stream (${m.extWorkStreamId ?? 'none'}).`,
-      );
-      continue;
+    let workStreamId: string | null;
+    if (m.extWorkStreamId === null) {
+      workStreamId = null;
+    } else {
+      const resolved = wsByExt.get(m.extWorkStreamId);
+      if (resolved === undefined) {
+        result.skipped++;
+        result.warnings.push(`Item ${m.fields.key} skipped: unresolved work stream (${m.extWorkStreamId}).`);
+        continue;
+      }
+      workStreamId = resolved;
     }
 
     let sprintId: string | null = null; // backlog by default

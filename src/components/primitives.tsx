@@ -4,6 +4,7 @@ import {
   useEffect,
   type CSSProperties,
   type InputHTMLAttributes,
+  type MouseEventHandler,
   type ReactElement,
   type ReactNode,
   type SelectHTMLAttributes,
@@ -84,7 +85,7 @@ export function IconButton({
   style,
 }: {
   icon: ReactNode;
-  onClick?: () => void;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
   title?: string;
   style?: CSSProperties;
 }) {

@@ -89,6 +89,10 @@ export function migrate(p: AppState): AppState | null {
       items: s.items.map((it) => ({ ...it, build: (it as any).build ?? null })),
     };
   }
+  // v5 → v6: workStreamId becomes string | null (existing items are unchanged).
+  if (s.version === 5) {
+    s = { ...s, version: 6 };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -127,7 +131,7 @@ interface Actions {
   updateSprint: (releaseId: string, sprintId: string, patch: Partial<Sprint>) => void;
   createItem: (
     releaseId: string,
-    input: { workStreamId: string; sprintId: string | null; subject: string; description?: string; status?: Status; points?: number; assignedMemberId?: string | null },
+    input: { workStreamId: string | null; sprintId: string | null; subject: string; description?: string; status?: Status; points?: number; assignedMemberId?: string | null },
   ) => WorkItem | null;
   updateItem: (id: string, patch: Partial<WorkItem>) => void;
   /** Pull from this release's connector and upsert the result. No-op for Local releases. */
@@ -390,6 +394,8 @@ export const selItemsFor = (s: AppState, releaseId: string): WorkItem[] =>
   s.items.filter((i) => i.releaseId === releaseId);
 export const selItemsForStream = (s: AppState, releaseId: string, wsId: string): WorkItem[] =>
   s.items.filter((i) => i.releaseId === releaseId && i.workStreamId === wsId);
+export const selUnassignedItems = (s: AppState, releaseId: string): WorkItem[] =>
+  s.items.filter((i) => i.releaseId === releaseId && i.workStreamId === null);
 export const selItem = (s: AppState, id: string): WorkItem | undefined =>
   s.items.find((i) => i.id === id);
 

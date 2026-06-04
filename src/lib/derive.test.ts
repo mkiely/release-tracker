@@ -167,6 +167,7 @@ describe('statusSegs', () => {
     points: 1,
     externalId: null,
     assignedMemberId: null,
+    build: null,
     dirtyFields: [],
   });
 

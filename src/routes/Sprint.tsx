@@ -94,6 +94,7 @@ export function Sprint() {
   const streamCols = r.workStreams
     .map((ws) => ({ ws, items: filteredItems.filter((i) => i.workStreamId === ws.id) }))
     .filter((c) => c.items.length > 0);
+  const unassignedItems = filteredItems.filter((i) => i.workStreamId === null);
 
   // Status columns (filtered)
   const statusCols = STATUSES.map((s) => ({
@@ -362,6 +363,23 @@ export function Sprint() {
                 </div>
               </div>
             ))}
+            {unassignedItems.length > 0 && (
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px', gap: 8 }}>
+                  <span style={{ fontWeight: 750, fontSize: 13.5, color: WF.t3, fontStyle: 'italic' }}>Unassigned</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', flex: '0 0 auto', color: WF.t3 }}>
+                    <span className="wf-mono" style={{ fontSize: 11.5, fontWeight: 700 }}>
+                      {unassignedItems.reduce((a, i) => a + i.points, 0)} pts
+                    </span>
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                  {unassignedItems.map((it) => (
+                    <WorkItemCard key={it.id} it={it} releaseTeamId={r.teamId} draggable onOpen={() => openModal({ type: 'itemDetail', itemId: it.id })} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ display: 'flex', gap: 7, alignItems: 'stretch' }}>
