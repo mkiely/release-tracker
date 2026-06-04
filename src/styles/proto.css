@@ -140,6 +140,7 @@ textarea.pt-in {
   }
 }
 .pt-modal {
+  font-family: var(--wf-sans);
   background: var(--wf-paper);
   border-radius: 14px;
   box-shadow: 0 24px 70px var(--wf-shadow);
@@ -186,6 +187,7 @@ textarea.pt-in {
   left: 50%;
   transform: translateX(-50%);
   z-index: 80;
+  font-family: var(--wf-sans);
   background: var(--wf-ink);
   color: var(--wf-on-ink);
   border-radius: 10px;

@@ -71,7 +71,7 @@ export function WorkItemCard({ it, onOpen, draggable }: { it: WorkItem; onOpen: 
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span className="wf-mono" style={{ fontSize: 11, color: WF.t3 }}>
+        <span className="wf-mono" style={{ fontSize: 11, fontWeight: 700, color: WF.t2 }}>
           {it.key}
         </span>
         <span className="wf-pts">{it.points} pts</span>

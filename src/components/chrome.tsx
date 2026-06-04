@@ -1,23 +1,97 @@
-// Shared chrome — TopBar, Brand, SyncButton, ThemeToggle, NotFound.
+// Shared chrome — TopBar, Brand, SyncButton, PalettePicker, NotFound.
 // Ported from proto-app.jsx.
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ThemeStore, useTheme } from '../store/theme';
+import { THEMES, ThemeStore, useTheme } from '../store/theme';
 import type { Release } from '../types';
 import { Icon } from './Icon';
 import { IconButton, PButton } from './primitives';
 import { WF } from './tokens';
 
-export function ThemeToggle() {
-  const theme = useTheme();
-  const dark = theme === 'dark';
+// Small two-tone swatch: left half = bg, right half = active dot
+function ThemeSwatch({ bg, dot, size = 14 }: { bg: string; dot: string; size?: number }) {
+  const r = size / 2;
   return (
-    <IconButton
-      icon={dark ? Icon.sun : Icon.moon}
-      onClick={ThemeStore.toggle}
-      title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-    />
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0, borderRadius: '50%', overflow: 'hidden' }}>
+      <rect x="0" y="0" width={r} height={size} fill={bg} />
+      <rect x={r} y="0" width={r} height={size} fill={dot} />
+    </svg>
+  );
+}
+
+export function PalettePicker() {
+  const theme = useTheme();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const active = THEMES.find((t) => t.id === theme) ?? THEMES[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <IconButton
+        icon={<ThemeSwatch bg={active.bg} dot={active.dot} size={15} />}
+        onClick={() => setOpen((o) => !o)}
+        title="Choose colour theme"
+      />
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 8px)',
+            right: 0,
+            zIndex: 60,
+            background: WF.paper,
+            border: `1.5px solid ${WF.line}`,
+            borderRadius: 12,
+            boxShadow: `0 8px 28px var(--wf-shadow)`,
+            padding: '6px 0',
+            minWidth: 180,
+          }}
+        >
+          {THEMES.map((t) => {
+            const isActive = t.id === theme;
+            return (
+              <button
+                key={t.id}
+                onClick={() => { ThemeStore.set(t.id); setOpen(false); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  padding: '7px 14px',
+                  background: isActive ? WF.fill : 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontSize: 13,
+                  fontWeight: isActive ? 650 : 400,
+                  color: WF.ink,
+                  textAlign: 'left',
+                }}
+              >
+                <ThemeSwatch bg={t.bg} dot={t.dot} size={16} />
+                <span style={{ flex: 1 }}>{t.label}</span>
+                {isActive && (
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: WF.t2 }}>
+                    <path d="M2 6l2.8 3L10 3" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -74,7 +148,7 @@ export function TopBar({
             borderLeft: right ? `1.5px solid ${WF.line}` : 'none',
           }}
         >
-          <ThemeToggle />
+          <PalettePicker />
         </div>
       </div>
     </div>

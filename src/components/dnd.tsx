@@ -115,8 +115,8 @@ function SprintPill({
       }}
       title={isCur ? 'Current sprint' : canDropVisual ? `Move ${draggingItem!.key} here` : `Go to ${sp.name}`}
       style={{
-        flex: '0 0 auto',
-        width: 150,
+        flex: '1 0 150px',
+        maxWidth: 280,
         cursor: isCur ? 'default' : 'pointer',
         padding: '7px 10px',
         borderRadius: 9,

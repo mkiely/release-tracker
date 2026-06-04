@@ -114,9 +114,46 @@ export function Release() {
         }
       />
 
-      <div style={{ flex: 1, overflow: 'hidden', display: 'grid', gridTemplateColumns: '1fr 256px' }}>
-        {/* sprint board */}
-        <div style={{ padding: '16px 22px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* work streams header strip */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 22px',
+          borderBottom: `1.5px solid ${WF.line}`,
+          background: WF.paper,
+          overflowX: 'auto',
+          flexShrink: 0,
+        }}
+      >
+        <span className="wf-tag" style={{ flexShrink: 0, marginRight: 4 }}>Work streams</span>
+        <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
+        {r.workStreams.length === 0 ? (
+          <span style={{ fontSize: 12.5, color: WF.t3 }}>No work streams yet — add one with the button above.</span>
+        ) : (
+          r.workStreams.map((ws) => {
+            const its = selItemsForStream(st, r.id, ws.id);
+            const segs = statusSegs(its);
+            return (
+              <div
+                key={ws.id}
+                className="wf-card pt-link"
+                onClick={() => navigate(`/releases/${id}/streams/${ws.id}`)}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', flexShrink: 0, background: WF.paper }}
+              >
+                <span style={{ fontSize: 12.5, fontWeight: 650, whiteSpace: 'nowrap', color: WF.ink }}>{ws.name}</span>
+                <span className="wf-mono" style={{ fontSize: 11, color: WF.t3 }}>{its.length}</span>
+                {its.length > 0 && <SegBar segs={segs} height={4} />}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        {/* sprint board — full width now that the right rail is gone */}
+        <div style={{ height: '100%', padding: '16px 22px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
               <span className="wf-tag">Sprints · {r.sprints.length}</span>
@@ -137,7 +174,8 @@ export function Release() {
               r.sprints.map((sp) => {
               const off = sp.daysOff;
               const vel = sprintVel(team, sp, off);
-              const planned = items.filter((i) => i.sprintId === sp.id).reduce((a, i) => a + i.points, 0);
+              const spItems = items.filter((i) => i.sprintId === sp.id);
+              const planned = spItems.reduce((a, i) => a + i.points, 0);
               const isAct = !!active && active.id === sp.id;
               const evts = eventsIn(r, sp);
               const lane = laneFor(sp.id);
@@ -155,6 +193,7 @@ export function Release() {
                       alignItems: 'center',
                       gap: 12,
                       padding: '9px 14px',
+                      background: WF.fill,
                       borderBottom: `1.5px solid ${isAct ? WF.status.Active.dot : WF.line}`,
                     }}
                   >
@@ -166,6 +205,9 @@ export function Release() {
                     </span>
                     <span style={{ fontSize: 11.5, color: WF.t3, whiteSpace: 'nowrap', flex: '0 0 auto' }}>
                       {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
+                    </span>
+                    <span className="wf-mono" style={{ fontSize: 11, fontWeight: 700, color: WF.t3, whiteSpace: 'nowrap', flex: '0 0 auto' }}>
+                      {spItems.length} item{spItems.length !== 1 ? 's' : ''}
                     </span>
                     <CapBarInline planned={planned} cap={vel} />
                     <EventStrip events={evts} align="flex-end" />
@@ -189,7 +231,7 @@ export function Release() {
                             style={{ flex: `${e.n} 1 0`, minWidth: 86, padding: '8px 11px', display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden', background: WF.paper }}
                           >
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                              <span style={{ fontSize: 13, fontWeight: 650, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
+                              <span style={{ fontSize: 13, fontWeight: 650, color: WF.t2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
                                 {e.ws.name}
                               </span>
                               <span className="wf-mono" style={{ fontSize: 11.5, color: WF.t3, flex: '0 0 auto' }}>
@@ -207,44 +249,6 @@ export function Release() {
             })
             )}
           </div>
-        </div>
-        {/* right rail: work streams */}
-        <div style={{ borderLeft: `1.5px solid ${WF.line}`, background: WF.paper, padding: '18px 18px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <PButton icon={Icon.plus} onClick={() => openModal({ type: 'stream', releaseId: id })} style={{ justifyContent: 'center' }}>
-            New work stream
-          </PButton>
-          <hr className="wf-divider" />
-          <span className="wf-tag">Work streams · {r.workStreams.length}</span>
-          {r.workStreams.length === 0 ? (
-            <span style={{ fontSize: 12.5, color: WF.t3 }}>None yet. Add a work stream, then create work items in it.</span>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-              {r.workStreams.map((ws, i) => {
-                const its = selItemsForStream(st, r.id, ws.id);
-                return (
-                  <div
-                    key={ws.id}
-                    className="pt-link"
-                    onClick={() => navigate(`/releases/${id}/streams/${ws.id}`)}
-                    style={{ display: 'flex', flexDirection: 'column', gap: 7, paddingBottom: 9, borderBottom: i < r.workStreams.length - 1 ? `1px solid ${WF.line}` : 'none', cursor: 'pointer' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                      <span style={{ fontWeight: 650, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
-                        {ws.name}
-                      </span>
-                      <span style={{ color: WF.t3, display: 'flex', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
-                        <span className="wf-mono" style={{ fontSize: 11 }}>
-                          {its.length}
-                        </span>
-                        {Icon.chevRight}
-                      </span>
-                    </div>
-                    {its.length > 0 && <SegBar segs={statusSegs(its)} height={6} />}
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
       </div>
     </div>
