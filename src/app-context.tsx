@@ -10,7 +10,7 @@ import { ModalHost } from './modals/ModalHost';
 export type ModalSpec =
   | { type: 'team'; teamId?: string }
   | { type: 'stream'; releaseId: string }
-  | { type: 'event'; releaseId: string }
+  | { type: 'event'; releaseId: string; eventId?: string }
   | { type: 'sprint'; releaseId: string; sprintId: string }
   | { type: 'item'; releaseId: string; presetStreamId?: string; presetSprintId?: string }
   | { type: 'itemDetail'; itemId: string }

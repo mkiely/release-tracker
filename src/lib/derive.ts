@@ -30,3 +30,27 @@ export const eventsIn = (release: Release, sp: Sprint) =>
 /** Per-status counts (non-zero only) for the segmented status bar. */
 export const statusSegs = (items: WorkItem[]): StatusSeg[] =>
   STATUSES.map((k) => ({ k, v: items.filter((i) => i.status === k).length })).filter((s) => s.v > 0);
+
+/**
+ * Groups a flat list of items by work stream, preserving the release's stream
+ * order. Items whose workStreamId is absent from the stream list (or null) are
+ * collected into a trailing "unassigned" group. Groups with no items are
+ * omitted entirely.
+ */
+export function groupItemsByStream(
+  items: WorkItem[],
+  workStreams: { id: string; name: string }[],
+): Array<{ wsId: string | null; wsName: string | null; items: WorkItem[] }> {
+  const groups: Array<{ wsId: string | null; wsName: string | null; items: WorkItem[] }> = [];
+  const placed = new Set<string | null>();
+  for (const ws of workStreams) {
+    const its = items.filter((i) => i.workStreamId === ws.id);
+    if (its.length) {
+      groups.push({ wsId: ws.id, wsName: ws.name, items: its });
+      placed.add(ws.id);
+    }
+  }
+  const unassigned = items.filter((i) => !placed.has(i.workStreamId));
+  if (unassigned.length) groups.push({ wsId: null, wsName: null, items: unassigned });
+  return groups;
+}

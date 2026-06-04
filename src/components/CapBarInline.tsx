@@ -13,9 +13,11 @@ export function CapBarInline({ planned, cap, w = 134 }: { planned: number; cap: 
       title={over ? `Over capacity by ${planned - cap} pts` : `${Math.max(0, cap - planned)} pts of capacity remaining`}
       style={{ flex: '0 0 auto', width: w, display: 'flex', alignItems: 'center', gap: 8 }}
     >
-      <div style={{ flex: 1, display: 'flex', height: 6, borderRadius: 4, overflow: 'hidden', background: WF.fill }}>
+      <div style={{ flex: 1, display: 'flex', height: 6, borderRadius: 4, overflow: 'hidden', background: WF.fill, border: `1px solid ${WF.line}` }}>
         <div style={{ flex: ratio, background: over ? WF.status.Blocked.dot : WF.status.Active.dot }} />
-        {over ? <div style={{ flex: overW, background: WF.status.Blocked.text }} /> : <div style={{ flex: 1 - ratio }} />}
+        {over
+          ? <div style={{ flex: overW, background: WF.status.Blocked.text }} />
+          : <div style={{ flex: 1 - ratio, background: WF.lineStrong }} />}
       </div>
       <span
         className="wf-mono"

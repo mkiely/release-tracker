@@ -8,16 +8,23 @@ import { WF } from './tokens';
 export function EventBadge({
   children,
   date,
-  max = 16,
+  max = 22,
+  onClick,
 }: {
   children: ReactNode;
   date?: string;
   max?: number;
+  onClick?: () => void;
 }) {
   const full = typeof children === 'string' ? children : null;
   const txt = full && full.length > max ? full.slice(0, max - 1) + '…' : children;
   return (
-    <span className="wf-event" title={full || undefined}>
+    <span
+      className="wf-event"
+      title={full || undefined}
+      onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
+      style={onClick ? { cursor: 'pointer' } : undefined}
+    >
       <span className="wf-flag" style={{ flex: '0 0 auto' }} />
       <span style={{ whiteSpace: 'nowrap', flex: '0 0 auto' }}>{txt}</span>
       {date ? <span style={{ color: WF.t3, fontWeight: 500, flex: '0 0 auto' }}>{date}</span> : null}

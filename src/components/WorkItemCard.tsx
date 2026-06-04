@@ -2,32 +2,34 @@
 
 import type { Status, WorkItem } from '../types';
 import { STATUSES } from '../types';
-import { getActions, selTeam, useStore } from '../store/store';
+import { getActions, selRelease, selTeam, useStore } from '../store/store';
 import { Drag, useDrag } from './dnd';
 import { Icon } from './Icon';
 import { WF } from './tokens';
 
 // inline status chip that doubles as a select
-export function StatusSelect({ value, onChange }: { value: Status; onChange: (v: Status) => void }) {
+export function StatusSelect({ value, onChange, disabled }: { value: Status; onChange: (v: Status) => void; disabled?: boolean }) {
   const c = WF.status[value];
   return (
     <div style={{ position: 'relative', alignSelf: 'center' }} onClick={(e) => e.stopPropagation()}>
-      <span className="wf-chip" style={{ background: c.soft, color: c.text, paddingRight: 22 }}>
+      <span className="wf-chip" style={{ background: c.soft, color: c.text, paddingRight: disabled ? 9 : 22 }}>
         <span className="wf-dot" style={{ background: c.dot }} />
         {value}
-        <span style={{ position: 'absolute', right: 7, color: c.text, display: 'flex' }}>{Icon.chevDown}</span>
+        {!disabled && <span style={{ position: 'absolute', right: 7, color: c.text, display: 'flex' }}>{Icon.chevDown}</span>}
       </span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as Status)}
-        style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%' }}
-      >
-        {STATUSES.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-      </select>
+      {!disabled && (
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value as Status)}
+          style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%' }}
+        >
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 }
@@ -75,8 +77,10 @@ export function WorkItemCard({
   const dragging = useDrag();
   const isMe = !!draggable && !!dragging && dragging.id === it.id;
   const team = useStore((s) => selTeam(s, releaseTeamId));
+  const release = useStore((s) => selRelease(s, it.releaseId));
   const assignedMember = team?.members.find((m) => m.id === it.assignedMemberId) ?? null;
   const isDirty = it.dirtyFields.length > 0;
+  const statusReadOnly = !!it.externalId || !!release?.connector;
 
   return (
     <div
@@ -112,7 +116,7 @@ export function WorkItemCard({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span className="wf-mono" style={{ fontSize: 11, fontWeight: 700, color: WF.t2 }}>
+        <span className="wf-mono" style={{ fontSize: 12.5, fontWeight: 700, color: WF.t2 }}>
           {it.key}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -127,21 +131,6 @@ export function WorkItemCard({
                 flexShrink: 0,
               }}
             />
-          )}
-          {it.build && (
-            <span
-              title={`Build: ${it.build}`}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                fontSize: 10.5, fontWeight: 600, color: WF.t3,
-                background: WF.fill, border: `1px solid ${WF.line}`,
-                borderRadius: 4, padding: '1px 6px',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <span style={{ width: 5, height: 5, borderRadius: 1, background: WF.t3, flexShrink: 0 }} />
-              {it.build}
-            </span>
           )}
           <span className="wf-pts">{it.points} pts</span>
         </div>
@@ -161,15 +150,15 @@ export function WorkItemCard({
         {it.subject}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-        <StatusSelect value={it.status} onChange={(v) => getActions().updateItem(it.id, { status: v })} />
+        <StatusSelect value={it.status} disabled={statusReadOnly} onChange={(v) => getActions().updateItem(it.id, { status: v })} />
         {assignedMember ? (
-          <MemberAvatar name={assignedMember.name} />
+          <MemberAvatar name={assignedMember.name} size={32} />
         ) : (
           <span
             title="Unassigned"
             style={{
-              width: 40,
-              height: 40,
+              width: 32,
+              height: 32,
               borderRadius: '50%',
               border: `1.5px dashed ${WF.line}`,
               display: 'inline-flex',
@@ -180,6 +169,37 @@ export function WorkItemCard({
             }}
           >
             {Icon.member}
+          </span>
+        )}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+        {it.build ? (
+          <span
+            title={`Build: ${it.build}`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 10.5, fontWeight: 600, color: WF.t3,
+              background: WF.fill, border: `1px solid ${WF.line}`,
+              borderRadius: 4, padding: '1px 6px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span style={{ width: 5, height: 5, borderRadius: 1, background: WF.t3, flexShrink: 0 }} />
+            {it.build}
+          </span>
+        ) : (
+          <span
+            title="No build associated — this should be set by the connector"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 10.5, fontWeight: 600, color: WF.t3,
+              background: 'transparent', border: `1px dashed ${WF.line}`,
+              borderRadius: 4, padding: '1px 6px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span style={{ width: 5, height: 5, borderRadius: 1, border: `1px solid ${WF.t3}`, flexShrink: 0 }} />
+            No Set Build
           </span>
         )}
       </div>

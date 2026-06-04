@@ -12,7 +12,7 @@ export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose
     case 'stream':
       return <WorkStreamModal releaseId={modal.releaseId} onClose={onClose} />;
     case 'event':
-      return <EventModal releaseId={modal.releaseId} onClose={onClose} />;
+      return <EventModal releaseId={modal.releaseId} eventId={modal.eventId} onClose={onClose} />;
     case 'sprint':
       return <SprintModal releaseId={modal.releaseId} sprintId={modal.sprintId} onClose={onClose} />;
     case 'item':

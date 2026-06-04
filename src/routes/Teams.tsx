@@ -45,12 +45,16 @@ export function Teams() {
                   <div style={{ fontWeight: 750, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
                   <div style={{ fontSize: 12, color: WF.t3, marginTop: 3 }}>{t.members.length} members</div>
                 </div>
-                <div style={{ display: 'flex', gap: 4, flex: '0 0 auto' }}>
-                  <IconButton
-                    icon={Icon.edit}
-                    title="Edit team"
-                    onClick={() => openModal({ type: 'team', teamId: t.id })}
-                  />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
+                  {t.externalId ? (
+                    <span className="wf-tag" style={{ fontSize: 10.5, color: WF.t3 }}>synced</span>
+                  ) : (
+                    <IconButton
+                      icon={Icon.edit}
+                      title="Edit team"
+                      onClick={() => openModal({ type: 'team', teamId: t.id })}
+                    />
+                  )}
                   <IconButton
                     icon={Icon.trash}
                     title="Delete team"

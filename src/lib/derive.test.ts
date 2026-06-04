@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSprint, capPct, eventsIn, fullCap, sprintVel, statusSegs } from './derive';
+import { activeSprint, capPct, eventsIn, fullCap, groupItemsByStream, sprintVel, statusSegs } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
 import type { Release, Sprint, Team, WorkItem } from '../types';
 
@@ -187,5 +187,78 @@ describe('statusSegs', () => {
 
   it('returns empty for no items', () => {
     expect(statusSegs([])).toEqual([]);
+  });
+});
+
+describe('groupItemsByStream', () => {
+  const ws = (id: string, name: string) => ({ id, name });
+
+  const item = (id: string, workStreamId: string | null): WorkItem => ({
+    id, releaseId: 'r', workStreamId, sprintId: null,
+    key: `K-${id}`, subject: 'S', description: '', status: 'Not Started',
+    points: 1, externalId: null, assignedMemberId: null, build: null, dirtyFields: [],
+  });
+
+  it('groups items under their stream in the order streams are declared', () => {
+    const streams = [ws('ws1', 'Alpha'), ws('ws2', 'Beta'), ws('ws3', 'Gamma')];
+    const items = [item('i3', 'ws3'), item('i1', 'ws1'), item('i2', 'ws2')];
+    const result = groupItemsByStream(items, streams);
+    expect(result.map((g) => g.wsId)).toEqual(['ws1', 'ws2', 'ws3']);
+    expect(result[0].items.map((i) => i.id)).toEqual(['i1']);
+    expect(result[1].items.map((i) => i.id)).toEqual(['i2']);
+    expect(result[2].items.map((i) => i.id)).toEqual(['i3']);
+  });
+
+  it('omits streams that have no items in the given set', () => {
+    const streams = [ws('ws1', 'Alpha'), ws('ws2', 'Beta'), ws('ws3', 'Gamma')];
+    const items = [item('i1', 'ws1'), item('i3', 'ws3')];
+    const result = groupItemsByStream(items, streams);
+    expect(result.map((g) => g.wsId)).toEqual(['ws1', 'ws3']);
+  });
+
+  it('collects items with workStreamId null into a trailing unassigned group', () => {
+    const streams = [ws('ws1', 'Alpha')];
+    const items = [item('i1', 'ws1'), item('i2', null), item('i3', null)];
+    const result = groupItemsByStream(items, streams);
+    expect(result).toHaveLength(2);
+    expect(result[1]).toEqual({ wsId: null, wsName: null, items: [item('i2', null), item('i3', null)] });
+  });
+
+  it('collects items whose workStreamId is not in the stream list into unassigned', () => {
+    const streams = [ws('ws1', 'Alpha')];
+    const items = [item('i1', 'ws_unknown'), item('i2', 'ws1')];
+    const result = groupItemsByStream(items, streams);
+    expect(result).toHaveLength(2);
+    expect(result[0].wsId).toBe('ws1');
+    expect(result[1]).toMatchObject({ wsId: null, wsName: null });
+    expect(result[1].items.map((i) => i.id)).toEqual(['i1']);
+  });
+
+  it('returns only an unassigned group when streams list is empty', () => {
+    const items = [item('i1', null), item('i2', 'ws_orphan')];
+    const result = groupItemsByStream(items, []);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ wsId: null, wsName: null });
+    expect(result[0].items).toHaveLength(2);
+  });
+
+  it('returns empty when items list is empty', () => {
+    expect(groupItemsByStream([], [ws('ws1', 'Alpha')])).toHaveLength(0);
+    expect(groupItemsByStream([], [])).toHaveLength(0);
+  });
+
+  it('unassigned group is always last even when all other groups are present', () => {
+    const streams = [ws('ws1', 'Alpha'), ws('ws2', 'Beta')];
+    const items = [item('i_none', null), item('i1', 'ws1'), item('i2', 'ws2')];
+    const result = groupItemsByStream(items, streams);
+    expect(result[result.length - 1].wsId).toBeNull();
+  });
+
+  it('wsName is set on named groups and null on the unassigned group', () => {
+    const streams = [ws('ws1', 'My Stream')];
+    const items = [item('i1', 'ws1'), item('i2', null)];
+    const result = groupItemsByStream(items, streams);
+    expect(result[0].wsName).toBe('My Stream');
+    expect(result[1].wsName).toBeNull();
   });
 });

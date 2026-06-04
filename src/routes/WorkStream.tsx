@@ -67,7 +67,7 @@ export function WorkStream() {
             </span>
             <PushButton release={r} onPush={() => onPush(id)} />
             <SyncButton release={r} onSync={() => onSync(id)} />
-            <PButton sm icon={Icon.plus} onClick={() => openModal({ type: 'item', releaseId: id, presetStreamId: ws.id })}>
+            <PButton sm icon={Icon.plus} disabled={!!r.connector} title={r.connector ? 'Work items are managed by the connector' : undefined} onClick={() => openModal({ type: 'item', releaseId: id, presetStreamId: ws.id })}>
               New work item
             </PButton>
           </>

@@ -8,7 +8,7 @@ import type { ReleaseEvent } from '../types';
 import { fmtShort } from '../lib/dates';
 import { EventBadge } from './badges';
 
-export function EventStrip({ events, align = 'flex-start' }: { events: ReleaseEvent[]; align?: 'flex-start' | 'flex-end' }) {
+export function EventStrip({ events, align = 'flex-start', onEventClick }: { events: ReleaseEvent[]; align?: 'flex-start' | 'flex-end'; onEventClick?: (eventId: string) => void }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const widthsRef = useRef<number[]>([]);
   const [vis, setVis] = useState(events.length);
@@ -67,7 +67,7 @@ export function EventStrip({ events, align = 'flex-start' }: { events: ReleaseEv
         }}
       >
         {events.map((e) => (
-          <EventBadge key={e.id} date={fmtShort(e.dateISO)}>
+          <EventBadge key={e.id} date={fmtShort(e.dateISO)} onClick={onEventClick ? () => onEventClick(e.id) : undefined}>
             {e.label}
           </EventBadge>
         ))}
@@ -75,7 +75,7 @@ export function EventStrip({ events, align = 'flex-start' }: { events: ReleaseEv
       {/* visible run */}
       <div style={{ display: 'flex', gap: 5, alignItems: 'center', minWidth: 0 }}>
         {events.slice(0, vis).map((e) => (
-          <EventBadge key={e.id} date={fmtShort(e.dateISO)}>
+          <EventBadge key={e.id} date={fmtShort(e.dateISO)} onClick={onEventClick ? () => onEventClick(e.id) : undefined}>
             {e.label}
           </EventBadge>
         ))}

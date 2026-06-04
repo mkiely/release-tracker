@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fmtShort } from '../lib/dates';
-import { activeSprint, capPct, eventsIn, sprintVel } from '../lib/derive';
+import { activeSprint, capPct, eventsIn, groupItemsByStream, sprintVel } from '../lib/derive';
 import { selRelease, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { NotFound, PushButton, SyncButton, TopBar } from '../components/chrome';
@@ -144,12 +144,18 @@ export function Sprint() {
         }
         right={
           <>
-            <PButton variant="subtle" sm icon={Icon.sprint} onClick={() => openModal({ type: 'sprint', releaseId: id, sprintId: sp.id })}>
-              Edit sprint
-            </PButton>
+            {r.connector ? (
+              <PButton variant="subtle" sm icon={Icon.cal} onClick={() => openModal({ type: 'sprint', releaseId: id, sprintId: sp.id })}>
+                Days off
+              </PButton>
+            ) : (
+              <PButton variant="subtle" sm icon={Icon.sprint} onClick={() => openModal({ type: 'sprint', releaseId: id, sprintId: sp.id })}>
+                Edit sprint
+              </PButton>
+            )}
             <PushButton release={r} onPush={() => onPush(id)} />
             <SyncButton release={r} onSync={() => onSync(id)} />
-            <PButton sm icon={Icon.item} onClick={() => openModal({ type: 'item', releaseId: id, presetSprintId: sp.id })}>
+            <PButton sm icon={Icon.item} disabled={!!r.connector} title={r.connector ? 'Work items are managed by the connector' : undefined} onClick={() => openModal({ type: 'item', releaseId: id, presetSprintId: sp.id })}>
               New work item
             </PButton>
           </>
@@ -160,7 +166,7 @@ export function Sprint() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px', borderBottom: `1.5px solid ${WF.line}`, background: WF.paper, flexWrap: 'wrap' }}>
           <span className="wf-tag">Events</span>
           {evts.map((e) => (
-            <EventBadge key={e.id} date={fmtShort(e.dateISO)}>
+            <EventBadge key={e.id} date={fmtShort(e.dateISO)} onClick={() => openModal({ type: 'event', releaseId: id, eventId: e.id })}>
               {e.label}
             </EventBadge>
           ))}
@@ -420,22 +426,30 @@ export function Sprint() {
                       {col.items.reduce((a, i) => a + i.points, 0)} pts
                     </span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                    {col.items.map((it) => {
-                      const ws = r.workStreams.find((w) => w.id === it.workStreamId);
-                      return (
-                        <div key={it.id}>
-                          {ws && (
-                            <div
-                              style={{ fontSize: 10.5, fontWeight: 600, color: WF.t3, padding: '0 2px 3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {groupItemsByStream(col.items, r.workStreams).map((grp) => (
+                        <div key={grp.wsId ?? '__unassigned__'} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 2px' }}>
+                            <span
+                              style={{
+                                fontSize: 12, fontWeight: 700, color: grp.wsName ? WF.t2 : WF.t3,
+                                fontStyle: grp.wsName ? undefined : 'italic',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                              }}
                             >
-                              {ws.name}
-                            </div>
-                          )}
-                          <WorkItemCard it={it} releaseTeamId={r.teamId} draggable onOpen={() => openModal({ type: 'itemDetail', itemId: it.id })} />
+                              {grp.wsName ?? 'Unassigned'}
+                            </span>
+                            <span className="wf-mono" style={{ fontSize: 11, color: WF.t3, flex: '0 0 auto' }}>
+                              {grp.items.reduce((a, i) => a + i.points, 0)} pts
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                            {grp.items.map((it) => (
+                              <WorkItemCard key={it.id} it={it} releaseTeamId={r.teamId} draggable onOpen={() => openModal({ type: 'itemDetail', itemId: it.id })} />
+                            ))}
+                          </div>
                         </div>
-                      );
-                    })}
+                    ))}
                   </div>
                 </div>
               );

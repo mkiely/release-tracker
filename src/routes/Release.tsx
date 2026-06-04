@@ -115,9 +115,11 @@ export function Release() {
             <PButton variant="subtle" sm icon={Icon.event} onClick={() => openModal({ type: 'event', releaseId: id })}>
               New event
             </PButton>
-            <PButton sm icon={Icon.plus} onClick={() => openModal({ type: 'stream', releaseId: id })}>
-              New work stream
-            </PButton>
+            {!r.connector && (
+              <PButton sm icon={Icon.plus} onClick={() => openModal({ type: 'stream', releaseId: id })}>
+                New work stream
+              </PButton>
+            )}
           </>
         }
       />
@@ -233,7 +235,7 @@ export function Release() {
                     </span>
                     <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
                     <CapBarInline planned={planned} cap={vel} />
-                    <EventStrip events={evts} align="flex-end" />
+                    <EventStrip events={evts} align="flex-end" onEventClick={(eid) => openModal({ type: 'event', releaseId: id, eventId: eid })} />
                   </div>
                   {/* work-stream lane */}
                   <div style={{ padding: '10px 13px' }}>

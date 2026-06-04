@@ -199,29 +199,47 @@ export function WorkStreamModal({ releaseId, onClose }: { releaseId: string; onC
   );
 }
 
-// ── Event create modal ──────────────────────────────────────────────────
-export function EventModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
+// ── Event create / edit modal ───────────────────────────────────────────
+export function EventModal({ releaseId, eventId, onClose }: { releaseId: string; eventId?: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId))!;
-  const [label, setLabel] = useState('');
-  const [date, setDate] = useState('');
+  const existing = eventId ? r.events.find((e) => e.id === eventId) : null;
+  const editing = !!existing;
+  const [label, setLabel] = useState(existing ? existing.label : '');
+  const [date, setDate] = useState(existing ? existing.dateISO : '');
   const sp = date ? r.sprints.find((s) => between(date, s.startISO, s.endISO)) : null;
   const save = () => {
-    if (label.trim() && date) getActions().createEvent(releaseId, { label: label.trim(), dateISO: date });
+    if (!label.trim() || !date) return;
+    if (editing) {
+      getActions().updateEvent(releaseId, eventId!, { label: label.trim(), dateISO: date });
+    } else {
+      getActions().createEvent(releaseId, { label: label.trim(), dateISO: date });
+    }
     onClose();
   };
+  const remove = () => {
+    getActions().deleteEvent(releaseId, eventId!);
+    onClose();
+  };
+  const minDate = r.sprints.length ? r.sprints[0].startISO : undefined;
+  const maxDate = r.sprints.length ? r.sprints[r.sprints.length - 1].endISO : undefined;
   return (
     <Modal
-      title="New event"
+      title={editing ? 'Edit event' : 'New event'}
       icon={Icon.event}
       onClose={onClose}
       width={460}
       footer={
         <>
+          {editing && (
+            <PButton variant="danger" onClick={remove} style={{ marginRight: 'auto' }}>
+              Delete
+            </PButton>
+          )}
           <PButton variant="subtle" onClick={onClose}>
             Cancel
           </PButton>
           <PButton onClick={save} disabled={!label.trim() || !date}>
-            Add event
+            {editing ? 'Save event' : 'Add event'}
           </PButton>
         </>
       }
@@ -233,8 +251,8 @@ export function EventModal({ releaseId, onClose }: { releaseId: string; onClose:
         <PInput
           type="date"
           value={date}
-          min={r.sprints[0].startISO}
-          max={r.sprints[r.sprints.length - 1].endISO}
+          min={minDate}
+          max={maxDate}
           onChange={(e) => setDate(e.target.value)}
         />
       </PField>
@@ -273,6 +291,7 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
   const r = useStore((s) => selRelease(s, releaseId))!;
   const team = useStore((s) => selTeam(s, r.teamId));
   const sp = r.sprints.find((s) => s.id === sprintId)!;
+  const isConnector = !!r.connector;
   const [name, setName] = useState(sp.name);
   const [daysOff, setDaysOff] = useState(String(sp.daysOff));
   const off = Math.max(0, Number(daysOff) || 0);
@@ -287,8 +306,8 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
   };
   return (
     <Modal
-      title={`Edit ${sp.name}`}
-      icon={Icon.sprint}
+      title={isConnector ? `${sp.name} · Days off` : `Edit ${sp.name}`}
+      icon={isConnector ? Icon.cal : Icon.sprint}
       onClose={onClose}
       width={500}
       footer={
@@ -296,16 +315,24 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
           <PButton variant="subtle" onClick={onClose}>
             Cancel
           </PButton>
-          <PButton onClick={save}>Save sprint</PButton>
+          <PButton onClick={save}>{isConnector ? 'Save' : 'Save sprint'}</PButton>
         </>
       }
     >
-      <PField label="Sprint name">
-        <PInput autoFocus value={name} onChange={(e) => setName(e.target.value)} />
-      </PField>
+      {isConnector && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 4, fontSize: 11.5, color: WF.t3, background: WF.fill, border: `1.5px solid ${WF.line}`, borderRadius: 7 }}>
+          {Icon.sync}
+          <span>Sprint details are managed by the connector. <strong style={{ color: WF.t2, fontWeight: 600 }}>Days off</strong> is stored locally.</span>
+        </div>
+      )}
+      {!isConnector && (
+        <PField label="Sprint name">
+          <PInput autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+        </PField>
+      )}
       <div style={{ display: 'flex', gap: 12 }}>
         <PField label="Days off (person-days)" style={{ flex: 1 }}>
-          <PInput type="number" min="0" value={daysOff} onChange={(e) => setDaysOff(e.target.value)} />
+          <PInput autoFocus={isConnector} type="number" min="0" value={daysOff} onChange={(e) => setDaysOff(e.target.value)} />
         </PField>
         <PField label="Sprint dates" style={{ flex: 1 }}>
           <span className="pt-in" style={{ display: 'flex', alignItems: 'center', color: WF.t2 }}>
@@ -457,9 +484,11 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   }
 
   const synced = !!it.externalId;
+  const connectorRelease = !!r.connector;
   // Writeable fields for synced items: points and sprint are unlocked.
   // All other synced fields stay read-only (external wins on next sync).
-  const readOnlyCore = synced; // subject, description, status, work stream, assignee
+  const readOnlyCore = synced; // subject, description, work stream, assignee
+  const statusReadOnly = synced || connectorRelease; // status locked for connector releases too
   const isDirty = it.dirtyFields.length > 0;
 
   const save = () => {
@@ -529,6 +558,12 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           <span>Synced — most fields refresh on sync. <strong style={{ color: WF.t2, fontWeight: 600 }}>Points</strong> and <strong style={{ color: WF.t2, fontWeight: 600 }}>sprint</strong> are writeable.</span>
         </div>
       )}
+      {!synced && connectorRelease && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 10, fontSize: 11.5, color: WF.t3, background: WF.fill, border: `1.5px solid ${WF.line}`, borderRadius: 7 }}>
+          {Icon.sync}
+          <span>Connector release — <strong style={{ color: WF.t2, fontWeight: 600 }}>status</strong> editing is coming soon.</span>
+        </div>
+      )}
       <PField label="Subject">
         <PInput value={subject} disabled={readOnlyCore} onChange={(e) => setSubject(e.target.value)} />
       </PField>
@@ -591,7 +626,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           </PSelect>
         </PField>
         <PField label="Status" style={{ flex: 1 }}>
-          <PSelect value={status} disabled={readOnlyCore} onChange={(e) => setStatus(e.target.value as Status)}>
+          <PSelect value={status} disabled={statusReadOnly} onChange={(e) => setStatus(e.target.value as Status)}>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
                 {s}

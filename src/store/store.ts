@@ -136,6 +136,8 @@ interface Actions {
   deleteRelease: (id: string) => void;
   createWorkStream: (releaseId: string, name: string) => WorkStream | null;
   createEvent: (releaseId: string, input: { label: string; dateISO: string }) => void;
+  updateEvent: (releaseId: string, eventId: string, patch: Partial<Pick<ReleaseEvent, 'label' | 'dateISO'>>) => void;
+  deleteEvent: (releaseId: string, eventId: string) => void;
   updateSprint: (releaseId: string, sprintId: string, patch: Partial<Sprint>) => void;
   createItem: (
     releaseId: string,
@@ -253,6 +255,24 @@ export const useStore = create<StoreState>((set, get) => {
       commit((d) => {
         d.releases = d.releases.map((r) =>
           r.id === releaseId ? { ...r, events: [...r.events, ev] } : r,
+        );
+      });
+    },
+
+    updateEvent: (releaseId, eventId, patch) => {
+      commit((d) => {
+        d.releases = d.releases.map((r) =>
+          r.id === releaseId
+            ? { ...r, events: r.events.map((e) => (e.id === eventId ? { ...e, ...patch } : e)) }
+            : r,
+        );
+      });
+    },
+
+    deleteEvent: (releaseId, eventId) => {
+      commit((d) => {
+        d.releases = d.releases.map((r) =>
+          r.id === releaseId ? { ...r, events: r.events.filter((e) => e.id !== eventId) } : r,
         );
       });
     },
