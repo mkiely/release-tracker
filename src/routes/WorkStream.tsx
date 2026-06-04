@@ -5,7 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { activeSprint } from '../lib/derive';
 import { selRelease, selItemsForStream, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
-import { NotFound, SyncButton, TopBar } from '../components/chrome';
+import { NotFound, PushButton, SyncButton, TopBar } from '../components/chrome';
 import { Icon } from '../components/Icon';
 import { StreamSprintColumn } from '../components/dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
@@ -15,7 +15,7 @@ import { WF } from '../components/tokens';
 export function WorkStream() {
   const st = useStore();
   const navigate = useNavigate();
-  const { openModal, onSync, notify } = useApp();
+  const { openModal, onSync, onPush, notify } = useApp();
   const { id = '', wsId = '' } = useParams();
   const r = selRelease(st, id);
   const ws = r && r.workStreams.find((w) => w.id === wsId);
@@ -48,6 +48,7 @@ export function WorkStream() {
             <span style={{ fontSize: 12.5, color: WF.t3 }}>
               {items.length} items · {totalPts} pts · drag cards between sprints
             </span>
+            <PushButton release={r} onPush={() => onPush(id)} />
             <SyncButton release={r} onSync={() => onSync(id)} />
             <PButton sm icon={Icon.plus} onClick={() => openModal({ type: 'item', releaseId: id, presetStreamId: ws.id })}>
               New work item
@@ -73,7 +74,7 @@ export function WorkStream() {
                 allItems={allItems}
                 notify={notify}
                 renderCard={(it) => (
-                  <WorkItemCard key={it.id} it={it} draggable onOpen={() => openModal({ type: 'itemDetail', itemId: it.id })} />
+                  <WorkItemCard key={it.id} it={it} releaseTeamId={r.teamId} draggable onOpen={() => openModal({ type: 'itemDetail', itemId: it.id })} />
                 )}
               />
             ))}

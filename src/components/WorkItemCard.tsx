@@ -2,7 +2,7 @@
 
 import type { Status, WorkItem } from '../types';
 import { STATUSES } from '../types';
-import { getActions } from '../store/store';
+import { getActions, selTeam, useStore } from '../store/store';
 import { Drag, useDrag } from './dnd';
 import { Icon } from './Icon';
 import { WF } from './tokens';
@@ -32,11 +32,52 @@ export function StatusSelect({ value, onChange }: { value: Status; onChange: (v:
   );
 }
 
+/** Compact initials avatar for a member name. */
+function MemberAvatar({ name, size = 20 }: { name: string; size?: number }) {
+  const initials = name.trim().split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+  return (
+    <span
+      title={name}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: WF.fill,
+        border: `1.5px solid ${WF.line}`,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: size * 0.42,
+        fontWeight: 700,
+        color: WF.t2,
+        flexShrink: 0,
+        letterSpacing: '-0.02em',
+      }}
+    >
+      {initials}
+    </span>
+  );
+}
+
 // shared clickable work-item card (opens detail/edit modal). When `draggable`,
 // it can be picked up and dropped onto another sprint.
-export function WorkItemCard({ it, onOpen, draggable }: { it: WorkItem; onOpen: () => void; draggable?: boolean }) {
+export function WorkItemCard({
+  it,
+  releaseTeamId,
+  onOpen,
+  draggable,
+}: {
+  it: WorkItem;
+  releaseTeamId?: string;
+  onOpen: () => void;
+  draggable?: boolean;
+}) {
   const dragging = useDrag();
   const isMe = !!draggable && !!dragging && dragging.id === it.id;
+  const team = useStore((s) => selTeam(s, releaseTeamId));
+  const assignedMember = team?.members.find((m) => m.id === it.assignedMemberId) ?? null;
+  const isDirty = it.dirtyFields.length > 0;
+
   return (
     <div
       className="wf-card pt-link"
@@ -74,7 +115,21 @@ export function WorkItemCard({ it, onOpen, draggable }: { it: WorkItem; onOpen: 
         <span className="wf-mono" style={{ fontSize: 11, fontWeight: 700, color: WF.t2 }}>
           {it.key}
         </span>
-        <span className="wf-pts">{it.points} pts</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          {isDirty && (
+            <span
+              title="Modified — pending push"
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: WF.status.Active.dot,
+                flexShrink: 0,
+              }}
+            />
+          )}
+          <span className="wf-pts">{it.points} pts</span>
+        </div>
       </div>
       <div
         style={{
@@ -90,7 +145,26 @@ export function WorkItemCard({ it, onOpen, draggable }: { it: WorkItem; onOpen: 
       >
         {it.subject}
       </div>
-      <StatusSelect value={it.status} onChange={(v) => getActions().updateItem(it.id, { status: v })} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+        <StatusSelect value={it.status} onChange={(v) => getActions().updateItem(it.id, { status: v })} />
+        {assignedMember ? (
+          <MemberAvatar name={assignedMember.name} />
+        ) : (
+          <span
+            title="Unassigned"
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: '50%',
+              border: `1.5px dashed ${WF.line}`,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

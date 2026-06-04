@@ -14,8 +14,12 @@
 //        order, never creates, and keeps owning sprint dates.
 //  - Items with an unresolved work stream are skipped + warned; an unresolved or
 //    unset sprint lands the item in the backlog (sprintId null).
+//  - Dirty writeable fields on matched items are preserved (local push pending).
+//  - Team (step 0): when mapped.team is present on a connector release, the team
+//    is created or reused by externalId, members are upserted, and release.teamId
+//    is repointed. Velocity is app-owned and never overwritten.
 
-import type { AppState, Sprint, WorkItem, WorkStream } from '../types';
+import type { AppState, Member, Sprint, Team, WorkItem, WorkStream } from '../types';
 import { uid } from '../lib/dates';
 import type { MappedRelease, SyncResult } from './schema';
 
@@ -23,6 +27,7 @@ export function applySync(
   state: AppState,
   releaseId: string,
   mapped: MappedRelease,
+  writeableItemFields: string[] = [],
 ): { next: AppState; result: SyncResult } {
   const result: SyncResult = { created: 0, updated: 0, skipped: 0, warnings: [] };
 
@@ -30,6 +35,52 @@ export function applySync(
   if (!release) {
     result.warnings.push(`Release ${releaseId} not found; nothing applied.`);
     return { next: state, result };
+  }
+
+  const isConnector = release.connector !== null;
+
+  // --- 0. Team & members (connector releases only, when team is provided) ---
+  let teams: Team[] = state.teams.map((t) => ({ ...t }));
+  let releaseTeamId = release.teamId;
+  const memberByExt = new Map<string, string>(); // external member id -> local member id
+
+  if (isConnector && mapped.team) {
+    const mt = mapped.team;
+    let team = teams.find((t) => t.externalId === mt.externalId);
+    if (!team) {
+      // Carry velocity from the current bound team if possible; avoids zeroing it.
+      const currentTeam = teams.find((t) => t.id === releaseTeamId);
+      team = {
+        id: uid('team'),
+        name: mt.fields.name,
+        velocity: currentTeam?.velocity ?? 0,
+        externalId: mt.externalId,
+        members: [],
+      };
+      teams.push(team);
+      result.created++;
+    } else {
+      team.name = mt.fields.name; // external wins on name; velocity stays app-owned
+      result.updated++;
+    }
+    releaseTeamId = team.id;
+
+    // Upsert members into the resolved team.
+    const members: Member[] = team.members.map((m) => ({ ...m }));
+    for (const mm of mt.members) {
+      const existing = members.find((m) => m.externalId === mm.externalId);
+      if (existing) {
+        existing.name = mm.fields.name;
+        memberByExt.set(mm.externalId, existing.id);
+        result.updated++;
+      } else {
+        const m: Member = { id: uid('m'), name: mm.fields.name, externalId: mm.externalId };
+        members.push(m);
+        memberByExt.set(mm.externalId, m.id);
+        result.created++;
+      }
+    }
+    team.members = members;
   }
 
   // --- 1. Work streams: match by externalId, else create ---
@@ -52,7 +103,6 @@ export function applySync(
   // --- 2. Sprints ---
   // Connector releases create sprints from external data and take external dates;
   // local releases link onto the fixed grid in chronological order (never create).
-  const isConnector = release.connector !== null;
   const sprints: Sprint[] = release.sprints.map((s) => ({ ...s }));
   const sprintByExt = new Map<string, string>(); // external id -> local sprint id
   for (const s of sprints) {
@@ -125,15 +175,24 @@ export function applySync(
       }
     }
 
+    // Resolve assignee; unknown or null → null.
+    const assignedMemberId =
+      m.extAssigneeId != null ? (memberByExt.get(m.extAssigneeId) ?? null) : null;
+
     const existing = items.find((i) => i.releaseId === releaseId && i.externalId === m.externalId);
     if (existing) {
+      // Always overwrite read-only fields (external wins).
       existing.workStreamId = workStreamId;
-      existing.sprintId = sprintId;
       existing.key = m.fields.key;
       existing.subject = m.fields.subject;
       existing.description = m.fields.description;
       existing.status = m.fields.status;
-      existing.points = m.fields.points;
+      existing.assignedMemberId = assignedMemberId;
+      // Dirty-aware: preserve local value for writeable fields pending push.
+      const sprintDirty = writeableItemFields.includes('sprint') && existing.dirtyFields.includes('sprint');
+      const pointsDirty = writeableItemFields.includes('points') && existing.dirtyFields.includes('points');
+      if (!sprintDirty) existing.sprintId = sprintId;
+      if (!pointsDirty) existing.points = m.fields.points;
       result.updated++;
     } else {
       items.push({
@@ -147,13 +206,15 @@ export function applySync(
         status: m.fields.status,
         points: m.fields.points,
         externalId: m.externalId,
+        assignedMemberId,
+        dirtyFields: [],
       });
       result.created++;
     }
   }
 
   const releases = state.releases.map((r) =>
-    r.id === releaseId ? { ...r, workStreams, sprints } : r,
+    r.id === releaseId ? { ...r, teamId: releaseTeamId, workStreams, sprints } : r,
   );
-  return { next: { ...state, releases, items }, result };
+  return { next: { ...state, teams, releases, items }, result };
 }

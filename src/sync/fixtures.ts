@@ -19,6 +19,7 @@ export const FIXTURE_CONNECTORS: ConnectorMeta[] = [
       { key: 'siteUrl', label: 'Site URL', required: true, hint: 'e.g. your-org.atlassian.net' },
       { key: 'storyPointsField', label: 'Story-points field id', required: false, hint: 'defaults to customfield_10016' },
     ],
+    writeable: { item: ['points', 'sprint'] },
   },
 ];
 
@@ -26,6 +27,17 @@ export const FIXTURE_CONNECTORS: ConnectorMeta[] = [
 // links them onto the fixed grid by chronological order regardless of exact dates.
 export function fixtureMappedRelease(): MappedRelease {
   return {
+    team: {
+      externalId: 'JIRA-TEAM-PLAT',
+      fields: { name: 'Platform Core' },
+      members: [
+        { externalId: 'JIRA-USR-ADA', fields: { name: 'Ada L.' } },
+        { externalId: 'JIRA-USR-MARCO', fields: { name: 'Marco P.' } },
+        { externalId: 'JIRA-USR-WEI', fields: { name: 'Wei C.' } },
+        { externalId: 'JIRA-USR-DEVI', fields: { name: 'Devi R.' } },
+        { externalId: 'JIRA-USR-TOM', fields: { name: 'Tom B.' } },
+      ],
+    },
     workStreams: [
       { externalId: 'EPIC-CHK', fields: { name: 'Checkout API' } },
       { externalId: 'EPIC-SRCH', fields: { name: 'Search Revamp' } },
@@ -37,15 +49,15 @@ export function fixtureMappedRelease(): MappedRelease {
       { externalId: 'JSPR-103', fields: { name: 'Sprint 3', startISO: '2026-05-11', endISO: '2026-05-24' } },
     ],
     items: [
-      { externalId: 'EXT-101', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-101', fields: { key: 'EXT-101', subject: 'Tokenize card vault', description: 'PCI-scoped vault for card tokens.', status: 'Complete', points: 5 } },
-      { externalId: 'EXT-102', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-101', fields: { key: 'EXT-102', subject: 'Idempotent charge endpoint', description: '', status: 'Active', points: 3 } },
-      { externalId: 'EXT-103', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-102', fields: { key: 'EXT-103', subject: '3-D Secure handshake', description: '', status: 'Active', points: 8 } },
-      { externalId: 'EXT-110', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-101', fields: { key: 'EXT-110', subject: 'Typeahead suggestions', description: '', status: 'Complete', points: 3 } },
-      { externalId: 'EXT-111', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-102', fields: { key: 'EXT-111', subject: 'Relevance ranking model', description: '', status: 'Blocked', points: 5 } },
-      { externalId: 'EXT-120', extWorkStreamId: 'EPIC-BILL', extSprintId: 'JSPR-102', fields: { key: 'EXT-120', subject: 'Dual-write ledger', description: '', status: 'Active', points: 8 } },
-      { externalId: 'EXT-121', extWorkStreamId: 'EPIC-BILL', extSprintId: 'JSPR-103', fields: { key: 'EXT-121', subject: 'Proration engine', description: '', status: 'Not Started', points: 5 } },
+      { externalId: 'EXT-101', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-101', extAssigneeId: 'JIRA-USR-ADA', fields: { key: 'EXT-101', subject: 'Tokenize card vault', description: 'PCI-scoped vault for card tokens.', status: 'Complete', points: 5 } },
+      { externalId: 'EXT-102', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-101', extAssigneeId: 'JIRA-USR-MARCO', fields: { key: 'EXT-102', subject: 'Idempotent charge endpoint', description: '', status: 'Active', points: 3 } },
+      { externalId: 'EXT-103', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-102', extAssigneeId: 'JIRA-USR-WEI', fields: { key: 'EXT-103', subject: '3-D Secure handshake', description: '', status: 'Active', points: 8 } },
+      { externalId: 'EXT-110', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-101', extAssigneeId: 'JIRA-USR-DEVI', fields: { key: 'EXT-110', subject: 'Typeahead suggestions', description: '', status: 'Complete', points: 3 } },
+      { externalId: 'EXT-111', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-102', extAssigneeId: 'JIRA-USR-TOM', fields: { key: 'EXT-111', subject: 'Relevance ranking model', description: '', status: 'Blocked', points: 5 } },
+      { externalId: 'EXT-120', extWorkStreamId: 'EPIC-BILL', extSprintId: 'JSPR-102', extAssigneeId: 'JIRA-USR-ADA', fields: { key: 'EXT-120', subject: 'Dual-write ledger', description: '', status: 'Active', points: 8 } },
+      { externalId: 'EXT-121', extWorkStreamId: 'EPIC-BILL', extSprintId: 'JSPR-103', extAssigneeId: 'JIRA-USR-MARCO', fields: { key: 'EXT-121', subject: 'Proration engine', description: '', status: 'Not Started', points: 5 } },
       // Unscheduled (no external sprint) → lands in the backlog.
-      { externalId: 'EXT-122', extWorkStreamId: 'EPIC-BILL', extSprintId: null, fields: { key: 'EXT-122', subject: 'Legacy data backfill', description: '', status: 'Not Started', points: 3 } },
+      { externalId: 'EXT-122', extWorkStreamId: 'EPIC-BILL', extSprintId: null, extAssigneeId: null, fields: { key: 'EXT-122', subject: 'Legacy data backfill', description: '', status: 'Not Started', points: 3 } },
     ],
   };
 }

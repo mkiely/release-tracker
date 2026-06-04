@@ -9,7 +9,7 @@ import { activeSprint, eventsIn, sprintVel, statusSegs } from '../lib/derive';
 import { selItemsForStream, selRelease, selTeam, useStore } from '../store/store';
 import { releaseToTSV } from '../lib/exportRelease';
 import { useApp } from '../app-context';
-import { NotFound, SyncButton, TopBar } from '../components/chrome';
+import { NotFound, PushButton, SyncButton, TopBar } from '../components/chrome';
 import { connectorLabel } from '../sync/client';
 import { Icon } from '../components/Icon';
 import { SegBar } from '../components/badges';
@@ -32,7 +32,7 @@ const StatusLegend = () => (
 export function Release() {
   const st = useStore();
   const navigate = useNavigate();
-  const { openModal, onSync, notify } = useApp();
+  const { openModal, onSync, onPush, notify } = useApp();
   const { id = '' } = useParams();
   const r = selRelease(st, id);
   if (!r) return <NotFound label="Release not found." />;
@@ -100,6 +100,7 @@ export function Release() {
         }
         right={
           <>
+            <PushButton release={r} onPush={() => onPush(id)} />
             <SyncButton release={r} onSync={() => onSync(id)} />
             <PButton variant="subtle" sm icon={Icon.copy} onClick={onExport}>
               Export TSV

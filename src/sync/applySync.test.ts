@@ -26,7 +26,7 @@ const localRelease = (): Release => ({
 });
 
 const baseState = (overrides: Partial<AppState> = {}): AppState => ({
-  version: 3,
+  version: 4,
   teams: [],
   releases: [baseRelease()],
   items: [],
@@ -38,7 +38,7 @@ const mapped = (over: Partial<MappedRelease> = {}): MappedRelease => ({
   workStreams: [{ externalId: 'EPIC-A', fields: { name: 'Checkout API' } }],
   sprints: [{ externalId: 'JSPR-1', fields: { name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26' } }],
   items: [
-    { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', fields: { key: 'EXT-1', subject: 'Tokenize vault', description: 'd', status: 'Active', points: 5 } },
+    { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null, fields: { key: 'EXT-1', subject: 'Tokenize vault', description: 'd', status: 'Active', points: 5 } },
   ],
   ...over,
 });
@@ -61,6 +61,7 @@ describe('applySync — connector release creates sprints', () => {
     expect(next.items[0]).toMatchObject({
       releaseId: 'rel_1', externalId: 'EXT-1', key: 'EXT-1',
       workStreamId: r.workStreams[0].id, sprintId: r.sprints[0].id, status: 'Active', points: 5,
+      assignedMemberId: null, dirtyFields: [],
     });
     expect(result).toMatchObject({ created: 3, updated: 0 }); // 1 ws + 1 sprint + 1 item
   });
@@ -87,7 +88,7 @@ describe('applySync — external wins on re-sync', () => {
 
     const changed = mapped({
       items: [
-        { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', fields: { key: 'EXT-1', subject: 'Renamed', description: 'd2', status: 'Complete', points: 8 } },
+        { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null, fields: { key: 'EXT-1', subject: 'Renamed', description: 'd2', status: 'Complete', points: 8 } },
       ],
     });
     const { next, result } = applySync(first.next, 'rel_1', changed);
@@ -134,6 +135,7 @@ describe('applySync — local-only entities are untouched', () => {
     const local: WorkItem = {
       id: 'it_local', releaseId: 'rel_1', workStreamId: 'ws_x', sprintId: 'sp_x',
       key: 'LOCAL-1', subject: 'Hand-entered', description: '', status: 'Not Started', points: 1, externalId: null,
+      assignedMemberId: null, dirtyFields: [],
     };
     const { next } = applySync(baseState({ items: [local] }), 'rel_1', mapped());
     const stillThere = next.items.find((i) => i.id === 'it_local');
@@ -146,7 +148,7 @@ describe('applySync — reference resolution', () => {
   it('skips + warns an item whose work stream cannot be resolved', () => {
     const m = mapped({
       items: [
-        { externalId: 'EXT-9', extWorkStreamId: 'EPIC-MISSING', extSprintId: 'JSPR-1', fields: { key: 'EXT-9', subject: 's', description: '', status: 'Active', points: 2 } },
+        { externalId: 'EXT-9', extWorkStreamId: 'EPIC-MISSING', extSprintId: 'JSPR-1', extAssigneeId: null, fields: { key: 'EXT-9', subject: 's', description: '', status: 'Active', points: 2 } },
       ],
     });
     const { next, result } = applySync(baseState(), 'rel_1', m);
@@ -158,7 +160,7 @@ describe('applySync — reference resolution', () => {
   it('places an item with an unresolved sprint into the backlog (sprintId null)', () => {
     const m = mapped({
       items: [
-        { externalId: 'EXT-2', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-UNKNOWN', fields: { key: 'EXT-2', subject: 's', description: '', status: 'Active', points: 2 } },
+        { externalId: 'EXT-2', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-UNKNOWN', extAssigneeId: null, fields: { key: 'EXT-2', subject: 's', description: '', status: 'Active', points: 2 } },
       ],
     });
     const { next, result } = applySync(baseState(), 'rel_1', m);
@@ -169,7 +171,7 @@ describe('applySync — reference resolution', () => {
   it('places an item with no external sprint into the backlog', () => {
     const m = mapped({
       items: [
-        { externalId: 'EXT-3', extWorkStreamId: 'EPIC-A', extSprintId: null, fields: { key: 'EXT-3', subject: 's', description: '', status: 'Active', points: 2 } },
+        { externalId: 'EXT-3', extWorkStreamId: 'EPIC-A', extSprintId: null, extAssigneeId: null, fields: { key: 'EXT-3', subject: 's', description: '', status: 'Active', points: 2 } },
       ],
     });
     const { next } = applySync(baseState(), 'rel_1', m);
@@ -211,6 +213,161 @@ describe('applySync — local release sprint grid', () => {
     expect(next.releases[0].sprints).toHaveLength(8); // never grows
     expect(result.skipped).toBe(1);
     expect(result.warnings.some((w) => w.includes('No free sprint slot'))).toBe(true);
+  });
+});
+
+describe('applySync — team sync', () => {
+  it('creates a new team from the mapped payload and repoints release.teamId', () => {
+    const m = mapped({
+      team: {
+        externalId: 'JIRA-TEAM-1',
+        fields: { name: 'Platform Core' },
+        members: [
+          { externalId: 'USR-ADA', fields: { name: 'Ada L.' } },
+          { externalId: 'USR-MARCO', fields: { name: 'Marco P.' } },
+        ],
+      },
+    });
+    const { next } = applySync(baseState(), 'rel_1', m);
+    const newTeam = next.teams.find((t) => t.externalId === 'JIRA-TEAM-1');
+    expect(newTeam).toBeDefined();
+    expect(newTeam!.name).toBe('Platform Core');
+    expect(newTeam!.members).toHaveLength(2);
+    expect(newTeam!.members[0]).toMatchObject({ name: 'Ada L.', externalId: 'USR-ADA' });
+    expect(next.releases[0].teamId).toBe(newTeam!.id);
+  });
+
+  it('reuses an existing team by externalId and updates its name', () => {
+    const existingTeam = { id: 'team_x', name: 'Old Name', velocity: 30, externalId: 'JIRA-TEAM-1', members: [] };
+    const state = { ...baseState(), teams: [existingTeam], releases: [{ ...baseRelease(), teamId: 'team_x' }] };
+    const m = mapped({
+      team: { externalId: 'JIRA-TEAM-1', fields: { name: 'New Name' }, members: [] },
+    });
+    const { next } = applySync(state, 'rel_1', m);
+    const team = next.teams.find((t) => t.externalId === 'JIRA-TEAM-1')!;
+    expect(team.name).toBe('New Name');
+    expect(team.velocity).toBe(30); // app-owned, never overwritten
+    expect(next.releases[0].teamId).toBe('team_x');
+  });
+
+  it('upserts members by externalId and preserves local members', () => {
+    const localMember = { id: 'm_local', name: 'Local User', externalId: null };
+    const syncedMember = { id: 'm_synced', name: 'Ada L.', externalId: 'USR-ADA' };
+    const existingTeam = { id: 'team_x', name: 'T', velocity: 20, externalId: 'JIRA-TEAM-1', members: [localMember, syncedMember] };
+    const state = { ...baseState(), teams: [existingTeam], releases: [{ ...baseRelease(), teamId: 'team_x' }] };
+    const m = mapped({
+      team: {
+        externalId: 'JIRA-TEAM-1',
+        fields: { name: 'T' },
+        members: [
+          { externalId: 'USR-ADA', fields: { name: 'Ada L. (updated)' } },
+          { externalId: 'USR-MARCO', fields: { name: 'Marco P.' } },
+        ],
+      },
+    });
+    const { next } = applySync(state, 'rel_1', m);
+    const team = next.teams.find((t) => t.externalId === 'JIRA-TEAM-1')!;
+    // Ada updated, Marco added, local member preserved
+    expect(team.members).toHaveLength(3);
+    expect(team.members.find((m) => m.externalId === 'USR-ADA')!.name).toBe('Ada L. (updated)');
+    expect(team.members.find((m) => m.id === 'm_local')).toBeDefined();
+  });
+
+  it('does not sync team for local releases even if payload has one', () => {
+    const m = mapped({
+      team: { externalId: 'JIRA-TEAM-1', fields: { name: 'Platform Core' }, members: [] },
+    });
+    const { next } = applySync(baseState({ releases: [localRelease()] }), 'rel_1', m);
+    expect(next.teams).toHaveLength(0); // no team created
+    expect(next.releases[0].teamId).toBe('team_1'); // unchanged
+  });
+});
+
+describe('applySync — assignee resolution', () => {
+  it('resolves extAssigneeId to a local member id on item create', () => {
+    const m = mapped({
+      team: {
+        externalId: 'JIRA-TEAM-1',
+        fields: { name: 'T' },
+        members: [{ externalId: 'USR-ADA', fields: { name: 'Ada L.' } }],
+      },
+      items: [
+        { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: 'USR-ADA', fields: { key: 'EXT-1', subject: 's', description: '', status: 'Active', points: 5 } },
+      ],
+    });
+    const { next } = applySync(baseState(), 'rel_1', m);
+    const item = next.items[0];
+    const ada = next.teams[0].members.find((m) => m.externalId === 'USR-ADA')!;
+    expect(item.assignedMemberId).toBe(ada.id);
+  });
+
+  it('sets assignedMemberId to null when extAssigneeId is unknown', () => {
+    const m = mapped({
+      items: [
+        { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: 'USR-UNKNOWN', fields: { key: 'EXT-1', subject: 's', description: '', status: 'Active', points: 5 } },
+      ],
+    });
+    const { next } = applySync(baseState(), 'rel_1', m);
+    expect(next.items[0].assignedMemberId).toBeNull();
+  });
+});
+
+describe('applySync — dirty-aware pull', () => {
+  it('preserves locally-dirty writeable field (points) across sync', () => {
+    // First sync: creates item
+    const first = applySync(baseState(), 'rel_1', mapped(), ['points', 'sprint']);
+    const item = first.next.items[0];
+    // Simulate user editing points locally → mark as dirty
+    item.points = 13;
+    item.dirtyFields = ['points'];
+
+    // Second sync: external sends points = 5, but local is dirty → preserve 13
+    const { next } = applySync(first.next, 'rel_1', mapped(), ['points', 'sprint']);
+    expect(next.items[0].points).toBe(13); // preserved
+  });
+
+  it('preserves locally-dirty sprint across sync', () => {
+    const first = applySync(baseState(), 'rel_1', mapped(), ['points', 'sprint']);
+    const item = first.next.items[0];
+    const originalSprintId = item.sprintId;
+
+    // User moves item to backlog locally
+    item.sprintId = null;
+    item.dirtyFields = ['sprint'];
+
+    // Re-sync tries to place it in the original sprint — but local dirty wins
+    const { next } = applySync(first.next, 'rel_1', mapped(), ['points', 'sprint']);
+    expect(next.items[0].sprintId).toBeNull(); // preserved, not overwritten
+    // Sanity: the sprint still exists
+    expect(next.releases[0].sprints[0].id).toBe(originalSprintId);
+  });
+
+  it('does not preserve dirty field if it is not in the writeable set', () => {
+    // Same setup but writeableItemFields does not include 'points'
+    const first = applySync(baseState(), 'rel_1', mapped(), ['sprint']);
+    const item = first.next.items[0];
+    item.points = 13;
+    item.dirtyFields = ['points']; // dirty, but NOT in writeable
+
+    const { next } = applySync(first.next, 'rel_1', mapped(), ['sprint']);
+    expect(next.items[0].points).toBe(5); // external wins, dirty ignored
+  });
+
+  it('external wins on read-only fields even if item has dirty writeable fields', () => {
+    const first = applySync(baseState(), 'rel_1', mapped(), ['points', 'sprint']);
+    const item = first.next.items[0];
+    item.points = 13;
+    item.dirtyFields = ['points'];
+
+    const changed = mapped({
+      items: [
+        { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null, fields: { key: 'EXT-1', subject: 'Updated subject', description: 'd2', status: 'Complete', points: 5 } },
+      ],
+    });
+    const { next } = applySync(first.next, 'rel_1', changed, ['points', 'sprint']);
+    expect(next.items[0].subject).toBe('Updated subject'); // read-only, external wins
+    expect(next.items[0].status).toBe('Complete'); // read-only, external wins
+    expect(next.items[0].points).toBe(13); // writeable + dirty, preserved
   });
 });
 

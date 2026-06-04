@@ -1,13 +1,13 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.1.0
+  version: 0.2.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
     anti-corruption layer that translates any external work tracking backend
-    into these app-shaped types. Only work streams, sprints, and work items are
-    synced — events and teams/members are local to the app and intentionally absent.
+    into these app-shaped types. Work streams, sprints, work items, and teams/members
+    are synced — events are local to the app and intentionally absent.
 
 servers:
   - url: http://localhost:8787
@@ -63,6 +63,24 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/MappedRelease' }
 
+  /releases/{id}/push:
+    post:
+      operationId: pushRelease
+      summary: Push locally-modified writeable fields back to the external system.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PushRequest' }
+      responses:
+        '200':
+          description: Push outcome.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PushResult' }
+
 components:
   schemas:
     Status:
@@ -94,9 +112,34 @@ components:
             startISO: { type: string, description: 'YYYY-MM-DD' }
             endISO: { type: string, description: 'YYYY-MM-DD' }
 
+    MappedMember:
+      type: object
+      required: [externalId, fields]
+      properties:
+        externalId: { type: string }
+        fields:
+          type: object
+          required: [name]
+          properties:
+            name: { type: string }
+
+    MappedTeam:
+      type: object
+      required: [externalId, fields, members]
+      properties:
+        externalId: { type: string }
+        fields:
+          type: object
+          required: [name]
+          properties:
+            name: { type: string }
+        members:
+          type: array
+          items: { $ref: '#/components/schemas/MappedMember' }
+
     MappedItem:
       type: object
-      required: [externalId, extWorkStreamId, extSprintId, fields]
+      required: [externalId, extWorkStreamId, extSprintId, extAssigneeId, fields]
       properties:
         externalId: { type: string }
         extWorkStreamId:
@@ -106,7 +149,11 @@ components:
         extSprintId:
           type: string
           nullable: true
-          description: External sprint id; the app resolves it to a local sprint number.
+          description: External sprint id; the app resolves it to a local sprint.
+        extAssigneeId:
+          type: string
+          nullable: true
+          description: External assignee id; the app resolves it to a local member.
         fields:
           type: object
           required: [key, subject, description, status, points]
@@ -122,6 +169,11 @@ components:
       description: The sync payload for one release. Normalized, keyed by externalId.
       required: [workStreams, sprints, items]
       properties:
+        team:
+          nullable: true
+          allOf:
+            - { $ref: '#/components/schemas/MappedTeam' }
+          description: Optional team + roster. When present on a connector release the app upserts members and repoints release.teamId.
         workStreams:
           type: array
           items: { $ref: '#/components/schemas/MappedWorkStream' }
@@ -150,6 +202,14 @@ components:
         configFields:
           type: array
           items: { $ref: '#/components/schemas/ConnectorConfigField' }
+        writeable:
+          type: object
+          description: Per-entity field keys the app may push back. Absent means nothing is writeable.
+          properties:
+            item:
+              type: array
+              items: { type: string }
+              description: "Writeable work-item fields, e.g. ['points','sprint']"
 
     ReleaseConnector:
       type: object
@@ -181,3 +241,38 @@ components:
       required: [connector]
       properties:
         connector: { $ref: '#/components/schemas/ReleaseConnector' }
+
+    PushItemChange:
+      type: object
+      required: [externalId, fields]
+      description: A single writeable-field update for one work item to push back.
+      properties:
+        externalId: { type: string }
+        fields:
+          type: object
+          description: Only writeable fields that are locally dirty.
+          properties:
+            points: { type: number }
+            extSprintId:
+              type: string
+              nullable: true
+              description: External sprint id, or null for backlog.
+
+    PushRequest:
+      type: object
+      required: [connector, changes]
+      properties:
+        connector: { $ref: '#/components/schemas/ReleaseConnector' }
+        changes:
+          type: array
+          items: { $ref: '#/components/schemas/PushItemChange' }
+
+    PushResult:
+      type: object
+      required: [pushed, failed, errors]
+      properties:
+        pushed: { type: number }
+        failed: { type: number }
+        errors:
+          type: array
+          items: { type: string }

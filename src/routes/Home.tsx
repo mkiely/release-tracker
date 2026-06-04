@@ -42,10 +42,14 @@ export function Home() {
   const meta = connectors.find((c) => c.type === connType);
   const configComplete = !meta || meta.configFields.every((f) => !f.required || config[f.key]?.trim());
 
-  const canCreate = !!name.trim() && !!start && !!teamId && configComplete;
+  // For connector releases, team arrives on first sync — teamId not required.
+  const canCreate = !!name.trim() && !!start && (!!teamId || !!meta) && configComplete;
   const create = () => {
     const connector = meta ? { type: connType, config } : null;
-    const r = getActions().createRelease({ name: name.trim(), startISO: start, teamId, connector, sprintCount: connector ? undefined : sprintCount });
+    // For connector releases without a local team, pass a sentinel empty string —
+    // the store accepts it and applySync will repoint teamId on first sync.
+    const effectiveTeamId = teamId || '';
+    const r = getActions().createRelease({ name: name.trim(), startISO: start, teamId: effectiveTeamId, connector, sprintCount: connector ? undefined : sprintCount });
     navigate(`/releases/${r.id}`);
   };
 
@@ -147,10 +151,11 @@ export function Home() {
                 />
               </PField>
             )}
-            <PField label="Team">
+            <PField label="Team" hint={meta ? 'optional — team arrives from connector on first sync' : undefined}>
               <div style={{ display: 'flex', gap: 9 }}>
                 <PSelect value={teamId} onChange={(e) => setTeamId(e.target.value)} style={{ flex: 1 }}>
-                  {st.teams.length === 0 && <option value="">No teams yet</option>}
+                  {!meta && st.teams.length === 0 && <option value="">No teams yet</option>}
+                  {meta && <option value="">From connector</option>}
                   {st.teams.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}

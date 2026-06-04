@@ -55,6 +55,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/releases/{id}/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Push locally-modified writeable fields back to the external system. */
+        post: operations["pushRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -80,12 +97,27 @@ export interface components {
                 endISO: string;
             };
         };
+        MappedMember: {
+            externalId: string;
+            fields: {
+                name: string;
+            };
+        };
+        MappedTeam: {
+            externalId: string;
+            fields: {
+                name: string;
+            };
+            members: components["schemas"]["MappedMember"][];
+        };
         MappedItem: {
             externalId: string;
             /** @description External epic id; the app resolves it to a local work stream. */
             extWorkStreamId: string | null;
-            /** @description External sprint id; the app resolves it to a local sprint number. */
+            /** @description External sprint id; the app resolves it to a local sprint. */
             extSprintId: string | null;
+            /** @description External assignee id; the app resolves it to a local member. */
+            extAssigneeId: string | null;
             fields: {
                 /** @description External-provided, e.g. PROJ-123 */
                 key: string;
@@ -97,6 +129,8 @@ export interface components {
         };
         /** @description The sync payload for one release. Normalized, keyed by externalId. */
         MappedRelease: {
+            /** @description Optional team + roster. When present on a connector release the app upserts members and repoints release.teamId. */
+            team?: components["schemas"]["MappedTeam"] | null;
             workStreams: components["schemas"]["MappedWorkStream"][];
             sprints: components["schemas"]["MappedSprint"][];
             items: components["schemas"]["MappedItem"][];
@@ -113,6 +147,11 @@ export interface components {
             /** @description e.g. 'Jira' */
             label: string;
             configFields: components["schemas"]["ConnectorConfigField"][];
+            /** @description Per-entity field keys the app may push back. Absent means nothing is writeable. */
+            writeable?: {
+                /** @description Writeable work-item fields, e.g. ['points','sprint'] */
+                item?: string[];
+            };
         };
         /** @description A release's binding to a backend. config holds only non-secret routing params. */
         ReleaseConnector: {
@@ -132,6 +171,25 @@ export interface components {
         };
         SyncRequest: {
             connector: components["schemas"]["ReleaseConnector"];
+        };
+        /** @description A single writeable-field update for one work item to push back. */
+        PushItemChange: {
+            externalId: string;
+            /** @description Only writeable fields that are locally dirty. */
+            fields: {
+                points?: number;
+                /** @description External sprint id, or null for backlog. */
+                extSprintId?: string | null;
+            };
+        };
+        PushRequest: {
+            connector: components["schemas"]["ReleaseConnector"];
+            changes: components["schemas"]["PushItemChange"][];
+        };
+        PushResult: {
+            pushed: number;
+            failed: number;
+            errors: string[];
         };
     };
     responses: never;
@@ -210,6 +268,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MappedRelease"];
+                };
+            };
+        };
+    };
+    pushRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushRequest"];
+            };
+        };
+        responses: {
+            /** @description Push outcome. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushResult"];
                 };
             };
         };

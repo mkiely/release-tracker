@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { THEMES, ThemeStore, useTheme } from '../store/theme';
 import type { Release } from '../types';
+import { selDirtyCount, useStore } from '../store/store';
 import { Icon } from './Icon';
 import { IconButton, PButton } from './primitives';
 import { WF } from './tokens';
@@ -204,6 +205,40 @@ export function SyncButton({ release, onSync }: { release: Release; onSync: () =
       style={color ? { color } : undefined}
     >
       {label}
+    </PButton>
+  );
+}
+
+// Per-release push control. Hidden for Local releases (no connector) or when there
+// are no dirty items. Shows a count badge of pending changes.
+export function PushButton({ release, onPush }: { release: Release; onPush: () => void | Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const dirtyCount = useStore((s) => selDirtyCount(s, release.id));
+
+  if (!release.connector) return null;
+  if (dirtyCount === 0 && !busy) return null;
+
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await onPush();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <PButton
+      variant="subtle"
+      sm
+      icon={Icon.sync}
+      onClick={run}
+      disabled={busy || dirtyCount === 0}
+      title={dirtyCount > 0 ? `${dirtyCount} pending change${dirtyCount !== 1 ? 's' : ''}` : undefined}
+      style={dirtyCount > 0 ? { color: WF.status.Active.text } : undefined}
+    >
+      {busy ? 'Pushing…' : `Push${dirtyCount > 0 ? ` (${dirtyCount})` : ''}`}
     </PButton>
   );
 }

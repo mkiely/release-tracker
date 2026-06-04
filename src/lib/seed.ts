@@ -60,9 +60,11 @@ export function seed(): AppState {
   // generate work items for the demo release from the matrix
   const items: WorkItem[] = [];
   const wsId = (name: string) => demoStreams.find((w) => w.name === name)!.id;
+  const coreMembers = teams[0].members; // assign round-robin from the core team
   const subjIdx: Record<string, number> = {};
   let keyN = 100;
   let ptI = 0;
+  let memberIdx = 0;
   Object.entries(RELEASE_MATRIX).forEach(([sprintN, byStream]) => {
     const sprintId = demo.sprints[Number(sprintN) - 1].id; // matrix key is 1-based position
     Object.entries(byStream).forEach(([streamName, counts]) => {
@@ -75,6 +77,8 @@ export function seed(): AppState {
           items.push({
             id: uid('it'), releaseId: 'rel_demo', workStreamId: wsId(streamName), sprintId,
             key: `ORN-${keyN++}`, subject, description: '', status, points: PT_POOL[ptI++ % PT_POOL.length], externalId: null,
+            assignedMemberId: coreMembers[memberIdx++ % coreMembers.length].id,
+            dirtyFields: [],
           });
         }
       });
@@ -114,6 +118,7 @@ export function seed(): AppState {
       id: uid('it'), releaseId: rel.id, workStreamId: wid, sprintId: sprintIdFor(rel, sn),
       key: `${rel.id === 'rel_co' ? 'CO' : 'OB'}-${10 + i}`, subject: 'Work item ' + (i + 1),
       description: '', status: stt, points: PT_POOL[i % PT_POOL.length], externalId: null,
+      assignedMemberId: null, dirtyFields: [],
     }),
   );
 

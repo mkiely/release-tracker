@@ -4,12 +4,12 @@
 // changes no other app code. The store and UI depend only on this interface.
 
 import type { ConnectorType, ReleaseConnector } from '../types';
-import type { ConnectorMeta, MappedRelease, ValidateResult } from '@release-tracker/sync-contract';
+import type { ConnectorMeta, MappedRelease, PushItemChange, PushResult, ValidateResult } from '@release-tracker/sync-contract';
 import { FIXTURE_CONNECTORS, fixtureMappedRelease } from './fixtures';
 
 // Wire types come from the app-owned Sync Contract; re-export so app code can keep
 // importing them from the client module.
-export type { ConnectorMeta, ValidateResult } from '@release-tracker/sync-contract';
+export type { ConnectorMeta, ValidateResult, PushItemChange, PushResult } from '@release-tracker/sync-contract';
 
 export interface SyncClient {
   /** GET /connectors — available connectors + their required config. */
@@ -18,6 +18,8 @@ export interface SyncClient {
   validate(type: ConnectorType, config: Record<string, string>): Promise<ValidateResult>;
   /** POST /releases/{id}/sync — fetch + map external data for this release. */
   sync(connector: ReleaseConnector): Promise<MappedRelease>;
+  /** POST /releases/{id}/push — write locally-dirty writeable fields back to the external system. */
+  push(connector: ReleaseConnector, changes: PushItemChange[]): Promise<PushResult>;
 }
 
 /** Shared helper: confirm all required config fields for a connector are filled. */
@@ -43,6 +45,10 @@ export class FixtureSyncClient implements SyncClient {
     const v = await this.validate(connector.type, connector.config);
     if (!v.ok) throw new Error(v.error ?? 'Invalid connector config');
     return fixtureMappedRelease();
+  }
+
+  async push(_connector: ReleaseConnector, changes: PushItemChange[]): Promise<PushResult> {
+    return { pushed: changes.length, failed: 0, errors: [] };
   }
 }
 
@@ -74,6 +80,13 @@ export class HttpSyncClient implements SyncClient {
     return this.json<MappedRelease>('/releases/sync', {
       method: 'POST',
       body: JSON.stringify({ connector }),
+    });
+  }
+
+  push(connector: ReleaseConnector, changes: PushItemChange[]): Promise<PushResult> {
+    return this.json<PushResult>('/releases/push', {
+      method: 'POST',
+      body: JSON.stringify({ connector, changes }),
     });
   }
 }

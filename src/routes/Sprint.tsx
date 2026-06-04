@@ -6,7 +6,7 @@ import { fmtShort } from '../lib/dates';
 import { activeSprint, capPct, eventsIn, sprintVel } from '../lib/derive';
 import { selRelease, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
-import { NotFound, SyncButton, TopBar } from '../components/chrome';
+import { NotFound, PushButton, SyncButton, TopBar } from '../components/chrome';
 import { Icon } from '../components/Icon';
 import { EventBadge } from '../components/badges';
 import { SprintRail } from '../components/dnd';
@@ -17,7 +17,7 @@ import { WF } from '../components/tokens';
 export function Sprint() {
   const st = useStore();
   const navigate = useNavigate();
-  const { openModal, onSync, notify } = useApp();
+  const { openModal, onSync, onPush, notify } = useApp();
   const { id = '', sprintId = '' } = useParams();
   const r = selRelease(st, id);
   if (!r) return <NotFound label="Release not found." />;
@@ -81,6 +81,7 @@ export function Sprint() {
             <PButton variant="subtle" sm icon={Icon.cal} onClick={() => openModal({ type: 'sprint', releaseId: id, sprintId: sp.id })}>
               Edit sprint
             </PButton>
+            <PushButton release={r} onPush={() => onPush(id)} />
             <SyncButton release={r} onSync={() => onSync(id)} />
             <PButton sm icon={Icon.plus} onClick={() => openModal({ type: 'item', releaseId: id, presetSprintId: sp.id })}>
               New work item
@@ -135,7 +136,7 @@ export function Sprint() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {col.items.map((it) => (
-                    <WorkItemCard key={it.id} it={it} draggable onOpen={() => openModal({ type: 'itemDetail', itemId: it.id })} />
+                    <WorkItemCard key={it.id} it={it} releaseTeamId={r.teamId} draggable onOpen={() => openModal({ type: 'itemDetail', itemId: it.id })} />
                   ))}
                 </div>
               </div>

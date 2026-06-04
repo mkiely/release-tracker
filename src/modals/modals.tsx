@@ -1,7 +1,7 @@
 // Interactive modals wired to the store — ported from proto-modals.jsx.
 
 import { useState, type ReactNode } from 'react';
-import { STATUSES, type Status } from '../types';
+import { STATUSES, type Member, type Status } from '../types';
 import { between, fmtShort, workdaysInRange } from '../lib/dates';
 import { capPct, fullCap, sprintVel } from '../lib/derive';
 import { getActions, selItem, selRelease, selTeam, useStore } from '../store/store';
@@ -13,28 +13,41 @@ import { WF } from '../components/tokens';
 export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () => void }) {
   const editing = !!teamId;
   const existing = useStore((s) => (teamId ? selTeam(s, teamId) : undefined));
+
+  // Track members as objects to preserve id + externalId on edit.
+  type LocalMember = { id: string; name: string; externalId: string | null };
   const [name, setName] = useState(existing ? existing.name : '');
   const [velocity, setVelocity] = useState(existing ? String(existing.velocity) : '');
-  const [members, setMembers] = useState<string[]>(
-    existing && existing.members.length ? existing.members.map((m) => m.name) : [''],
+  const [members, setMembers] = useState<LocalMember[]>(
+    existing && existing.members.length
+      ? existing.members.map((m) => ({ id: m.id, name: m.name, externalId: m.externalId }))
+      : [{ id: `m_${Math.random().toString(36).slice(2)}`, name: '', externalId: null }],
   );
-  const setMember = (i: number, v: string) => setMembers((m) => m.map((x, j) => (j === i ? v : x)));
-  const addMember = () => setMembers((m) => [...m, '']);
-  const rmMember = (i: number) => setMembers((m) => m.filter((_, j) => j !== i));
+
+  const setMemberName = (i: number, v: string) =>
+    setMembers((ms) => ms.map((m, j) => (j === i ? { ...m, name: v } : m)));
+  const addMember = () =>
+    setMembers((ms) => [...ms, { id: `m_${Math.random().toString(36).slice(2)}`, name: '', externalId: null }]);
+  const rmMember = (i: number) => setMembers((ms) => ms.filter((_, j) => j !== i));
+
   const canSave = name.trim().length > 0;
   const save = () => {
+    const filteredMembers: Member[] = members
+      .filter((m) => m.name.trim())
+      .map((m) => ({ id: m.id, name: m.name.trim(), externalId: m.externalId }));
     if (editing && teamId) {
       getActions().updateTeam(teamId, {
         name: name.trim(),
         velocity: Number(velocity) || 0,
-        members: members.filter((m) => m.trim()).map((m) => ({ id: `m_${Math.random().toString(36).slice(2)}`, name: m.trim(), externalId: null })),
+        members: filteredMembers,
       });
     } else {
-      getActions().createTeam({ name, velocity, members });
+      getActions().createTeam({ name, velocity, members: filteredMembers.map((m) => m.name) });
     }
     onClose();
   };
-  const named = members.filter((m) => m.trim()).length;
+
+  const named = members.filter((m) => m.name.trim()).length;
   return (
     <Modal
       title={editing ? 'Edit team' : 'Create team'}
@@ -63,31 +76,41 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
           <span className="wf-flabel">Members</span>
           <span style={{ fontSize: 12, color: WF.t3 }}>{named}</span>
         </div>
-        {members.map((m, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <span className="wf-avatar">
-              {m.trim() ? m.trim().split(' ').map((p) => p[0]).slice(0, 2).join('') : i + 1}
-            </span>
-            <PInput
-              value={m}
-              placeholder="Member name"
-              onChange={(e) => setMember(i, e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addMember();
-                }
-              }}
-              style={{ flex: 1 }}
-            />
-            <IconButton
-              icon={Icon.trash}
-              title="Remove"
-              onClick={() => rmMember(i)}
-              style={{ border: 'none', color: WF.t3, visibility: members.length > 1 ? 'visible' : 'hidden' }}
-            />
-          </div>
-        ))}
+        {members.map((m, i) => {
+          const isSynced = !!m.externalId;
+          return (
+            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <span className="wf-avatar">
+                {m.name.trim() ? m.name.trim().split(' ').map((p) => p[0]).slice(0, 2).join('') : i + 1}
+              </span>
+              <PInput
+                value={m.name}
+                placeholder="Member name"
+                disabled={isSynced}
+                onChange={(e) => setMemberName(i, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addMember();
+                  }
+                }}
+                style={{ flex: 1 }}
+              />
+              {isSynced ? (
+                <span className="wf-tag" style={{ flex: '0 0 auto', fontSize: 10.5, color: WF.t3 }}>
+                  synced
+                </span>
+              ) : (
+                <IconButton
+                  icon={Icon.trash}
+                  title="Remove"
+                  onClick={() => rmMember(i)}
+                  style={{ border: 'none', color: WF.t3, visibility: members.length > 1 ? 'visible' : 'hidden' }}
+                />
+              )}
+            </div>
+          );
+        })}
         <button className="pt-btn subtle sm" onClick={addMember} style={{ alignSelf: 'flex-start' }}>
           {Icon.plus} Add member
         </button>
@@ -282,6 +305,7 @@ export function WorkItemModal({
   onClose: () => void;
 }) {
   const r = useStore((s) => selRelease(s, releaseId))!;
+  const team = useStore((s) => selTeam(s, r.teamId));
   const defaultSprintId = (() => {
     const a = r.sprints.find((s) => between(new Date().toISOString().slice(0, 10), s.startISO, s.endISO));
     return a ? a.id : (r.sprints[0]?.id ?? null); // active sprint, else first, else backlog
@@ -292,9 +316,10 @@ export function WorkItemModal({
   const [sprintId, setSprintId] = useState<string | null>(presetSprintId ?? defaultSprintId);
   const [status, setStatus] = useState<Status>('Not Started');
   const [points, setPoints] = useState(3);
+  const [assignedMemberId, setAssignedMemberId] = useState<string | null>(null);
   const canSave = !!subject.trim() && !!wsId;
   const save = () => {
-    getActions().createItem(releaseId, { workStreamId: wsId, sprintId, subject: subject.trim(), description: desc, status, points });
+    getActions().createItem(releaseId, { workStreamId: wsId, sprintId, subject: subject.trim(), description: desc, status, points, assignedMemberId });
     onClose();
   };
   return (
@@ -341,15 +366,27 @@ export function WorkItemModal({
           </PSelect>
         </PField>
       </div>
-      <PField label="Status">
-        <PSelect value={status} onChange={(e) => setStatus(e.target.value as Status)}>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </PSelect>
-      </PField>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <PField label="Assignee" style={{ flex: 1 }}>
+          <PSelect value={assignedMemberId ?? ''} onChange={(e) => setAssignedMemberId(e.target.value || null)}>
+            <option value="">Unassigned</option>
+            {(team?.members ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </PSelect>
+        </PField>
+        <PField label="Status" style={{ flex: 1 }}>
+          <PSelect value={status} onChange={(e) => setStatus(e.target.value as Status)}>
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </PSelect>
+        </PField>
+      </div>
       <PField label="Points" hint="approximate effort">
         <PointSeg value={points} onChange={setPoints} />
       </PField>
@@ -361,12 +398,16 @@ export function WorkItemModal({
 export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClose: () => void }) {
   const it = useStore((s) => selItem(s, itemId));
   const r = useStore((s) => (it ? selRelease(s, it.releaseId) : undefined));
+  const team = useStore((s) => (r ? selTeam(s, r.teamId) : undefined));
+
   const [subject, setSubject] = useState(it ? it.subject : '');
   const [desc, setDesc] = useState(it ? it.description : '');
   const [wsId, setWsId] = useState(it ? it.workStreamId : '');
   const [sprintId, setSprintId] = useState<string | null>(it?.sprintId ?? null);
   const [status, setStatus] = useState<Status>(it ? it.status : 'Not Started');
   const [points, setPoints] = useState(it ? it.points : 3);
+  const [assignedMemberId, setAssignedMemberId] = useState<string | null>(it?.assignedMemberId ?? null);
+
   if (!it || !r) {
     return (
       <Modal title="Work item" onClose={onClose} width={520}>
@@ -374,10 +415,20 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       </Modal>
     );
   }
-  // Synced items are owned by the external system: their fields are locked and
-  // overwritten on the next sync (external wins). Local items stay fully editable.
+
   const synced = !!it.externalId;
+  // Writeable fields for synced items: points and sprint are unlocked.
+  // All other synced fields stay read-only (external wins on next sync).
+  const readOnlyCore = synced; // subject, description, status, work stream, assignee
+  const isDirty = it.dirtyFields.length > 0;
+
   const save = () => {
+    let nextDirty = [...it.dirtyFields];
+    if (synced) {
+      // Accumulate dirty flags only for writeable fields that changed.
+      if (points !== it.points && !nextDirty.includes('points')) nextDirty.push('points');
+      if (sprintId !== it.sprintId && !nextDirty.includes('sprint')) nextDirty.push('sprint');
+    }
     getActions().updateItem(itemId, {
       subject: subject.trim() || it.subject,
       description: desc,
@@ -385,9 +436,12 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       sprintId,
       status,
       points,
+      assignedMemberId,
+      dirtyFields: nextDirty,
     });
     onClose();
   };
+
   return (
     <Modal
       onClose={onClose}
@@ -398,21 +452,21 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
             {it.key}
           </span>
           <span style={{ fontSize: 17, fontWeight: 750 }}>Work item</span>
+          {isDirty && (
+            <span
+              title="Modified — pending push"
+              style={{ width: 7, height: 7, borderRadius: '50%', background: WF.status.Active.dot, flexShrink: 0, marginLeft: 2 }}
+            />
+          )}
         </span>
       }
       footer={
-        synced ? (
+        <>
           <PButton variant="subtle" onClick={onClose}>
             Close
           </PButton>
-        ) : (
-          <>
-            <PButton variant="subtle" onClick={onClose}>
-              Close
-            </PButton>
-            <PButton onClick={save}>Save changes</PButton>
-          </>
-        )
+          <PButton onClick={save}>Save changes</PButton>
+        </>
       }
     >
       {synced && (
@@ -421,23 +475,23 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', marginBottom: 14, fontSize: 12.5, color: WF.t2, background: WF.fill }}
         >
           {Icon.sync}
-          <span>Synced from an external system — fields are read-only and refresh on the next sync.</span>
+          <span>Synced from an external system — most fields refresh on sync. Points and sprint are writeable and will push on your next Push.</span>
         </div>
       )}
       <PField label="Subject">
-        <PInput value={subject} disabled={synced} onChange={(e) => setSubject(e.target.value)} />
+        <PInput value={subject} disabled={readOnlyCore} onChange={(e) => setSubject(e.target.value)} />
       </PField>
       <PField label="Description">
         <PTextarea
           value={desc}
-          disabled={synced}
+          disabled={readOnlyCore}
           placeholder="No description yet — add detail, acceptance criteria, links…"
           onChange={(e) => setDesc(e.target.value)}
         />
       </PField>
       <div style={{ display: 'flex', gap: 12 }}>
         <PField label="Work stream" style={{ flex: 1 }}>
-          <PSelect value={wsId} disabled={synced} onChange={(e) => setWsId(e.target.value)}>
+          <PSelect value={wsId} disabled={readOnlyCore} onChange={(e) => setWsId(e.target.value)}>
             {r.workStreams.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}
@@ -446,7 +500,8 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           </PSelect>
         </PField>
         <PField label="Sprint" style={{ flex: 1 }}>
-          <PSelect value={sprintId ?? ''} disabled={synced} onChange={(e) => setSprintId(e.target.value || null)}>
+          {/* Sprint is writeable even for synced items */}
+          <PSelect value={sprintId ?? ''} onChange={(e) => setSprintId(e.target.value || null)}>
             <option value="">Backlog</option>
             {r.sprints.map((s) => (
               <option key={s.id} value={s.id}>
@@ -457,8 +512,18 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
         </PField>
       </div>
       <div style={{ display: 'flex', gap: 12 }}>
+        <PField label="Assignee" style={{ flex: 1 }}>
+          <PSelect value={assignedMemberId ?? ''} disabled={readOnlyCore} onChange={(e) => setAssignedMemberId(e.target.value || null)}>
+            <option value="">Unassigned</option>
+            {(team?.members ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </PSelect>
+        </PField>
         <PField label="Status" style={{ flex: 1 }}>
-          <PSelect value={status} disabled={synced} onChange={(e) => setStatus(e.target.value as Status)}>
+          <PSelect value={status} disabled={readOnlyCore} onChange={(e) => setStatus(e.target.value as Status)}>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -466,10 +531,11 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
             ))}
           </PSelect>
         </PField>
-        <PField label="Points" style={{ flex: 1.4 }}>
-          <PointSeg value={points} onChange={setPoints} disabled={synced} />
-        </PField>
       </div>
+      <PField label="Points">
+        {/* Points is writeable even for synced items */}
+        <PointSeg value={points} onChange={setPoints} />
+      </PField>
     </Modal>
   );
 }

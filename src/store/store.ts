@@ -18,13 +18,19 @@ import {
 import { buildSprints, todayISO, uid } from '../lib/dates';
 import { seed } from '../lib/seed';
 import { applySync } from '../sync/applySync';
+import { buildPushChanges } from '../sync/push';
 import { syncClient } from '../sync/client';
-import type { SyncResult } from '../sync/schema';
+import type { PushResult, SyncResult } from '../sync/schema';
 
 /** Result of a sync attempt, shaped so the UI can craft a precise toast. */
 export type SyncOutcome =
   | { ok: true; result: SyncResult }
   | { ok: false; reason: 'no-connector' | 'error'; message: string };
+
+/** Result of a push attempt. */
+export type PushOutcome =
+  | { ok: true; result: PushResult }
+  | { ok: false; reason: 'no-connector' | 'nothing-to-push' | 'error'; message: string };
 
 const LS_KEY = 'release-tracker:v1';
 
@@ -63,6 +69,18 @@ function migrate(p: AppState): AppState | null {
     });
     s = { ...s, version: 3, releases, items };
   }
+  // v3 → v4: work items gain assignedMemberId and dirtyFields.
+  if (s.version === 3) {
+    s = {
+      ...s,
+      version: 4,
+      items: s.items.map((it) => ({
+        ...it,
+        assignedMemberId: (it as any).assignedMemberId ?? null,
+        dirtyFields: (it as any).dirtyFields ?? [],
+      })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -99,11 +117,13 @@ interface Actions {
   updateSprint: (releaseId: string, sprintId: string, patch: Partial<Sprint>) => void;
   createItem: (
     releaseId: string,
-    input: { workStreamId: string; sprintId: string | null; subject: string; description?: string; status?: Status; points?: number },
+    input: { workStreamId: string; sprintId: string | null; subject: string; description?: string; status?: Status; points?: number; assignedMemberId?: string | null },
   ) => WorkItem | null;
   updateItem: (id: string, patch: Partial<WorkItem>) => void;
   /** Pull from this release's connector and upsert the result. No-op for Local releases. */
   syncRelease: (releaseId: string) => Promise<SyncOutcome>;
+  /** Push locally-dirty writeable fields back to the external system. */
+  pushRelease: (releaseId: string) => Promise<PushOutcome>;
 }
 
 type StoreState = AppState & { actions: Actions };
@@ -203,7 +223,7 @@ export const useStore = create<StoreState>((set, get) => {
       });
     },
 
-    createItem: (releaseId, { workStreamId, sprintId, subject, description, status, points }) => {
+    createItem: (releaseId, { workStreamId, sprintId, subject, description, status, points, assignedMemberId }) => {
       const r = release(releaseId);
       if (!r) return null;
       const prefix = (r.name.match(/[A-Za-z]/g) || ['I']).slice(0, 3).join('').toUpperCase();
@@ -219,6 +239,8 @@ export const useStore = create<StoreState>((set, get) => {
         status: status || 'Not Started',
         points: Number(points) || 0,
         externalId: null,
+        assignedMemberId: assignedMemberId ?? null,
+        dirtyFields: [],
       };
       commit((d) => { d.items = [...d.items, it]; });
       return it;
@@ -237,10 +259,13 @@ export const useStore = create<StoreState>((set, get) => {
 
       const stamp = () => new Date().toISOString();
       try {
-        // The SyncClient is the only seam to the external system (fixtures today,
-        // a real local service later). It returns app-schema data; applySync upserts it.
+        // Fetch the connector's writeable field list so dirty-aware pull knows what to preserve.
+        const connectors = await syncClient.listConnectors();
+        const meta = connectors.find((c) => c.type === r.connector!.type);
+        const writeableItemFields = meta?.writeable?.item ?? [];
+
         const mapped = await syncClient.sync(r.connector);
-        const { next, result } = applySync(snapshot(get()), releaseId, mapped);
+        const { next, result } = applySync(snapshot(get()), releaseId, mapped, writeableItemFields);
         const at = stamp();
         next.meta = { ...next.meta, lastSyncISO: at };
         next.releases = next.releases.map((rel) =>
@@ -251,6 +276,58 @@ export const useStore = create<StoreState>((set, get) => {
         persist(next);
         set({ ...next });
         window.dispatchEvent(new CustomEvent('release-tracker:sync', { detail: { snapshot: next } }));
+        return { ok: true, result };
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        commit((d) => {
+          d.releases = d.releases.map((rel) =>
+            rel.id === releaseId ? { ...rel, sync: { lastISO: stamp(), state: 'error', message } } : rel,
+          );
+        });
+        return { ok: false, reason: 'error', message };
+      }
+    },
+
+    pushRelease: async (releaseId) => {
+      const r = release(releaseId);
+      if (!r) return { ok: false, reason: 'error', message: 'Release not found' };
+      if (!r.connector) return { ok: false, reason: 'no-connector', message: 'Release is not connected' };
+
+      const stamp = () => new Date().toISOString();
+      try {
+        const connectors = await syncClient.listConnectors();
+        const meta = connectors.find((c) => c.type === r.connector!.type);
+        const writeableItemFields = meta?.writeable?.item ?? [];
+
+        const releaseItems = get().items.filter((i) => i.releaseId === releaseId && i.externalId !== null && i.dirtyFields.length > 0);
+        if (releaseItems.length === 0) {
+          return { ok: false, reason: 'nothing-to-push', message: 'No pending changes to push' };
+        }
+
+        const releaseSprints = r.sprints;
+        const changes = buildPushChanges(releaseItems, releaseSprints, writeableItemFields);
+        if (changes.length === 0) {
+          return { ok: false, reason: 'nothing-to-push', message: 'No writeable changes to push' };
+        }
+
+        const result = await syncClient.push(r.connector, changes);
+        const at = stamp();
+
+        // Clear dirtyFields on successfully pushed items.
+        const pushedExternalIds = new Set(changes.map((c) => c.externalId));
+        commit((d) => {
+          d.items = d.items.map((i) =>
+            i.releaseId === releaseId && i.externalId && pushedExternalIds.has(i.externalId)
+              ? { ...i, dirtyFields: [] }
+              : i,
+          );
+          d.releases = d.releases.map((rel) =>
+            rel.id === releaseId
+              ? { ...rel, sync: { lastISO: at, state: 'ok' as const, message: `Pushed ${result.pushed} change${result.pushed !== 1 ? 's' : ''}` } }
+              : rel,
+          );
+        });
+
         return { ok: true, result };
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
@@ -282,5 +359,9 @@ export const selItemsForStream = (s: AppState, releaseId: string, wsId: string):
   s.items.filter((i) => i.releaseId === releaseId && i.workStreamId === wsId);
 export const selItem = (s: AppState, id: string): WorkItem | undefined =>
   s.items.find((i) => i.id === id);
+
+/** Count of dirty (pending push) synced items for a release. */
+export const selDirtyCount = (s: AppState, releaseId: string): number =>
+  s.items.filter((i) => i.releaseId === releaseId && i.externalId !== null && i.dirtyFields.length > 0).length;
 
 export type { Member };

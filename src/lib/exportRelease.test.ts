@@ -43,6 +43,8 @@ const item = (over: Partial<WorkItem>): WorkItem => ({
   status: 'Not Started',
   points: 1,
   externalId: null,
+  assignedMemberId: null,
+  dirtyFields: [],
   ...over,
 });
 

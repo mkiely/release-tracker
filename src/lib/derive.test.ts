@@ -124,6 +124,8 @@ describe('statusSegs', () => {
     status,
     points: 1,
     externalId: null,
+    assignedMemberId: null,
+    dirtyFields: [],
   });
 
   it('counts per status and drops zeros', () => {

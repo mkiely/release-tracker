@@ -19,6 +19,7 @@ interface AppCtx {
   openModal: (m: ModalSpec) => void;
   notify: (msg: string) => void;
   onSync: (releaseId: string) => Promise<void>;
+  onPush: (releaseId: string) => Promise<void>;
 }
 
 const Ctx = createContext<AppCtx | null>(null);
@@ -39,6 +40,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2400);
   };
+
   const onSync = async (releaseId: string) => {
     const outcome = await getActions().syncRelease(releaseId);
     if (!outcome.ok) {
@@ -50,11 +52,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
     const { created, updated, skipped } = outcome.result;
-    notify(`Synced · ${created} new, ${updated} updated${skipped ? `, ${skipped} skipped` : ''}`);
+    notify(`Synced \xb7 ${created} new, ${updated} updated${skipped ? `, ${skipped} skipped` : ''}`);
+  };
+
+  const onPush = async (releaseId: string) => {
+    const outcome = await getActions().pushRelease(releaseId);
+    if (!outcome.ok) {
+      if (outcome.reason === 'nothing-to-push') return; // button already hides itself
+      notify(
+        outcome.reason === 'no-connector'
+          ? 'This release isn’t connected to an external system'
+          : `Push failed: ${outcome.message}`,
+      );
+      return;
+    }
+    notify(`Pushed \xb7 ${outcome.result.pushed} change${outcome.result.pushed !== 1 ? 's' : ''}`);
   };
 
   return (
-    <Ctx.Provider value={{ openModal: setModal, notify, onSync }}>
+    <Ctx.Provider value={{ openModal: setModal, notify, onSync, onPush }}>
       {children}
       <ModalHost modal={modal} onClose={() => setModal(null)} />
       {toast && <Toast>{toast}</Toast>}
