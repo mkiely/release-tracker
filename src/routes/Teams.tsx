@@ -14,6 +14,16 @@ export function Teams() {
   const st = useStore();
   const navigate = useNavigate();
   const { openModal } = useApp();
+
+  const confirmDeleteTeam = (t: { id: string; name: string }) => {
+    openModal({
+      type: 'confirm',
+      title: 'Delete team',
+      body: `Delete "${t.name}"? This cannot be undone.`,
+      confirmLabel: 'Delete team',
+      onConfirm: () => getActions().deleteTeam(t.id),
+    });
+  };
   return (
     <div className="wf wf-screen pt-root">
       <TopBar
@@ -35,12 +45,19 @@ export function Teams() {
                   <div style={{ fontWeight: 750, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
                   <div style={{ fontSize: 12, color: WF.t3, marginTop: 3 }}>{t.members.length} members</div>
                 </div>
-                <IconButton
-                  icon={Icon.edit}
-                  title="Edit team"
-                  onClick={() => openModal({ type: 'team', teamId: t.id })}
-                  style={{ flex: '0 0 auto' }}
-                />
+                <div style={{ display: 'flex', gap: 4, flex: '0 0 auto' }}>
+                  <IconButton
+                    icon={Icon.edit}
+                    title="Edit team"
+                    onClick={() => openModal({ type: 'team', teamId: t.id })}
+                  />
+                  <IconButton
+                    icon={Icon.trash}
+                    title="Delete team"
+                    onClick={() => confirmDeleteTeam(t)}
+                    style={{ color: WF.t3 }}
+                  />
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
                 <PField label="Velocity">

@@ -133,14 +133,14 @@ export function WorkItemCard({
       </div>
       <div
         style={{
-          fontSize: 13,
+          fontSize: 14.5,
           fontWeight: 600,
           lineHeight: 1.3,
           display: '-webkit-box',
           WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
-          minHeight: 34,
+          minHeight: 37,
         }}
       >
         {it.subject}
@@ -152,7 +152,17 @@ export function WorkItemCard({
         ) : (
           <span
             title="Unassigned"
-            style={{ color: WF.line, display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: '50%',
+              border: `1.5px dashed ${WF.line}`,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: WF.line,
+              flexShrink: 0,
+            }}
           >
             {Icon.member}
           </span>

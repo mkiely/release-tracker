@@ -309,11 +309,22 @@ export function Sprint() {
             ))}
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-            {statusCols.map((col) => {
+          <div style={{ display: 'flex', gap: 7, alignItems: 'stretch' }}>
+            {statusCols.map((col, idx) => {
               const c = WF.status[col.status];
+              const isLast = idx === statusCols.length - 1;
               return (
-                <div key={col.status} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div
+                  key={col.status}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    ...(isLast ? {} : { paddingRight: 7, borderRight: `1px solid ${WF.line}` }),
+                  }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px', gap: 8 }}>
                     <span
                       style={{

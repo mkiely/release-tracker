@@ -9,6 +9,43 @@ import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
 import { WF } from '../components/tokens';
 
+// ── Confirm / danger modal ─────────────────────────────────────────────
+export function ConfirmModal({
+  title,
+  body,
+  confirmLabel,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const handleConfirm = () => { onConfirm(); onClose(); };
+  return (
+    <Modal
+      title={title}
+      icon={Icon.trash}
+      onClose={onClose}
+      width={420}
+      footer={
+        <>
+          <PButton variant="subtle" onClick={onClose}>
+            Cancel
+          </PButton>
+          <PButton variant="danger" onClick={handleConfirm}>
+            {confirmLabel}
+          </PButton>
+        </>
+      }
+    >
+      <span style={{ fontSize: 14, color: WF.t2, lineHeight: 1.5 }}>{body}</span>
+    </Modal>
+  );
+}
+
 // ── Team create / edit modal ───────────────────────────────────────────
 export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () => void }) {
   const editing = !!teamId;

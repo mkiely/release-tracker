@@ -2,7 +2,7 @@
 // modal switch at the bottom of proto-app.jsx's App().
 
 import type { ModalSpec } from '../app-context';
-import { EventModal, SprintModal, TeamModal, WorkItemDetailModal, WorkItemModal, WorkStreamModal } from './modals';
+import { ConfirmModal, EventModal, SprintModal, TeamModal, WorkItemDetailModal, WorkItemModal, WorkStreamModal } from './modals';
 
 export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose: () => void }) {
   if (!modal) return null;
@@ -26,6 +26,8 @@ export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose
       );
     case 'itemDetail':
       return <WorkItemDetailModal itemId={modal.itemId} onClose={onClose} />;
+    case 'confirm':
+      return <ConfirmModal title={modal.title} body={modal.body} confirmLabel={modal.confirmLabel} onConfirm={modal.onConfirm} onClose={onClose} />;
     default:
       return null;
   }

@@ -57,6 +57,17 @@ export function Home() {
     getActions().reset();
   };
 
+  const deleteRelease = (e: React.MouseEvent, r: Release) => {
+    e.stopPropagation();
+    openModal({
+      type: 'confirm',
+      title: 'Delete release',
+      body: `Delete "${r.name}"? All work items will be removed. This cannot be undone.`,
+      confirmLabel: 'Delete release',
+      onConfirm: () => getActions().deleteRelease(r.id),
+    });
+  };
+
   const card = (r: Release) => {
     const team = selTeam(st, r.teamId);
     const items = selItemsFor(st, r.id);
@@ -80,7 +91,10 @@ export function Home() {
           <div style={{ fontWeight: 700, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
             {r.name}
           </div>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: WF.t2, flex: '0 0 auto' }}>{Math.round(done * 100)}%</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: WF.t2 }}>{Math.round(done * 100)}%</span>
+            <IconButton icon={Icon.trash} title="Delete release" onClick={(e) => deleteRelease(e, r)} style={{ color: WF.t3 }} />
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: WF.t3, fontSize: 13, whiteSpace: 'nowrap' }}>
           {Icon.team}

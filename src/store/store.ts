@@ -111,7 +111,9 @@ interface Actions {
   reset: () => void;
   createTeam: (input: { name: string; velocity: number | string; members: string[] }) => Team;
   updateTeam: (id: string, patch: Partial<Pick<Team, 'name' | 'velocity' | 'members'>>) => void;
+  deleteTeam: (id: string) => void;
   createRelease: (input: { name: string; startISO: string; teamId: string; connector?: ReleaseConnector | null; sprintCount?: number }) => Release;
+  deleteRelease: (id: string) => void;
   createWorkStream: (releaseId: string, name: string) => WorkStream | null;
   createEvent: (releaseId: string, input: { label: string; dateISO: string }) => void;
   updateSprint: (releaseId: string, sprintId: string, patch: Partial<Sprint>) => void;
@@ -172,6 +174,21 @@ export const useStore = create<StoreState>((set, get) => {
       });
     },
 
+    deleteTeam: (id) => {
+      commit((d) => {
+        const memberIds = new Set(d.teams.find((t) => t.id === id)?.members.map((m) => m.id) ?? []);
+        d.teams = d.teams.filter((t) => t.id !== id);
+        // Null the teamId on any release that referenced this team.
+        d.releases = d.releases.map((r) => (r.teamId === id ? { ...r, teamId: '' } : r));
+        // Null assignedMemberId on any work item assigned to a member of the deleted team.
+        if (memberIds.size > 0) {
+          d.items = d.items.map((i) =>
+            i.assignedMemberId && memberIds.has(i.assignedMemberId) ? { ...i, assignedMemberId: null } : i,
+          );
+        }
+      });
+    },
+
     createRelease: ({ name, startISO, teamId, connector, sprintCount }) => {
       const start = startISO || todayISO();
       const r: Release = {
@@ -190,6 +207,13 @@ export const useStore = create<StoreState>((set, get) => {
       };
       commit((d) => { d.releases = [...d.releases, r]; });
       return r;
+    },
+
+    deleteRelease: (id) => {
+      commit((d) => {
+        d.releases = d.releases.filter((r) => r.id !== id);
+        d.items = d.items.filter((i) => i.releaseId !== id);
+      });
     },
 
     createWorkStream: (releaseId, name) => {
