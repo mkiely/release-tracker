@@ -1,6 +1,7 @@
 // Interactive modals wired to the store — ported from proto-modals.jsx.
 
 import { useState, type ReactNode } from 'react';
+import DOMPurify from 'dompurify';
 import { STATUSES, type Member, type Status } from '../types';
 import { between, fmtShort, workdaysInRange } from '../lib/dates';
 import { capPct, fullCap, sprintVel } from '../lib/derive';
@@ -523,25 +524,37 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       }
     >
       {synced && (
-        <div
-          className="wf-card"
-          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', marginBottom: 14, fontSize: 12.5, color: WF.t2, background: WF.fill }}
-        >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 10, fontSize: 11.5, color: WF.t3, background: WF.fill, border: `1.5px solid ${WF.line}`, borderRadius: 7 }}>
           {Icon.sync}
-          <span>Synced from an external system — most fields refresh on sync. Points and sprint are writeable and will push on your next Push.</span>
+          <span>Synced — most fields refresh on sync. <strong style={{ color: WF.t2, fontWeight: 600 }}>Points</strong> and <strong style={{ color: WF.t2, fontWeight: 600 }}>sprint</strong> are writeable.</span>
         </div>
       )}
       <PField label="Subject">
         <PInput value={subject} disabled={readOnlyCore} onChange={(e) => setSubject(e.target.value)} />
       </PField>
       <PField label="Description">
-        <PTextarea
-          value={desc}
-          disabled={readOnlyCore}
-          placeholder="No description yet — add detail, acceptance criteria, links…"
-          onChange={(e) => setDesc(e.target.value)}
-          style={{ minHeight: 140 }}
-        />
+        {it.descriptionFormat === 'html' ? (
+          <div
+            className="prose"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(desc) }}
+            style={{
+              border: '1.5px solid var(--wf-line-strong)',
+              background: 'var(--wf-paper)',
+              borderRadius: 9,
+              padding: '11px 13px',
+              maxHeight: 120,
+              overflowY: 'auto',
+            }}
+          />
+        ) : (
+          <PTextarea
+            value={desc}
+            disabled={readOnlyCore}
+            placeholder="No description yet — add detail, acceptance criteria, links…"
+            onChange={(e) => setDesc(e.target.value)}
+            style={{ minHeight: 80 }}
+          />
+        )}
       </PField>
       <div style={{ display: 'flex', gap: 12 }}>
         <PField label="Work stream" style={{ flex: 1 }}>

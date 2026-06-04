@@ -1,0 +1,148 @@
+/* Bespoke prose styles for HTML work-item descriptions synced from external
+   backends. Scoped to .prose so it never leaks into app chrome. All colors
+   reference --wf-* tokens so light/dark mode works automatically. */
+
+.prose {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--wf-t1);
+  word-break: break-word;
+}
+
+.prose > * + * {
+  margin-top: 0.75em;
+}
+
+.prose p {
+  margin: 0;
+}
+
+.prose p + p {
+  margin-top: 0.75em;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  font-family: inherit;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 1.25em 0 0.4em;
+  color: var(--wf-t1);
+}
+
+.prose h1 { font-size: 1.35em; }
+.prose h2 { font-size: 1.2em; }
+.prose h3 { font-size: 1.05em; }
+.prose h4 { font-size: 0.95em; }
+
+.prose h1:first-child,
+.prose h2:first-child,
+.prose h3:first-child,
+.prose h4:first-child {
+  margin-top: 0;
+}
+
+.prose ul,
+.prose ol {
+  margin: 0.5em 0;
+  padding-left: 1.6em;
+}
+
+.prose ul { list-style-type: disc; }
+.prose ol { list-style-type: decimal; }
+
+.prose li {
+  margin: 0.2em 0;
+}
+
+.prose li > ul,
+.prose li > ol {
+  margin: 0.15em 0;
+}
+
+.prose a {
+  color: var(--wf-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose a:hover {
+  opacity: 0.8;
+}
+
+.prose strong {
+  font-weight: 600;
+  color: var(--wf-t1);
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose code {
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Mono', monospace;
+  font-size: 0.875em;
+  background: var(--wf-fill);
+  border: 1px solid var(--wf-line);
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+  color: var(--wf-t1);
+}
+
+.prose pre {
+  background: var(--wf-fill);
+  border: 1px solid var(--wf-line);
+  border-radius: 6px;
+  padding: 0.85em 1em;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+
+.prose pre code {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  font-size: 0.875em;
+  line-height: 1.5;
+}
+
+.prose blockquote {
+  border-left: 3px solid var(--wf-line);
+  padding-left: 0.85em;
+  margin: 0.75em 0;
+  color: var(--wf-t3);
+  font-style: italic;
+}
+
+.prose blockquote > * + * {
+  margin-top: 0.5em;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+  margin: 0.75em 0;
+}
+
+.prose th,
+.prose td {
+  border: 1px solid var(--wf-line);
+  padding: 0.45em 0.75em;
+  text-align: left;
+}
+
+.prose th {
+  background: var(--wf-fill);
+  font-weight: 600;
+  color: var(--wf-t2);
+}
+
+.prose hr {
+  border: none;
+  border-top: 1.5px solid var(--wf-line);
+  margin: 1em 0;
+}

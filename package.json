@@ -12,6 +12,8 @@
     "gen:contract": "openapi-typescript packages/sync-contract/openapi.yaml -o packages/sync-contract/src/generated.ts"
   },
   "dependencies": {
+    "@types/dompurify": "^3.0.5",
+    "dompurify": "^3.4.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",

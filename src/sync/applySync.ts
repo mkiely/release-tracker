@@ -190,6 +190,7 @@ export function applySync(
       existing.key = m.fields.key;
       existing.subject = m.fields.subject;
       existing.description = m.fields.description;
+      existing.descriptionFormat = m.fields.descriptionFormat ?? 'text';
       existing.status = m.fields.status;
       existing.assignedMemberId = assignedMemberId;
       existing.build = m.fields.build ?? null;
@@ -208,6 +209,7 @@ export function applySync(
         key: m.fields.key,
         subject: m.fields.subject,
         description: m.fields.description,
+        descriptionFormat: m.fields.descriptionFormat ?? 'text',
         status: m.fields.status,
         points: m.fields.points,
         externalId: m.externalId,

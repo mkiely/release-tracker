@@ -415,6 +415,39 @@ describe('applySync — build field', () => {
   });
 });
 
+describe('applySync — descriptionFormat field', () => {
+  const itemWithFormat = (descriptionFormat?: 'text' | 'html') => ({
+    externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null,
+    fields: {
+      key: 'EXT-1', subject: 's', description: '<p>detail</p>', status: 'Active' as const, points: 3,
+      ...(descriptionFormat !== undefined && { descriptionFormat }),
+    },
+  });
+
+  it('sets descriptionFormat: html on item create when connector sends html', () => {
+    const m = mapped({ items: [itemWithFormat('html')] });
+    const { next } = applySync(baseState(), 'rel_1', m);
+    expect(next.items[0].descriptionFormat).toBe('html');
+  });
+
+  it('defaults to descriptionFormat: text when connector omits the field on create', () => {
+    const { next } = applySync(baseState(), 'rel_1', mapped());
+    expect(next.items[0].descriptionFormat).toBe('text');
+  });
+
+  it('updates descriptionFormat to html on re-sync when connector sends html', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [itemWithFormat('text')] }));
+    const { next } = applySync(first.next, 'rel_1', mapped({ items: [itemWithFormat('html')] }));
+    expect(next.items[0].descriptionFormat).toBe('html');
+  });
+
+  it('resets descriptionFormat to text when connector omits the field on re-sync', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [itemWithFormat('html')] }));
+    const { next } = applySync(first.next, 'rel_1', mapped()); // no descriptionFormat in fields
+    expect(next.items[0].descriptionFormat).toBe('text');
+  });
+});
+
 describe('applySync — purity', () => {
   it('does not mutate the input state', () => {
     const state = baseState();

@@ -155,6 +155,52 @@ export function seed(): AppState {
     },
   );
 
+  // HTML-description item — exercises the .prose renderer in WorkItemDetailModal
+  items.push({
+    id: uid('it'), releaseId: 'rel_demo', workStreamId: wsId('Checkout API'),
+    sprintId: demo.sprints[3].id,
+    key: `ORN-${keyN++}`, subject: 'SSO login via identity provider',
+    description: `<h3>Overview</h3>
+<p>Implement SSO login via an external identity provider (IdP) using OIDC. Users authenticate through the IdP and receive a session cookie valid for <code>8h</code> of inactivity.</p>
+<h3>Acceptance criteria</h3>
+<ul>
+  <li>Users can <strong>log in</strong> via SSO from the login page</li>
+  <li>Session expires after <code>8h</code> of inactivity and <code>24h</code> absolute</li>
+  <li>Failed attempts are logged with <em>reason code</em> and timestamp</li>
+  <li>Logout clears the session cookie and redirects to the IdP logout endpoint</li>
+  <li>Deep-link redirect preserved through the auth flow (<code>?next=</code> param)</li>
+  <li>Works in Safari — no third-party cookie dependency</li>
+</ul>
+<h3>Technical notes</h3>
+<p>Coordinate with Auth &amp; SSO stream — they own the OIDC provider config and the <code>/.well-known/openid-configuration</code> endpoint. Our side is limited to:</p>
+<ol>
+  <li>Initiating the auth redirect with <code>state</code> + <code>nonce</code></li>
+  <li>Handling the callback, validating the <code>id_token</code> (signature, <code>aud</code>, expiry)</li>
+  <li>Minting the session cookie via <code>SessionService.create()</code></li>
+</ol>
+<blockquote>See <a href="#">Confluence spec</a> for the full provider matrix and edge cases (e.g. IdP-initiated login, just-in-time provisioning).</blockquote>
+<h3>Out of scope</h3>
+<ul>
+  <li>MFA enforcement — handled by the IdP, not this ticket</li>
+  <li>Group/role sync — separate ticket, depends on this one</li>
+  <li>Admin impersonation flow</li>
+</ul>
+<h3>Test plan</h3>
+<table>
+  <thead><tr><th>Scenario</th><th>Expected</th></tr></thead>
+  <tbody>
+    <tr><td>Happy path SSO login</td><td>Session cookie set, redirect to <code>?next</code> or home</td></tr>
+    <tr><td>Invalid <code>id_token</code> signature</td><td>401 + reason logged</td></tr>
+    <tr><td>Expired token in callback</td><td>Error page, no session created</td></tr>
+    <tr><td>Session idle &gt; 8h</td><td>Redirected to login on next request</td></tr>
+    <tr><td>Logout</td><td>Cookie cleared, IdP logout called</td></tr>
+  </tbody>
+</table>`,
+    descriptionFormat: 'html',
+    status: 'Not Started', points: 5, externalId: 'EXT-SSO-001',
+    assignedMemberId: coreMembers[1].id, build: null, dirtyFields: [],
+  });
+
   // two lighter releases so the home list feels real
   const co: Release = {
     id: 'rel_co', name: 'Q3 Checkout', startISO: '2026-05-19', teamId: 'team_pay',

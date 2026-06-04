@@ -39,6 +39,24 @@ describe('seed', () => {
     expect(unknown).toHaveLength(0);
   });
 
+  it('seeds exactly one HTML-description item on the demo release', () => {
+    const { items } = seed();
+    const htmlItems = items.filter((i) => i.releaseId === 'rel_demo' && i.descriptionFormat === 'html');
+    expect(htmlItems).toHaveLength(1);
+  });
+
+  it('HTML-description item has a non-empty description, a non-null externalId, and valid sprint placement', () => {
+    const { releases, items } = seed();
+    const htmlItem = items.find((i) => i.descriptionFormat === 'html')!;
+    expect(htmlItem).toBeDefined();
+    expect(htmlItem.description).toBeTruthy();
+    expect(htmlItem.externalId).not.toBeNull();
+    const release = releases.find((r) => r.id === htmlItem.releaseId)!;
+    if (htmlItem.sprintId !== null) {
+      expect(release.sprints.find((s) => s.id === htmlItem.sprintId)).toBeDefined();
+    }
+  });
+
   it('patch items are assigned to a valid sprint within their release', () => {
     const { releases, items } = seed();
     const patchItems = items.filter((i) => i.build !== null);

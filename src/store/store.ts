@@ -93,6 +93,14 @@ export function migrate(p: AppState): AppState | null {
   if (s.version === 5) {
     s = { ...s, version: 6 };
   }
+  // v6 → v7: work items gain descriptionFormat (default 'text').
+  if (s.version === 6) {
+    s = {
+      ...s,
+      version: 7,
+      items: s.items.map((it) => ({ ...it, descriptionFormat: (it as any).descriptionFormat ?? 'text' })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 

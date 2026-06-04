@@ -29,6 +29,11 @@ const v4Item = () => ({
   ...v3Item(), assignedMemberId: null, dirtyFields: [],
 });
 
+// Minimal v6 item — has build, no descriptionFormat.
+const v6Item = () => ({
+  ...v4Item(), build: null,
+});
+
 describe('migrate — v1 → current', () => {
   const v1 = { version: 1, teams: [], releases: [v1Release()], items: [], meta: { lastSyncISO: null } };
 
@@ -155,6 +160,36 @@ describe('migrate — v4 → current', () => {
     const v4Multi = { ...v4, items: [v4Item(), { ...v4Item(), id: 'it2', key: 'K-2' }] };
     const next = migrate(v4Multi as any)!;
     expect(next.items.every((i) => i.build === null)).toBe(true);
+  });
+});
+
+describe('migrate — v6 → current', () => {
+  const sp = { id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 0, externalId: null };
+  const v6 = {
+    version: 6, teams: [], meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), sprints: [sp] }],
+    items: [v6Item()],
+  };
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v6 as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('adds descriptionFormat: text to items that lack it', () => {
+    const next = migrate(v6 as any)!;
+    expect(next.items[0].descriptionFormat).toBe('text');
+  });
+
+  it('preserves an existing descriptionFormat: html when already set', () => {
+    const v6WithHtml = { ...v6, items: [{ ...v6Item(), descriptionFormat: 'html' }] };
+    const next = migrate(v6WithHtml as any)!;
+    expect(next.items[0].descriptionFormat).toBe('html');
+  });
+
+  it('sets descriptionFormat on every item when multiple items are present', () => {
+    const v6Multi = { ...v6, items: [v6Item(), { ...v6Item(), id: 'it2', key: 'K-2' }] };
+    const next = migrate(v6Multi as any)!;
+    expect(next.items.every((i) => i.descriptionFormat === 'text')).toBe(true);
   });
 });
 
