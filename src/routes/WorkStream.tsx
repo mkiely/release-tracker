@@ -1,6 +1,7 @@
 // Work Stream view — a column per sprint for one stream, drag items between
-// sprints, per-column capacity. Ported from WorkStreamScreen.
+// sprints, per-column capacity, and a status filter bar.
 
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { activeSprint } from '../lib/derive';
 import { selRelease, selItemsForStream, selTeam, useStore } from '../store/store';
@@ -11,12 +12,16 @@ import { StreamSprintColumn } from '../components/dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
 import { IconButton, PButton } from '../components/primitives';
 import { WF } from '../components/tokens';
+import { STATUSES, type Status } from '../types';
 
 export function WorkStream() {
   const st = useStore();
   const navigate = useNavigate();
   const { openModal, onSync, onPush, notify } = useApp();
   const { id = '', wsId = '' } = useParams();
+
+  const [statusFilter, setStatusFilter] = useState<Set<Status>>(new Set());
+
   const r = selRelease(st, id);
   const ws = r && r.workStreams.find((w) => w.id === wsId);
   if (!r || !ws) return <NotFound label="Work stream not found." />;
@@ -26,6 +31,18 @@ export function WorkStream() {
   const act = activeSprint(r);
   const curId = act ? act.id : null;
   const totalPts = items.reduce((a, i) => a + i.points, 0);
+
+  function toggleStatus(s: Status) {
+    setStatusFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  }
+
+  const filteredItems = statusFilter.size === 0 ? items : items.filter((i) => statusFilter.has(i.status));
+  const isFiltered = statusFilter.size > 0;
 
   return (
     <div className="wf wf-screen pt-root">
@@ -57,10 +74,83 @@ export function WorkStream() {
         }
       />
 
+      {/* Status filter bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '7px 24px',
+          borderBottom: `1.5px solid ${WF.line}`,
+          background: WF.bg,
+          flexWrap: 'wrap',
+        }}
+      >
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: WF.t3, marginRight: 2 }}>Status</span>
+        {STATUSES.map((s) => {
+          const active = statusFilter.has(s);
+          const c = WF.status[s];
+          return (
+            <button
+              key={s}
+              onClick={() => toggleStatus(s)}
+              title={active ? `Remove filter: ${s}` : `Filter: ${s}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '2px 9px 2px 7px',
+                borderRadius: 20,
+                border: `1.5px solid ${active ? c.dot : WF.line}`,
+                background: active ? c.soft : 'transparent',
+                color: active ? c.text : WF.t3,
+                cursor: 'pointer',
+                fontSize: 11.5,
+                fontWeight: active ? 700 : 500,
+                fontFamily: WF.sans,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: active ? c.dot : WF.t3,
+                  flexShrink: 0,
+                }}
+              />
+              {s}
+            </button>
+          );
+        })}
+        {isFiltered && (
+          <>
+            <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />
+            <button
+              onClick={() => setStatusFilter(new Set())}
+              title="Clear filters"
+              style={{
+                fontSize: 11.5,
+                fontWeight: 600,
+                color: WF.t3,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: WF.sans,
+                padding: '2px 4px',
+              }}
+            >
+              Clear
+            </button>
+          </>
+        )}
+      </div>
+
       <div style={{ flex: 1, overflow: 'auto', padding: '18px 24px' }}>
-        {items.length === 0 ? (
+        {filteredItems.length === 0 ? (
           <div className="wf-card wf-dash" style={{ padding: 40, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
-            No work items yet. Create one to get started.
+            {isFiltered ? 'No items match the current filters.' : 'No work items yet. Create one to get started.'}
           </div>
         ) : (
           <div style={{ display: 'flex', gap: 14, alignItems: 'stretch', minHeight: '100%' }}>
@@ -70,7 +160,7 @@ export function WorkStream() {
                 sp={sp}
                 team={team}
                 isCur={sp.id === curId}
-                streamItems={items.filter((i) => i.sprintId === sp.id)}
+                streamItems={filteredItems.filter((i) => i.sprintId === sp.id)}
                 allItems={allItems}
                 notify={notify}
                 renderCard={(it) => (
