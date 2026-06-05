@@ -42,6 +42,7 @@ const item = (over: Partial<WorkItem>): WorkItem => ({
   description: '',
   status: 'Not Started',
   points: 1,
+  itemType: null,
   externalId: null,
   assignedMemberId: null,
   build: null,
@@ -84,7 +85,7 @@ describe('releaseToTSV', () => {
 
   it('emits capacity and planned rows below the event row', () => {
     const r = release();
-    const team = { id: 't', name: 'Core', velocity: 20, members: [{ id: 'm1', name: 'Alice', externalId: null }], externalId: null };
+    const team = { id: 't', name: 'Core', velocity: 20, members: [{ id: 'm1', name: 'Alice', externalId: null, nonContributing: false }], externalId: null };
     r.sprints[0].daysOff = 0;
     const st: AppState = {
       version: 1,

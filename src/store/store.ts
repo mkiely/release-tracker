@@ -9,6 +9,7 @@ import {
   type Member,
   type Release,
   type ReleaseConnector,
+  type ReleaseEvent,
   type Sprint,
   type Status,
   type Team,

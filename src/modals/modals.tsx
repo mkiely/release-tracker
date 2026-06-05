@@ -52,27 +52,27 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
   const editing = !!teamId;
   const existing = useStore((s) => (teamId ? selTeam(s, teamId) : undefined));
 
-  // Track members as objects to preserve id + externalId on edit.
-  type LocalMember = { id: string; name: string; externalId: string | null };
+  // Track members as objects to preserve id + externalId + nonContributing on edit.
+  type LocalMember = { id: string; name: string; externalId: string | null; nonContributing: boolean };
   const [name, setName] = useState(existing ? existing.name : '');
   const [velocity, setVelocity] = useState(existing ? String(existing.velocity) : '');
   const [members, setMembers] = useState<LocalMember[]>(
     existing && existing.members.length
-      ? existing.members.map((m) => ({ id: m.id, name: m.name, externalId: m.externalId }))
-      : [{ id: `m_${Math.random().toString(36).slice(2)}`, name: '', externalId: null }],
+      ? existing.members.map((m) => ({ id: m.id, name: m.name, externalId: m.externalId, nonContributing: m.nonContributing }))
+      : [{ id: `m_${Math.random().toString(36).slice(2)}`, name: '', externalId: null, nonContributing: false }],
   );
 
   const setMemberName = (i: number, v: string) =>
     setMembers((ms) => ms.map((m, j) => (j === i ? { ...m, name: v } : m)));
   const addMember = () =>
-    setMembers((ms) => [...ms, { id: `m_${Math.random().toString(36).slice(2)}`, name: '', externalId: null }]);
+    setMembers((ms) => [...ms, { id: `m_${Math.random().toString(36).slice(2)}`, name: '', externalId: null, nonContributing: false }]);
   const rmMember = (i: number) => setMembers((ms) => ms.filter((_, j) => j !== i));
 
   const canSave = name.trim().length > 0;
   const save = () => {
     const filteredMembers: Member[] = members
       .filter((m) => m.name.trim())
-      .map((m) => ({ id: m.id, name: m.name.trim(), externalId: m.externalId }));
+      .map((m) => ({ id: m.id, name: m.name.trim(), externalId: m.externalId, nonContributing: m.nonContributing }));
     if (editing && teamId) {
       getActions().updateTeam(teamId, {
         name: name.trim(),
