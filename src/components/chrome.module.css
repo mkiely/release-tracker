@@ -6,9 +6,41 @@
   background: var(--rt-paper);
   border: 1.5px solid var(--rt-line);
   border-radius: 12px;
-  box-shadow: 0 8px 28px var(--rt-shadow);
+  box-shadow: 0 8px 28px var(--rt-shadow, rgba(0,0,0,0.12));
   padding: 6px 0;
   min-width: 180px;
+}
+
+.settings {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  background: var(--rt-paper);
+  border: 1.5px solid var(--rt-line);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px var(--rt-shadow, rgba(0,0,0,0.12));
+  padding: 6px 0;
+  min-width: 200px;
+}
+
+.settingsSection {
+  padding: 4px 0;
+}
+
+.settingsSectionLabel {
+  padding: 4px 14px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--rt-t3);
+}
+
+.settingsDivider {
+  height: 1.5px;
+  background: var(--rt-line);
+  margin: 4px 0;
 }
 
 .paletteOption {

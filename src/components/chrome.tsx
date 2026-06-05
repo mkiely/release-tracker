@@ -1,8 +1,9 @@
-// Shared chrome — TopBar, Brand, SyncButton, PushButton, PalettePicker, NotFound.
+// Shared chrome — TopBar, Brand, SyncButton, PushButton, SettingsPanel, NotFound.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { THEMES, ThemeStore, useTheme } from '../store/theme';
+import { ViewModeStore, useViewMode } from '../store/viewMode';
 import type { Release } from '../types';
 import { selDirtyCount, useStore } from '../store/store';
 import { Icon } from './Icon';
@@ -20,53 +21,80 @@ function ThemeSwatch({ bg, dot, size = 14 }: { bg: string; dot: string; size?: n
   );
 }
 
-export function PalettePicker() {
+export function SettingsPanel() {
   const theme = useTheme();
+  const viewMode = useViewMode();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const active = THEMES.find((t) => t.id === theme) ?? THEMES[0];
+  const firstRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
+    firstRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const onMouse = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onMouse);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onMouse);
+    };
   }, [open]);
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <IconButton
-        icon={<ThemeSwatch bg={active.bg} dot={active.dot} size={15} />}
+        icon={Icon.sliders}
         onClick={() => setOpen((o) => !o)}
-        title="Choose colour theme"
+        title="Settings"
       />
       {open && (
-        <div className={styles.palette}>
-          {THEMES.map((t) => {
-            const isActive = t.id === theme;
-            return (
-              <button
-                key={t.id}
-                onClick={() => { ThemeStore.set(t.id); setOpen(false); }}
-                className={`${styles.paletteOption} ${isActive ? styles.paletteOptionActive : ''}`}
-              >
-                <ThemeSwatch bg={t.bg} dot={t.dot} size={16} />
-                <span style={{ flex: 1 }}>{t.label}</span>
-                {isActive && (
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--rt-t2)' }}>
-                    <path d="M2 6l2.8 3L10 3" />
-                  </svg>
-                )}
-              </button>
-            );
-          })}
+        <div className={styles.settings} role="dialog" aria-label="Settings">
+          <div className={styles.settingsSection}>
+            <div className={styles.settingsSectionLabel}>Colour</div>
+            {THEMES.map((t, i) => {
+              const isActive = t.id === theme;
+              return (
+                <button
+                  key={t.id}
+                  ref={i === 0 ? firstRef : undefined}
+                  onClick={() => ThemeStore.set(t.id)}
+                  className={`${styles.paletteOption} ${isActive ? styles.paletteOptionActive : ''}`}
+                >
+                  <ThemeSwatch bg={t.bg} dot={t.dot} size={16} />
+                  <span style={{ flex: 1 }}>{t.label}</span>
+                  {isActive && <span style={{ color: 'var(--rt-t2)' }}>{Icon.check}</span>}
+                </button>
+              );
+            })}
+          </div>
+          <div className={styles.settingsDivider} />
+          <div className={styles.settingsSection}>
+            <div className={styles.settingsSectionLabel}>View style</div>
+            {(['cards', 'table'] as const).map((v) => {
+              const isActive = viewMode === v;
+              return (
+                <button
+                  key={v}
+                  onClick={() => ViewModeStore.set(v)}
+                  className={`${styles.paletteOption} ${isActive ? styles.paletteOptionActive : ''}`}
+                >
+                  <span style={{ flex: 1 }}>{v === 'cards' ? 'Cards' : 'Table'}</span>
+                  {isActive && <span style={{ color: 'var(--rt-t2)' }}>{Icon.check}</span>}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
   );
 }
+
+/** @deprecated Use SettingsPanel instead. Kept for callers that haven't migrated. */
+export const PalettePicker = SettingsPanel;
 
 export function TopBar({
   left,
@@ -95,7 +123,7 @@ export function TopBar({
       <div className={styles.topBarRight}>
         {right && <div className={styles.topBarActions}>{right}</div>}
         <div className={right ? styles.topBarPaletteDivider : styles.topBarPalette}>
-          <PalettePicker />
+          <SettingsPanel />
         </div>
       </div>
     </div>

@@ -1,0 +1,179 @@
+/* ReleaseTable — F3 two-column stacked sprint layout */
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Sprint row ──────────────────────────────────────────────────────────── */
+.row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--rt-line);
+  cursor: pointer;
+  flex-shrink: 0;
+  min-height: 72px;
+  transition: background 80ms;
+}
+
+.rowActive {
+  background: var(--rt-st-ac-soft);
+  box-shadow: inset 4px 0 0 var(--rt-st-ac-dot);
+}
+
+.row:hover {
+  background: var(--rt-fill);
+}
+
+.rowActive:hover {
+  background: var(--rt-st-ac-soft);
+  filter: brightness(0.97);
+}
+
+/* ── Left column ─────────────────────────────────────────────────────────── */
+.rowLeft {
+  flex: 0 0 310px;
+  padding: 14px 22px 14px 24px;
+  border-right: 1px solid var(--rt-line);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.rowActiveLeft {
+  border-right-color: var(--rt-st-ac-dot);
+  border-right-width: 1px;
+}
+
+.activeBadge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--rt-st-ac-dot);
+  color: #fff;
+  border-radius: 3px;
+  padding: 2px 6px;
+  line-height: 1;
+  align-self: flex-start;
+  flex-shrink: 0;
+}
+
+.sprintName {
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+  color: var(--rt-ink);
+}
+
+.sprintNamePast {
+  opacity: 0.45;
+}
+
+.rowMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  color: var(--rt-t3);
+  font-size: 11.5px;
+}
+
+.metaDot {
+  opacity: 0.5;
+}
+
+/* ── Right column (tracks) ───────────────────────────────────────────────── */
+.rowRight {
+  flex: 1;
+  padding: 14px 28px 14px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  justify-content: center;
+}
+
+.noItems {
+  font-size: 12.5px;
+  color: var(--rt-t3);
+  font-style: italic;
+}
+
+/* ── Track row (stream + seg bar) ────────────────────────────────────────── */
+.trackRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.trackLabel {
+  flex: 0 0 148px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--rt-t2);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trackLabelClickable {
+  cursor: pointer;
+}
+
+.trackLabelClickable:hover {
+  color: var(--rt-ink);
+}
+
+.trackLabelUnassigned {
+  color: var(--rt-t3);
+  font-style: italic;
+}
+
+.trackBar {
+  flex: 1;
+  min-width: 0;
+}
+
+.trackChips {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.trackChip {
+  font-size: 9.5px;
+  font-weight: 700;
+  font-family: var(--rt-mono);
+  border-radius: 3px;
+  padding: 1px 5px;
+  line-height: 1.7;
+  flex-shrink: 0;
+}
+
+.trackTotal {
+  flex: 0 0 22px;
+  font-family: var(--rt-mono);
+  font-size: 10px;
+  color: var(--rt-t3);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Work stream sub-header ──────────────────────────────────────────────── */
+.streamStrip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 22px;
+  border-bottom: 1.5px solid var(--rt-line);
+  background: var(--rt-paper);
+  overflow-x: auto;
+  flex-shrink: 0;
+}

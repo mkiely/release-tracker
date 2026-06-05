@@ -25,4 +25,6 @@ export const Icon: Record<string, ReactElement> = {
   member:  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="5.2" r="2.7"/><path d="M2.9 13.4c0-2.7 2.3-4.3 5.1-4.3s5.1 1.6 5.1 4.3"/></svg>,
   // Person with a minus — "exclude from capacity"
   memberOff: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="6.5" cy="4.5" r="2.5"/><path d="M1.5 13c0-2.5 2.2-4 5-4"/><path d="M10.5 11h5"/></svg>,
+  sliders: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><line x1="2" y1="4.5" x2="14" y2="4.5"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="11.5" x2="14" y2="11.5"/><circle cx="5.5" cy="4.5" r="2" fill="var(--rt-paper)" strokeWidth="1.4"/><circle cx="10.5" cy="8" r="2" fill="var(--rt-paper)" strokeWidth="1.4"/><circle cx="7" cy="11.5" r="2" fill="var(--rt-paper)" strokeWidth="1.4"/></svg>,
+  check: <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6l2.8 3L10 3"/></svg>,
 };

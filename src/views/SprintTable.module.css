@@ -1,0 +1,382 @@
+/* SprintTable — two-column table layout for the sprint view */
+
+/* ── Identity block ─────────────────────────────────────────────────────── */
+.identityBlock {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1.5px solid var(--rt-line);
+  background: var(--rt-paper);
+  flex: 0 0 auto;
+}
+
+.identityLeft {
+  width: 310px;
+  flex-shrink: 0;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-right: 1px solid var(--rt-line);
+}
+
+.sprintName {
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  color: var(--rt-ink);
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activeBadge {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--rt-st-ac-dot);
+  border-radius: 4px;
+  padding: 2px 5px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.identityRight {
+  flex: 1;
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-width: 0;
+}
+
+.identityMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--rt-t2);
+  font-size: 12.5px;
+  flex-wrap: wrap;
+}
+
+.identityDot {
+  opacity: 0.45;
+}
+
+/* ── Group toggle ────────────────────────────────────────────────────────── */
+.groupToggle {
+  display: inline-flex;
+  gap: 1px;
+  background: var(--rt-fill);
+  border-radius: 7px;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.groupBtn {
+  padding: 3px 10px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  background: transparent;
+  color: var(--rt-t3);
+  font-family: var(--rt-sans);
+  line-height: 1.5;
+}
+
+.groupBtnActive {
+  border: 1px solid var(--rt-line);
+  font-weight: 700;
+  background: var(--rt-paper);
+  color: var(--rt-ink);
+}
+
+/* ── Filter bar ──────────────────────────────────────────────────────────── */
+.filterBar {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1.5px solid var(--rt-line);
+  background: var(--rt-bg);
+  flex: 0 0 auto;
+  overflow-x: auto;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 16px;
+}
+
+.filterLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--rt-t3);
+  line-height: 1;
+}
+
+.filterChips {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+
+.filterDivider {
+  width: 1px;
+  background: var(--rt-line);
+  flex-shrink: 0;
+  margin: 8px 0;
+}
+
+.filterClear {
+  display: flex;
+  align-items: flex-end;
+  padding: 8px 12px;
+}
+
+.clearBtn {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--rt-t3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--rt-sans);
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+
+.clearBtn:hover {
+  color: var(--rt-ink);
+}
+
+/* ── Column headers (sticky) ─────────────────────────────────────────────── */
+.colHeaders {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--rt-line);
+  background: var(--rt-bg);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  flex: 0 0 auto;
+}
+
+.colHeaderLeft {
+  width: 310px;
+  flex-shrink: 0;
+  padding: 6px 20px;
+  border-right: 1px solid var(--rt-line);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--rt-t3);
+}
+
+.colHeaderRight {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* ── Body ────────────────────────────────────────────────────────────────── */
+.body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Sections ────────────────────────────────────────────────────────────── */
+.section {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--rt-line);
+  flex-shrink: 0;
+}
+
+.sectionLeft {
+  width: 310px;
+  flex-shrink: 0;
+  padding: 14px 20px;
+  border-right: 1px solid var(--rt-line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sectionName {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--rt-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sectionMeta {
+  font-size: 11px;
+  color: var(--rt-t3);
+  font-family: var(--rt-mono);
+}
+
+.statusName {
+  font-size: 12.5px;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.statusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sectionRight {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Item rows ───────────────────────────────────────────────────────────── */
+.itemRow {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--rt-line);
+  cursor: pointer;
+  min-height: 36px;
+  transition: background 80ms;
+}
+
+.itemRow:last-child {
+  border-bottom: none;
+}
+
+.itemRow:hover {
+  background: var(--rt-fill);
+}
+
+/* ── Column cells (shared by header + item rows) ─────────────────────────── */
+.colKey {
+  width: 98px;
+  flex-shrink: 0;
+  padding: 0 10px 0 14px;
+  font-family: var(--rt-mono);
+  font-size: 11.5px;
+  color: var(--rt-t3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.colTitle {
+  flex: 1;
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 13px;
+  color: var(--rt-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.colType {
+  width: 76px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+}
+
+.typeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  border-width: 1px;
+  border-style: solid;
+}
+
+.colPts {
+  width: 40px;
+  flex-shrink: 0;
+  padding: 0 10px 0 4px;
+  font-family: var(--rt-mono);
+  font-size: 11.5px;
+  color: var(--rt-t3);
+  text-align: right;
+}
+
+.colAssignee {
+  width: 38px;
+  flex-shrink: 0;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--rt-sans);
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+.colTrailing {
+  width: 140px;
+  flex-shrink: 0;
+  padding: 0 14px 0 8px;
+  font-size: 12px;
+  color: var(--rt-t2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* col header labels */
+.colHeaderLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--rt-t3);
+  padding: 6px 0;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--rt-t3);
+  font-size: 14px;
+}
