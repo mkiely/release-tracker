@@ -1,21 +1,20 @@
-// WorkItemCard + StatusSelect — ported from proto-app.jsx.
-
 import type { Status, WorkItem } from '../types';
 import { STATUSES } from '../types';
 import { getActions, selRelease, selTeam, useStore } from '../store/store';
 import { Drag, useDrag } from './dnd';
 import { Icon } from './Icon';
-import { WF } from './tokens';
+import { statusVars } from './statusVars';
+import styles from './WorkItemCard.module.css';
 
 // inline status chip that doubles as a select
 export function StatusSelect({ value, onChange, disabled }: { value: Status; onChange: (v: Status) => void; disabled?: boolean }) {
-  const c = WF.status[value];
+  const { soft, text, dot } = statusVars(value);
   return (
     <div style={{ position: 'relative', alignSelf: 'center' }} onClick={(e) => e.stopPropagation()}>
-      <span className="chip" style={{ background: c.soft, color: c.text, paddingRight: disabled ? 9 : 22 }}>
-        <span className="dot" style={{ background: c.dot }} />
+      <span className="chip" style={{ background: soft, color: text, paddingRight: disabled ? 9 : 22 }}>
+        <span className="dot" style={{ background: dot }} />
         {value}
-        {!disabled && <span style={{ position: 'absolute', right: 7, color: c.text, display: 'flex' }}>{Icon.chevDown}</span>}
+        {!disabled && <span style={{ position: 'absolute', right: 7, color: text, display: 'flex' }}>{Icon.chevDown}</span>}
       </span>
       {!disabled && (
         <select
@@ -34,27 +33,13 @@ export function StatusSelect({ value, onChange, disabled }: { value: Status; onC
   );
 }
 
-/** Compact initials avatar for a member name. */
 function MemberAvatar({ name, size = 40 }: { name: string; size?: number }) {
   const initials = name.trim().split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
   return (
     <span
       title={name}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        background: WF.fill,
-        border: `1.5px solid ${WF.line}`,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: size * 0.42,
-        fontWeight: 700,
-        color: WF.t2,
-        flexShrink: 0,
-        letterSpacing: '-0.02em',
-      }}
+      className={styles.memberAvatar}
+      style={{ width: size, height: size, fontSize: size * 0.42 }}
     >
       {initials}
     </span>
@@ -82,9 +67,12 @@ export function WorkItemCard({
   const isDirty = it.dirtyFields.length > 0;
   const statusReadOnly = !!it.externalId || !!release?.connector;
 
+  const cls = ['card', styles.item, draggable && styles.draggable, isMe && styles.dragging]
+    .filter(Boolean).join(' ');
+
   return (
     <div
-      className="card"
+      className={cls}
       onClick={onOpen}
       draggable={draggable || undefined}
       onDragStart={
@@ -97,41 +85,13 @@ export function WorkItemCard({
           : undefined
       }
       onDragEnd={draggable ? () => Drag.end() : undefined}
-      style={{
-        padding: 12,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 9,
-        cursor: draggable ? 'grab' : 'pointer',
-        opacity: isMe ? 0.4 : 1,
-        transition: 'border-color .12s, box-shadow .12s, opacity .12s',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = WF.lineStrong;
-        e.currentTarget.style.boxShadow = '0 2px 0 ' + WF.line;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = WF.line;
-        e.currentTarget.style.boxShadow = 'none';
-      }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: WF.t2 }}>
+        <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--rt-t2)' }}>
           {it.key}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          {isDirty && (
-            <span
-              title="Modified — pending push"
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: WF.status['In Progress'].dot,
-                flexShrink: 0,
-              }}
-            />
-          )}
+          {isDirty && <span title="Modified — pending push" className={styles.dirtyDot} />}
           <span className="pts">{it.points} pts</span>
         </div>
       </div>
@@ -156,17 +116,8 @@ export function WorkItemCard({
         ) : (
           <span
             title="Unassigned"
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              border: `1.5px dashed ${WF.line}`,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: WF.line,
-              flexShrink: 0,
-            }}
+            className={styles.unassigned}
+            style={{ width: 32, height: 32 }}
           >
             {Icon.member}
           </span>
@@ -174,46 +125,19 @@ export function WorkItemCard({
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
         {it.itemType && (
-          <span
-            title={`Type: ${it.itemType.label}`}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              fontSize: 10.5, fontWeight: 600, color: WF.t2,
-              background: WF.fill, border: `1px solid ${WF.line}`,
-              borderRadius: 4, padding: '1px 6px',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: WF.t2, flexShrink: 0 }} />
+          <span title={`Type: ${it.itemType.label}`} className={styles.metaChip} style={{ color: 'var(--rt-t2)' }}>
+            <span className={styles.metaChipDot} style={{ background: 'var(--rt-t2)' }} />
             {it.itemType.label}
           </span>
         )}
         {it.build ? (
-          <span
-            title={`Build: ${it.build}`}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              fontSize: 10.5, fontWeight: 600, color: WF.t3,
-              background: WF.fill, border: `1px solid ${WF.line}`,
-              borderRadius: 4, padding: '1px 6px',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <span style={{ width: 5, height: 5, borderRadius: 1, background: WF.t3, flexShrink: 0 }} />
+          <span title={`Build: ${it.build}`} className={styles.metaChip} style={{ color: 'var(--rt-t3)' }}>
+            <span className={styles.metaChipSquare} style={{ background: 'var(--rt-t3)' }} />
             {it.build}
           </span>
         ) : (
-          <span
-            title="No build associated — this should be set by the connector"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              fontSize: 10.5, fontWeight: 600, color: WF.t3,
-              background: 'transparent', border: `1px dashed ${WF.line}`,
-              borderRadius: 4, padding: '1px 6px',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <span style={{ width: 5, height: 5, borderRadius: 1, border: `1px solid ${WF.t3}`, flexShrink: 0 }} />
+          <span title="No build associated — this should be set by the connector" className={styles.noBuildChip}>
+            <span className={styles.noBuildChipSquare} />
             No Set Build
           </span>
         )}

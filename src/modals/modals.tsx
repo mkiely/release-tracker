@@ -8,7 +8,7 @@ import { capPct, fullCap, sprintVel } from '../lib/derive';
 import { getActions, selItem, selRelease, selTeam, useStore } from '../store/store';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
-import { WF } from '../components/tokens';
+import { statusVars } from '../components/statusVars';
 
 // ── Confirm / danger modal ─────────────────────────────────────────────
 export function ConfirmModal({
@@ -42,7 +42,7 @@ export function ConfirmModal({
         </>
       }
     >
-      <span style={{ fontSize: 14, color: WF.t2, lineHeight: 1.5 }}>{body}</span>
+      <span style={{ fontSize: 14, color: 'var(--rt-t2)', lineHeight: 1.5 }}>{body}</span>
     </Modal>
   );
 }
@@ -112,7 +112,7 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span className="flabel">Members</span>
-          <span style={{ fontSize: 12, color: WF.t3 }}>{named}</span>
+          <span style={{ fontSize: 12, color: 'var(--rt-t3)' }}>{named}</span>
         </div>
         {members.map((m, i) => {
           const isSynced = !!m.externalId;
@@ -135,7 +135,7 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
                 style={{ flex: 1 }}
               />
               {isSynced ? (
-                <span className="tag" style={{ flex: '0 0 auto', fontSize: 10.5, color: WF.t3 }}>
+                <span className="tag" style={{ flex: '0 0 auto', fontSize: 10.5, color: 'var(--rt-t3)' }}>
                   synced
                 </span>
               ) : (
@@ -143,7 +143,7 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
                   icon={Icon.trash}
                   title="Remove"
                   onClick={() => rmMember(i)}
-                  style={{ border: 'none', color: WF.t3, visibility: members.length > 1 ? 'visible' : 'hidden' }}
+                  style={{ border: 'none', color: 'var(--rt-t3)', visibility: members.length > 1 ? 'visible' : 'hidden' }}
                 />
               )}
             </div>
@@ -192,7 +192,7 @@ export function WorkStreamModal({ releaseId, onClose }: { releaseId: string; onC
           }}
         />
       </PField>
-      <span style={{ fontSize: 12.5, color: WF.t3 }}>
+      <span style={{ fontSize: 12.5, color: 'var(--rt-t3)' }}>
         A work stream groups related work items across the release's sprints.
       </span>
     </Modal>
@@ -256,14 +256,14 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
           onChange={(e) => setDate(e.target.value)}
         />
       </PField>
-      <div className="card" style={{ background: WF.bg, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ width: 9, height: 9, borderRadius: 2, background: sp ? WF.status['In Progress'].dot : WF.lineStrong, flex: '0 0 auto' }} />
-        <span style={{ fontSize: 13, color: WF.t2, lineHeight: 1.45 }}>
+      <div className="card" style={{ background: 'var(--rt-bg)', padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ width: 9, height: 9, borderRadius: 2, background: sp ? 'var(--rt-st-ac-dot)' : 'var(--rt-line-strong)', flex: '0 0 auto' }} />
+        <span style={{ fontSize: 13, color: 'var(--rt-t2)', lineHeight: 1.45 }}>
           {!date ? (
             'Pick a date within the release to place this event on a sprint.'
           ) : sp ? (
             <>
-              Falls inside <strong style={{ color: WF.ink }}>{sp.name}</strong> ({fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}) — it'll
+              Falls inside <strong style={{ color: 'var(--rt-ink)' }}>{sp.name}</strong> ({fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}) — it'll
               show on that sprint row.
             </>
           ) : (
@@ -279,8 +279,8 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
 function Row({ k, v, big }: { k: ReactNode; v: ReactNode; big?: boolean }) {
   return (
     <div className="calc" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, fontSize: big ? 15 : 13 }}>
-      <span style={{ color: big ? WF.ink : WF.t2, fontWeight: big ? 700 : 400, whiteSpace: 'nowrap' }}>{k}</span>
-      <span className="mono" style={{ fontWeight: 600, color: big ? WF.status['In Progress'].text : WF.ink, whiteSpace: 'nowrap', fontSize: big ? 15 : 13 }}>
+      <span style={{ color: big ? 'var(--rt-ink)' : 'var(--rt-t2)', fontWeight: big ? 700 : 400, whiteSpace: 'nowrap' }}>{k}</span>
+      <span className="mono" style={{ fontWeight: 600, color: big ? statusVars('In Progress').text : 'var(--rt-ink)', whiteSpace: 'nowrap', fontSize: big ? 15 : 13 }}>
         {v}
       </span>
     </div>
@@ -320,9 +320,9 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
       }
     >
       {isConnector && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 4, fontSize: 11.5, color: WF.t3, background: WF.fill, border: `1.5px solid ${WF.line}`, borderRadius: 7 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 4, fontSize: 11.5, color: 'var(--rt-t3)', background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`, borderRadius: 7 }}>
           {Icon.sync}
-          <span>Sprint details are managed by the connector. <strong style={{ color: WF.t2, fontWeight: 600 }}>Days off</strong> is stored locally.</span>
+          <span>Sprint details are managed by the connector. <strong style={{ color: 'var(--rt-t2)', fontWeight: 600 }}>Days off</strong> is stored locally.</span>
         </div>
       )}
       {!isConnector && (
@@ -337,19 +337,19 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
         <PField label="Sprint dates" style={{ flex: 1 }}>
           <span style={{
             display: 'flex', alignItems: 'center',
-            width: '100%', border: `1.5px solid ${WF.lineStrong}`,
-            background: WF.paper, borderRadius: 9,
+            width: '100%', border: '1.5px solid var(--rt-line-strong)',
+            background: 'var(--rt-paper)', borderRadius: 9,
             padding: '11px 13px', fontSize: 15, fontFamily: 'inherit',
-            color: WF.t2, minHeight: 46,
+            color: 'var(--rt-t2)', minHeight: 46,
           }}>
             {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
           </span>
         </PField>
       </div>
-      <span style={{ fontSize: 11.5, color: WF.t3, marginTop: -4 }}>
+      <span style={{ fontSize: 11.5, color: 'var(--rt-t3)', marginTop: -4 }}>
         One holiday for a team of {memberCount} = {memberCount} days off.
       </span>
-      <div className="card" style={{ background: WF.bg, padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+      <div className="card" style={{ background: 'var(--rt-bg)', padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
         <span className="tag" style={{ marginBottom: 2 }}>
           Expected velocity
         </span>
@@ -497,7 +497,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   if (!it || !r) {
     return (
       <Modal title="Work item" icon={Icon.item} onClose={onClose} width={520}>
-        <span style={{ color: WF.t3 }}>This item no longer exists.</span>
+        <span style={{ color: 'var(--rt-t3)' }}>This item no longer exists.</span>
       </Modal>
     );
   }
@@ -537,7 +537,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       width={640}
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span className="mono" style={{ fontSize: 12.5, color: WF.t3, background: WF.fill, padding: '3px 7px', borderRadius: 5 }}>
+          <span className="mono" style={{ fontSize: 12.5, color: 'var(--rt-t3)', background: 'var(--rt-fill)', padding: '3px 7px', borderRadius: 5 }}>
             {it.key}
           </span>
           {it.itemType && (
@@ -545,8 +545,8 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
               title="Item type (connector-assigned, read-only)"
               style={{
                 display: 'inline-flex', alignItems: 'center',
-                fontSize: 11.5, fontWeight: 600, color: WF.t2,
-                background: WF.fill, border: `1.5px solid ${WF.line}`,
+                fontSize: 11.5, fontWeight: 600, color: 'var(--rt-t2)',
+                background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`,
                 borderRadius: 5, padding: '2px 8px',
               }}
             >
@@ -558,12 +558,12 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
               title={`Build: ${it.build}`}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontSize: 11.5, fontWeight: 600, color: WF.t3,
-                background: WF.fill, border: `1.5px solid ${WF.line}`,
+                fontSize: 11.5, fontWeight: 600, color: 'var(--rt-t3)',
+                background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`,
                 borderRadius: 5, padding: '2px 8px',
               }}
             >
-              <span style={{ width: 5, height: 5, borderRadius: 1, background: WF.t3, flexShrink: 0 }} />
+              <span style={{ width: 5, height: 5, borderRadius: 1, background: 'var(--rt-t3)', flexShrink: 0 }} />
               {it.build}
             </span>
           )}
@@ -571,7 +571,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           {isDirty && (
             <span
               title="Modified — pending push"
-              style={{ width: 7, height: 7, borderRadius: '50%', background: WF.status['In Progress'].dot, flexShrink: 0, marginLeft: 2 }}
+              style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--rt-st-ac-dot)', flexShrink: 0, marginLeft: 2 }}
             />
           )}
         </span>
@@ -586,15 +586,15 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       }
     >
       {synced && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 10, fontSize: 11.5, color: WF.t3, background: WF.fill, border: `1.5px solid ${WF.line}`, borderRadius: 7 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 10, fontSize: 11.5, color: 'var(--rt-t3)', background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`, borderRadius: 7 }}>
           {Icon.sync}
-          <span>Synced — most fields refresh on sync. <strong style={{ color: WF.t2, fontWeight: 600 }}>Points</strong> and <strong style={{ color: WF.t2, fontWeight: 600 }}>sprint</strong> are writeable.</span>
+          <span>Synced — most fields refresh on sync. <strong style={{ color: 'var(--rt-t2)', fontWeight: 600 }}>Points</strong> and <strong style={{ color: 'var(--rt-t2)', fontWeight: 600 }}>sprint</strong> are writeable.</span>
         </div>
       )}
       {!synced && connectorRelease && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 10, fontSize: 11.5, color: WF.t3, background: WF.fill, border: `1.5px solid ${WF.line}`, borderRadius: 7 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 10, fontSize: 11.5, color: 'var(--rt-t3)', background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`, borderRadius: 7 }}>
           {Icon.sync}
-          <span>Connector release — <strong style={{ color: WF.t2, fontWeight: 600 }}>status</strong> editing is coming soon.</span>
+          <span>Connector release — <strong style={{ color: 'var(--rt-t2)', fontWeight: 600 }}>status</strong> editing is coming soon.</span>
         </div>
       )}
       <PField label="Subject">

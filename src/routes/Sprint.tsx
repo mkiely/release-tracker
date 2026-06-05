@@ -14,7 +14,7 @@ import { EventBadge } from '../components/badges';
 import { SprintRail } from '../components/dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
 import { IconButton, PButton } from '../components/primitives';
-import { WF } from '../components/tokens';
+import { statusVars } from '../components/statusVars';
 import { STATUSES, type Status } from '../types';
 
 type GroupBy = 'stream' | 'status';
@@ -126,12 +126,12 @@ export function Sprint() {
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={() => navigate(`/releases/${id}`)} />}
         title={
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: WF.t3, marginBottom: 3, whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--rt-t3)', marginBottom: 3, whiteSpace: 'nowrap' }}>
               <span onClick={() => navigate(`/releases/${id}`)} style={{ cursor: 'pointer' }}>
                 {r.name}
               </span>
               {Icon.chevRight}
-              <span style={{ fontWeight: 600, color: WF.t2 }}>Sprint</span>
+              <span style={{ fontWeight: 600, color: 'var(--rt-t2)' }}>Sprint</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
               <span style={{ fontSize: 19, fontWeight: 750, letterSpacing: '-0.02em', lineHeight: 1, whiteSpace: 'nowrap' }}>{sp.name}</span>
@@ -153,7 +153,7 @@ export function Sprint() {
               {off} person-day{off === 1 ? '' : 's'} off
             </span>
             <span style={{ opacity: 0.5 }}>·</span>
-            <span style={totalPts > vel ? { color: WF.status.Blocked.text, fontWeight: 700 } : undefined}>
+            <span style={totalPts > vel ? { color: 'var(--rt-st-bl-text)', fontWeight: 700 } : undefined}>
               {items.length} items · {totalPts} pts planned{totalPts > vel ? ` · over by ${totalPts - vel}` : ''}
             </span>
           </>
@@ -179,7 +179,7 @@ export function Sprint() {
       />
 
       {evts.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px', borderBottom: `1.5px solid ${WF.line}`, background: WF.paper, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px', borderBottom: `1.5px solid ${'var(--rt-line)'}`, background: 'var(--rt-paper)', flexWrap: 'wrap' }}>
           <span className="tag">Events</span>
           {evts.map((e) => (
             <EventBadge key={e.id} date={fmtShort(e.dateISO)} onClick={() => openModal({ type: 'event', releaseId: id, eventId: e.id })}>
@@ -205,15 +205,15 @@ export function Sprint() {
           alignItems: 'center',
           gap: 8,
           padding: '7px 24px',
-          borderBottom: `1.5px solid ${WF.line}`,
-          background: WF.bg,
+          borderBottom: `1.5px solid ${'var(--rt-line)'}`,
+          background: 'var(--rt-bg)',
           flexWrap: 'wrap',
         }}
       >
         {/* Group toggle */}
         <GroupToggle value={groupBy} onChange={setGroupBy} />
 
-        <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />
+        <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />
 
         {/* Member filter */}
         {sprintMembers.map((m) => {
@@ -234,17 +234,17 @@ export function Sprint() {
                 width: 26,
                 height: 26,
                 borderRadius: '50%',
-                border: active ? `2px solid ${WF.ink}` : `1.5px solid ${WF.line}`,
-                background: active ? WF.fill : 'transparent',
+                border: active ? `2px solid ${'var(--rt-ink)'}` : `1.5px solid ${'var(--rt-line)'}`,
+                background: active ? 'var(--rt-fill)' : 'transparent',
                 cursor: 'pointer',
                 fontSize: 10,
                 fontWeight: 700,
-                color: active ? WF.ink : WF.t3,
+                color: active ? 'var(--rt-ink)' : 'var(--rt-t3)',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
-                fontFamily: WF.sans,
+                fontFamily: 'var(--rt-sans)',
               }}
             >
               {initials}
@@ -252,42 +252,28 @@ export function Sprint() {
           );
         })}
 
-        {sprintMembers.length > 0 && <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />}
+        {sprintMembers.length > 0 && <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />}
 
         {/* Status filter */}
         {STATUSES.map((s) => {
           const active = statusFilter.has(s);
-          const c = WF.status[s];
+          const sv = statusVars(s);
           return (
             <button
               key={s}
               onClick={() => toggleStatus(s)}
               title={active ? `Remove filter: ${s}` : `Filter: ${s}`}
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '2px 9px 2px 7px',
-                borderRadius: 20,
-                border: `1.5px solid ${active ? c.dot : WF.line}`,
-                background: active ? c.soft : 'transparent',
-                color: active ? c.text : WF.t3,
-                cursor: 'pointer',
-                fontSize: 11.5,
-                fontWeight: active ? 700 : 500,
-                fontFamily: WF.sans,
-                whiteSpace: 'nowrap',
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '2px 9px 2px 7px', borderRadius: 20,
+                border: `1.5px solid ${active ? sv.dot : 'var(--rt-line)'}`,
+                background: active ? sv.soft : 'transparent',
+                color: active ? sv.text : 'var(--rt-t3)',
+                cursor: 'pointer', fontSize: 11.5, fontWeight: active ? 700 : 500,
+                fontFamily: 'var(--rt-sans)', whiteSpace: 'nowrap',
               }}
             >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: active ? c.dot : WF.t3,
-                  flexShrink: 0,
-                }}
-              />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? sv.dot : 'var(--rt-t3)', flexShrink: 0 }} />
               {s}
             </button>
           );
@@ -295,7 +281,7 @@ export function Sprint() {
 
         {sprintTypes.length > 0 && (
           <>
-            <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />
+            <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />
             {sprintTypes.map((t) => {
               const active = typeFilter.has(t);
               return (
@@ -309,17 +295,17 @@ export function Sprint() {
                     gap: 5,
                     padding: '2px 9px 2px 7px',
                     borderRadius: 20,
-                    border: `1.5px solid ${active ? WF.ink : WF.line}`,
-                    background: active ? WF.fill : 'transparent',
-                    color: active ? WF.ink : WF.t3,
+                    border: `1.5px solid ${active ? 'var(--rt-ink)' : 'var(--rt-line)'}`,
+                    background: active ? 'var(--rt-fill)' : 'transparent',
+                    color: active ? 'var(--rt-ink)' : 'var(--rt-t3)',
                     cursor: 'pointer',
                     fontSize: 11.5,
                     fontWeight: active ? 700 : 500,
-                    fontFamily: WF.sans,
+                    fontFamily: 'var(--rt-sans)',
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? WF.ink : WF.t3, flexShrink: 0 }} />
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? 'var(--rt-ink)' : 'var(--rt-t3)', flexShrink: 0 }} />
                   {t}
                 </button>
               );
@@ -329,7 +315,7 @@ export function Sprint() {
 
         {sprintBuilds.length > 0 && (
           <>
-            <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />
+            <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />
             {sprintBuilds.map((b) => {
               const active = buildFilter.has(b);
               return (
@@ -343,17 +329,17 @@ export function Sprint() {
                     gap: 5,
                     padding: '2px 9px 2px 7px',
                     borderRadius: 20,
-                    border: `1.5px solid ${active ? WF.ink : WF.line}`,
-                    background: active ? WF.fill : 'transparent',
-                    color: active ? WF.ink : WF.t3,
+                    border: `1.5px solid ${active ? 'var(--rt-ink)' : 'var(--rt-line)'}`,
+                    background: active ? 'var(--rt-fill)' : 'transparent',
+                    color: active ? 'var(--rt-ink)' : 'var(--rt-t3)',
                     cursor: 'pointer',
                     fontSize: 11.5,
                     fontWeight: active ? 700 : 500,
-                    fontFamily: WF.sans,
+                    fontFamily: 'var(--rt-sans)',
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  <span style={{ width: 6, height: 6, borderRadius: 2, background: active ? WF.ink : WF.t3, flexShrink: 0 }} />
+                  <span style={{ width: 6, height: 6, borderRadius: 2, background: active ? 'var(--rt-ink)' : 'var(--rt-t3)', flexShrink: 0 }} />
                   {b}
                 </button>
               );
@@ -363,7 +349,7 @@ export function Sprint() {
 
         {isFiltered && (
           <>
-            <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />
+            <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />
             <button
               onClick={() => {
                 setMemberFilter(new Set());
@@ -375,11 +361,11 @@ export function Sprint() {
               style={{
                 fontSize: 11.5,
                 fontWeight: 600,
-                color: WF.t3,
+                color: 'var(--rt-t3)',
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                fontFamily: WF.sans,
+                fontFamily: 'var(--rt-sans)',
                 padding: '2px 4px',
               }}
             >
@@ -391,7 +377,7 @@ export function Sprint() {
 
       <div style={{ flex: 1, overflow: 'auto', padding: '18px 24px' }}>
         {filteredItems.length === 0 ? (
-          <div className="card dash" style={{ padding: 40, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
+          <div className="card dash" style={{ padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 14 }}>
             {isFiltered ? 'No items match the current filters.' : 'No work items in this sprint yet.'}
           </div>
         ) : groupBy === 'stream' ? (
@@ -405,7 +391,7 @@ export function Sprint() {
                   <span style={{ fontWeight: 750, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
                     {col.ws.name}
                   </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', flex: '0 0 auto', color: WF.t3 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', flex: '0 0 auto', color: 'var(--rt-t3)' }}>
                     <span className="mono" style={{ fontSize: 11.5, fontWeight: 700 }}>
                       {col.items.reduce((a, i) => a + i.points, 0)} pts
                     </span>
@@ -422,8 +408,8 @@ export function Sprint() {
             {unassignedItems.length > 0 && (
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px', gap: 8 }}>
-                  <span style={{ fontWeight: 750, fontSize: 13.5, color: WF.t3, fontStyle: 'italic' }}>Unassigned</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', flex: '0 0 auto', color: WF.t3 }}>
+                  <span style={{ fontWeight: 750, fontSize: 13.5, color: 'var(--rt-t3)', fontStyle: 'italic' }}>Unassigned</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', flex: '0 0 auto', color: 'var(--rt-t3)' }}>
                     <span className="mono" style={{ fontSize: 11.5, fontWeight: 700 }}>
                       {unassignedItems.reduce((a, i) => a + i.points, 0)} pts
                     </span>
@@ -440,39 +426,29 @@ export function Sprint() {
         ) : (
           <div style={{ display: 'flex', gap: 7, alignItems: 'stretch' }}>
             {statusCols.map((col, idx) => {
-              const c = WF.status[col.status];
+              const sv = statusVars(col.status);
               const isLast = idx === statusCols.length - 1;
               return (
                 <div
                   key={col.status}
                   style={{
-                    flex: 1,
-                    minWidth: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                    ...(isLast ? {} : { paddingRight: 7, borderRight: `1px solid ${WF.line}` }),
+                    flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10,
+                    ...(isLast ? {} : { paddingRight: 7, borderRight: '1px solid var(--rt-line)' }),
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px', gap: 8 }}>
                     <span
                       style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        padding: '2px 9px 2px 7px',
-                        borderRadius: 20,
-                        background: c.soft,
-                        color: c.text,
-                        fontSize: 11.5,
-                        fontWeight: 700,
-                        whiteSpace: 'nowrap',
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        padding: '2px 9px 2px 7px', borderRadius: 20,
+                        background: sv.soft, color: sv.text,
+                        fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap',
                       }}
                     >
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.dot }} />
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: sv.dot }} />
                       {col.status}
                     </span>
-                    <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: WF.t3, marginLeft: 'auto' }}>
+                    <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--rt-t3)', marginLeft: 'auto' }}>
                       {col.items.reduce((a, i) => a + i.points, 0)} pts
                     </span>
                   </div>
@@ -482,14 +458,14 @@ export function Sprint() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 2px' }}>
                             <span
                               style={{
-                                fontSize: 12, fontWeight: 700, color: grp.wsName ? WF.t2 : WF.t3,
+                                fontSize: 12, fontWeight: 700, color: grp.wsName ? 'var(--rt-t2)' : 'var(--rt-t3)',
                                 fontStyle: grp.wsName ? undefined : 'italic',
                                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                               }}
                             >
                               {grp.wsName ?? 'Unassigned'}
                             </span>
-                            <span className="mono" style={{ fontSize: 11, color: WF.t3, flex: '0 0 auto' }}>
+                            <span className="mono" style={{ fontSize: 11, color: 'var(--rt-t3)', flex: '0 0 auto' }}>
                               {grp.items.reduce((a, i) => a + i.points, 0)} pts
                             </span>
                           </div>
@@ -513,33 +489,13 @@ export function Sprint() {
 
 function GroupToggle({ value, onChange }: { value: GroupBy; onChange: (v: GroupBy) => void }) {
   return (
-    <div
-      style={{
-        display: 'inline-flex',
-        gap: 1,
-        background: WF.fill,
-        borderRadius: 7,
-        padding: 2,
-        flexShrink: 0,
-      }}
-    >
+    <div className={sprintStyles.groupToggle}>
       {(['stream', 'status'] as const).map((mode) => (
         <button
           key={mode}
           onClick={() => onChange(mode)}
           title={mode === 'stream' ? 'Group by work stream' : 'Group by status'}
-          style={{
-            padding: '3px 10px',
-            borderRadius: 5,
-            border: value === mode ? `1px solid ${WF.line}` : 'none',
-            cursor: 'pointer',
-            fontSize: 12,
-            fontWeight: value === mode ? 700 : 500,
-            background: value === mode ? WF.paper : 'transparent',
-            color: value === mode ? WF.ink : WF.t3,
-            fontFamily: WF.sans,
-            lineHeight: 1.5,
-          }}
+          className={`${sprintStyles.groupBtn} ${value === mode ? sprintStyles.groupBtnActive : ''}`}
         >
           {mode === 'stream' ? 'By stream' : 'By status'}
         </button>

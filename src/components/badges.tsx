@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { Status, StatusSeg } from '../types';
-import { WF } from './tokens';
+import { statusVars } from './statusVars';
 import styles from './badges.module.css';
 
 export function EventBadge({
@@ -23,18 +23,18 @@ export function EventBadge({
       onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
       style={onClick ? { cursor: 'pointer' } : undefined}
     >
-      <span className={styles.flag} style={{ flex: '0 0 auto' }} />
-      <span style={{ whiteSpace: 'nowrap', flex: '0 0 auto' }}>{txt}</span>
-      {date ? <span style={{ color: WF.t3, fontWeight: 500, flex: '0 0 auto' }}>{date}</span> : null}
+      <span className={styles.flag} />
+      <span className={styles.text}>{txt}</span>
+      {date ? <span className={styles.date}>{date}</span> : null}
     </span>
   );
 }
 
 export function StatusChip({ status, count }: { status: Status; count?: number }) {
-  const c = WF.status[status] || WF.status['Not Started'];
+  const { soft, text, dot } = statusVars(status);
   return (
-    <span className="chip" style={{ background: c.soft, color: c.text }}>
-      <span className="dot" style={{ background: c.dot }} />
+    <span className="chip" style={{ background: soft, color: text }}>
+      <span className="dot" style={{ background: dot }} />
       {status}
       {count != null ? ` · ${count}` : ''}
     </span>
@@ -48,9 +48,9 @@ export function Avatar({ initials }: { initials: ReactNode }) {
 // segmented micro-bar showing status breakdown of a set of items
 export function SegBar({ segs, height = 7, radius = 4 }: { segs: StatusSeg[]; height?: number; radius?: number }) {
   return (
-    <div style={{ display: 'flex', height, borderRadius: radius, overflow: 'hidden', background: WF.fill, gap: 1.5 }}>
+    <div style={{ display: 'flex', height, borderRadius: radius, overflow: 'hidden', background: 'var(--rt-fill)', gap: 1.5 }}>
       {segs.map((s, i) => (
-        <div key={i} style={{ flex: s.v, background: (WF.status[s.k] || ({} as { dot?: string })).dot || WF.lineStrong }} />
+        <div key={i} style={{ flex: s.v, background: statusVars(s.k).dot }} />
       ))}
     </div>
   );
@@ -59,8 +59,8 @@ export function SegBar({ segs, height = 7, radius = 4 }: { segs: StatusSeg[]; he
 // simple completion meter (home cards)
 export function Meter({ v, w = '100%' }: { v: number; w?: CSSProperties['width'] }) {
   return (
-    <div style={{ height: 7, width: w, borderRadius: 4, background: WF.fill, overflow: 'hidden' }}>
-      <div style={{ height: '100%', width: `${Math.round(v * 100)}%`, background: WF.status['In Progress'].dot }} />
+    <div style={{ height: 7, width: w, borderRadius: 4, background: 'var(--rt-fill)', overflow: 'hidden' }}>
+      <div style={{ height: '100%', width: `${Math.round(v * 100)}%`, background: 'var(--rt-st-ac-dot)' }} />
     </div>
   );
 }

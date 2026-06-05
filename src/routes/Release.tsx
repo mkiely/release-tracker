@@ -17,13 +17,13 @@ import { SegBar } from '../components/badges';
 import { CapBarInline } from '../components/CapBarInline';
 import { EventStrip } from '../components/EventStrip';
 import { IconButton, PButton } from '../components/primitives';
-import { WF } from '../components/tokens';
+import { statusVars } from '../components/statusVars';
 
 const StatusLegend = () => (
   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
     {STATUSES.map((s) => (
-      <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: WF.t2 }}>
-        <span className="dot" style={{ background: WF.status[s].dot }} />
+      <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--rt-t2)' }}>
+        <span className="dot" style={{ background: statusVars(s).dot }} />
         {s}
       </span>
     ))}
@@ -132,16 +132,16 @@ export function Release() {
           alignItems: 'center',
           gap: 8,
           padding: '8px 22px',
-          borderBottom: `1.5px solid ${WF.line}`,
-          background: WF.paper,
+          borderBottom: `1.5px solid ${'var(--rt-line)'}`,
+          background: 'var(--rt-paper)',
           overflowX: 'auto',
           flexShrink: 0,
         }}
       >
         <span className="tag" style={{ flexShrink: 0, marginRight: 4, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{Icon.stream}Work streams</span>
-        <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
+        <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
         {r.workStreams.length === 0 && unassigned.length === 0 ? (
-          <span style={{ fontSize: 12.5, color: WF.t3 }}>No work streams yet — add one with the button above.</span>
+          <span style={{ fontSize: 12.5, color: 'var(--rt-t3)' }}>No work streams yet — add one with the button above.</span>
         ) : (
           <>
             {r.workStreams.map((ws) => {
@@ -152,10 +152,10 @@ export function Release() {
                   key={ws.id}
                   className="card"
                   onClick={() => navigate(`/releases/${id}/streams/${ws.id}`)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', flexShrink: 0, background: WF.paper, cursor: 'pointer' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', flexShrink: 0, background: 'var(--rt-paper)', cursor: 'pointer' }}
                 >
-                  <span style={{ fontSize: 12.5, fontWeight: 650, whiteSpace: 'nowrap', color: WF.ink }}>{ws.name}</span>
-                  <span className="mono" style={{ fontSize: 11, color: WF.t3 }}>{its.length}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 650, whiteSpace: 'nowrap', color: 'var(--rt-ink)' }}>{ws.name}</span>
+                  <span className="mono" style={{ fontSize: 11, color: 'var(--rt-t3)' }}>{its.length}</span>
                   {its.length > 0 && <SegBar segs={segs} height={4} />}
                 </div>
               );
@@ -163,10 +163,10 @@ export function Release() {
             {unassigned.length > 0 && (
               <div
                 className="card"
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', flexShrink: 0, background: WF.paper }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', flexShrink: 0, background: 'var(--rt-paper)' }}
               >
-                <span style={{ fontSize: 12.5, fontWeight: 650, whiteSpace: 'nowrap', color: WF.t3, fontStyle: 'italic' }}>Unassigned</span>
-                <span className="mono" style={{ fontSize: 11, color: WF.t3 }}>{unassigned.length}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 650, whiteSpace: 'nowrap', color: 'var(--rt-t3)', fontStyle: 'italic' }}>Unassigned</span>
+                <span className="mono" style={{ fontSize: 11, color: 'var(--rt-t3)' }}>{unassigned.length}</span>
                 <SegBar segs={statusSegs(unassigned)} height={4} />
               </div>
             )}
@@ -180,16 +180,16 @@ export function Release() {
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
               <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>{Icon.sprint}Sprints · {r.sprints.length}</span>
-              <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
-              <span style={{ fontSize: 11.5, color: WF.t3 }}>{team ? team.name : '—'}</span>
-              <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
-              <span style={{ fontSize: 11.5, color: WF.t3 }}>Velocity {team ? team.velocity : 0} pts</span>
+              <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
+              <span style={{ fontSize: 11.5, color: 'var(--rt-t3)' }}>{team ? team.name : '—'}</span>
+              <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
+              <span style={{ fontSize: 11.5, color: 'var(--rt-t3)' }}>Velocity {team ? team.velocity : 0} pts</span>
             </div>
             <StatusLegend />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {r.sprints.length === 0 ? (
-              <div className="card dash" style={{ padding: 40, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
+              <div className="card dash" style={{ padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 14 }}>
                 {r.connector
                   ? 'No sprints yet. Run a sync to populate the release plan.'
                   : 'No sprints configured.'}
@@ -217,31 +217,31 @@ export function Release() {
                       alignItems: 'center',
                       gap: 12,
                       padding: '9px 14px',
-                      background: WF.fill,
-                      borderBottom: `1.5px solid ${isAct ? WF.status['In Progress'].dot : WF.line}`,
+                      background: 'var(--rt-fill)',
+                      borderBottom: `1.5px solid ${isAct ? 'var(--rt-st-ac-dot)' : 'var(--rt-line)'}`,
                     }}
                   >
                     <span
                       title={sp.name}
-                      style={{ fontWeight: 750, fontSize: 13.5, color: WF.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, flex: '0 1 auto' }}
+                      style={{ fontWeight: 750, fontSize: 13.5, color: 'var(--rt-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, flex: '0 1 auto' }}
                     >
                       {sp.name}
                     </span>
-                    <span style={{ fontSize: 11.5, color: WF.t3, whiteSpace: 'nowrap', flex: '0 0 auto' }}>
+                    <span style={{ fontSize: 11.5, color: 'var(--rt-t3)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
                       {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
                     </span>
-                    <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
-                    <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: WF.t3, whiteSpace: 'nowrap', flex: '0 0 auto' }}>
+                    <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
+                    <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: 'var(--rt-t3)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
                       {spItems.length} item{spItems.length !== 1 ? 's' : ''}
                     </span>
-                    <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
+                    <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
                     <CapBarInline planned={planned} cap={vel} />
                     <EventStrip events={evts} align="flex-end" onEventClick={(eid) => openModal({ type: 'event', releaseId: id, eventId: eid })} />
                   </div>
                   {/* work-stream lane */}
                   <div style={{ padding: '10px 13px' }}>
                     {lane.length === 0 ? (
-                      <div className="card dash" style={{ minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: WF.t3, fontSize: 12.5 }}>
+                      <div className="card dash" style={{ minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--rt-t3)', fontSize: 12.5 }}>
                         No work items
                       </div>
                     ) : (
@@ -251,13 +251,13 @@ export function Release() {
                             key={e.ws ? e.ws.id : '__unassigned__'}
                             className={'card' + (e.ws ? '' : '')}
                             onClick={e.ws ? (ev) => { ev.stopPropagation(); navigate(`/releases/${id}/streams/${e.ws!.id}`); } : undefined}
-                            style={{ flex: `${e.n} 1 0`, minWidth: 86, padding: '8px 11px', display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden', background: WF.paper, cursor: e.ws ? 'pointer' : 'default' }}
+                            style={{ flex: `${e.n} 1 0`, minWidth: 86, padding: '8px 11px', display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden', background: 'var(--rt-paper)', cursor: e.ws ? 'pointer' : 'default' }}
                           >
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                              <span style={{ fontSize: 13, fontWeight: 650, color: e.ws ? WF.t2 : WF.t3, fontStyle: e.ws ? undefined : 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
+                              <span style={{ fontSize: 13, fontWeight: 650, color: e.ws ? 'var(--rt-t2)' : 'var(--rt-t3)', fontStyle: e.ws ? undefined : 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
                                 {e.ws ? e.ws.name : 'Unassigned'}
                               </span>
-                              <span className="mono" style={{ fontSize: 11.5, color: WF.t3, flex: '0 0 auto' }}>
+                              <span className="mono" style={{ fontSize: 11.5, color: 'var(--rt-t3)', flex: '0 0 auto' }}>
                                 {e.n}
                               </span>
                             </div>

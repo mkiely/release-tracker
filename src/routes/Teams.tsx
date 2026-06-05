@@ -8,7 +8,6 @@ import { useApp } from '../app-context';
 import { TopBar } from '../components/chrome';
 import { Icon } from '../components/Icon';
 import { IconButton, PButton, PField, PInput } from '../components/primitives';
-import { WF } from '../components/tokens';
 
 export function Teams() {
   const st = useStore();
@@ -51,7 +50,7 @@ export function Teams() {
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 750, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
-                  <div style={{ fontSize: 12, color: WF.t3, marginTop: 3 }}>
+                  <div style={{ fontSize: 12, color: 'var(--rt-t3)', marginTop: 3 }}>
                     {t.members.length} members
                     {t.members.some((m) => m.nonContributing) && (
                       <span style={{ marginLeft: 6 }}>· {t.members.filter((m) => m.nonContributing).length} not counted</span>
@@ -60,7 +59,7 @@ export function Teams() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
                   {t.externalId ? (
-                    <span className="tag" style={{ fontSize: 10.5, color: WF.t3 }}>synced</span>
+                    <span className="tag" style={{ fontSize: 10.5, color: 'var(--rt-t3)' }}>synced</span>
                   ) : (
                     <IconButton
                       icon={Icon.edit}
@@ -72,7 +71,7 @@ export function Teams() {
                     icon={Icon.trash}
                     title="Delete team"
                     onClick={() => confirmDeleteTeam(t)}
-                    style={{ color: WF.t3 }}
+                    style={{ color: 'var(--rt-t3)' }}
                   />
                 </div>
               </div>
@@ -87,8 +86,8 @@ export function Teams() {
                   />
                 </PField>
                 <div style={{ flex: 1, paddingBottom: 13 }}>
-                  <div style={{ fontSize: 11.5, color: WF.t3 }}>Full capacity</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: WF.t2 }}>{t.members.filter((m) => !m.nonContributing).length * WORKDAYS} person-days / sprint</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--rt-t3)' }}>Full capacity</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--rt-t2)' }}>{t.members.filter((m) => !m.nonContributing).length * WORKDAYS} person-days / sprint</div>
                 </div>
               </div>
               <hr className="divider" />
@@ -98,18 +97,18 @@ export function Teams() {
                     <span className="avatar" style={{ opacity: m.nonContributing ? 0.4 : 1 }}>
                       {m.name.split(' ').map((p) => p[0]).slice(0, 2).join('')}
                     </span>
-                    <span style={{ fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', color: m.nonContributing ? WF.t3 : undefined }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', color: m.nonContributing ? 'var(--rt-t3)' : undefined }}>
                       {m.name}
                     </span>
                     {m.nonContributing && (
-                      <span className="tag" style={{ fontSize: 10.5, color: WF.t3 }}>no capacity</span>
+                      <span className="tag" style={{ fontSize: 10.5, color: 'var(--rt-t3)' }}>no capacity</span>
                     )}
                     <div style={{ marginLeft: 'auto' }}>
                       <IconButton
                         icon={m.nonContributing ? Icon.member : Icon.memberOff}
                         title={m.nonContributing ? 'Include in capacity' : 'Exclude from capacity'}
                         onClick={() => toggleNonContributing(t.id, m.id)}
-                        style={{ color: WF.t3 }}
+                        style={{ color: 'var(--rt-t3)' }}
                       />
                     </div>
                   </div>

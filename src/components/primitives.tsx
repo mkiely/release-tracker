@@ -9,7 +9,6 @@ import {
   type TextareaHTMLAttributes,
 } from 'react';
 import { Icon } from './Icon';
-import { WF } from './tokens';
 import btnStyles from './ui/Button.module.css';
 import inputStyles from './ui/Input.module.css';
 import modalStyles from './ui/Modal.module.css';
@@ -34,7 +33,7 @@ export function PField({
       {label && (
         <span className={fieldStyles.label}>
           {label}
-          {hint && <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500, color: WF.t3 }}> · {hint}</span>}
+          {hint && <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500, color: 'var(--rt-t3)' }}> · {hint}</span>}
         </span>
       )}
       {children}

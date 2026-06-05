@@ -1,12 +1,12 @@
 // Native HTML5 drag-and-drop of work items between sprints + the shared
-// capacity meter. Ported from proto-dnd.jsx.
+// capacity meter.
 
 import { useEffect, useReducer, useState, type CSSProperties, type ReactNode } from 'react';
 import type { Release, Sprint, Team, WorkItem } from '../types';
 import { fmtShort } from '../lib/dates';
 import { sprintVel } from '../lib/derive';
 import { getActions } from '../store/store';
-import { WF } from './tokens';
+import styles from './dnd.module.css';
 
 // ── external drag store so any drop target can react to an in-flight drag ──
 const subs = new Set<() => void>();
@@ -25,9 +25,7 @@ export const Drag = {
   get: () => cur,
   sub: (f: () => void) => {
     subs.add(f);
-    return () => {
-      subs.delete(f);
-    };
+    return () => { subs.delete(f); };
   },
 };
 
@@ -43,28 +41,18 @@ export function CapacityMeter({ planned, cap, style }: { planned: number; cap: n
   const ratio = cap > 0 ? Math.min(planned / cap, 1) : planned > 0 ? 1 : 0;
   const overW = over && cap > 0 ? Math.min((planned - cap) / cap, 0.6) : 0;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, ...style }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-        <span className="mono" style={{ fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', color: over ? WF.status.Blocked.text : WF.t2 }}>
+    <div className={styles.capacityMeter} style={style}>
+      <div className={styles.capNumbers}>
+        <span className={`mono ${styles.capValue}`} data-over={over}>
           {planned} / {cap}
         </span>
-        <span
-          style={{
-            fontSize: 9.5,
-            fontWeight: 700,
-            letterSpacing: '.04em',
-            textTransform: 'uppercase',
-            whiteSpace: 'nowrap',
-            color: over ? WF.status.Blocked.text : WF.t3,
-            marginLeft: 'auto',
-          }}
-        >
+        <span className={styles.capUnit} data-over={over}>
           {over ? `over by ${planned - cap}` : 'pts'}
         </span>
       </div>
-      <div style={{ display: 'flex', height: 6, borderRadius: 4, overflow: 'hidden', background: WF.fill }}>
-        <div style={{ flex: ratio, background: over ? WF.status.Blocked.dot : WF.status['In Progress'].dot }} />
-        {over ? <div style={{ flex: overW, background: WF.status.Blocked.text }} /> : <div style={{ flex: 1 - ratio }} />}
+      <div className={styles.capTrack}>
+        <div className={over ? styles.capFillOver : styles.capFill} style={{ flex: ratio }} />
+        {over ? <div className={styles.capOverflow} style={{ flex: overW }} /> : <div style={{ flex: 1 - ratio }} />}
       </div>
     </div>
   );
@@ -89,9 +77,13 @@ function SprintPill({
   onDropItem: (it: WorkItem) => void;
 }) {
   const [over, setOver] = useState(false);
-  const canDropVisual = !!draggingItem && !isCur;
+  const canDrop = !!draggingItem && !isCur;
   return (
     <div
+      className={styles.pill}
+      data-cur={isCur}
+      data-can-drop={canDrop}
+      data-over={over}
       onClick={() => !isCur && onGo()}
       onDragOver={(e) => {
         const it = Drag.get();
@@ -101,46 +93,20 @@ function SprintPill({
           if (!over) setOver(true);
         }
       }}
-      onDragLeave={() => {
-        if (over) setOver(false);
-      }}
+      onDragLeave={() => { if (over) setOver(false); }}
       onDrop={(e) => {
         const it = Drag.get();
-        if (it && !isCur) {
-          e.preventDefault();
-          onDropItem(it);
-        }
+        if (it && !isCur) { e.preventDefault(); onDropItem(it); }
         setOver(false);
         Drag.end();
       }}
-      title={isCur ? 'Current sprint' : canDropVisual ? `Move ${draggingItem!.key} here` : `Go to ${sp.name}`}
-      style={{
-        flex: '1 0 150px',
-        maxWidth: 280,
-        cursor: isCur ? 'default' : 'pointer',
-        padding: '7px 10px',
-        borderRadius: 9,
-        border: `1.5px ${canDropVisual ? 'dashed' : 'solid'} ${
-          over ? WF.status['In Progress'].text : isCur ? WF.status['In Progress'].dot : canDropVisual ? WF.lineStrong : WF.line
-        }`,
-        background: over ? WF.status['In Progress'].soft : isCur ? WF.status['In Progress'].soft : WF.paper,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 5,
-        transition: 'border-color .12s, background .12s',
-      }}
+      title={isCur ? 'Current sprint' : canDrop ? `Move ${draggingItem!.key} here` : `Go to ${sp.name}`}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-          {sp.name}
-        </span>
-        {isCur && (
-          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.06em', color: WF.status['In Progress'].text, marginLeft: 'auto', flex: '0 0 auto' }}>
-            HERE
-          </span>
-        )}
-        {canDropVisual && (
-          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.06em', color: over ? WF.status['In Progress'].text : WF.t3, marginLeft: 'auto', flex: '0 0 auto' }}>
+        <span className={styles.pillName}>{sp.name}</span>
+        {isCur && <span className={styles.pillBadge}>HERE</span>}
+        {canDrop && (
+          <span className={styles.pillBadgeDrop} data-over={over}>
             {over ? 'DROP' : 'MOVE'}
           </span>
         )}
@@ -167,20 +133,8 @@ export function SprintRail({
 }) {
   const draggingItem = useDrag();
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'stretch',
-        gap: 8,
-        padding: '10px 24px',
-        borderBottom: `1.5px solid ${WF.line}`,
-        background: WF.paper,
-        overflowX: 'auto',
-      }}
-    >
-      <span className="tag" style={{ alignSelf: 'center', flex: '0 0 auto' }}>
-        Sprints
-      </span>
+    <div className={styles.rail}>
+      <span className="tag" style={{ alignSelf: 'center', flex: '0 0 auto' }}>Sprints</span>
       {release.sprints.map((sp) => {
         const planned = allItems.filter((i) => i.sprintId === sp.id).reduce((a, i) => a + i.points, 0);
         const cap = sprintVel(team, sp, sp.daysOff);
@@ -229,39 +183,24 @@ export function StreamSprintColumn({
   const planned = allItems.filter((i) => i.sprintId === sp.id).reduce((a, i) => a + i.points, 0);
   const cap = sprintVel(team, sp, sp.daysOff);
   const streamPts = streamItems.reduce((a, i) => a + i.points, 0);
-  const canDropVisual = !!draggingItem && draggingItem.sprintId !== sp.id;
+  const canDrop = !!draggingItem && draggingItem.sprintId !== sp.id;
   return (
     <div style={{ flex: 1, minWidth: 158, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 6,
-          padding: '8px 10px',
-          borderRadius: 9,
-          border: `1.5px solid ${isCur ? WF.status['In Progress'].dot : WF.line}`,
-          background: isCur ? WF.status['In Progress'].soft : WF.paper,
-        }}
-      >
+      <div className={styles.columnHeader} data-cur={isCur}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontWeight: 750, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-            {sp.name}
-          </span>
-          {isCur && (
-            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.06em', color: WF.status['In Progress'].text, marginLeft: 'auto', flex: '0 0 auto' }}>
-              NOW
-            </span>
-          )}
+          <span className={styles.columnHeaderName}>{sp.name}</span>
+          {isCur && <span className={styles.columnHeaderNow}>NOW</span>}
         </div>
-        <span style={{ fontSize: 10.5, color: WF.t3, whiteSpace: 'nowrap' }}>
+        <span className={styles.columnHeaderDates}>
           {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
         </span>
         <CapacityMeter planned={planned} cap={cap} />
-        <span style={{ fontSize: 10, color: WF.t3, whiteSpace: 'nowrap' }}>
+        <span className={styles.columnHeaderMeta}>
           this stream · {streamPts} pts · {streamItems.length}
         </span>
       </div>
       <div
+        className={over ? `${styles.dropZone} ${styles.dropZoneOver}` : styles.dropZone}
         onDragOver={(e) => {
           const it = Drag.get();
           if (it && it.sprintId !== sp.id) {
@@ -283,24 +222,11 @@ export function StreamSprintColumn({
           setOver(false);
           Drag.end();
         }}
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 9,
-          flex: 1,
-          minHeight: 64,
-          borderRadius: 10,
-          padding: over ? 6 : 0,
-          outline: over ? `2px dashed ${WF.status['In Progress'].dot}` : 'none',
-          outlineOffset: -2,
-          background: over ? WF.status['In Progress'].soft : 'transparent',
-          transition: 'background .12s',
-        }}
       >
         {streamItems.map((it) => renderCard(it))}
         {streamItems.length === 0 && (
-          <div className="card dash" style={{ padding: '16px 10px', textAlign: 'center', color: over ? WF.status['In Progress'].text : WF.t3, fontSize: 11.5 }}>
-            {canDropVisual ? 'Drop to move here' : 'No items'}
+          <div className={`card dash ${over ? `${styles.emptyDrop} ${styles.emptyDropOver}` : styles.emptyDrop}`}>
+            {canDrop ? 'Drop to move here' : 'No items'}
           </div>
         )}
       </div>

@@ -149,7 +149,7 @@ describe('applySync — reference resolution', () => {
   it('skips + warns an item whose work stream cannot be resolved', () => {
     const m = mapped({
       items: [
-        { externalId: 'EXT-9', extWorkStreamId: 'EPIC-MISSING', extSprintId: 'JSPR-1', extAssigneeId: null, fields: { key: 'EXT-9', subject: 's', description: '', status: 'Active', points: 2 } },
+        { externalId: 'EXT-9', extWorkStreamId: 'EPIC-MISSING', extSprintId: 'JSPR-1', extAssigneeId: null, fields: { key: 'EXT-9', subject: 's', description: '', status: 'In Progress', points: 2 } },
       ],
     });
     const { next, result } = applySync(baseState(), 'rel_1', m);
@@ -173,7 +173,7 @@ describe('applySync — reference resolution', () => {
   it('places an item with an unresolved sprint into the backlog (sprintId null)', () => {
     const m = mapped({
       items: [
-        { externalId: 'EXT-2', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-UNKNOWN', extAssigneeId: null, fields: { key: 'EXT-2', subject: 's', description: '', status: 'Active', points: 2 } },
+        { externalId: 'EXT-2', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-UNKNOWN', extAssigneeId: null, fields: { key: 'EXT-2', subject: 's', description: '', status: 'In Progress', points: 2 } },
       ],
     });
     const { next, result } = applySync(baseState(), 'rel_1', m);
@@ -184,7 +184,7 @@ describe('applySync — reference resolution', () => {
   it('places an item with no external sprint into the backlog', () => {
     const m = mapped({
       items: [
-        { externalId: 'EXT-3', extWorkStreamId: 'EPIC-A', extSprintId: null, extAssigneeId: null, fields: { key: 'EXT-3', subject: 's', description: '', status: 'Active', points: 2 } },
+        { externalId: 'EXT-3', extWorkStreamId: 'EPIC-A', extSprintId: null, extAssigneeId: null, fields: { key: 'EXT-3', subject: 's', description: '', status: 'In Progress', points: 2 } },
       ],
     });
     const { next } = applySync(baseState(), 'rel_1', m);
@@ -305,7 +305,7 @@ describe('applySync — assignee resolution', () => {
         members: [{ externalId: 'USR-ADA', fields: { name: 'Ada L.' } }],
       },
       items: [
-        { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: 'USR-ADA', fields: { key: 'EXT-1', subject: 's', description: '', status: 'Active', points: 5 } },
+        { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: 'USR-ADA', fields: { key: 'EXT-1', subject: 's', description: '', status: 'In Progress', points: 5 } },
       ],
     });
     const { next } = applySync(baseState(), 'rel_1', m);
@@ -317,7 +317,7 @@ describe('applySync — assignee resolution', () => {
   it('sets assignedMemberId to null when extAssigneeId is unknown', () => {
     const m = mapped({
       items: [
-        { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: 'USR-UNKNOWN', fields: { key: 'EXT-1', subject: 's', description: '', status: 'Active', points: 5 } },
+        { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: 'USR-UNKNOWN', fields: { key: 'EXT-1', subject: 's', description: '', status: 'In Progress', points: 5 } },
       ],
     });
     const { next } = applySync(baseState(), 'rel_1', m);
@@ -387,7 +387,7 @@ describe('applySync — dirty-aware pull', () => {
 describe('applySync — build field', () => {
   const itemWithBuild = (build: string | null) => ({
     externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null,
-    fields: { key: 'EXT-1', subject: 's', description: '', status: 'Active' as const, points: 3, build },
+    fields: { key: 'EXT-1', subject: 's', description: '', status: 'In Progress' as const, points: 3, build },
   });
 
   it('sets build from the mapped field on item create', () => {
@@ -419,7 +419,7 @@ describe('applySync — descriptionFormat field', () => {
   const itemWithFormat = (descriptionFormat?: 'text' | 'html') => ({
     externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null,
     fields: {
-      key: 'EXT-1', subject: 's', description: '<p>detail</p>', status: 'Active' as const, points: 3,
+      key: 'EXT-1', subject: 's', description: '<p>detail</p>', status: 'In Progress' as const, points: 3,
       ...(descriptionFormat !== undefined && { descriptionFormat }),
     },
   });

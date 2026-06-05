@@ -1,0 +1,101 @@
+.item {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  cursor: pointer;
+  transition: border-color .12s, box-shadow .12s, opacity .12s;
+}
+
+.item:hover {
+  border-color: var(--rt-line-strong);
+  box-shadow: 0 2px 0 var(--rt-line);
+}
+
+.draggable {
+  cursor: grab;
+}
+
+.dragging {
+  opacity: 0.4;
+}
+
+.memberAvatar {
+  border-radius: 50%;
+  background: var(--rt-fill);
+  border: 1.5px solid var(--rt-line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--rt-t2);
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
+}
+
+.unassigned {
+  border-radius: 50%;
+  border: 1.5px dashed var(--rt-line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rt-line);
+  flex-shrink: 0;
+}
+
+.metaChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: var(--rt-fill);
+  border: 1px solid var(--rt-line);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+.metaChipDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.metaChipSquare {
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.noBuildChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--rt-t3);
+  background: transparent;
+  border: 1px dashed var(--rt-line);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+.noBuildChipSquare {
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  border: 1px solid var(--rt-t3);
+  flex-shrink: 0;
+}
+
+.dirtyDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--rt-st-ac-dot);
+  flex-shrink: 0;
+}

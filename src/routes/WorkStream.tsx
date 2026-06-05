@@ -11,7 +11,7 @@ import { Icon } from '../components/Icon';
 import { StreamSprintColumn } from '../components/dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
 import { IconButton, PButton } from '../components/primitives';
-import { WF } from '../components/tokens';
+import { statusVars } from '../components/statusVars';
 import { STATUSES, type Status } from '../types';
 
 export function WorkStream() {
@@ -65,19 +65,19 @@ export function WorkStream() {
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={() => navigate(`/releases/${id}`)} />}
         title={
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: WF.t3, marginBottom: 3, whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--rt-t3)', marginBottom: 3, whiteSpace: 'nowrap' }}>
               <span onClick={() => navigate(`/releases/${id}`)} style={{ cursor: 'pointer' }}>
                 {r.name}
               </span>
               {Icon.chevRight}
-              <span style={{ fontWeight: 600, color: WF.t2 }}>Work stream</span>
+              <span style={{ fontWeight: 600, color: 'var(--rt-t2)' }}>Work stream</span>
             </div>
             <div style={{ fontSize: 19, fontWeight: 750, letterSpacing: '-0.02em', lineHeight: 1, whiteSpace: 'nowrap' }}>{ws.name}</div>
           </>
         }
         right={
           <>
-            <span style={{ fontSize: 12.5, color: WF.t3 }}>
+            <span style={{ fontSize: 12.5, color: 'var(--rt-t3)' }}>
               {items.length} items · {totalPts} pts · drag cards between sprints
             </span>
             <PushButton release={r} onPush={() => onPush(id)} />
@@ -96,52 +96,38 @@ export function WorkStream() {
           alignItems: 'center',
           gap: 8,
           padding: '7px 24px',
-          borderBottom: `1.5px solid ${WF.line}`,
-          background: WF.bg,
+          borderBottom: `1.5px solid ${'var(--rt-line)'}`,
+          background: 'var(--rt-bg)',
           flexWrap: 'wrap',
         }}
       >
-        <span style={{ fontSize: 11.5, fontWeight: 600, color: WF.t3, marginRight: 2 }}>Status</span>
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--rt-t3)', marginRight: 2 }}>Status</span>
         {STATUSES.map((s) => {
           const active = statusFilter.has(s);
-          const c = WF.status[s];
+          const sv = statusVars(s);
           return (
             <button
               key={s}
               onClick={() => toggleStatus(s)}
               title={active ? `Remove filter: ${s}` : `Filter: ${s}`}
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '2px 9px 2px 7px',
-                borderRadius: 20,
-                border: `1.5px solid ${active ? c.dot : WF.line}`,
-                background: active ? c.soft : 'transparent',
-                color: active ? c.text : WF.t3,
-                cursor: 'pointer',
-                fontSize: 11.5,
-                fontWeight: active ? 700 : 500,
-                fontFamily: WF.sans,
-                whiteSpace: 'nowrap',
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '2px 9px 2px 7px', borderRadius: 20,
+                border: `1.5px solid ${active ? sv.dot : 'var(--rt-line)'}`,
+                background: active ? sv.soft : 'transparent',
+                color: active ? sv.text : 'var(--rt-t3)',
+                cursor: 'pointer', fontSize: 11.5, fontWeight: active ? 700 : 500,
+                fontFamily: 'var(--rt-sans)', whiteSpace: 'nowrap',
               }}
             >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: active ? c.dot : WF.t3,
-                  flexShrink: 0,
-                }}
-              />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? sv.dot : 'var(--rt-t3)', flexShrink: 0 }} />
               {s}
             </button>
           );
         })}
         {streamTypes.length > 0 && (
           <>
-            <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />
+            <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />
             {streamTypes.map((t) => {
               const active = typeFilter.has(t);
               return (
@@ -155,17 +141,17 @@ export function WorkStream() {
                     gap: 5,
                     padding: '2px 9px 2px 7px',
                     borderRadius: 20,
-                    border: `1.5px solid ${active ? WF.ink : WF.line}`,
-                    background: active ? WF.fill : 'transparent',
-                    color: active ? WF.ink : WF.t3,
+                    border: `1.5px solid ${active ? 'var(--rt-ink)' : 'var(--rt-line)'}`,
+                    background: active ? 'var(--rt-fill)' : 'transparent',
+                    color: active ? 'var(--rt-ink)' : 'var(--rt-t3)',
                     cursor: 'pointer',
                     fontSize: 11.5,
                     fontWeight: active ? 700 : 500,
-                    fontFamily: WF.sans,
+                    fontFamily: 'var(--rt-sans)',
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? WF.ink : WF.t3, flexShrink: 0 }} />
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? 'var(--rt-ink)' : 'var(--rt-t3)', flexShrink: 0 }} />
                   {t}
                 </button>
               );
@@ -174,18 +160,18 @@ export function WorkStream() {
         )}
         {isFiltered && (
           <>
-            <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />
+            <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />
             <button
               onClick={() => { setStatusFilter(new Set()); setTypeFilter(new Set()); }}
               title="Clear filters"
               style={{
                 fontSize: 11.5,
                 fontWeight: 600,
-                color: WF.t3,
+                color: 'var(--rt-t3)',
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                fontFamily: WF.sans,
+                fontFamily: 'var(--rt-sans)',
                 padding: '2px 4px',
               }}
             >
@@ -197,7 +183,7 @@ export function WorkStream() {
 
       <div style={{ flex: 1, overflow: 'auto', padding: '18px 24px' }}>
         {filteredItems.length === 0 ? (
-          <div className="card dash" style={{ padding: 40, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
+          <div className="card dash" style={{ padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 14 }}>
             {isFiltered ? 'No items match the current filters.' : 'No work items yet. Create one to get started.'}
           </div>
         ) : (

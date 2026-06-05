@@ -1,0 +1,126 @@
+.palette {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  background: var(--rt-paper);
+  border: 1.5px solid var(--rt-line);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px var(--rt-shadow);
+  padding: 6px 0;
+  min-width: 180px;
+}
+
+.paletteOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--rt-sans);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--rt-ink);
+  text-align: left;
+}
+
+.paletteOption:hover {
+  background: var(--rt-fill);
+}
+
+.paletteOptionActive {
+  background: var(--rt-fill);
+  font-weight: 650;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  border-bottom: 1.5px solid var(--rt-line);
+  background: var(--rt-paper);
+  flex: 0 0 auto;
+}
+
+.topBarLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.topBarTitle {
+  font-size: 19px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.topBarSub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--rt-t3);
+  font-size: 12.5px;
+  margin-top: 3px;
+  white-space: nowrap;
+}
+
+.topBarRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topBarActions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.topBarPalette {
+  display: flex;
+  align-items: center;
+}
+
+.topBarPaletteDivider {
+  padding-left: 12px;
+  border-left: 1.5px solid var(--rt-line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.brandLogo {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--rt-ink);
+}
+
+.brandLabel {
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.notFound {
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.notFoundLabel {
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--rt-t2);
+}

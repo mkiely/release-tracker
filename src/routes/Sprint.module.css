@@ -1,3 +1,33 @@
+/* group-by toggle */
+.groupToggle {
+  display: inline-flex;
+  gap: 1px;
+  background: var(--rt-fill);
+  border-radius: 7px;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.groupBtn {
+  padding: 3px 10px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  background: transparent;
+  color: var(--rt-t3);
+  font-family: var(--rt-sans);
+  line-height: 1.5;
+}
+
+.groupBtnActive {
+  border: 1px solid var(--rt-line);
+  font-weight: 700;
+  background: var(--rt-paper);
+  color: var(--rt-ink);
+}
+
 /* "Active" badge shown on the currently active sprint */
 .now {
   font-size: 9.5px;

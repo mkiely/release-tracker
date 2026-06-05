@@ -1,0 +1,204 @@
+.capacityMeter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.capNumbers {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.capValue {
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--rt-t2);
+}
+
+.capValue[data-over='true'] {
+  color: var(--rt-st-bl-text);
+}
+
+.capUnit {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--rt-t3);
+  margin-left: auto;
+}
+
+.capUnit[data-over='true'] {
+  color: var(--rt-st-bl-text);
+}
+
+.capTrack {
+  display: flex;
+  height: 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--rt-fill);
+}
+
+.capFill {
+  background: var(--rt-st-ac-dot);
+}
+
+.capFillOver {
+  background: var(--rt-st-bl-dot);
+}
+
+.capOverflow {
+  background: var(--rt-st-bl-text);
+}
+
+/* Sprint rail */
+.rail {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px 24px;
+  border-bottom: 1.5px solid var(--rt-line);
+  background: var(--rt-paper);
+  overflow-x: auto;
+}
+
+/* Sprint pill in the rail */
+.pill {
+  flex: 1 0 150px;
+  max-width: 280px;
+  cursor: pointer;
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: 1.5px solid var(--rt-line);
+  background: var(--rt-paper);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: border-color .12s, background .12s;
+}
+
+.pill[data-cur='true'] {
+  cursor: default;
+  border-color: var(--rt-st-ac-dot);
+  background: var(--rt-st-ac-soft);
+}
+
+.pill[data-can-drop='true'] {
+  border-style: dashed;
+  border-color: var(--rt-line-strong);
+}
+
+.pill[data-over='true'] {
+  border-style: solid;
+  border-color: var(--rt-st-ac-text);
+  background: var(--rt-st-ac-soft);
+}
+
+.pillName {
+  font-weight: 700;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.pillBadge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  margin-left: auto;
+  flex: 0 0 auto;
+  color: var(--rt-st-ac-text);
+}
+
+.pillBadgeDrop {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  margin-left: auto;
+  flex: 0 0 auto;
+  color: var(--rt-t3);
+}
+
+.pillBadgeDrop[data-over='true'] {
+  color: var(--rt-st-ac-text);
+}
+
+/* Stream sprint column */
+.columnHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1.5px solid var(--rt-line);
+  background: var(--rt-paper);
+}
+
+.columnHeader[data-cur='true'] {
+  border-color: var(--rt-st-ac-dot);
+  background: var(--rt-st-ac-soft);
+}
+
+.columnHeaderName {
+  font-weight: 750;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.columnHeaderNow {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  color: var(--rt-st-ac-text);
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.columnHeaderDates {
+  font-size: 10.5px;
+  color: var(--rt-t3);
+  white-space: nowrap;
+}
+
+.columnHeaderMeta {
+  font-size: 10px;
+  color: var(--rt-t3);
+  white-space: nowrap;
+}
+
+.dropZone {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex: 1;
+  min-height: 64px;
+  border-radius: 10px;
+  transition: background .12s;
+}
+
+.dropZoneOver {
+  padding: 6px;
+  outline: 2px dashed var(--rt-st-ac-dot);
+  outline-offset: -2px;
+  background: var(--rt-st-ac-soft);
+}
+
+.emptyDrop {
+  padding: 16px 10px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--rt-t3);
+}
+
+.emptyDropOver {
+  color: var(--rt-st-ac-text);
+}

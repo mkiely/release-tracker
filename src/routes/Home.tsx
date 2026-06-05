@@ -13,8 +13,8 @@ import { Brand, TopBar } from '../components/chrome';
 import { Icon } from '../components/Icon';
 import { Meter } from '../components/badges';
 import { IconButton, PButton, PField, PInput, PSelect } from '../components/primitives';
-import { WF } from '../components/tokens';
 import type { Release } from '../types';
+import styles from './Home.module.css';
 
 export function Home() {
   const st = useStore();
@@ -75,28 +75,20 @@ export function Home() {
     return (
       <div
         key={r.id}
-        className="card"
+        className={`card ${styles.releaseCard}`}
         onClick={() => navigate(`/releases/${r.id}`)}
-        style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer', transition: 'border-color .12s, box-shadow .12s' }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = WF.lineStrong;
-          e.currentTarget.style.boxShadow = '0 2px 0 ' + WF.line;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = WF.line;
-          e.currentTarget.style.boxShadow = 'none';
-        }}
+        style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
           <div style={{ fontWeight: 700, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
             {r.name}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: WF.t2 }}>{Math.round(done * 100)}%</span>
-            <IconButton icon={Icon.trash} title="Delete release" onClick={(e) => deleteRelease(e, r)} style={{ color: WF.t3 }} />
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--rt-t2)' }}>{Math.round(done * 100)}%</span>
+            <IconButton icon={Icon.trash} title="Delete release" onClick={(e) => deleteRelease(e, r)} style={{ color: 'var(--rt-t3)' }} />
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: WF.t3, fontSize: 13, whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--rt-t3)', fontSize: 13, whiteSpace: 'nowrap' }}>
           {Icon.team}
           <span>{team ? team.name : '—'}</span>
           {r.connector && (
@@ -106,7 +98,7 @@ export function Home() {
           )}
         </div>
         <Meter v={done} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: WF.t3 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: 'var(--rt-t3)' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icon.stream}{r.workStreams.length}</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icon.item}{items.length}</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icon.cal}{fmtShort(r.startISO)}</span>
@@ -137,7 +129,7 @@ export function Home() {
         <div style={{ width: 440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 26, fontWeight: 750, letterSpacing: '-0.02em' }}>New release</div>
-            <div style={{ fontSize: 14.5, color: WF.t3, marginTop: 5 }}>Start tracking a release cycle.</div>
+            <div style={{ fontSize: 14.5, color: 'var(--rt-t3)', marginTop: 5 }}>Start tracking a release cycle.</div>
           </div>
           <div className="card" style={{ width: '100%', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
             <PField label="Release name">
@@ -192,7 +184,7 @@ export function Home() {
               </PField>
             )}
             {meta && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '14px 14px 2px', borderLeft: `2px solid ${WF.line}`, marginLeft: 2 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '14px 14px 2px', borderLeft: '2px solid var(--rt-line)', marginLeft: 2 }}>
                 {meta.configFields.map((f) => (
                   <PField key={f.key} label={f.label} hint={f.required ? undefined : 'optional'}>
                     <PInput
@@ -215,7 +207,7 @@ export function Home() {
             <span className="tag">Your releases · {st.releases.length}</span>
           </div>
           {st.releases.length === 0 ? (
-            <div className="card dash" style={{ padding: 30, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
+            <div className="card dash" style={{ padding: 30, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 14 }}>
               No releases yet — create one above.
             </div>
           ) : (

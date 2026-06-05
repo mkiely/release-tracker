@@ -18,4 +18,16 @@
   height: 7px;
   border-radius: 2px;
   background: var(--rt-ink);
+  flex: 0 0 auto;
+}
+
+.text {
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.date {
+  color: var(--rt-t3);
+  font-weight: 500;
+  flex: 0 0 auto;
 }

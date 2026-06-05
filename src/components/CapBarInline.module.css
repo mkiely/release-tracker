@@ -1,0 +1,48 @@
+.root {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.track {
+  flex: 1;
+  display: flex;
+  height: 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--rt-fill);
+  border: 1px solid var(--rt-line);
+}
+
+.fill {
+  background: var(--rt-st-ac-dot);
+}
+
+.fillOver {
+  background: var(--rt-st-bl-dot);
+}
+
+.overflow {
+  background: var(--rt-st-bl-text);
+}
+
+.remainder {
+  background: var(--rt-line-strong);
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--rt-t2);
+}
+
+.labelOver {
+  color: var(--rt-st-bl-text);
+}
+
+.sub {
+  opacity: 0.55;
+  font-weight: 400;
+}
