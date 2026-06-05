@@ -9,12 +9,22 @@ export type Status = (typeof STATUSES)[number];
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export interface Member {
   id: string;
   name: string;
   externalId: string | null;
+  /** When true, excluded from capacity calculations (e.g. EMs, PMs who don't contribute velocity). */
+  nonContributing: boolean;
+}
+
+/** Work item type supplied by the connector (e.g. Bug, Story, Task). Read-only in the app. */
+export interface ItemType {
+  /** Connector-assigned type ID; null if the connector doesn't expose one. Preserved for future item creation. */
+  id: string | null;
+  /** Display label from the connector. */
+  label: string;
 }
 
 export interface Team {
@@ -99,6 +109,8 @@ export interface WorkItem {
   descriptionFormat?: 'text' | 'html';
   /** Writeable fields edited locally since last sync/push, awaiting push. Empty for clean items. */
   dirtyFields: string[];
+  /** Work item type (Bug, Story, Task, etc.). Connector-supplied and read-only. Null for local items or when unset. */
+  itemType: ItemType | null;
 }
 
 export interface AppState {

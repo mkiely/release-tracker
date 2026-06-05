@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems.",
-  "version": "1.0.0",
+  "version": "8.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -20,10 +20,31 @@
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-created members."
+        },
+        "nonContributing": {
+          "type": "boolean",
+          "description": "When true, excluded from capacity calculations (e.g. EMs, PMs who don't contribute velocity)."
         }
       },
-      "required": ["id", "name", "externalId"],
+      "required": ["id", "name", "externalId", "nonContributing"],
+      "additionalProperties": false
+    },
+    "ItemType": {
+      "type": "object",
+      "description": "Work item type supplied by the connector (e.g. Bug, Story, Task). Read-only in the app.",
+      "properties": {
+        "id": {
+          "type": ["string", "null"],
+          "description": "Connector-assigned type ID; null if the connector doesn't expose one. Preserved for future item creation."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Display label from the connector (e.g. 'Bug', 'Story', 'Task')."
+        }
+      },
+      "required": ["id", "label"],
       "additionalProperties": false
     },
     "Team": {
@@ -54,7 +75,7 @@
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-created teams."
         }
       },
       "required": ["id", "name", "velocity", "members", "externalId"],
@@ -76,7 +97,7 @@
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-created work streams."
         }
       },
       "required": ["id", "name", "externalId"],
@@ -84,7 +105,7 @@
     },
     "Sprint": {
       "type": "object",
-      "description": "A 2-week time period within a release. Sprints are numbered 1–8 per release.",
+      "description": "A time period within a release. Local releases default to 8 two-week sprints; connector releases take their sprint structure from the external system and may have any count or length.",
       "properties": {
         "id": {
           "type": "string",
@@ -94,7 +115,7 @@
         "name": {
           "type": "string",
           "minLength": 1,
-          "description": "Sprint name (e.g. 'Sprint 1'); for connector releases the name comes from the external system"
+          "description": "Sprint name (e.g. 'Sprint 1'); for connector releases the name comes from the external system."
         },
         "startISO": {
           "type": "string",
@@ -104,19 +125,16 @@
         "endISO": {
           "type": "string",
           "format": "date",
-          "description": "Sprint end date (ISO 8601, inclusive; typically 13 days after start)"
+          "description": "Sprint end date (ISO 8601, inclusive; typically 13 days after start for standard 2-week sprints)"
         },
         "daysOff": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "date"
-          },
-          "description": "Dates in [startISO, endISO] when the team is unavailable (e.g. holidays). Used to reduce sprint capacity."
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of person-days the team is unavailable during this sprint (e.g. holidays, planned leave). Used to reduce sprint capacity. This is an aggregate count, not a list of dates."
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-managed sprints."
         }
       },
       "required": ["id", "name", "startISO", "endISO", "daysOff", "externalId"],
@@ -143,7 +161,7 @@
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-created events."
         }
       },
       "required": ["id", "label", "dateISO", "externalId"],
@@ -154,9 +172,50 @@
       "enum": ["Not Started", "Active", "Blocked", "Complete"],
       "description": "Work-item status"
     },
+    "ReleaseConnector": {
+      "type": "object",
+      "description": "A release's binding to an external system. Holds only non-secret routing params (e.g. which project/board/version to pull). Credentials live in the local sync service, never here. A 'Local' release has connector === null and never syncs.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Connector type identifier (e.g. 'jira'). The set of valid values is defined by the local sync service."
+        },
+        "config": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Non-secret routing parameters for the connector (e.g. { boardId: '42', projectKey: 'PROJ' })."
+        }
+      },
+      "required": ["type", "config"],
+      "additionalProperties": false
+    },
+    "SyncStatus": {
+      "type": "object",
+      "description": "Per-release sync state, surfaced in the UI (badge + toast).",
+      "properties": {
+        "lastISO": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of the last completed sync attempt. Null if no sync has run yet."
+        },
+        "state": {
+          "type": "string",
+          "enum": ["idle", "ok", "error"],
+          "description": "Current sync state: 'idle' before first sync, 'ok' after a successful sync, 'error' after a failed sync."
+        },
+        "message": {
+          "type": ["string", "null"],
+          "description": "Human-readable status or error message from the last sync. Null when not applicable."
+        }
+      },
+      "required": ["lastISO", "state", "message"],
+      "additionalProperties": false
+    },
     "WorkItem": {
       "type": "object",
-      "description": "A unit of work within a release. Belongs to exactly one work stream and one sprint at a time.",
+      "description": "A unit of work within a release. Belongs to at most one work stream and at most one sprint at a time; null means unassigned/backlog.",
       "properties": {
         "id": {
           "type": "string",
@@ -169,9 +228,9 @@
           "description": "ID of the release this item belongs to"
         },
         "workStreamId": {
-          "type": "string",
+          "type": ["string", "null"],
           "pattern": "^ws_[a-z0-9]+$",
-          "description": "ID of the work stream this item belongs to"
+          "description": "ID of the work stream this item belongs to, or null if unassigned to a stream"
         },
         "sprintId": {
           "type": ["string", "null"],
@@ -190,7 +249,12 @@
         },
         "description": {
           "type": "string",
-          "description": "Detailed description"
+          "description": "Detailed description. Format is indicated by descriptionFormat."
+        },
+        "descriptionFormat": {
+          "type": "string",
+          "enum": ["text", "html"],
+          "description": "Format of the description field. 'text' (or absent) means plain text; 'html' means sanitized HTML supplied by a connector. Optional — absence implies 'text'."
         },
         "status": {
           "$ref": "#/definitions/Status"
@@ -202,15 +266,37 @@
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-created items."
+        },
+        "assignedMemberId": {
+          "type": ["string", "null"],
+          "description": "ID of the team member assigned to this item, or null if unassigned. References Member.id."
+        },
+        "build": {
+          "type": ["string", "null"],
+          "description": "Build/release label this item originated from, if it was pulled from a prior release by the connector. Null for locally-created items. Read-only."
+        },
+        "dirtyFields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Names of fields edited locally since the last sync/push, awaiting push to the external system. Empty array for clean (unmodified) items."
+        },
+        "itemType": {
+          "oneOf": [
+            { "$ref": "#/definitions/ItemType" },
+            { "type": "null" }
+          ],
+          "description": "Work item type (Bug, Story, Task, etc.) from the connector. Read-only. Null for locally-created items or when the connector does not supply a type."
         }
       },
-      "required": ["id", "releaseId", "workStreamId", "sprintId", "key", "subject", "description", "status", "points", "externalId"],
+      "required": ["id", "releaseId", "workStreamId", "sprintId", "key", "subject", "description", "status", "points", "externalId", "assignedMemberId", "build", "dirtyFields", "itemType"],
       "additionalProperties": false
     },
     "Release": {
       "type": "object",
-      "description": "A release cycle. Local releases span 8 two-week sprints (16 weeks) by default; connector releases take their sprint count from the external system. Organized into work streams; contains work items.",
+      "description": "A release cycle. Local releases default to 8 two-week sprints (16 weeks); connector releases have their sprint count and structure determined by the external system. Organized into work streams; contains work items.",
       "properties": {
         "id": {
           "type": "string",
@@ -251,16 +337,28 @@
           "items": {
             "$ref": "#/definitions/Sprint"
           },
-          "minItems": 8,
-          "maxItems": 8,
-          "description": "Exactly 8 sprints per release, each 2 weeks (14 calendar days)"
+          "description": "Sprints in this release, ordered by startISO ascending. Local releases default to 8 two-week sprints; connector releases may have any count or duration."
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null until syncing is implemented."
+          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-created releases."
+        },
+        "connector": {
+          "oneOf": [
+            { "$ref": "#/definitions/ReleaseConnector" },
+            { "type": "null" }
+          ],
+          "description": "Connector binding for this release. Null for local releases that do not sync to an external system."
+        },
+        "sync": {
+          "oneOf": [
+            { "$ref": "#/definitions/SyncStatus" },
+            { "type": "null" }
+          ],
+          "description": "Last-known sync state for this release. Null for local releases or before the first sync has run."
         }
       },
-      "required": ["id", "name", "startISO", "teamId", "workStreams", "events", "sprints", "externalId"],
+      "required": ["id", "name", "startISO", "teamId", "workStreams", "events", "sprints", "externalId", "connector", "sync"],
       "additionalProperties": false
     },
     "AppState": {
@@ -312,23 +410,23 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 1,
+      "value": 8,
       "description": "Current schema version for localStorage persistence"
     },
-    "SPRINTS_PER_RELEASE": {
+    "DEFAULT_SPRINT_COUNT": {
       "type": "integer",
       "value": 8,
-      "description": "Always 8 sprints per release"
+      "description": "Default number of sprints for a locally-created release. Connector releases may have any count."
     },
     "SPRINT_LENGTH_DAYS": {
       "type": "integer",
       "value": 14,
-      "description": "Sprint duration in calendar days"
+      "description": "Sprint duration in calendar days for standard local sprints. Connector sprints may have different lengths."
     },
     "WORKDAYS_PER_SPRINT": {
       "type": "integer",
       "value": 10,
-      "description": "Nominal working days per sprint (2-week period, assuming 5-day work week)"
+      "description": "Nominal working days per standard 2-week sprint (Mon–Fri, no holidays). Capacity uses workdaysInRange() over a sprint's actual date range to support variable-length connector sprints."
     },
     "STATUSES": {
       "type": "array",
@@ -341,10 +439,10 @@
   },
   "derivations": {
     "sprintCapacity": {
-      "description": "Planned capacity for a sprint in story points. Accounts for team velocity and days off. Full capacity uses the sprint's actual business days (Mon–Fri within [startISO, endISO]) so variable-length connector sprints compute correctly; a standard 14-day sprint yields 10.",
-      "formula": "fullCap = team.members.length * workdaysInRange(sprint.startISO, sprint.endISO); sprintCapacity = round(team.velocity * ((fullCap - daysOff) / fullCap))",
+      "description": "Planned capacity for a sprint in story points. Accounts for team velocity and days off. Full capacity uses the sprint's actual business days (Mon–Fri within [startISO, endISO]) so variable-length connector sprints compute correctly; a standard 14-day sprint yields 10. Only contributing members (nonContributing === false) count toward fullCap.",
+      "formula": "fullCap = contributingMembers.length * workdaysInRange(sprint.startISO, sprint.endISO); sprintCapacity = round(team.velocity * ((fullCap - sprint.daysOff) / fullCap))",
       "example": {
-        "scenario": "Team of 5, velocity 40, standard 14-day sprint (10 workdays → fullCap 50), 10 person-days off",
+        "scenario": "Team of 5 contributing members, velocity 40, standard 14-day sprint (10 workdays → fullCap 50), 10 person-days off",
         "calculation": "40 * ((50 - 10) / 50) = 40 * 0.8 = 32"
       }
     },
@@ -401,11 +499,15 @@
     },
     "WorkStream → WorkItem": {
       "type": "one-to-many",
-      "description": "A work stream contains one or more work items. WorkItem.workStreamId points to WorkStream."
+      "description": "A work stream contains zero or more work items. WorkItem.workStreamId points to WorkStream; null means the item is not assigned to any stream."
     },
     "Sprint → WorkItem": {
       "type": "one-to-many",
       "description": "A sprint contains zero or more work items. WorkItem.sprintId points to Sprint.id within the same Release; null means the item is in the backlog (unscheduled)."
+    },
+    "Member → WorkItem": {
+      "type": "one-to-many",
+      "description": "A member may be assigned to zero or more work items. WorkItem.assignedMemberId points to Member.id within the release's team; null means unassigned."
     }
   },
   "adaptationGuide": {
@@ -417,14 +519,20 @@
       "Release Tracker Sprint": "Maps to a sprint/iteration in target system"
     },
     "notes": [
-      "WorkItem.key is auto-generated (e.g. 'PROJ-100'). If importing from a target system, preserve the original external ID and decide whether to map it.",
-      "Release Tracker sprints are always 2 weeks; adapt as needed for target systems with different sprint lengths.",
+      "WorkItem.key is auto-generated (e.g. 'PROJ-100'). If importing from a target system, preserve the original external ID in externalId and decide whether to remap the key.",
+      "Local releases default to 8 two-week (14-day) sprints; connector releases may have any sprint count or duration — do not assume a fixed count or length.",
       "Status enum is fixed ('Not Started', 'Active', 'Blocked', 'Complete'). Map to target system statuses as needed.",
       "Points are integers with no ceiling; adapt to target system's point scale if different.",
-      "Team.velocity is a Fibonacci-like constant used for capacity planning. May not map directly to target system metrics.",
-      "daysOff on sprints represent team unavailability (holidays, planned time off). Map to target system's capacity reduction mechanism if present.",
+      "Team.velocity is a constant used for capacity planning. May not map directly to target system metrics.",
+      "Sprint.daysOff is an integer (aggregate person-days off), not a list of dates. Map to target system's capacity reduction mechanism if present.",
+      "Member.nonContributing flags members excluded from capacity calculations (e.g. EMs, PMs). Filter these out when computing fullCap.",
+      "WorkItem.dirtyFields lists field names edited locally since the last push, awaiting sync to the external system. Use this to implement selective push.",
+      "WorkItem.itemType is connector-supplied and read-only. It describes the issue type (Bug, Story, Task) in the external system.",
+      "WorkItem.build is the build/release label the item was pulled from in a prior release. Set by the connector; read-only.",
+      "WorkItem.descriptionFormat distinguishes plain text ('text', default) from sanitized connector-supplied HTML ('html'). Render accordingly.",
       "Events are one-way markers (milestones); they do not block or constrain work items.",
-      "Release Tracker stores nested objects (workStreams, events, sprints, items); normalize for target systems that expect separate tables/collections."
+      "Release.connector holds non-secret routing config only; credentials stay in the local sync service. A null connector means the release is local and never syncs.",
+      "Release Tracker stores nested objects (workStreams, events, sprints) directly on Release; items are stored flat with a releaseId foreign key. Normalize as needed for target systems."
     ]
   }
 }

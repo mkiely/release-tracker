@@ -7,7 +7,7 @@ const team = (members: number, velocity: number): Team => ({
   id: 't',
   name: 'T',
   velocity,
-  members: Array.from({ length: members }, (_, i) => ({ id: `m${i}`, name: `M${i}`, externalId: null })),
+  members: Array.from({ length: members }, (_, i) => ({ id: `m${i}`, name: `M${i}`, externalId: null, nonContributing: false })),
   externalId: null,
 });
 
@@ -30,6 +30,17 @@ describe('workdaysInRange', () => {
   });
 });
 
+const teamWithNonContrib = (contributing: number, nonContributing: number, velocity: number): Team => ({
+  id: 't',
+  name: 'T',
+  velocity,
+  externalId: null,
+  members: [
+    ...Array.from({ length: contributing }, (_, i) => ({ id: `c${i}`, name: `C${i}`, externalId: null, nonContributing: false })),
+    ...Array.from({ length: nonContributing }, (_, i) => ({ id: `nc${i}`, name: `NC${i}`, externalId: null, nonContributing: true })),
+  ],
+});
+
 describe('fullCap', () => {
   it('is members × the sprint workdays (10 for a standard 14-day sprint)', () => {
     expect(fullCap(team(5, 40), s14)).toBe(50);
@@ -38,6 +49,13 @@ describe('fullCap', () => {
   it('tracks non-standard sprint lengths', () => {
     expect(fullCap(team(2, 20), sprint('2026-04-13', '2026-04-19'))).toBe(10); // 5 workdays × 2
     expect(fullCap(team(2, 20), sprint('2026-04-13', '2026-05-03'))).toBe(30); // 15 workdays × 2
+  });
+  it('excludes non-contributing members from capacity', () => {
+    // 4 contributing + 2 non-contributing → only 4 count
+    expect(fullCap(teamWithNonContrib(4, 2, 40), s14)).toBe(40);
+  });
+  it('is 0 when all members are non-contributing', () => {
+    expect(fullCap(teamWithNonContrib(0, 3, 40), s14)).toBe(0);
   });
   it('is 0 for undefined team', () => {
     expect(fullCap(undefined, s14)).toBe(0);
@@ -169,6 +187,7 @@ describe('statusSegs', () => {
     assignedMemberId: null,
     build: null,
     dirtyFields: [],
+    itemType: null,
   });
 
   it('counts per status and drops zeros', () => {
@@ -196,7 +215,7 @@ describe('groupItemsByStream', () => {
   const item = (id: string, workStreamId: string | null): WorkItem => ({
     id, releaseId: 'r', workStreamId, sprintId: null,
     key: `K-${id}`, subject: 'S', description: '', status: 'Not Started',
-    points: 1, externalId: null, assignedMemberId: null, build: null, dirtyFields: [],
+    points: 1, externalId: null, assignedMemberId: null, build: null, dirtyFields: [], itemType: null,
   });
 
   it('groups items under their stream in the order streams are declared', () => {

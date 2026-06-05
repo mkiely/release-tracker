@@ -1,7 +1,7 @@
 // Seed data — ported from proto-store.jsx seed(). Builds a primary demo
 // release plus two lighter releases so the home list feels real.
 
-import { SCHEMA_VERSION, type AppState, type Release, type Sprint, type Status, type WorkItem } from '../types';
+import { SCHEMA_VERSION, type AppState, type ItemType, type Release, type Sprint, type Status, type WorkItem } from '../types';
 import { buildSprints, uid } from './dates';
 
 // curated subjects per work stream so generated items read believably
@@ -51,13 +51,33 @@ const CONNECTOR_MATRIX: Record<number, Record<string, [Status, number][]>> = {
 };
 
 const PT_POOL = [2, 3, 5, 1, 8, 3, 2, 5];
+const NEXUS_TYPE_POOL: ItemType[] = [
+  { id: 'jira_story', label: 'Story' },
+  { id: 'jira_story', label: 'Story' },
+  { id: 'jira_story', label: 'Story' },
+  { id: 'jira_task', label: 'Task' },
+  { id: 'jira_bug', label: 'Bug' },
+];
 
 export function seed(): AppState {
+  const mkMember = (n: string, nonContributing = false) => ({ id: uid('m'), name: n, externalId: null, nonContributing });
   const teams = [
-    { id: 'team_core', name: 'Platform Core', velocity: 40, externalId: null, members: ['Ada L.', 'Marco P.', 'Wei C.', 'Devi R.', 'Tom B.'].map((n) => ({ id: uid('m'), name: n, externalId: null })) },
-    { id: 'team_growth', name: 'Growth', velocity: 24, externalId: null, members: ['Jen K.', 'Sam O.', 'Priya N.'].map((n) => ({ id: uid('m'), name: n, externalId: null })) },
-    { id: 'team_pay', name: 'Payments', velocity: 32, externalId: null, members: ['Lou H.', 'Bea S.', 'Ravi M.', 'Nina D.'].map((n) => ({ id: uid('m'), name: n, externalId: null })) },
-    { id: 'team_integrations', name: 'Platform Integrations', velocity: 48, externalId: 'JIRA-TEAM-NXS', members: ['Yara F.', 'Cass L.', 'Jin S.', 'Obi T.', 'Meg R.', 'Dev A.'].map((n) => ({ id: uid('m'), name: n, externalId: null })) },
+    {
+      id: 'team_core', name: 'Platform Core', velocity: 40, externalId: null,
+      members: ['Ada L.', 'Marco P.', 'Wei C.', 'Devi R.', 'Tom B.'].map((n) => mkMember(n)),
+    },
+    {
+      id: 'team_integrations', name: 'Platform Integrations', velocity: 32, externalId: 'JIRA-TEAM-NXS',
+      members: [
+        mkMember('Cass L.'),
+        mkMember('Jin S.'),
+        mkMember('Obi T.'),
+        mkMember('Meg R.'),
+        // EM and PM pulled in from Jira — excluded from capacity calculations
+        mkMember('Yara F.', true),  // Engineering Manager
+        mkMember('Dev A.', true),   // Product Manager
+      ],
+    },
   ];
 
   const streamNames = ['Checkout API', 'Search Revamp', 'Mobile Onboarding', 'Billing Migration', 'Notifications', 'Admin Console'];
@@ -101,7 +121,7 @@ export function seed(): AppState {
             id: uid('it'), releaseId: 'rel_demo', workStreamId: wsId(streamName), sprintId,
             key: `ORN-${keyN++}`, subject, description: '', status, points: PT_POOL[ptI++ % PT_POOL.length], externalId: null,
             assignedMemberId: coreMembers[memberIdx++ % coreMembers.length].id,
-            build: null, dirtyFields: [],
+            build: null, dirtyFields: [], itemType: null,
           });
         }
       });
@@ -123,7 +143,7 @@ export function seed(): AppState {
       key: `ORN-${keyN++}`, subject, description: '', status,
       points: pts, externalId: null,
       assignedMemberId: coreMembers[memberIdx++ % coreMembers.length].id,
-      build: 'Orion 1.5', dirtyFields: [],
+      build: 'Orion 1.5', dirtyFields: [], itemType: null,
     });
   });
 
@@ -135,7 +155,7 @@ export function seed(): AppState {
       key: `ORN-${keyN++}`, subject: 'Define third-party cookie deprecation plan',
       description: 'Cross-cutting concern; stream TBD once owner is identified.',
       status: 'Not Started', points: 3, externalId: null,
-      assignedMemberId: null, build: null, dirtyFields: [],
+      assignedMemberId: null, build: null, dirtyFields: [], itemType: null,
     },
     {
       id: uid('it'), releaseId: 'rel_demo', workStreamId: null,
@@ -143,7 +163,7 @@ export function seed(): AppState {
       key: `ORN-${keyN++}`, subject: 'Security audit findings — triage and assign',
       description: 'Raw findings from pentest; stream assignment pending review.',
       status: 'Active', points: 5, externalId: null,
-      assignedMemberId: coreMembers[0].id, build: null, dirtyFields: [],
+      assignedMemberId: coreMembers[0].id, build: null, dirtyFields: [], itemType: null,
     },
     {
       id: uid('it'), releaseId: 'rel_demo', workStreamId: null,
@@ -151,7 +171,7 @@ export function seed(): AppState {
       key: `ORN-${keyN++}`, subject: 'Migrate internal tooling to new auth provider',
       description: 'Backlog item; not yet assigned to a stream or sprint.',
       status: 'Not Started', points: 2, externalId: null,
-      assignedMemberId: null, build: null, dirtyFields: [],
+      assignedMemberId: null, build: null, dirtyFields: [], itemType: null,
     },
   );
 
@@ -198,45 +218,8 @@ export function seed(): AppState {
 </table>`,
     descriptionFormat: 'html',
     status: 'Not Started', points: 5, externalId: 'EXT-SSO-001',
-    assignedMemberId: coreMembers[1].id, build: null, dirtyFields: [],
+    assignedMemberId: coreMembers[1].id, build: null, dirtyFields: [], itemType: null,
   });
-
-  // two lighter releases so the home list feels real
-  const co: Release = {
-    id: 'rel_co', name: 'Q3 Checkout', startISO: '2026-05-19', teamId: 'team_pay',
-    workStreams: [{ id: uid('ws'), name: 'Payment Sheet', externalId: null }, { id: uid('ws'), name: 'Fraud Rules', externalId: null }],
-    events: [{ id: uid('ev'), label: 'Code freeze', dateISO: '2026-06-30', externalId: null }],
-    sprints: buildSprints('2026-05-19', { 4: 4 }),
-    externalId: null,
-    connector: null,
-    sync: null,
-  };
-  const ob: Release = {
-    id: 'rel_ob', name: 'Onboarding Refresh', startISO: '2026-04-28', teamId: 'team_growth',
-    workStreams: [{ id: uid('ws'), name: 'Activation Flow', externalId: null }],
-    events: [{ id: uid('ev'), label: 'GA', dateISO: '2026-06-15', externalId: null }],
-    sprints: buildSprints('2026-04-28', {}),
-    externalId: null,
-    connector: null,
-    sync: null,
-  };
-  // a few items for the lighter releases
-  const sprintIdFor = (rel: Release, sn: number) => rel.sprints[sn - 1].id;
-  ([
-    [co, co.workStreams[0].id, 1, 'Active'],
-    [co, co.workStreams[0].id, 1, 'Complete'],
-    [co, co.workStreams[1].id, 2, 'Active'],
-    [co, co.workStreams[1].id, 2, 'Not Started'],
-    [ob, ob.workStreams[0].id, 1, 'Complete'],
-    [ob, ob.workStreams[0].id, 2, 'Active'],
-  ] as [Release, string, number, Status][]).forEach(([rel, wid, sn, stt], i) =>
-    items.push({
-      id: uid('it'), releaseId: rel.id, workStreamId: wid, sprintId: sprintIdFor(rel, sn),
-      key: `${rel.id === 'rel_co' ? 'CO' : 'OB'}-${10 + i}`, subject: 'Work item ' + (i + 1),
-      description: '', status: stt, points: PT_POOL[i % PT_POOL.length], externalId: null,
-      assignedMemberId: null, build: null, dirtyFields: [],
-    }),
-  );
 
   // Connector release: Nexus 1.0 — Jira-linked, 6 streams, custom sprint names.
   // Sprint 6 "Load Testing & Hardening" (2026-05-21 → 2026-06-10) is the active sprint
@@ -274,11 +257,12 @@ export function seed(): AppState {
     sync: { lastISO: '2026-06-04T09:30:00.000Z', state: 'ok', message: null },
   };
   const nxsWsId = (name: string) => nexusStreams.find((w) => w.name === name)!.id;
-  const nxsMembers = teams[3].members;
+  const nxsMembers = teams[1].members;
   const nxsSubjIdx: Record<string, number> = {};
   let nxsKeyN = 101;
   let nxsPtI = 0;
   let nxsMemberIdx = 0;
+  let nxsTypeI = 0;
   Object.entries(CONNECTOR_MATRIX).forEach(([sprintPos, byStream]) => {
     const sprintId = nexusSprints[Number(sprintPos) - 1].id;
     Object.entries(byStream).forEach(([streamName, counts]) => {
@@ -294,6 +278,7 @@ export function seed(): AppState {
             externalId: `NXS-${nxsKeyN++}`,
             assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
             build: null, dirtyFields: [],
+            itemType: NEXUS_TYPE_POOL[nxsTypeI++ % NEXUS_TYPE_POOL.length],
           });
         }
       });
@@ -316,8 +301,9 @@ export function seed(): AppState {
       points: pts, externalId: `NXS-${nxsKeyN++}`,
       assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
       build: 'Nexus Beta 2', dirtyFields: [],
+      itemType: { id: 'jira_bug', label: 'Bug' },
     });
   });
 
-  return { version: SCHEMA_VERSION, teams, releases: [demo, co, ob, nexus], items, meta: { lastSyncISO: null } };
+  return { version: SCHEMA_VERSION, teams, releases: [demo, nexus], items, meta: { lastSyncISO: null } };
 }

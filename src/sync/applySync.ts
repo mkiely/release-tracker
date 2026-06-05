@@ -71,10 +71,17 @@ export function applySync(
       const existing = members.find((m) => m.externalId === mm.externalId);
       if (existing) {
         existing.name = mm.fields.name;
+        // nonContributing is app-owned after creation; the connector's value is only
+        // used as a seed hint when the member is first added (see else branch below).
         memberByExt.set(mm.externalId, existing.id);
         result.updated++;
       } else {
-        const m: Member = { id: uid('m'), name: mm.fields.name, externalId: mm.externalId };
+        const m: Member = {
+          id: uid('m'),
+          name: mm.fields.name,
+          externalId: mm.externalId,
+          nonContributing: mm.fields.nonContributing ?? false,
+        };
         members.push(m);
         memberByExt.set(mm.externalId, m.id);
         result.created++;
@@ -194,6 +201,7 @@ export function applySync(
       existing.status = m.fields.status;
       existing.assignedMemberId = assignedMemberId;
       existing.build = m.fields.build ?? null;
+      existing.itemType = m.fields.itemType ?? null;
       // Dirty-aware: preserve local value for writeable fields pending push.
       const sprintDirty = writeableItemFields.includes('sprint') && existing.dirtyFields.includes('sprint');
       const pointsDirty = writeableItemFields.includes('points') && existing.dirtyFields.includes('points');
@@ -215,6 +223,7 @@ export function applySync(
         externalId: m.externalId,
         assignedMemberId,
         build: m.fields.build ?? null,
+        itemType: m.fields.itemType ?? null,
         dirtyFields: [],
       });
       result.created++;

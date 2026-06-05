@@ -136,7 +136,7 @@ describe('applySync — local-only entities are untouched', () => {
     const local: WorkItem = {
       id: 'it_local', releaseId: 'rel_1', workStreamId: 'ws_x', sprintId: 'sp_x',
       key: 'LOCAL-1', subject: 'Hand-entered', description: '', status: 'Not Started', points: 1, externalId: null,
-      assignedMemberId: null, build: null, dirtyFields: [],
+      assignedMemberId: null, build: null, dirtyFields: [], itemType: null,
     };
     const { next } = applySync(baseState({ items: [local] }), 'rel_1', mapped());
     const stillThere = next.items.find((i) => i.id === 'it_local');
@@ -264,8 +264,8 @@ describe('applySync — team sync', () => {
   });
 
   it('upserts members by externalId and preserves local members', () => {
-    const localMember = { id: 'm_local', name: 'Local User', externalId: null };
-    const syncedMember = { id: 'm_synced', name: 'Ada L.', externalId: 'USR-ADA' };
+    const localMember = { id: 'm_local', name: 'Local User', externalId: null, nonContributing: false };
+    const syncedMember = { id: 'm_synced', name: 'Ada L.', externalId: 'USR-ADA', nonContributing: false };
     const existingTeam = { id: 'team_x', name: 'T', velocity: 20, externalId: 'JIRA-TEAM-1', members: [localMember, syncedMember] };
     const state = { ...baseState(), teams: [existingTeam], releases: [{ ...baseRelease(), teamId: 'team_x' }] };
     const m = mapped({

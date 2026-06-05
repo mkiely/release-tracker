@@ -15,6 +15,14 @@ export function Teams() {
   const navigate = useNavigate();
   const { openModal } = useApp();
 
+  const toggleNonContributing = (teamId: string, memberId: string) => {
+    const t = st.teams.find((x) => x.id === teamId);
+    if (!t) return;
+    getActions().updateTeam(teamId, {
+      members: t.members.map((m) => m.id === memberId ? { ...m, nonContributing: !m.nonContributing } : m),
+    });
+  };
+
   const confirmDeleteTeam = (t: { id: string; name: string }) => {
     openModal({
       type: 'confirm',
@@ -43,7 +51,12 @@ export function Teams() {
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 750, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
-                  <div style={{ fontSize: 12, color: WF.t3, marginTop: 3 }}>{t.members.length} members</div>
+                  <div style={{ fontSize: 12, color: WF.t3, marginTop: 3 }}>
+                    {t.members.length} members
+                    {t.members.some((m) => m.nonContributing) && (
+                      <span style={{ marginLeft: 6 }}>· {t.members.filter((m) => m.nonContributing).length} not counted</span>
+                    )}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
                   {t.externalId ? (
@@ -75,15 +88,30 @@ export function Teams() {
                 </PField>
                 <div style={{ flex: 1, paddingBottom: 13 }}>
                   <div style={{ fontSize: 11.5, color: WF.t3 }}>Full capacity</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: WF.t2 }}>{t.members.length * WORKDAYS} person-days / sprint</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: WF.t2 }}>{t.members.filter((m) => !m.nonContributing).length * WORKDAYS} person-days / sprint</div>
                 </div>
               </div>
               <hr className="wf-divider" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {t.members.map((m) => (
                   <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <span className="wf-avatar">{m.name.split(' ').map((p) => p[0]).slice(0, 2).join('')}</span>
-                    <span style={{ fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap' }}>{m.name}</span>
+                    <span className="wf-avatar" style={{ opacity: m.nonContributing ? 0.4 : 1 }}>
+                      {m.name.split(' ').map((p) => p[0]).slice(0, 2).join('')}
+                    </span>
+                    <span style={{ fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', color: m.nonContributing ? WF.t3 : undefined }}>
+                      {m.name}
+                    </span>
+                    {m.nonContributing && (
+                      <span className="wf-tag" style={{ fontSize: 10.5, color: WF.t3 }}>no capacity</span>
+                    )}
+                    <div style={{ marginLeft: 'auto' }}>
+                      <IconButton
+                        icon={m.nonContributing ? Icon.member : Icon.memberOff}
+                        title={m.nonContributing ? 'Include in capacity' : 'Exclude from capacity'}
+                        onClick={() => toggleNonContributing(t.id, m.id)}
+                        style={{ color: WF.t3 }}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

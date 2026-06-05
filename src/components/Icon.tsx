@@ -23,4 +23,6 @@ export const Icon: Record<string, ReactElement> = {
   item:    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><rect x="2.7" y="2.7" width="10.6" height="10.6" rx="2.4"/><path d="M5.4 8.1 7.2 9.9l3.4-3.8"/></svg>,
   event:   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M4.1 2.1v11.8"/><path d="M4.1 2.9h7.3l-1.7 2.3 1.7 2.3H4.1z"/></svg>,
   member:  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="5.2" r="2.7"/><path d="M2.9 13.4c0-2.7 2.3-4.3 5.1-4.3s5.1 1.6 5.1 4.3"/></svg>,
+  // Person with a minus — "exclude from capacity"
+  memberOff: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="6.5" cy="4.5" r="2.5"/><path d="M1.5 13c0-2.5 2.2-4 5-4"/><path d="M10.5 11h5"/></svg>,
 };

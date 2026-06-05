@@ -5,7 +5,7 @@ import type { AppState, Release, Team, WorkItem } from '../types';
 
 const team = (id: string): Team => ({
   id, name: `Team ${id}`, velocity: 20, externalId: null,
-  members: [{ id: `m_${id}`, name: 'Alice', externalId: null }],
+  members: [{ id: `m_${id}`, name: 'Alice', externalId: null, nonContributing: false }],
 });
 
 const release = (id: string): Release => ({
@@ -17,7 +17,7 @@ const release = (id: string): Release => ({
 const item = (id: string, releaseId: string, wsId = 'ws1', dirty: string[] = []): WorkItem => ({
   id, releaseId, workStreamId: wsId, sprintId: null,
   key: `K-${id}`, subject: 'S', description: '', status: 'Not Started',
-  points: 1, externalId: null, assignedMemberId: null, build: null, dirtyFields: dirty,
+  points: 1, externalId: null, assignedMemberId: null, build: null, dirtyFields: dirty, itemType: null,
 });
 
 const state = (...overrides: Partial<AppState>[]): AppState =>

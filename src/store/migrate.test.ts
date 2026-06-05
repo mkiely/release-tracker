@@ -193,6 +193,47 @@ describe('migrate — v6 → current', () => {
   });
 });
 
+// Minimal v7 item — has descriptionFormat, no itemType.
+const v7Item = () => ({
+  ...v6Item(), descriptionFormat: 'text' as const,
+});
+// Minimal v7 team member — no nonContributing.
+const v7Member = () => ({ id: 'm1', name: 'Alice', externalId: null });
+
+describe('migrate — v7 → current', () => {
+  const sp = { id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 0, externalId: null };
+  const v7 = {
+    version: 7,
+    teams: [{ id: 't1', name: 'Team', velocity: 30, externalId: null, members: [v7Member()] }],
+    meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), sprints: [sp] }],
+    items: [v7Item()],
+  };
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v7 as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('adds itemType: null to items that lack it', () => {
+    const next = migrate(v7 as any)!;
+    expect(next.items[0].itemType).toBeNull();
+  });
+
+  it('adds nonContributing: false to members that lack it', () => {
+    const next = migrate(v7 as any)!;
+    expect(next.teams[0].members[0].nonContributing).toBe(false);
+  });
+
+  it('preserves an existing nonContributing: true when already set', () => {
+    const v7WithNonContrib = {
+      ...v7,
+      teams: [{ ...v7.teams[0], members: [{ ...v7Member(), nonContributing: true }] }],
+    };
+    const next = migrate(v7WithNonContrib as any)!;
+    expect(next.teams[0].members[0].nonContributing).toBe(true);
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

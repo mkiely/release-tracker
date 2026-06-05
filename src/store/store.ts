@@ -101,6 +101,18 @@ export function migrate(p: AppState): AppState | null {
       items: s.items.map((it) => ({ ...it, descriptionFormat: (it as any).descriptionFormat ?? 'text' })),
     };
   }
+  // v7 → v8: members gain nonContributing (default false); items gain itemType (default null).
+  if (s.version === 7) {
+    s = {
+      ...s,
+      version: 8,
+      teams: s.teams.map((t) => ({
+        ...t,
+        members: t.members.map((m) => ({ ...m, nonContributing: (m as any).nonContributing ?? false })),
+      })),
+      items: s.items.map((it) => ({ ...it, itemType: (it as any).itemType ?? null })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -184,7 +196,7 @@ export const useStore = create<StoreState>((set, get) => {
         name: name || 'Untitled team',
         velocity: Number(velocity) || 0,
         externalId: null,
-        members: (members || []).filter((m) => m.trim()).map((m) => ({ id: uid('m'), name: m.trim(), externalId: null })),
+        members: (members || []).filter((m) => m.trim()).map((m) => ({ id: uid('m'), name: m.trim(), externalId: null, nonContributing: false })),
       };
       commit((d) => { d.teams = [...d.teams, t]; });
       return t;
@@ -306,6 +318,7 @@ export const useStore = create<StoreState>((set, get) => {
         assignedMemberId: assignedMemberId ?? null,
         build: null,
         dirtyFields: [],
+        itemType: null,
       };
       commit((d) => { d.items = [...d.items, it]; });
       return it;

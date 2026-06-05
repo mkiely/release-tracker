@@ -520,6 +520,19 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           <span className="wf-mono" style={{ fontSize: 12.5, color: WF.t3, background: WF.fill, padding: '3px 7px', borderRadius: 5 }}>
             {it.key}
           </span>
+          {it.itemType && (
+            <span
+              title="Item type (connector-assigned, read-only)"
+              style={{
+                display: 'inline-flex', alignItems: 'center',
+                fontSize: 11.5, fontWeight: 600, color: WF.t2,
+                background: WF.fill, border: `1.5px solid ${WF.line}`,
+                borderRadius: 5, padding: '2px 8px',
+              }}
+            >
+              {it.itemType.label}
+            </span>
+          )}
           {it.build && (
             <span
               title={`Build: ${it.build}`}

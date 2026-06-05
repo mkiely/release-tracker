@@ -101,6 +101,12 @@ export interface components {
             externalId: string;
             fields: {
                 name: string;
+                /**
+                 * @description When true, this member does not count toward team capacity (e.g. EMs, PMs).
+                 * Treated as a hint: applied on initial member creation; the app owns the value
+                 * after that and the user may override it. Omit or false for engineers.
+                 */
+                nonContributing?: boolean;
             };
         };
         MappedTeam: {
@@ -132,6 +138,16 @@ export interface components {
                  * @enum {string}
                  */
                 descriptionFormat?: "text" | "html";
+                /**
+                 * @description Connector-assigned work item type (e.g. Bug, Story, Task). Read-only in the app.
+                 * The `id` preserves the connector's native type key for future item-creation support.
+                 */
+                itemType?: {
+                    /** @description Connector-native type ID; null if the connector does not expose one. */
+                    id: string | null;
+                    /** @description Display label, e.g. Bug, Story, Task, Investigation. */
+                    label: string;
+                } | null;
             };
         };
         /** @description The sync payload for one release. Normalized, keyed by externalId. */

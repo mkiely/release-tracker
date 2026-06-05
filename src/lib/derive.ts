@@ -3,9 +3,9 @@
 import { STATUSES, type Release, type Sprint, type StatusSeg, type Team, type WorkItem } from '../types';
 import { between, todayISO, workdaysInRange } from './dates';
 
-/** Full capacity in person-days: members × the sprint's actual business days. */
+/** Full capacity in person-days: contributing members × the sprint's actual business days. */
 export const fullCap = (team: Team | undefined, sprint: Sprint): number =>
-  team ? team.members.length * workdaysInRange(sprint.startISO, sprint.endISO) : 0;
+  team ? team.members.filter((m) => !m.nonContributing).length * workdaysInRange(sprint.startISO, sprint.endISO) : 0;
 
 /** Fraction of capacity remaining after person-days off (clamped to [0, ∞)). */
 export const capPct = (team: Team | undefined, sprint: Sprint, daysOff: number): number => {

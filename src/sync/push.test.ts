@@ -25,6 +25,7 @@ const item = (over: Partial<WorkItem>): WorkItem => ({
   assignedMemberId: null,
   build: null,
   dirtyFields: [],
+  itemType: null,
   ...over,
 });
 

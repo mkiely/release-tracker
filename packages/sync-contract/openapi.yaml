@@ -122,6 +122,12 @@ components:
           required: [name]
           properties:
             name: { type: string }
+            nonContributing:
+              type: boolean
+              description: >-
+                When true, this member does not count toward team capacity (e.g. EMs, PMs).
+                Treated as a hint: applied on initial member creation; the app owns the value
+                after that and the user may override it. Omit or false for engineers.
 
     MappedTeam:
       type: object
@@ -174,6 +180,20 @@ components:
               type: string
               enum: [text, html]
               description: 'Format of the description field. Omit or text for plain text; html for HTML rich text.'
+            itemType:
+              nullable: true
+              description: >-
+                Connector-assigned work item type (e.g. Bug, Story, Task). Read-only in the app.
+                The `id` preserves the connector's native type key for future item-creation support;
+                `label` is the display string shown in the UI.
+              type: object
+              required: [label]
+              properties:
+                id:
+                  type: string
+                  nullable: true
+                  description: Connector-native type ID; null if the connector does not expose one.
+                label: { type: string, description: 'Display label, e.g. Bug, Story, Task, Investigation.' }
 
     MappedRelease:
       type: object
