@@ -10,7 +10,7 @@ import type { components } from './generated';
 
 type Schemas = components['schemas'];
 
-/** The app's four canonical work-item statuses (service coerces to one of these). */
+/** The app's five canonical work-item statuses (service coerces to one of these). */
 export type ContractStatus = Schemas['Status'];
 
 export type MappedMember = Schemas['MappedMember'];
@@ -40,4 +40,4 @@ export type { paths, components, operations } from './generated';
  * app's localStorage SCHEMA_VERSION — this versions the wire contract between the
  * app and the sync service.
  */
-export const SYNC_CONTRACT_VERSION = '0.4.0';
+export const SYNC_CONTRACT_VERSION = '0.5.0';

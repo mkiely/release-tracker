@@ -218,7 +218,7 @@ export function Release() {
                       gap: 12,
                       padding: '9px 14px',
                       background: WF.fill,
-                      borderBottom: `1.5px solid ${isAct ? WF.status.Active.dot : WF.line}`,
+                      borderBottom: `1.5px solid ${isAct ? WF.status['In Progress'].dot : WF.line}`,
                     }}
                   >
                     <span

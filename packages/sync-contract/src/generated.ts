@@ -77,10 +77,10 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
-         * @description The app's four canonical work-item statuses. The service must coerce to one of these.
+         * @description The app's five canonical work-item statuses. The service must coerce to one of these.
          * @enum {string}
          */
-        Status: "Not Started" | "Active" | "Blocked" | "Complete";
+        Status: "Not Started" | "In Progress" | "Under Review" | "Blocked" | "Complete";
         MappedWorkStream: {
             externalId: string;
             fields: {

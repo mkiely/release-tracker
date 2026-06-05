@@ -60,7 +60,7 @@ export function SegBar({ segs, height = 7, radius = 4 }: { segs: StatusSeg[]; he
 export function Meter({ v, w = '100%' }: { v: number; w?: CSSProperties['width'] }) {
   return (
     <div style={{ height: 7, width: w, borderRadius: 4, background: WF.fill, overflow: 'hidden' }}>
-      <div style={{ height: '100%', width: `${Math.round(v * 100)}%`, background: WF.status.Active.dot }} />
+      <div style={{ height: '100%', width: `${Math.round(v * 100)}%`, background: WF.status['In Progress'].dot }} />
     </div>
   );
 }

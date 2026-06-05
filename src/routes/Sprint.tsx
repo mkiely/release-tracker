@@ -29,11 +29,13 @@ export function Sprint() {
   const [memberFilter, setMemberFilter] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<Set<Status>>(new Set());
   const [buildFilter, setBuildFilter] = useState<Set<string>>(new Set());
+  const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setMemberFilter(new Set());
     setStatusFilter(new Set());
     setBuildFilter(new Set());
+    setTypeFilter(new Set());
   }, [sprintId]);
 
   const r = selRelease(st, id);
@@ -50,6 +52,18 @@ export function Sprint() {
   const isAct = !!act && act.id === sp.id;
   const evts = eventsIn(r, sp);
   const totalPts = items.reduce((a, i) => a + i.points, 0);
+
+  // Unique item type labels present in this sprint
+  const sprintTypes = [...new Set(items.map((i) => i.itemType?.label).filter((t): t is string => t !== undefined))];
+
+  function toggleType(t: string) {
+    setTypeFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+  }
 
   // Unique build labels present in this sprint (patch items from prior releases)
   const sprintBuilds = [...new Set(items.map((i) => i.build).filter((b): b is string => b !== null))];
@@ -89,6 +103,7 @@ export function Sprint() {
   const filteredItems = items
     .filter((i) => memberFilter.size === 0 || memberFilter.has(i.assignedMemberId ?? ''))
     .filter((i) => statusFilter.size === 0 || statusFilter.has(i.status))
+    .filter((i) => typeFilter.size === 0 || (i.itemType !== null && typeFilter.has(i.itemType.label)))
     .filter((i) => buildFilter.size === 0 || buildFilter.has(i.build ?? ''));
 
   // Stream columns (filtered)
@@ -103,7 +118,7 @@ export function Sprint() {
     items: filteredItems.filter((i) => i.status === s),
   }));
 
-  const isFiltered = memberFilter.size > 0 || statusFilter.size > 0 || buildFilter.size > 0;
+  const isFiltered = memberFilter.size > 0 || statusFilter.size > 0 || typeFilter.size > 0 || buildFilter.size > 0;
 
   return (
     <div className="wf screen">
@@ -278,6 +293,40 @@ export function Sprint() {
           );
         })}
 
+        {sprintTypes.length > 0 && (
+          <>
+            <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />
+            {sprintTypes.map((t) => {
+              const active = typeFilter.has(t);
+              return (
+                <button
+                  key={t}
+                  onClick={() => toggleType(t)}
+                  title={active ? `Remove filter: ${t}` : `Filter: ${t}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '2px 9px 2px 7px',
+                    borderRadius: 20,
+                    border: `1.5px solid ${active ? WF.ink : WF.line}`,
+                    background: active ? WF.fill : 'transparent',
+                    color: active ? WF.ink : WF.t3,
+                    cursor: 'pointer',
+                    fontSize: 11.5,
+                    fontWeight: active ? 700 : 500,
+                    fontFamily: WF.sans,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? WF.ink : WF.t3, flexShrink: 0 }} />
+                  {t}
+                </button>
+              );
+            })}
+          </>
+        )}
+
         {sprintBuilds.length > 0 && (
           <>
             <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />
@@ -319,6 +368,7 @@ export function Sprint() {
               onClick={() => {
                 setMemberFilter(new Set());
                 setStatusFilter(new Set());
+                setTypeFilter(new Set());
                 setBuildFilter(new Set());
               }}
               title="Clear all filters"

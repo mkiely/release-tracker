@@ -1,6 +1,6 @@
 // Domain types for Release Tracker. Mirrors the schema in proto-store.jsx.
 
-export const STATUSES = ['Not Started', 'Active', 'Blocked', 'Complete'] as const;
+export const STATUSES = ['Not Started', 'In Progress', 'Under Review', 'Blocked', 'Complete'] as const;
 export type Status = (typeof STATUSES)[number];
 
 // Reference value: working days in a standard 2-week sprint. No longer used in
@@ -9,7 +9,7 @@ export type Status = (typeof STATUSES)[number];
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 export interface Member {
   id: string;
@@ -19,13 +19,18 @@ export interface Member {
   nonContributing: boolean;
 }
 
-/** Work item type supplied by the connector (e.g. Bug, Story, Task). Read-only in the app. */
+/** Work item type. For connector releases, supplied by the connector and read-only.
+ *  For local releases, chosen from LOCAL_ITEM_TYPES and editable. */
 export interface ItemType {
-  /** Connector-assigned type ID; null if the connector doesn't expose one. Preserved for future item creation. */
+  /** Connector-assigned type ID; null for locally-set types. */
   id: string | null;
-  /** Display label from the connector. */
+  /** Display label. */
   label: string;
 }
+
+/** Predefined type choices for local (non-connector) work items. */
+export const LOCAL_ITEM_TYPES = ['Bug', 'User Story', 'Investigation'] as const;
+export type LocalItemType = (typeof LOCAL_ITEM_TYPES)[number];
 
 export interface Team {
   id: string;

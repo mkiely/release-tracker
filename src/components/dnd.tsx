@@ -63,7 +63,7 @@ export function CapacityMeter({ planned, cap, style }: { planned: number; cap: n
         </span>
       </div>
       <div style={{ display: 'flex', height: 6, borderRadius: 4, overflow: 'hidden', background: WF.fill }}>
-        <div style={{ flex: ratio, background: over ? WF.status.Blocked.dot : WF.status.Active.dot }} />
+        <div style={{ flex: ratio, background: over ? WF.status.Blocked.dot : WF.status['In Progress'].dot }} />
         {over ? <div style={{ flex: overW, background: WF.status.Blocked.text }} /> : <div style={{ flex: 1 - ratio }} />}
       </div>
     </div>
@@ -121,9 +121,9 @@ function SprintPill({
         padding: '7px 10px',
         borderRadius: 9,
         border: `1.5px ${canDropVisual ? 'dashed' : 'solid'} ${
-          over ? WF.status.Active.text : isCur ? WF.status.Active.dot : canDropVisual ? WF.lineStrong : WF.line
+          over ? WF.status['In Progress'].text : isCur ? WF.status['In Progress'].dot : canDropVisual ? WF.lineStrong : WF.line
         }`,
-        background: over ? WF.status.Active.soft : isCur ? WF.status.Active.soft : WF.paper,
+        background: over ? WF.status['In Progress'].soft : isCur ? WF.status['In Progress'].soft : WF.paper,
         display: 'flex',
         flexDirection: 'column',
         gap: 5,
@@ -135,12 +135,12 @@ function SprintPill({
           {sp.name}
         </span>
         {isCur && (
-          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.06em', color: WF.status.Active.text, marginLeft: 'auto', flex: '0 0 auto' }}>
+          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.06em', color: WF.status['In Progress'].text, marginLeft: 'auto', flex: '0 0 auto' }}>
             HERE
           </span>
         )}
         {canDropVisual && (
-          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.06em', color: over ? WF.status.Active.text : WF.t3, marginLeft: 'auto', flex: '0 0 auto' }}>
+          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.06em', color: over ? WF.status['In Progress'].text : WF.t3, marginLeft: 'auto', flex: '0 0 auto' }}>
             {over ? 'DROP' : 'MOVE'}
           </span>
         )}
@@ -239,8 +239,8 @@ export function StreamSprintColumn({
           gap: 6,
           padding: '8px 10px',
           borderRadius: 9,
-          border: `1.5px solid ${isCur ? WF.status.Active.dot : WF.line}`,
-          background: isCur ? WF.status.Active.soft : WF.paper,
+          border: `1.5px solid ${isCur ? WF.status['In Progress'].dot : WF.line}`,
+          background: isCur ? WF.status['In Progress'].soft : WF.paper,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -248,7 +248,7 @@ export function StreamSprintColumn({
             {sp.name}
           </span>
           {isCur && (
-            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.06em', color: WF.status.Active.text, marginLeft: 'auto', flex: '0 0 auto' }}>
+            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.06em', color: WF.status['In Progress'].text, marginLeft: 'auto', flex: '0 0 auto' }}>
               NOW
             </span>
           )}
@@ -291,15 +291,15 @@ export function StreamSprintColumn({
           minHeight: 64,
           borderRadius: 10,
           padding: over ? 6 : 0,
-          outline: over ? `2px dashed ${WF.status.Active.dot}` : 'none',
+          outline: over ? `2px dashed ${WF.status['In Progress'].dot}` : 'none',
           outlineOffset: -2,
-          background: over ? WF.status.Active.soft : 'transparent',
+          background: over ? WF.status['In Progress'].soft : 'transparent',
           transition: 'background .12s',
         }}
       >
         {streamItems.map((it) => renderCard(it))}
         {streamItems.length === 0 && (
-          <div className="card dash" style={{ padding: '16px 10px', textAlign: 'center', color: over ? WF.status.Active.text : WF.t3, fontSize: 11.5 }}>
+          <div className="card dash" style={{ padding: '16px 10px', textAlign: 'center', color: over ? WF.status['In Progress'].text : WF.t3, fontSize: 11.5 }}>
             {canDropVisual ? 'Drop to move here' : 'No items'}
           </div>
         )}

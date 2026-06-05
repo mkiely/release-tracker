@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.4.0
+  version: 0.5.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
@@ -85,8 +85,8 @@ components:
   schemas:
     Status:
       type: string
-      description: The app's four canonical work-item statuses. The service must coerce to one of these.
-      enum: [Not Started, Active, Blocked, Complete]
+      description: The app's five canonical work-item statuses. The service must coerce to one of these.
+      enum: [Not Started, In Progress, Under Review, Blocked, Complete]
 
     MappedWorkStream:
       type: object

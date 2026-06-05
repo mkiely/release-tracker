@@ -23,31 +23,31 @@ const CONNECTOR_SUBJECTS: Record<string, string[]> = {
   'SDK & Developer Tools': ['Client SDK scaffolding', 'Code sample library', 'Interactive API explorer', 'Sandbox environment', 'SDK versioning toolchain', 'Error code documentation', 'Integration test harness', 'Developer portal pages', 'Changelog automation'],
 };
 
-// item-count matrix per sprint per stream: [Complete, Active, Blocked, NotStarted]
-const M = (c: number, a: number, b: number, n: number): [Status, number][] => [
-  ['Complete', c], ['Active', a], ['Blocked', b], ['Not Started', n],
+// item-count matrix per sprint per stream: [Complete, UnderReview, InProgress, Blocked, NotStarted]
+const M = (c: number, r: number, a: number, b: number, n: number): [Status, number][] => [
+  ['Complete', c], ['Under Review', r], ['In Progress', a], ['Blocked', b], ['Not Started', n],
 ];
 const RELEASE_MATRIX: Record<number, Record<string, [Status, number][]>> = {
-  1: { 'Checkout API': M(4, 1, 0, 0), 'Search Revamp': M(2, 1, 0, 0), 'Mobile Onboarding': M(1, 1, 0, 0) },
-  2: { 'Checkout API': M(2, 2, 0, 0), 'Search Revamp': M(1, 2, 1, 0), 'Billing Migration': M(0, 2, 0, 1) },
-  3: { 'Checkout API': M(1, 2, 1, 1), 'Billing Migration': M(0, 1, 1, 2), Notifications: M(0, 1, 0, 1) },
-  4: { 'Search Revamp': M(0, 2, 0, 2), 'Mobile Onboarding': M(0, 1, 1, 2), Notifications: M(0, 1, 0, 2) },
-  5: { 'Checkout API': M(0, 1, 0, 3), 'Admin Console': M(0, 1, 0, 2), 'Billing Migration': M(0, 0, 1, 2) },
-  6: { 'Admin Console': M(0, 0, 0, 4), Notifications: M(0, 0, 0, 2) },
-  7: { 'Mobile Onboarding': M(0, 0, 0, 3), 'Search Revamp': M(0, 0, 0, 2), 'Admin Console': M(0, 0, 0, 1) },
-  8: { 'Checkout API': M(0, 0, 0, 2), Notifications: M(0, 0, 0, 3) },
+  1: { 'Checkout API': M(4, 1, 0, 0, 0), 'Search Revamp': M(2, 1, 0, 0, 0), 'Mobile Onboarding': M(1, 0, 1, 0, 0) },
+  2: { 'Checkout API': M(2, 1, 1, 0, 0), 'Search Revamp': M(1, 0, 1, 1, 0), 'Billing Migration': M(0, 1, 1, 0, 1) },
+  3: { 'Checkout API': M(1, 1, 1, 1, 0), 'Billing Migration': M(0, 0, 1, 1, 2), Notifications: M(0, 0, 1, 0, 1) },
+  4: { 'Search Revamp': M(0, 1, 1, 0, 2), 'Mobile Onboarding': M(0, 0, 1, 1, 2), Notifications: M(0, 1, 0, 0, 2) },
+  5: { 'Checkout API': M(0, 0, 1, 0, 3), 'Admin Console': M(0, 0, 1, 0, 2), 'Billing Migration': M(0, 0, 0, 1, 2) },
+  6: { 'Admin Console': M(0, 0, 0, 0, 4), Notifications: M(0, 0, 0, 0, 2) },
+  7: { 'Mobile Onboarding': M(0, 0, 0, 0, 3), 'Search Revamp': M(0, 0, 0, 0, 2), 'Admin Console': M(0, 0, 0, 0, 1) },
+  8: { 'Checkout API': M(0, 0, 0, 0, 2), Notifications: M(0, 0, 0, 0, 3) },
 };
 // Connector release (Nexus 1.0): 6 streams × 8 sprints, ~100 items. Sprints have
 // variable names and lengths to show connector-style scheduling.
 const CONNECTOR_MATRIX: Record<number, Record<string, [Status, number][]>> = {
-  1: { 'Data Ingestion': M(3,0,0,0), 'API Gateway': M(2,0,0,0), 'Auth & SSO': M(2,0,0,0), 'Reporting & Analytics': M(1,0,0,0), 'Webhooks': M(1,0,0,0), 'SDK & Developer Tools': M(2,0,0,0) },
-  2: { 'Data Ingestion': M(3,0,0,0), 'API Gateway': M(3,0,0,0), 'Auth & SSO': M(2,0,0,0), 'Reporting & Analytics': M(2,0,0,0), 'Webhooks': M(2,0,0,0), 'SDK & Developer Tools': M(2,0,0,0) },
-  3: { 'Data Ingestion': M(2,0,0,0), 'API Gateway': M(2,0,0,0), 'Auth & SSO': M(3,0,0,0), 'Reporting & Analytics': M(2,0,0,0), 'Webhooks': M(2,0,0,0), 'SDK & Developer Tools': M(1,0,0,0) },
-  4: { 'Data Ingestion': M(2,0,0,0), 'API Gateway': M(2,0,0,0), 'Auth & SSO': M(2,0,0,0), 'Reporting & Analytics': M(2,0,0,0), 'Webhooks': M(1,0,0,0), 'SDK & Developer Tools': M(2,0,0,0) },
-  5: { 'Data Ingestion': M(1,0,0,0), 'API Gateway': M(2,0,0,0), 'Auth & SSO': M(1,0,0,0), 'Reporting & Analytics': M(2,0,0,0), 'Webhooks': M(2,0,0,0), 'SDK & Developer Tools': M(2,0,0,0) },
-  6: { 'Data Ingestion': M(0,2,1,1), 'API Gateway': M(0,2,0,2), 'Auth & SSO': M(0,1,1,1), 'Reporting & Analytics': M(0,2,0,1), 'Webhooks': M(0,1,0,2), 'SDK & Developer Tools': M(0,1,1,1) },
-  7: { 'Data Ingestion': M(0,0,0,2), 'API Gateway': M(0,0,0,3), 'Auth & SSO': M(0,0,0,2), 'Reporting & Analytics': M(0,0,0,2), 'Webhooks': M(0,0,0,2), 'SDK & Developer Tools': M(0,0,0,2) },
-  8: { 'Data Ingestion': M(0,0,0,1), 'API Gateway': M(0,0,0,2), 'Auth & SSO': M(0,0,0,2), 'Reporting & Analytics': M(0,0,0,1), 'Webhooks': M(0,0,0,1), 'SDK & Developer Tools': M(0,0,0,2) },
+  1: { 'Data Ingestion': M(3,0,0,0,0), 'API Gateway': M(2,0,0,0,0), 'Auth & SSO': M(2,0,0,0,0), 'Reporting & Analytics': M(1,0,0,0,0), 'Webhooks': M(1,0,0,0,0), 'SDK & Developer Tools': M(2,0,0,0,0) },
+  2: { 'Data Ingestion': M(3,0,0,0,0), 'API Gateway': M(3,0,0,0,0), 'Auth & SSO': M(2,0,0,0,0), 'Reporting & Analytics': M(2,0,0,0,0), 'Webhooks': M(2,0,0,0,0), 'SDK & Developer Tools': M(2,0,0,0,0) },
+  3: { 'Data Ingestion': M(2,0,0,0,0), 'API Gateway': M(2,0,0,0,0), 'Auth & SSO': M(3,0,0,0,0), 'Reporting & Analytics': M(2,0,0,0,0), 'Webhooks': M(2,0,0,0,0), 'SDK & Developer Tools': M(1,0,0,0,0) },
+  4: { 'Data Ingestion': M(2,0,0,0,0), 'API Gateway': M(2,0,0,0,0), 'Auth & SSO': M(2,0,0,0,0), 'Reporting & Analytics': M(2,0,0,0,0), 'Webhooks': M(1,0,0,0,0), 'SDK & Developer Tools': M(2,0,0,0,0) },
+  5: { 'Data Ingestion': M(1,0,0,0,0), 'API Gateway': M(2,0,0,0,0), 'Auth & SSO': M(1,0,0,0,0), 'Reporting & Analytics': M(2,0,0,0,0), 'Webhooks': M(2,0,0,0,0), 'SDK & Developer Tools': M(2,0,0,0,0) },
+  6: { 'Data Ingestion': M(0,1,1,1,1), 'API Gateway': M(0,1,1,0,2), 'Auth & SSO': M(0,0,1,1,1), 'Reporting & Analytics': M(0,1,1,0,1), 'Webhooks': M(0,0,1,0,2), 'SDK & Developer Tools': M(0,1,0,1,1) },
+  7: { 'Data Ingestion': M(0,0,0,0,2), 'API Gateway': M(0,0,0,0,3), 'Auth & SSO': M(0,0,0,0,2), 'Reporting & Analytics': M(0,0,0,0,2), 'Webhooks': M(0,0,0,0,2), 'SDK & Developer Tools': M(0,0,0,0,2) },
+  8: { 'Data Ingestion': M(0,0,0,0,1), 'API Gateway': M(0,0,0,0,2), 'Auth & SSO': M(0,0,0,0,2), 'Reporting & Analytics': M(0,0,0,0,1), 'Webhooks': M(0,0,0,0,1), 'SDK & Developer Tools': M(0,0,0,0,2) },
 };
 
 const PT_POOL = [2, 3, 5, 1, 8, 3, 2, 5];
@@ -130,9 +130,9 @@ export function seed(): AppState {
 
   // Patch items from Orion 1.5 carried into active + upcoming sprints
   const orionPatches: { stream: string; sprintIdx: number; subject: string; status: Status; pts: number }[] = [
-    { stream: 'Checkout API',     sprintIdx: 3, subject: 'Fix decimal rounding on EUR refunds',      status: 'Active',      pts: 3 },
-    { stream: 'Checkout API',     sprintIdx: 3, subject: 'Patch idempotency key collision on retry', status: 'Not Started', pts: 2 },
-    { stream: 'Billing Migration',sprintIdx: 3, subject: 'Backport proration fix for annual plans',  status: 'Active',      pts: 5 },
+    { stream: 'Checkout API',     sprintIdx: 3, subject: 'Fix decimal rounding on EUR refunds',      status: 'In Progress',  pts: 3 },
+    { stream: 'Checkout API',     sprintIdx: 3, subject: 'Patch idempotency key collision on retry', status: 'Not Started',  pts: 2 },
+    { stream: 'Billing Migration',sprintIdx: 3, subject: 'Backport proration fix for annual plans',  status: 'Under Review', pts: 5 },
     { stream: 'Notifications',    sprintIdx: 4, subject: 'Fix email digest double-send on timezone boundary', status: 'Not Started', pts: 2 },
     { stream: 'Checkout API',     sprintIdx: 4, subject: 'Hotfix: Apple Pay session expiry handling', status: 'Not Started', pts: 3 },
   ];
@@ -162,7 +162,7 @@ export function seed(): AppState {
       sprintId: demo.sprints[3].id,
       key: `ORN-${keyN++}`, subject: 'Security audit findings — triage and assign',
       description: 'Raw findings from pentest; stream assignment pending review.',
-      status: 'Active', points: 5, externalId: null,
+      status: 'In Progress', points: 5, externalId: null,
       assignedMemberId: coreMembers[0].id, build: null, dirtyFields: [], itemType: null,
     },
     {
@@ -287,8 +287,8 @@ export function seed(): AppState {
 
   // Patch items from Nexus Beta 2 carried into the active sprint (sprint 6)
   const nexusPatches: { stream: string; subject: string; status: Status; pts: number }[] = [
-    { stream: 'Auth & SSO',          subject: 'Backport JWT clock-skew tolerance fix',        status: 'Active',      pts: 2 },
-    { stream: 'API Gateway',         subject: 'Patch circuit-breaker false-positive on 429',  status: 'Active',      pts: 3 },
+    { stream: 'Auth & SSO',          subject: 'Backport JWT clock-skew tolerance fix',        status: 'Under Review', pts: 2 },
+    { stream: 'API Gateway',         subject: 'Patch circuit-breaker false-positive on 429',  status: 'In Progress',  pts: 3 },
     { stream: 'Data Ingestion',      subject: 'Fix dedup window off-by-one under high lag',    status: 'Not Started', pts: 5 },
     { stream: 'Webhooks',            subject: 'Retry storm fix from Beta 2 load test',         status: 'Not Started', pts: 3 },
   ];

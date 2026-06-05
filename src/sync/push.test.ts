@@ -19,7 +19,7 @@ const item = (over: Partial<WorkItem>): WorkItem => ({
   key: 'EXT-1',
   subject: 'Test item',
   description: '',
-  status: 'Active',
+  status: 'In Progress',
   points: 5,
   externalId: 'EXT-1',
   assignedMemberId: null,

@@ -234,6 +234,47 @@ describe('migrate — v7 → current', () => {
   });
 });
 
+// Minimal v8 item — has all v8 fields, uses legacy 'Active' status.
+const v8Item = () => ({
+  ...v7Item(), itemType: null,
+});
+// Minimal v8 member — has nonContributing.
+const v8Member = () => ({ ...v7Member(), nonContributing: false });
+
+describe('migrate — v8 → current', () => {
+  const sp = { id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 0, externalId: null };
+  const v8 = {
+    version: 8,
+    teams: [{ id: 't1', name: 'Team', velocity: 30, externalId: null, members: [v8Member()] }],
+    meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), sprints: [sp] }],
+    items: [v8Item()],
+  };
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v8 as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it("renames 'Active' status to 'In Progress'", () => {
+    const next = migrate(v8 as any)!;
+    expect(next.items[0].status).toBe('In Progress');
+  });
+
+  it('leaves other statuses unchanged', () => {
+    const mixed = {
+      ...v8,
+      items: [
+        { ...v8Item(), status: 'Not Started' },
+        { ...v8Item(), id: 'it2', key: 'K-2', status: 'Blocked' },
+        { ...v8Item(), id: 'it3', key: 'K-3', status: 'Complete' },
+        { ...v8Item(), id: 'it4', key: 'K-4', status: 'Active' },
+      ],
+    };
+    const next = migrate(mixed as any)!;
+    expect(next.items.map((i) => i.status)).toEqual(['Not Started', 'Blocked', 'Complete', 'In Progress']);
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

@@ -127,7 +127,7 @@ export function WorkItemCard({
                 width: 6,
                 height: 6,
                 borderRadius: '50%',
-                background: WF.status.Active.dot,
+                background: WF.status['In Progress'].dot,
                 flexShrink: 0,
               }}
             />
@@ -173,6 +173,21 @@ export function WorkItemCard({
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+        {it.itemType && (
+          <span
+            title={`Type: ${it.itemType.label}`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 10.5, fontWeight: 600, color: WF.t2,
+              background: WF.fill, border: `1px solid ${WF.line}`,
+              borderRadius: 4, padding: '1px 6px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: WF.t2, flexShrink: 0 }} />
+            {it.itemType.label}
+          </span>
+        )}
         {it.build ? (
           <span
             title={`Build: ${it.build}`}

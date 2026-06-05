@@ -39,7 +39,7 @@ const mapped = (over: Partial<MappedRelease> = {}): MappedRelease => ({
   workStreams: [{ externalId: 'EPIC-A', fields: { name: 'Checkout API' } }],
   sprints: [{ externalId: 'JSPR-1', fields: { name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26' } }],
   items: [
-    { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null, fields: { key: 'EXT-1', subject: 'Tokenize vault', description: 'd', status: 'Active', points: 5 } },
+    { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null, fields: { key: 'EXT-1', subject: 'Tokenize vault', description: 'd', status: 'In Progress', points: 5 } },
   ],
   ...over,
 });
@@ -61,7 +61,7 @@ describe('applySync — connector release creates sprints', () => {
     expect(next.items).toHaveLength(1);
     expect(next.items[0]).toMatchObject({
       releaseId: 'rel_1', externalId: 'EXT-1', key: 'EXT-1',
-      workStreamId: r.workStreams[0].id, sprintId: r.sprints[0].id, status: 'Active', points: 5,
+      workStreamId: r.workStreams[0].id, sprintId: r.sprints[0].id, status: 'In Progress', points: 5,
       assignedMemberId: null, dirtyFields: [],
     });
     expect(result).toMatchObject({ created: 3, updated: 0 }); // 1 ws + 1 sprint + 1 item

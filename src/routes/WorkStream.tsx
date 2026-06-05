@@ -21,6 +21,7 @@ export function WorkStream() {
   const { id = '', wsId = '' } = useParams();
 
   const [statusFilter, setStatusFilter] = useState<Set<Status>>(new Set());
+  const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set());
 
   const r = selRelease(st, id);
   const ws = r && r.workStreams.find((w) => w.id === wsId);
@@ -32,6 +33,9 @@ export function WorkStream() {
   const curId = act ? act.id : null;
   const totalPts = items.reduce((a, i) => a + i.points, 0);
 
+  // Unique item type labels across all items in this stream
+  const streamTypes = [...new Set(items.map((i) => i.itemType?.label).filter((t): t is string => t !== undefined))];
+
   function toggleStatus(s: Status) {
     setStatusFilter((prev) => {
       const next = new Set(prev);
@@ -41,8 +45,19 @@ export function WorkStream() {
     });
   }
 
-  const filteredItems = statusFilter.size === 0 ? items : items.filter((i) => statusFilter.has(i.status));
-  const isFiltered = statusFilter.size > 0;
+  function toggleType(t: string) {
+    setTypeFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+  }
+
+  const filteredItems = items
+    .filter((i) => statusFilter.size === 0 || statusFilter.has(i.status))
+    .filter((i) => typeFilter.size === 0 || (i.itemType !== null && typeFilter.has(i.itemType.label)));
+  const isFiltered = statusFilter.size > 0 || typeFilter.size > 0;
 
   return (
     <div className="wf screen">
@@ -124,11 +139,44 @@ export function WorkStream() {
             </button>
           );
         })}
+        {streamTypes.length > 0 && (
+          <>
+            <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />
+            {streamTypes.map((t) => {
+              const active = typeFilter.has(t);
+              return (
+                <button
+                  key={t}
+                  onClick={() => toggleType(t)}
+                  title={active ? `Remove filter: ${t}` : `Filter: ${t}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '2px 9px 2px 7px',
+                    borderRadius: 20,
+                    border: `1.5px solid ${active ? WF.ink : WF.line}`,
+                    background: active ? WF.fill : 'transparent',
+                    color: active ? WF.ink : WF.t3,
+                    cursor: 'pointer',
+                    fontSize: 11.5,
+                    fontWeight: active ? 700 : 500,
+                    fontFamily: WF.sans,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? WF.ink : WF.t3, flexShrink: 0 }} />
+                  {t}
+                </button>
+              );
+            })}
+          </>
+        )}
         {isFiltered && (
           <>
             <span style={{ width: 1, height: 16, background: WF.line, flexShrink: 0 }} />
             <button
-              onClick={() => setStatusFilter(new Set())}
+              onClick={() => { setStatusFilter(new Set()); setTypeFilter(new Set()); }}
               title="Clear filters"
               style={{
                 fontSize: 11.5,

@@ -191,17 +191,17 @@ describe('statusSegs', () => {
   });
 
   it('counts per status and drops zeros', () => {
-    const items = [item('Complete'), item('Complete'), item('Active'), item('Blocked')];
+    const items = [item('Complete'), item('Complete'), item('In Progress'), item('Blocked')];
     expect(statusSegs(items)).toEqual([
-      { k: 'Active', v: 1 },
+      { k: 'In Progress', v: 1 },
       { k: 'Blocked', v: 1 },
       { k: 'Complete', v: 2 },
     ]);
   });
 
-  it('produces segments in STATUSES order (Not Started, Active, Blocked, Complete)', () => {
-    const items = [item('Complete'), item('Not Started'), item('Active')];
-    expect(statusSegs(items).map((s) => s.k)).toEqual(['Not Started', 'Active', 'Complete']);
+  it('produces segments in STATUSES order (Not Started, In Progress, Under Review, Blocked, Complete)', () => {
+    const items = [item('Complete'), item('Not Started'), item('In Progress'), item('Under Review')];
+    expect(statusSegs(items).map((s) => s.k)).toEqual(['Not Started', 'In Progress', 'Under Review', 'Complete']);
   });
 
   it('returns empty for no items', () => {

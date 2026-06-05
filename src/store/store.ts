@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import {
   SCHEMA_VERSION,
   type AppState,
+  type ItemType,
   type Member,
   type Release,
   type ReleaseConnector,
@@ -114,6 +115,17 @@ export function migrate(p: AppState): AppState | null {
       items: s.items.map((it) => ({ ...it, itemType: (it as any).itemType ?? null })),
     };
   }
+  // v8 → v9: 'Active' status renamed to 'In Progress'; 'Under Review' added as a new status.
+  if (s.version === 8) {
+    s = {
+      ...s,
+      version: 9,
+      items: s.items.map((it) => ({
+        ...it,
+        status: (it.status as string) === 'Active' ? 'In Progress' : it.status,
+      })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -154,7 +166,7 @@ interface Actions {
   updateSprint: (releaseId: string, sprintId: string, patch: Partial<Sprint>) => void;
   createItem: (
     releaseId: string,
-    input: { workStreamId: string | null; sprintId: string | null; subject: string; description?: string; status?: Status; points?: number; assignedMemberId?: string | null },
+    input: { workStreamId: string | null; sprintId: string | null; subject: string; description?: string; status?: Status; points?: number; assignedMemberId?: string | null; itemType?: ItemType | null },
   ) => WorkItem | null;
   updateItem: (id: string, patch: Partial<WorkItem>) => void;
   /** Pull from this release's connector and upsert the result. No-op for Local releases. */
@@ -300,7 +312,7 @@ export const useStore = create<StoreState>((set, get) => {
       });
     },
 
-    createItem: (releaseId, { workStreamId, sprintId, subject, description, status, points, assignedMemberId }) => {
+    createItem: (releaseId, { workStreamId, sprintId, subject, description, status, points, assignedMemberId, itemType }) => {
       const r = release(releaseId);
       if (!r) return null;
       const prefix = (r.name.match(/[A-Za-z]/g) || ['I']).slice(0, 3).join('').toUpperCase();
@@ -319,7 +331,7 @@ export const useStore = create<StoreState>((set, get) => {
         assignedMemberId: assignedMemberId ?? null,
         build: null,
         dirtyFields: [],
-        itemType: null,
+        itemType: itemType ?? null,
       };
       commit((d) => { d.items = [...d.items, it]; });
       return it;

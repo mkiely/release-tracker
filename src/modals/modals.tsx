@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import DOMPurify from 'dompurify';
-import { STATUSES, type Member, type Status } from '../types';
+import { LOCAL_ITEM_TYPES, STATUSES, type Member, type Status } from '../types';
 import { between, fmtShort, workdaysInRange } from '../lib/dates';
 import { capPct, fullCap, sprintVel } from '../lib/derive';
 import { getActions, selItem, selRelease, selTeam, useStore } from '../store/store';
@@ -257,7 +257,7 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
         />
       </PField>
       <div className="card" style={{ background: WF.bg, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ width: 9, height: 9, borderRadius: 2, background: sp ? WF.status.Active.dot : WF.lineStrong, flex: '0 0 auto' }} />
+        <span style={{ width: 9, height: 9, borderRadius: 2, background: sp ? WF.status['In Progress'].dot : WF.lineStrong, flex: '0 0 auto' }} />
         <span style={{ fontSize: 13, color: WF.t2, lineHeight: 1.45 }}>
           {!date ? (
             'Pick a date within the release to place this event on a sprint.'
@@ -280,7 +280,7 @@ function Row({ k, v, big }: { k: ReactNode; v: ReactNode; big?: boolean }) {
   return (
     <div className="calc" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, fontSize: big ? 15 : 13 }}>
       <span style={{ color: big ? WF.ink : WF.t2, fontWeight: big ? 700 : 400, whiteSpace: 'nowrap' }}>{k}</span>
-      <span className="mono" style={{ fontWeight: 600, color: big ? WF.status.Active.text : WF.ink, whiteSpace: 'nowrap', fontSize: big ? 15 : 13 }}>
+      <span className="mono" style={{ fontWeight: 600, color: big ? WF.status['In Progress'].text : WF.ink, whiteSpace: 'nowrap', fontSize: big ? 15 : 13 }}>
         {v}
       </span>
     </div>
@@ -389,9 +389,11 @@ export function WorkItemModal({
   const [status, setStatus] = useState<Status>('Not Started');
   const [points, setPoints] = useState(3);
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(null);
+  const [typeLabel, setTypeLabel] = useState<string>('');
   const canSave = !!subject.trim();
   const save = () => {
-    getActions().createItem(releaseId, { workStreamId: wsId, sprintId, subject: subject.trim(), description: desc, status, points, assignedMemberId });
+    const itemType = (!r.connector && typeLabel) ? { id: null, label: typeLabel } : null;
+    getActions().createItem(releaseId, { workStreamId: wsId, sprintId, subject: subject.trim(), description: desc, status, points, assignedMemberId, itemType });
     onClose();
   };
   return (
@@ -460,6 +462,16 @@ export function WorkItemModal({
           </PSelect>
         </PField>
       </div>
+      {!r.connector && (
+        <PField label="Type">
+          <PSelect value={typeLabel} onChange={(e) => setTypeLabel(e.target.value)}>
+            <option value="">None</option>
+            {LOCAL_ITEM_TYPES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </PSelect>
+        </PField>
+      )}
       <PField label="Points" hint="approximate effort">
         <PointSeg value={points} onChange={setPoints} />
       </PField>
@@ -480,6 +492,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const [status, setStatus] = useState<Status>(it ? it.status : 'Not Started');
   const [points, setPoints] = useState(it ? it.points : 3);
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(it?.assignedMemberId ?? null);
+  const [typeLabel, setTypeLabel] = useState<string>(it?.itemType?.label ?? '');
 
   if (!it || !r) {
     return (
@@ -513,6 +526,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       points,
       assignedMemberId,
       dirtyFields: nextDirty,
+      ...(!connectorRelease && { itemType: typeLabel ? { id: null, label: typeLabel } : null }),
     });
     onClose();
   };
@@ -557,7 +571,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           {isDirty && (
             <span
               title="Modified — pending push"
-              style={{ width: 7, height: 7, borderRadius: '50%', background: WF.status.Active.dot, flexShrink: 0, marginLeft: 2 }}
+              style={{ width: 7, height: 7, borderRadius: '50%', background: WF.status['In Progress'].dot, flexShrink: 0, marginLeft: 2 }}
             />
           )}
         </span>
@@ -654,6 +668,16 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           </PSelect>
         </PField>
       </div>
+      {!connectorRelease && (
+        <PField label="Type">
+          <PSelect value={typeLabel} onChange={(e) => setTypeLabel(e.target.value)}>
+            <option value="">None</option>
+            {LOCAL_ITEM_TYPES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </PSelect>
+        </PField>
+      )}
       <PField label="Points">
         {/* Points is writeable even for synced items */}
         <PointSeg value={points} onChange={setPoints} />

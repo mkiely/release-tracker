@@ -236,7 +236,7 @@ export function PushButton({ release, onPush }: { release: Release; onPush: () =
       onClick={run}
       disabled={busy || dirtyCount === 0}
       title={dirtyCount > 0 ? `${dirtyCount} pending change${dirtyCount !== 1 ? 's' : ''}` : undefined}
-      style={dirtyCount > 0 ? { color: WF.status.Active.text } : undefined}
+      style={dirtyCount > 0 ? { color: WF.status['In Progress'].text } : undefined}
     >
       {busy ? 'Pushing…' : `Push${dirtyCount > 0 ? ` (${dirtyCount})` : ''}`}
     </PButton>
