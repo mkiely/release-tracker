@@ -1,108 +1,102 @@
 /* ============================================================================
-   design-tokens.css — Release Tracker design tokens + the component classes
-   used by the sprint row (release plan view).
-
-   This is a drop-in FOUNDATION extracted from the prototype's wireframe-kit.
-   If the target codebase already has a token system / theme layer, fold these
-   values into it rather than shipping this file as-is. If it does NOT, this
-   file is a reasonable starting point — import it once at the app root.
+   tokens.css — Release Tracker design tokens.
 
    Theme: light is the default on :root; dark activates via
    <html data-theme="dark">. Every token resolves at paint time, so a single
    attribute swap re-themes everything (including inline styles that reference
-   var(--wf-*)).
+   var(--rt-*)).
    ========================================================================== */
 
 :root {
   color-scheme: light;
 
   /* neutrals */
-  --wf-ink: #23262b;          /* primary text (sprint name)            */
-  --wf-t2: #5a606a;           /* secondary text, capacity label        */
-  --wf-t3: #8b919b;           /* tertiary text (dates, counts, event date) */
-  --wf-line: #dde1e7;         /* hairline borders, dividers            */
-  --wf-line-strong: #c4c9d1;  /* hover border, input border            */
-  --wf-fill: #eef0f4;         /* meter track, chip background          */
-  --wf-fill-deep: #e3e6ec;    /* deeper fill                           */
-  --wf-paper: #ffffff;        /* card / row background                 */
-  --wf-bg: #f6f7f9;           /* screen background                     */
-  --wf-on-ink: #ffffff;       /* text on dark buttons                  */
+  --rt-ink: #23262b;          /* primary text (sprint name)            */
+  --rt-t2: #5a606a;           /* secondary text, capacity label        */
+  --rt-t3: #8b919b;           /* tertiary text (dates, counts, event date) */
+  --rt-line: #dde1e7;         /* hairline borders, dividers            */
+  --rt-line-strong: #c4c9d1;  /* hover border, input border            */
+  --rt-fill: #eef0f4;         /* meter track, chip background          */
+  --rt-fill-deep: #e3e6ec;    /* deeper fill                           */
+  --rt-paper: #ffffff;        /* card / row background                 */
+  --rt-bg: #f6f7f9;           /* screen background                     */
+  --rt-on-ink: #ffffff;       /* text on dark buttons                  */
 
   /* status hues — {dot = bar/segment fill, soft = tinted bg, text = on-soft} */
-  --wf-st-ns-dot: #aab0ba; --wf-st-ns-soft: #eceef2; --wf-st-ns-text: #6b717b; /* Not Started */
-  --wf-st-ac-dot: #5b82b8; --wf-st-ac-soft: #e6edf6; --wf-st-ac-text: #3f5e8c; /* Active      */
-  --wf-st-bl-dot: #c2785f; --wf-st-bl-soft: #f6e9e4; --wf-st-bl-text: #9c5640; /* Blocked     */
-  --wf-st-co-dot: #6f9d77; --wf-st-co-soft: #e7f0e8; --wf-st-co-text: #4d7a55; /* Complete    */
+  --rt-st-ns-dot: #aab0ba; --rt-st-ns-soft: #eceef2; --rt-st-ns-text: #6b717b; /* Not Started */
+  --rt-st-ac-dot: #5b82b8; --rt-st-ac-soft: #e6edf6; --rt-st-ac-text: #3f5e8c; /* Active      */
+  --rt-st-bl-dot: #c2785f; --rt-st-bl-soft: #f6e9e4; --rt-st-bl-text: #9c5640; /* Blocked     */
+  --rt-st-co-dot: #6f9d77; --rt-st-co-soft: #e7f0e8; --rt-st-co-text: #4d7a55; /* Complete    */
 
   /* type */
-  --wf-sans: "Hanken Grotesk", system-ui, sans-serif;
-  --wf-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+  --rt-sans: "Hanken Grotesk", system-ui, sans-serif;
+  --rt-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --wf-ink: #e9ebee; --wf-t2: #a6acb6; --wf-t3: #787e88;
-  --wf-line: #2c3036; --wf-line-strong: #3b404a;
-  --wf-fill: #24272d; --wf-fill-deep: #2c3037;
-  --wf-paper: #1c1f24; --wf-bg: #131519; --wf-on-ink: #15181c;
+  --rt-ink: #e9ebee; --rt-t2: #a6acb6; --rt-t3: #787e88;
+  --rt-line: #2c3036; --rt-line-strong: #3b404a;
+  --rt-fill: #24272d; --rt-fill-deep: #2c3037;
+  --rt-paper: #1c1f24; --rt-bg: #131519; --rt-on-ink: #15181c;
 
-  --wf-st-ns-dot: #787e88; --wf-st-ns-soft: #272b31; --wf-st-ns-text: #9da3ad;
-  --wf-st-ac-dot: #6b93c9; --wf-st-ac-soft: #1d2a3b; --wf-st-ac-text: #9cbde9;
-  --wf-st-bl-dot: #d08a70; --wf-st-bl-soft: #352017; --wf-st-bl-text: #e2a78c;
-  --wf-st-co-dot: #7fae87; --wf-st-co-soft: #1b2a1f; --wf-st-co-text: #9bcfa3;
+  --rt-st-ns-dot: #787e88; --rt-st-ns-soft: #272b31; --rt-st-ns-text: #9da3ad;
+  --rt-st-ac-dot: #6b93c9; --rt-st-ac-soft: #1d2a3b; --rt-st-ac-text: #9cbde9;
+  --rt-st-bl-dot: #d08a70; --rt-st-bl-soft: #352017; --rt-st-bl-text: #e2a78c;
+  --rt-st-co-dot: #7fae87; --rt-st-co-soft: #1b2a1f; --rt-st-co-text: #9bcfa3;
 }
 
 /* ── Coastal ── light, warm cream + navy ── */
 :root[data-theme="coastal"] {
   color-scheme: light;
-  --wf-bg: #F4EFE2; --wf-paper: #FFFEFA; --wf-fill: #EDE9D0; --wf-fill-deep: #E2DCC4;
-  --wf-ink: #1B3D60; --wf-t2: #3B6080; --wf-t3: #7A9AB8; --wf-on-ink: #FFFEFA;
-  --wf-line: #D8D2BF; --wf-line-strong: #C4BCA2;
-  --wf-backdrop: rgba(27,61,96,0.40); --wf-shadow: rgba(27,61,96,0.22);
-  --wf-st-ns-dot: #A0AABB; --wf-st-ns-soft: #EBF0F4; --wf-st-ns-text: #6A7888;
-  --wf-st-ac-dot: #1E6FAD; --wf-st-ac-soft: #DDEAF8; --wf-st-ac-text: #1B4F8A;
-  --wf-st-bl-dot: #E07848; --wf-st-bl-soft: #FAE8DC; --wf-st-bl-text: #A05030;
-  --wf-st-co-dot: #5A8A6A; --wf-st-co-soft: #DFF0E4; --wf-st-co-text: #3A6A4A;
+  --rt-bg: #F4EFE2; --rt-paper: #FFFEFA; --rt-fill: #EDE9D0; --rt-fill-deep: #E2DCC4;
+  --rt-ink: #1B3D60; --rt-t2: #3B6080; --rt-t3: #7A9AB8; --rt-on-ink: #FFFEFA;
+  --rt-line: #D8D2BF; --rt-line-strong: #C4BCA2;
+  --rt-backdrop: rgba(27,61,96,0.40); --rt-shadow: rgba(27,61,96,0.22);
+  --rt-st-ns-dot: #A0AABB; --rt-st-ns-soft: #EBF0F4; --rt-st-ns-text: #6A7888;
+  --rt-st-ac-dot: #1E6FAD; --rt-st-ac-soft: #DDEAF8; --rt-st-ac-text: #1B4F8A;
+  --rt-st-bl-dot: #E07848; --rt-st-bl-soft: #FAE8DC; --rt-st-bl-text: #A05030;
+  --rt-st-co-dot: #5A8A6A; --rt-st-co-soft: #DFF0E4; --rt-st-co-text: #3A6A4A;
 }
 
 /* ── Dusk Berry ── light, rose paper + deep berry ── */
 :root[data-theme="dusk-berry"] {
   color-scheme: light;
-  --wf-bg: #FAF4F7; --wf-paper: #FFFBFD; --wf-fill: #F5EBF0; --wf-fill-deep: #EDD9E5;
-  --wf-ink: #350D1A; --wf-t2: #6A3248; --wf-t3: #A07888; --wf-on-ink: #FFFBFD;
-  --wf-line: #E4D0D9; --wf-line-strong: #D0B8C6;
-  --wf-backdrop: rgba(53,13,26,0.42); --wf-shadow: rgba(53,13,26,0.20);
-  --wf-st-ns-dot: #B896A8; --wf-st-ns-soft: #F5EBF2; --wf-st-ns-text: #7A5268;
-  --wf-st-ac-dot: #DC1E5A; --wf-st-ac-soft: #FDEAF1; --wf-st-ac-text: #A81443;
-  --wf-st-bl-dot: #F9BA2A; --wf-st-bl-soft: #FEF3D8; --wf-st-bl-text: #A07818;
-  --wf-st-co-dot: #1B7A76; --wf-st-co-soft: #DEF0EE; --wf-st-co-text: #0E5550;
+  --rt-bg: #FAF4F7; --rt-paper: #FFFBFD; --rt-fill: #F5EBF0; --rt-fill-deep: #EDD9E5;
+  --rt-ink: #350D1A; --rt-t2: #6A3248; --rt-t3: #A07888; --rt-on-ink: #FFFBFD;
+  --rt-line: #E4D0D9; --rt-line-strong: #D0B8C6;
+  --rt-backdrop: rgba(53,13,26,0.42); --rt-shadow: rgba(53,13,26,0.20);
+  --rt-st-ns-dot: #B896A8; --rt-st-ns-soft: #F5EBF2; --rt-st-ns-text: #7A5268;
+  --rt-st-ac-dot: #DC1E5A; --rt-st-ac-soft: #FDEAF1; --rt-st-ac-text: #A81443;
+  --rt-st-bl-dot: #F9BA2A; --rt-st-bl-soft: #FEF3D8; --rt-st-bl-text: #A07818;
+  --rt-st-co-dot: #1B7A76; --rt-st-co-soft: #DEF0EE; --rt-st-co-text: #0E5550;
 }
 
 /* ── Midnight Navy ── dark, cream on deep navy ── */
 :root[data-theme="midnight-navy"] {
   color-scheme: dark;
-  --wf-bg: #091624; --wf-paper: #0D1D2E; --wf-fill: #102235; --wf-fill-deep: #163040;
-  --wf-ink: #EDE9D0; --wf-t2: #A8C4D8; --wf-t3: #5A7A96; --wf-on-ink: #091624;
-  --wf-line: #162840; --wf-line-strong: #1E3450;
-  --wf-backdrop: rgba(6,10,16,0.65); --wf-shadow: rgba(0,0,0,0.55);
-  --wf-st-ns-dot: #485A70; --wf-st-ns-soft: rgba(72,90,112,0.22); --wf-st-ns-text: #7898B0;
-  --wf-st-ac-dot: #2E8FD4; --wf-st-ac-soft: rgba(46,143,212,0.18); --wf-st-ac-text: #7DC0F0;
-  --wf-st-bl-dot: #F0A882; --wf-st-bl-soft: rgba(240,168,130,0.18); --wf-st-bl-text: #F0C0A0;
-  --wf-st-co-dot: #3AAFE0; --wf-st-co-soft: rgba(58,175,224,0.15); --wf-st-co-text: #88D0F0;
+  --rt-bg: #091624; --rt-paper: #0D1D2E; --rt-fill: #102235; --rt-fill-deep: #163040;
+  --rt-ink: #EDE9D0; --rt-t2: #A8C4D8; --rt-t3: #5A7A96; --rt-on-ink: #091624;
+  --rt-line: #162840; --rt-line-strong: #1E3450;
+  --rt-backdrop: rgba(6,10,16,0.65); --rt-shadow: rgba(0,0,0,0.55);
+  --rt-st-ns-dot: #485A70; --rt-st-ns-soft: rgba(72,90,112,0.22); --rt-st-ns-text: #7898B0;
+  --rt-st-ac-dot: #2E8FD4; --rt-st-ac-soft: rgba(46,143,212,0.18); --rt-st-ac-text: #7DC0F0;
+  --rt-st-bl-dot: #F0A882; --rt-st-bl-soft: rgba(240,168,130,0.18); --rt-st-bl-text: #F0C0A0;
+  --rt-st-co-dot: #3AAFE0; --rt-st-co-soft: rgba(58,175,224,0.15); --rt-st-co-text: #88D0F0;
 }
 
 /* ── Neon Reef ── dark, teal-black + vivid status ── */
 :root[data-theme="neon-reef"] {
   color-scheme: dark;
-  --wf-bg: #071A16; --wf-paper: #0A2520; --wf-fill: #0C2A26; --wf-fill-deep: #103430;
-  --wf-ink: #F0F8F5; --wf-t2: #84BAAE; --wf-t3: #4A7068; --wf-on-ink: #071A16;
-  --wf-line: #102E2A; --wf-line-strong: #164038;
-  --wf-backdrop: rgba(4,12,10,0.65); --wf-shadow: rgba(0,0,0,0.55);
-  --wf-st-ns-dot: #4A7068; --wf-st-ns-soft: rgba(74,112,104,0.22); --wf-st-ns-text: #84BAAE;
-  --wf-st-ac-dot: #2ECC9A; --wf-st-ac-soft: rgba(46,204,154,0.18); --wf-st-ac-text: #7EECD8;
-  --wf-st-bl-dot: #F24166; --wf-st-bl-soft: rgba(242,65,102,0.18); --wf-st-bl-text: #F890A8;
-  --wf-st-co-dot: #FAD35A; --wf-st-co-soft: rgba(250,211,90,0.15); --wf-st-co-text: #FAE090;
+  --rt-bg: #071A16; --rt-paper: #0A2520; --rt-fill: #0C2A26; --rt-fill-deep: #103430;
+  --rt-ink: #F0F8F5; --rt-t2: #84BAAE; --rt-t3: #4A7068; --rt-on-ink: #071A16;
+  --rt-line: #102E2A; --rt-line-strong: #164038;
+  --rt-backdrop: rgba(4,12,10,0.65); --rt-shadow: rgba(0,0,0,0.55);
+  --rt-st-ns-dot: #4A7068; --rt-st-ns-soft: rgba(74,112,104,0.22); --rt-st-ns-text: #84BAAE;
+  --rt-st-ac-dot: #2ECC9A; --rt-st-ac-soft: rgba(46,204,154,0.18); --rt-st-ac-text: #7EECD8;
+  --rt-st-bl-dot: #F24166; --rt-st-bl-soft: rgba(242,65,102,0.18); --rt-st-bl-text: #F890A8;
+  --rt-st-co-dot: #FAD35A; --rt-st-co-soft: rgba(250,211,90,0.15); --rt-st-co-text: #FAE090;
 }
 
 /* ----------------------------------------------------------------------------
@@ -128,47 +122,47 @@
    -------------------------------------------------------------------------- */
 
 .wf-card {
-  background: var(--wf-paper);
-  border: 1.5px solid var(--wf-line);
+  background: var(--rt-paper);
+  border: 1.5px solid var(--rt-line);
   border-radius: 12px;
 }
 
 /* the sprint row itself */
 .wf-sprintrow { transition: border-color .12s, box-shadow .12s; }
 .wf-sprintrow:hover {
-  border-color: var(--wf-line-strong);
-  box-shadow: 0 2px 0 var(--wf-line);
+  border-color: var(--rt-line-strong);
+  box-shadow: 0 2px 0 var(--rt-line);
 }
 
 /* active sprint = tinted row + accent border (NO pill/badge) */
 .wf-active {
-  background: var(--wf-st-ac-soft);
-  border-color: var(--wf-st-ac-dot);
+  background: var(--rt-st-ac-soft);
+  border-color: var(--rt-st-ac-dot);
 }
-.wf-active:hover { border-color: var(--wf-st-ac-text); }
+.wf-active:hover { border-color: var(--rt-st-ac-text); }
 
 /* dashed empty-state card ("No work items") */
 .wf-dash {
   border-style: dashed;
-  border-color: var(--wf-line-strong);
+  border-color: var(--rt-line-strong);
   background: transparent;
 }
 
 /* calendar-event badge */
 .wf-event {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 11.5px; font-weight: 700; color: var(--wf-ink);
-  background: var(--wf-fill); border: 1.5px solid var(--wf-line-strong);
+  font-size: 11.5px; font-weight: 700; color: var(--rt-ink);
+  background: var(--rt-fill); border: 1.5px solid var(--rt-line-strong);
   border-radius: 6px; padding: 3px 8px; line-height: 1; white-space: nowrap;
 }
-.wf-event .wf-flag { width: 7px; height: 7px; border-radius: 2px; background: var(--wf-ink); }
+.wf-event .wf-flag { width: 7px; height: 7px; border-radius: 2px; background: var(--rt-ink); }
 
 /* mono pill — used for the capacity number and the "+N" event-overflow chip */
 .wf-pts {
-  font-family: var(--wf-mono); font-size: 11px; font-weight: 700;
-  color: var(--wf-t2); background: var(--wf-fill);
+  font-family: var(--rt-mono); font-size: 11px; font-weight: 700;
+  color: var(--rt-t2); background: var(--rt-fill);
   border-radius: 5px; padding: 2px 6px; line-height: 1; white-space: nowrap;
 }
 
 /* monospace helper (capacity label) */
-.wf-mono { font-family: var(--wf-mono); }
+.wf-mono { font-family: var(--rt-mono); }

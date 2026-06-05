@@ -53,7 +53,7 @@ export function PalettePicker() {
             background: WF.paper,
             border: `1.5px solid ${WF.line}`,
             borderRadius: 12,
-            boxShadow: `0 8px 28px var(--wf-shadow)`,
+            boxShadow: `0 8px 28px var(--rt-shadow)`,
             padding: '6px 0',
             minWidth: 180,
           }}

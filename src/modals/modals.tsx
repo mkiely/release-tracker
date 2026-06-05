@@ -586,8 +586,8 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
             className="prose"
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(desc) }}
             style={{
-              border: '1.5px solid var(--wf-line-strong)',
-              background: 'var(--wf-paper)',
+              border: '1.5px solid var(--rt-line-strong)',
+              background: 'var(--rt-paper)',
               borderRadius: 9,
               padding: '11px 13px',
               maxHeight: 120,
