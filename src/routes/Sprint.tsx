@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import sprintStyles from './Sprint.module.css';
 import { fmtShort } from '../lib/dates';
 import { activeSprint, capPct, eventsIn, groupItemsByStream, sprintVel } from '../lib/derive';
 import { selRelease, selTeam, useStore } from '../store/store';
@@ -105,7 +106,7 @@ export function Sprint() {
   const isFiltered = memberFilter.size > 0 || statusFilter.size > 0 || buildFilter.size > 0;
 
   return (
-    <div className="wf wf-screen">
+    <div className="wf screen">
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={() => navigate(`/releases/${id}`)} />}
         title={
@@ -119,7 +120,7 @@ export function Sprint() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
               <span style={{ fontSize: 19, fontWeight: 750, letterSpacing: '-0.02em', lineHeight: 1, whiteSpace: 'nowrap' }}>{sp.name}</span>
-              {isAct && <span className="wf-now">Active</span>}
+              {isAct && <span className={sprintStyles.now}>Active</span>}
             </div>
           </>
         }
@@ -164,7 +165,7 @@ export function Sprint() {
 
       {evts.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px', borderBottom: `1.5px solid ${WF.line}`, background: WF.paper, flexWrap: 'wrap' }}>
-          <span className="wf-tag">Events</span>
+          <span className="tag">Events</span>
           {evts.map((e) => (
             <EventBadge key={e.id} date={fmtShort(e.dateISO)} onClick={() => openModal({ type: 'event', releaseId: id, eventId: e.id })}>
               {e.label}
@@ -340,7 +341,7 @@ export function Sprint() {
 
       <div style={{ flex: 1, overflow: 'auto', padding: '18px 24px' }}>
         {filteredItems.length === 0 ? (
-          <div className="wf-card wf-dash" style={{ padding: 40, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
+          <div className="card dash" style={{ padding: 40, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
             {isFiltered ? 'No items match the current filters.' : 'No work items in this sprint yet.'}
           </div>
         ) : groupBy === 'stream' ? (
@@ -355,7 +356,7 @@ export function Sprint() {
                     {col.ws.name}
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', flex: '0 0 auto', color: WF.t3 }}>
-                    <span className="wf-mono" style={{ fontSize: 11.5, fontWeight: 700 }}>
+                    <span className="mono" style={{ fontSize: 11.5, fontWeight: 700 }}>
                       {col.items.reduce((a, i) => a + i.points, 0)} pts
                     </span>
                     {Icon.chevRight}
@@ -373,7 +374,7 @@ export function Sprint() {
                 <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px', gap: 8 }}>
                   <span style={{ fontWeight: 750, fontSize: 13.5, color: WF.t3, fontStyle: 'italic' }}>Unassigned</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', flex: '0 0 auto', color: WF.t3 }}>
-                    <span className="wf-mono" style={{ fontSize: 11.5, fontWeight: 700 }}>
+                    <span className="mono" style={{ fontSize: 11.5, fontWeight: 700 }}>
                       {unassignedItems.reduce((a, i) => a + i.points, 0)} pts
                     </span>
                   </span>
@@ -421,7 +422,7 @@ export function Sprint() {
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.dot }} />
                       {col.status}
                     </span>
-                    <span className="wf-mono" style={{ fontSize: 11.5, fontWeight: 700, color: WF.t3, marginLeft: 'auto' }}>
+                    <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: WF.t3, marginLeft: 'auto' }}>
                       {col.items.reduce((a, i) => a + i.points, 0)} pts
                     </span>
                   </div>
@@ -438,7 +439,7 @@ export function Sprint() {
                             >
                               {grp.wsName ?? 'Unassigned'}
                             </span>
-                            <span className="wf-mono" style={{ fontSize: 11, color: WF.t3, flex: '0 0 auto' }}>
+                            <span className="mono" style={{ fontSize: 11, color: WF.t3, flex: '0 0 auto' }}>
                               {grp.items.reduce((a, i) => a + i.points, 0)} pts
                             </span>
                           </div>

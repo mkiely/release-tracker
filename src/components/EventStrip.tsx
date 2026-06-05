@@ -81,7 +81,7 @@ export function EventStrip({ events, align = 'flex-start', onEventClick }: { eve
         ))}
         {vis < events.length && (
           <span
-            className="wf-pts"
+            className="pts"
             title={`${events.length - vis} more event${events.length - vis === 1 ? '' : 's'}`}
             style={{ flex: '0 0 auto', cursor: 'default' }}
           >

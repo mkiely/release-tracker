@@ -111,14 +111,14 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
       </PField>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span className="wf-flabel">Members</span>
+          <span className="flabel">Members</span>
           <span style={{ fontSize: 12, color: WF.t3 }}>{named}</span>
         </div>
         {members.map((m, i) => {
           const isSynced = !!m.externalId;
           return (
             <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-              <span className="wf-avatar">
+              <span className="avatar">
                 {m.name.trim() ? m.name.trim().split(' ').map((p) => p[0]).slice(0, 2).join('') : i + 1}
               </span>
               <PInput
@@ -135,7 +135,7 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
                 style={{ flex: 1 }}
               />
               {isSynced ? (
-                <span className="wf-tag" style={{ flex: '0 0 auto', fontSize: 10.5, color: WF.t3 }}>
+                <span className="tag" style={{ flex: '0 0 auto', fontSize: 10.5, color: WF.t3 }}>
                   synced
                 </span>
               ) : (
@@ -256,7 +256,7 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
           onChange={(e) => setDate(e.target.value)}
         />
       </PField>
-      <div className="wf-card" style={{ background: WF.bg, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div className="card" style={{ background: WF.bg, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ width: 9, height: 9, borderRadius: 2, background: sp ? WF.status.Active.dot : WF.lineStrong, flex: '0 0 auto' }} />
         <span style={{ fontSize: 13, color: WF.t2, lineHeight: 1.45 }}>
           {!date ? (
@@ -278,9 +278,9 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
 // ── Sprint edit modal (name + days off → capacity) ─────────────────────
 function Row({ k, v, big }: { k: ReactNode; v: ReactNode; big?: boolean }) {
   return (
-    <div className="wf-calc" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, fontSize: big ? 15 : 13 }}>
+    <div className="calc" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, fontSize: big ? 15 : 13 }}>
       <span style={{ color: big ? WF.ink : WF.t2, fontWeight: big ? 700 : 400, whiteSpace: 'nowrap' }}>{k}</span>
-      <span className="wf-mono" style={{ fontWeight: 600, color: big ? WF.status.Active.text : WF.ink, whiteSpace: 'nowrap', fontSize: big ? 15 : 13 }}>
+      <span className="mono" style={{ fontWeight: 600, color: big ? WF.status.Active.text : WF.ink, whiteSpace: 'nowrap', fontSize: big ? 15 : 13 }}>
         {v}
       </span>
     </div>
@@ -349,15 +349,15 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
       <span style={{ fontSize: 11.5, color: WF.t3, marginTop: -4 }}>
         One holiday for a team of {memberCount} = {memberCount} days off.
       </span>
-      <div className="wf-card" style={{ background: WF.bg, padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <span className="wf-tag" style={{ marginBottom: 2 }}>
+      <div className="card" style={{ background: WF.bg, padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <span className="tag" style={{ marginBottom: 2 }}>
           Expected velocity
         </span>
         <Row k="Team velocity" v={`${team ? team.velocity : 0} pts`} />
         <Row k="Full capacity" v={`${memberCount} × ${workdays} = ${full} person-days`} />
         <Row k="Days off" v={`− ${off}`} />
         <Row k="% of capacity" v={`${full - off} / ${full} = ${pct}%`} />
-        <hr className="wf-divider" style={{ margin: '3px 0' }} />
+        <hr className="divider" style={{ margin: '3px 0' }} />
         <Row k="Sprint velocity" v={`${team ? team.velocity : 0} × ${pct}% = ${vel} pts`} big />
       </div>
     </Modal>
@@ -523,7 +523,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       width={640}
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span className="wf-mono" style={{ fontSize: 12.5, color: WF.t3, background: WF.fill, padding: '3px 7px', borderRadius: 5 }}>
+          <span className="mono" style={{ fontSize: 12.5, color: WF.t3, background: WF.fill, padding: '3px 7px', borderRadius: 5 }}>
             {it.key}
           </span>
           {it.itemType && (

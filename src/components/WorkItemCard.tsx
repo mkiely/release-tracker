@@ -12,8 +12,8 @@ export function StatusSelect({ value, onChange, disabled }: { value: Status; onC
   const c = WF.status[value];
   return (
     <div style={{ position: 'relative', alignSelf: 'center' }} onClick={(e) => e.stopPropagation()}>
-      <span className="wf-chip" style={{ background: c.soft, color: c.text, paddingRight: disabled ? 9 : 22 }}>
-        <span className="wf-dot" style={{ background: c.dot }} />
+      <span className="chip" style={{ background: c.soft, color: c.text, paddingRight: disabled ? 9 : 22 }}>
+        <span className="dot" style={{ background: c.dot }} />
         {value}
         {!disabled && <span style={{ position: 'absolute', right: 7, color: c.text, display: 'flex' }}>{Icon.chevDown}</span>}
       </span>
@@ -84,7 +84,7 @@ export function WorkItemCard({
 
   return (
     <div
-      className="wf-card"
+      className="card"
       onClick={onOpen}
       draggable={draggable || undefined}
       onDragStart={
@@ -116,7 +116,7 @@ export function WorkItemCard({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span className="wf-mono" style={{ fontSize: 12.5, fontWeight: 700, color: WF.t2 }}>
+        <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: WF.t2 }}>
           {it.key}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -132,7 +132,7 @@ export function WorkItemCard({
               }}
             />
           )}
-          <span className="wf-pts">{it.points} pts</span>
+          <span className="pts">{it.points} pts</span>
         </div>
       </div>
       <div

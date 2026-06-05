@@ -1,6 +1,7 @@
-/* Bespoke prose styles for HTML work-item descriptions synced from external
-   backends. Scoped to .prose so it never leaks into app chrome. All colors
-   reference --rt-* tokens so light/dark mode works automatically. */
+/* prose.css — intentionally kept as a plain global stylesheet, not a CSS
+   Module. It styles dangerouslySetInnerHTML output from synced work-item
+   descriptions; module-scoped class names cannot reach that rendered HTML.
+   All colors reference --rt-* tokens so light/dark mode works automatically. */
 
 .prose {
   font-size: 14px;

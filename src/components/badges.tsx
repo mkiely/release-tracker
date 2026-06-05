@@ -1,9 +1,7 @@
-// Visual primitives — ported from wireframe-kit.jsx (EventBadge, StatusChip,
-// SegBar, Avatar) plus the Meter from proto-app.jsx.
-
 import type { CSSProperties, ReactNode } from 'react';
 import type { Status, StatusSeg } from '../types';
 import { WF } from './tokens';
+import styles from './badges.module.css';
 
 export function EventBadge({
   children,
@@ -20,12 +18,12 @@ export function EventBadge({
   const txt = full && full.length > max ? full.slice(0, max - 1) + '…' : children;
   return (
     <span
-      className="wf-event"
+      className={styles.badge}
       title={full || undefined}
       onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
       style={onClick ? { cursor: 'pointer' } : undefined}
     >
-      <span className="wf-flag" style={{ flex: '0 0 auto' }} />
+      <span className={styles.flag} style={{ flex: '0 0 auto' }} />
       <span style={{ whiteSpace: 'nowrap', flex: '0 0 auto' }}>{txt}</span>
       {date ? <span style={{ color: WF.t3, fontWeight: 500, flex: '0 0 auto' }}>{date}</span> : null}
     </span>
@@ -35,8 +33,8 @@ export function EventBadge({
 export function StatusChip({ status, count }: { status: Status; count?: number }) {
   const c = WF.status[status] || WF.status['Not Started'];
   return (
-    <span className="wf-chip" style={{ background: c.soft, color: c.text }}>
-      <span className="wf-dot" style={{ background: c.dot }} />
+    <span className="chip" style={{ background: c.soft, color: c.text }}>
+      <span className="dot" style={{ background: c.dot }} />
       {status}
       {count != null ? ` · ${count}` : ''}
     </span>
@@ -44,7 +42,7 @@ export function StatusChip({ status, count }: { status: Status; count?: number }
 }
 
 export function Avatar({ initials }: { initials: ReactNode }) {
-  return <span className="wf-avatar">{initials}</span>;
+  return <span className="avatar">{initials}</span>;
 }
 
 // segmented micro-bar showing status breakdown of a set of items

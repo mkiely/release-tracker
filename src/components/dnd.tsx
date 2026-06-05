@@ -45,7 +45,7 @@ export function CapacityMeter({ planned, cap, style }: { planned: number; cap: n
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, ...style }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-        <span className="wf-mono" style={{ fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', color: over ? WF.status.Blocked.text : WF.t2 }}>
+        <span className="mono" style={{ fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', color: over ? WF.status.Blocked.text : WF.t2 }}>
           {planned} / {cap}
         </span>
         <span
@@ -178,7 +178,7 @@ export function SprintRail({
         overflowX: 'auto',
       }}
     >
-      <span className="wf-tag" style={{ alignSelf: 'center', flex: '0 0 auto' }}>
+      <span className="tag" style={{ alignSelf: 'center', flex: '0 0 auto' }}>
         Sprints
       </span>
       {release.sprints.map((sp) => {
@@ -299,7 +299,7 @@ export function StreamSprintColumn({
       >
         {streamItems.map((it) => renderCard(it))}
         {streamItems.length === 0 && (
-          <div className="wf-card wf-dash" style={{ padding: '16px 10px', textAlign: 'center', color: over ? WF.status.Active.text : WF.t3, fontSize: 11.5 }}>
+          <div className="card dash" style={{ padding: '16px 10px', textAlign: 'center', color: over ? WF.status.Active.text : WF.t3, fontSize: 11.5 }}>
             {canDropVisual ? 'Drop to move here' : 'No items'}
           </div>
         )}

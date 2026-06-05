@@ -45,7 +45,7 @@ export function WorkStream() {
   const isFiltered = statusFilter.size > 0;
 
   return (
-    <div className="wf wf-screen">
+    <div className="wf screen">
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={() => navigate(`/releases/${id}`)} />}
         title={
@@ -149,7 +149,7 @@ export function WorkStream() {
 
       <div style={{ flex: 1, overflow: 'auto', padding: '18px 24px' }}>
         {filteredItems.length === 0 ? (
-          <div className="wf-card wf-dash" style={{ padding: 40, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
+          <div className="card dash" style={{ padding: 40, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
             {isFiltered ? 'No items match the current filters.' : 'No work items yet. Create one to get started.'}
           </div>
         ) : (

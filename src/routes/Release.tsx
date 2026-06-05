@@ -4,6 +4,7 @@
 
 import { useNavigate, useParams } from 'react-router-dom';
 import { STATUSES } from '../types';
+import releaseStyles from './Release.module.css';
 import { dOf, fmtShort } from '../lib/dates';
 import { activeSprint, eventsIn, sprintVel, statusSegs } from '../lib/derive';
 import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } from '../store/store';
@@ -22,7 +23,7 @@ const StatusLegend = () => (
   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
     {STATUSES.map((s) => (
       <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: WF.t2 }}>
-        <span className="wf-dot" style={{ background: WF.status[s].dot }} />
+        <span className="dot" style={{ background: WF.status[s].dot }} />
         {s}
       </span>
     ))}
@@ -81,7 +82,7 @@ export function Release() {
   };
 
   return (
-    <div className="wf wf-screen">
+    <div className="wf screen">
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={() => navigate('/')} />}
         title={r.name}
@@ -98,7 +99,7 @@ export function Release() {
             {r.connector && (
               <>
                 <span style={{ opacity: 0.5 }}>·</span>
-                <span className="wf-tag" style={{ flex: '0 0 auto' }}>
+                <span className="tag" style={{ flex: '0 0 auto' }}>
                   {connectorLabel(r.connector.type)}
                 </span>
               </>
@@ -137,7 +138,7 @@ export function Release() {
           flexShrink: 0,
         }}
       >
-        <span className="wf-tag" style={{ flexShrink: 0, marginRight: 4, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{Icon.stream}Work streams</span>
+        <span className="tag" style={{ flexShrink: 0, marginRight: 4, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{Icon.stream}Work streams</span>
         <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
         {r.workStreams.length === 0 && unassigned.length === 0 ? (
           <span style={{ fontSize: 12.5, color: WF.t3 }}>No work streams yet — add one with the button above.</span>
@@ -149,23 +150,23 @@ export function Release() {
               return (
                 <div
                   key={ws.id}
-                  className="wf-card"
+                  className="card"
                   onClick={() => navigate(`/releases/${id}/streams/${ws.id}`)}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', flexShrink: 0, background: WF.paper, cursor: 'pointer' }}
                 >
                   <span style={{ fontSize: 12.5, fontWeight: 650, whiteSpace: 'nowrap', color: WF.ink }}>{ws.name}</span>
-                  <span className="wf-mono" style={{ fontSize: 11, color: WF.t3 }}>{its.length}</span>
+                  <span className="mono" style={{ fontSize: 11, color: WF.t3 }}>{its.length}</span>
                   {its.length > 0 && <SegBar segs={segs} height={4} />}
                 </div>
               );
             })}
             {unassigned.length > 0 && (
               <div
-                className="wf-card"
+                className="card"
                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', flexShrink: 0, background: WF.paper }}
               >
                 <span style={{ fontSize: 12.5, fontWeight: 650, whiteSpace: 'nowrap', color: WF.t3, fontStyle: 'italic' }}>Unassigned</span>
-                <span className="wf-mono" style={{ fontSize: 11, color: WF.t3 }}>{unassigned.length}</span>
+                <span className="mono" style={{ fontSize: 11, color: WF.t3 }}>{unassigned.length}</span>
                 <SegBar segs={statusSegs(unassigned)} height={4} />
               </div>
             )}
@@ -178,7 +179,7 @@ export function Release() {
         <div style={{ height: '100%', padding: '16px 22px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <span className="wf-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>{Icon.sprint}Sprints · {r.sprints.length}</span>
+              <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>{Icon.sprint}Sprints · {r.sprints.length}</span>
               <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
               <span style={{ fontSize: 11.5, color: WF.t3 }}>{team ? team.name : '—'}</span>
               <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
@@ -188,7 +189,7 @@ export function Release() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {r.sprints.length === 0 ? (
-              <div className="wf-card wf-dash" style={{ padding: 40, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
+              <div className="card dash" style={{ padding: 40, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
                 {r.connector
                   ? 'No sprints yet. Run a sync to populate the release plan.'
                   : 'No sprints configured.'}
@@ -205,7 +206,7 @@ export function Release() {
               return (
                 <div
                   key={sp.id}
-                  className={'wf-card wf-sprintrow' + (isAct ? ' wf-active' : '')}
+                  className={['card', releaseStyles.sprintrow, isAct && releaseStyles.active].filter(Boolean).join(' ')}
                   onClick={() => navigate(`/releases/${id}/sprints/${sp.id}`)}
                   style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', cursor: 'pointer' }}
                 >
@@ -230,7 +231,7 @@ export function Release() {
                       {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
                     </span>
                     <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
-                    <span className="wf-mono" style={{ fontSize: 11, fontWeight: 700, color: WF.t3, whiteSpace: 'nowrap', flex: '0 0 auto' }}>
+                    <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: WF.t3, whiteSpace: 'nowrap', flex: '0 0 auto' }}>
                       {spItems.length} item{spItems.length !== 1 ? 's' : ''}
                     </span>
                     <span style={{ width: 1.5, alignSelf: 'stretch', background: WF.line, flexShrink: 0, margin: '0 4px' }} />
@@ -240,7 +241,7 @@ export function Release() {
                   {/* work-stream lane */}
                   <div style={{ padding: '10px 13px' }}>
                     {lane.length === 0 ? (
-                      <div className="wf-card wf-dash" style={{ minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: WF.t3, fontSize: 12.5 }}>
+                      <div className="card dash" style={{ minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: WF.t3, fontSize: 12.5 }}>
                         No work items
                       </div>
                     ) : (
@@ -248,7 +249,7 @@ export function Release() {
                         {lane.map((e) => (
                           <div
                             key={e.ws ? e.ws.id : '__unassigned__'}
-                            className={'wf-card' + (e.ws ? '' : '')}
+                            className={'card' + (e.ws ? '' : '')}
                             onClick={e.ws ? (ev) => { ev.stopPropagation(); navigate(`/releases/${id}/streams/${e.ws!.id}`); } : undefined}
                             style={{ flex: `${e.n} 1 0`, minWidth: 86, padding: '8px 11px', display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden', background: WF.paper, cursor: e.ws ? 'pointer' : 'default' }}
                           >
@@ -256,7 +257,7 @@ export function Release() {
                               <span style={{ fontSize: 13, fontWeight: 650, color: e.ws ? WF.t2 : WF.t3, fontStyle: e.ws ? undefined : 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
                                 {e.ws ? e.ws.name : 'Unassigned'}
                               </span>
-                              <span className="wf-mono" style={{ fontSize: 11.5, color: WF.t3, flex: '0 0 auto' }}>
+                              <span className="mono" style={{ fontSize: 11.5, color: WF.t3, flex: '0 0 auto' }}>
                                 {e.n}
                               </span>
                             </div>

@@ -33,7 +33,7 @@ export function Teams() {
     });
   };
   return (
-    <div className="wf wf-screen">
+    <div className="wf screen">
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={() => navigate('/')} />}
         title="Teams"
@@ -47,7 +47,7 @@ export function Teams() {
       <div style={{ flex: 1, overflow: 'auto', padding: '22px 26px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16 }}>
           {st.teams.map((t) => (
-            <div key={t.id} className="wf-card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 15 }}>
+            <div key={t.id} className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 15 }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 750, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
@@ -60,7 +60,7 @@ export function Teams() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
                   {t.externalId ? (
-                    <span className="wf-tag" style={{ fontSize: 10.5, color: WF.t3 }}>synced</span>
+                    <span className="tag" style={{ fontSize: 10.5, color: WF.t3 }}>synced</span>
                   ) : (
                     <IconButton
                       icon={Icon.edit}
@@ -91,18 +91,18 @@ export function Teams() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: WF.t2 }}>{t.members.filter((m) => !m.nonContributing).length * WORKDAYS} person-days / sprint</div>
                 </div>
               </div>
-              <hr className="wf-divider" />
+              <hr className="divider" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {t.members.map((m) => (
                   <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <span className="wf-avatar" style={{ opacity: m.nonContributing ? 0.4 : 1 }}>
+                    <span className="avatar" style={{ opacity: m.nonContributing ? 0.4 : 1 }}>
                       {m.name.split(' ').map((p) => p[0]).slice(0, 2).join('')}
                     </span>
                     <span style={{ fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', color: m.nonContributing ? WF.t3 : undefined }}>
                       {m.name}
                     </span>
                     {m.nonContributing && (
-                      <span className="wf-tag" style={{ fontSize: 10.5, color: WF.t3 }}>no capacity</span>
+                      <span className="tag" style={{ fontSize: 10.5, color: WF.t3 }}>no capacity</span>
                     )}
                     <div style={{ marginLeft: 'auto' }}>
                       <IconButton

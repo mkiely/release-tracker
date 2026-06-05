@@ -75,7 +75,7 @@ export function Home() {
     return (
       <div
         key={r.id}
-        className="wf-card"
+        className="card"
         onClick={() => navigate(`/releases/${r.id}`)}
         style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer', transition: 'border-color .12s, box-shadow .12s' }}
         onMouseEnter={(e) => {
@@ -100,7 +100,7 @@ export function Home() {
           {Icon.team}
           <span>{team ? team.name : '—'}</span>
           {r.connector && (
-            <span className="wf-tag" style={{ marginLeft: 'auto', flex: '0 0 auto' }}>
+            <span className="tag" style={{ marginLeft: 'auto', flex: '0 0 auto' }}>
               {connectorLabel(r.connector.type)}
             </span>
           )}
@@ -116,7 +116,7 @@ export function Home() {
   };
 
   return (
-    <div className="wf wf-screen">
+    <div className="wf screen">
       <TopBar
         left={<Brand />}
         title={null}
@@ -139,7 +139,7 @@ export function Home() {
             <div style={{ fontSize: 26, fontWeight: 750, letterSpacing: '-0.02em' }}>New release</div>
             <div style={{ fontSize: 14.5, color: WF.t3, marginTop: 5 }}>Start tracking a release cycle.</div>
           </div>
-          <div className="wf-card" style={{ width: '100%', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card" style={{ width: '100%', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
             <PField label="Release name">
               <PInput
                 value={name}
@@ -212,10 +212,10 @@ export function Home() {
         </div>
         <div style={{ width: '100%', maxWidth: 920 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <span className="wf-tag">Your releases · {st.releases.length}</span>
+            <span className="tag">Your releases · {st.releases.length}</span>
           </div>
           {st.releases.length === 0 ? (
-            <div className="wf-card wf-dash" style={{ padding: 30, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
+            <div className="card dash" style={{ padding: 30, textAlign: 'center', color: WF.t3, fontSize: 14 }}>
               No releases yet — create one above.
             </div>
           ) : (

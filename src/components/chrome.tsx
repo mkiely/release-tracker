@@ -246,7 +246,7 @@ export function PushButton({ release, onPush }: { release: Release; onPush: () =
 export function NotFound({ label }: { label: string }) {
   const navigate = useNavigate();
   return (
-    <div className="wf wf-screen" style={{ alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+    <div className="wf screen" style={{ alignItems: 'center', justifyContent: 'center', gap: 16 }}>
       <div style={{ fontSize: 16, fontWeight: 650, color: WF.t2 }}>{label}</div>
       <PButton icon={Icon.chevLeft} onClick={() => navigate('/')}>
         Back to releases

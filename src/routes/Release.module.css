@@ -1,0 +1,13 @@
+/* sprint row hover/active states */
+.sprintrow { transition: border-color .12s, box-shadow .12s; }
+.sprintrow:hover {
+  border-color: var(--rt-line-strong);
+  box-shadow: 0 2px 0 var(--rt-line);
+}
+
+/* active sprint — tinted row + accent border, no pill */
+.active {
+  background: var(--rt-st-ac-soft);
+  border-color: var(--rt-st-ac-dot);
+}
+.active:hover { border-color: var(--rt-st-ac-text); }

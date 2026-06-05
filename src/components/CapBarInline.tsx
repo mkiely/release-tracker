@@ -20,7 +20,7 @@ export function CapBarInline({ planned, cap, w = 134 }: { planned: number; cap: 
           : <div style={{ flex: 1 - ratio, background: WF.lineStrong }} />}
       </div>
       <span
-        className="wf-mono"
+        className="mono"
         style={{ fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', color: over ? WF.status.Blocked.text : WF.t2 }}
       >
         {planned}<span style={{ opacity: 0.55, fontWeight: 400 }}>/{cap} pts</span>
