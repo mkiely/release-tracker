@@ -45,13 +45,13 @@ export function WorkStream() {
   const isFiltered = statusFilter.size > 0;
 
   return (
-    <div className="wf wf-screen pt-root">
+    <div className="wf wf-screen">
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={() => navigate(`/releases/${id}`)} />}
         title={
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: WF.t3, marginBottom: 3, whiteSpace: 'nowrap' }}>
-              <span className="pt-link" onClick={() => navigate(`/releases/${id}`)} style={{ cursor: 'pointer' }}>
+              <span onClick={() => navigate(`/releases/${id}`)} style={{ cursor: 'pointer' }}>
                 {r.name}
               </span>
               {Icon.chevRight}

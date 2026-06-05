@@ -33,7 +33,7 @@ export function Teams() {
     });
   };
   return (
-    <div className="wf wf-screen pt-root">
+    <div className="wf wf-screen">
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={() => navigate('/')} />}
         title="Teams"

@@ -84,7 +84,7 @@ export function WorkItemCard({
 
   return (
     <div
-      className="wf-card pt-link"
+      className="wf-card"
       onClick={onOpen}
       draggable={draggable || undefined}
       onDragStart={

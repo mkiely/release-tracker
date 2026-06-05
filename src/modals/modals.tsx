@@ -149,9 +149,9 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
             </div>
           );
         })}
-        <button className="pt-btn subtle sm" onClick={addMember} style={{ alignSelf: 'flex-start' }}>
+        <PButton variant="subtle" sm onClick={addMember} style={{ alignSelf: 'flex-start' }}>
           {Icon.plus} Add member
-        </button>
+        </PButton>
       </div>
     </Modal>
   );
@@ -335,7 +335,13 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
           <PInput autoFocus={isConnector} type="number" min="0" value={daysOff} onChange={(e) => setDaysOff(e.target.value)} />
         </PField>
         <PField label="Sprint dates" style={{ flex: 1 }}>
-          <span className="pt-in" style={{ display: 'flex', alignItems: 'center', color: WF.t2 }}>
+          <span style={{
+            display: 'flex', alignItems: 'center',
+            width: '100%', border: `1.5px solid ${WF.lineStrong}`,
+            background: WF.paper, borderRadius: 9,
+            padding: '11px 13px', fontSize: 15, fontFamily: 'inherit',
+            color: WF.t2, minHeight: 46,
+          }}>
             {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
           </span>
         </PField>

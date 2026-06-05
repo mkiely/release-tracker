@@ -1,5 +1,3 @@
-// Interactive primitives — ported from proto-ui.jsx. Styles live in proto.css.
-
 import {
   useEffect,
   type CSSProperties,
@@ -12,6 +10,13 @@ import {
 } from 'react';
 import { Icon } from './Icon';
 import { WF } from './tokens';
+import btnStyles from './ui/Button.module.css';
+import inputStyles from './ui/Input.module.css';
+import modalStyles from './ui/Modal.module.css';
+import toastStyles from './ui/Toast.module.css';
+import iconBtnStyles from './ui/IconButton.module.css';
+import segStyles from './ui/PointSeg.module.css';
+import fieldStyles from './ui/PField.module.css';
 
 export function PField({
   label,
@@ -25,9 +30,9 @@ export function PField({
   style?: CSSProperties;
 }) {
   return (
-    <label className="wf-field" style={{ display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0, ...style }}>
+    <label className={fieldStyles.field} style={{ minWidth: 0, ...style }}>
       {label && (
-        <span className="wf-flabel">
+        <span className={fieldStyles.label}>
           {label}
           {hint && <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500, color: WF.t3 }}> · {hint}</span>}
         </span>
@@ -37,10 +42,10 @@ export function PField({
   );
 }
 
-export const PInput = (p: InputHTMLAttributes<HTMLInputElement>) => <input className="pt-in" {...p} />;
-export const PTextarea = (p: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea className="pt-in" {...p} />;
+export const PInput = (p: InputHTMLAttributes<HTMLInputElement>) => <input className={inputStyles.input} {...p} />;
+export const PTextarea = (p: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea className={inputStyles.input} {...p} />;
 export const PSelect = ({ children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) => (
-  <select className="pt-in" {...rest}>
+  <select className={inputStyles.input} {...rest}>
     {children}
   </select>
 );
@@ -64,14 +69,9 @@ export function PButton({
   title?: string;
   style?: CSSProperties;
 }) {
+  const cls = [btnStyles.btn, variant && btnStyles[variant], sm && btnStyles.sm].filter(Boolean).join(' ');
   return (
-    <button
-      className={'pt-btn' + (variant ? ' ' + variant : '') + (sm ? ' sm' : '')}
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      style={style}
-    >
+    <button className={cls} onClick={onClick} disabled={disabled} title={title} style={style}>
       {icon}
       {children}
     </button>
@@ -90,7 +90,7 @@ export function IconButton({
   style?: CSSProperties;
 }) {
   return (
-    <button className="pt-iconbtn" onClick={onClick} title={title} aria-label={title} style={style}>
+    <button className={iconBtnStyles.iconbtn} onClick={onClick} title={title} aria-label={title} style={style}>
       {icon}
     </button>
   );
@@ -120,28 +120,28 @@ export function Modal({
   }, [onClose]);
   return (
     <div
-      className="pt-backdrop"
+      className={modalStyles.backdrop}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="pt-modal" role="dialog" aria-modal="true" style={{ maxWidth: width }}>
-        <div className="pt-mhead">
+      <div className={modalStyles.modal} role="dialog" aria-modal="true" style={{ maxWidth: width }}>
+        <div className={modalStyles.head}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
             {icon}
             <span style={{ fontSize: 17, fontWeight: 750, whiteSpace: 'nowrap' }}>{title}</span>
           </div>
           <IconButton icon={Icon.close} onClick={onClose} title="Close" style={{ border: 'none', padding: 4 }} />
         </div>
-        <div className="pt-mbody">{children}</div>
-        {footer && <div className="pt-mfoot">{footer}</div>}
+        <div className={modalStyles.body}>{children}</div>
+        {footer && <div className={modalStyles.foot}>{footer}</div>}
       </div>
     </div>
   );
 }
 
 export const Toast = ({ children }: { children: ReactNode }): ReactElement => (
-  <div className="pt-toast">
+  <div className={toastStyles.toast}>
     {Icon.sync}
     {children}
   </div>
@@ -159,9 +159,9 @@ export function PointSeg({
   disabled?: boolean;
 }) {
   return (
-    <div className="pt-seg" style={disabled ? { opacity: 0.55, pointerEvents: 'none' } : undefined}>
+    <div className={segStyles.seg} style={disabled ? { opacity: 0.55, pointerEvents: 'none' } : undefined}>
       {options.map((p) => (
-        <button key={p} type="button" disabled={disabled} className={p === value ? 'on' : ''} onClick={() => onChange(p)}>
+        <button key={p} type="button" disabled={disabled} className={p === value ? segStyles.on : ''} onClick={() => onChange(p)}>
           {p}
         </button>
       ))}

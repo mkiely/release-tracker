@@ -75,7 +75,7 @@ export function Home() {
     return (
       <div
         key={r.id}
-        className="wf-card pt-link"
+        className="wf-card"
         onClick={() => navigate(`/releases/${r.id}`)}
         style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer', transition: 'border-color .12s, box-shadow .12s' }}
         onMouseEnter={(e) => {
@@ -116,7 +116,7 @@ export function Home() {
   };
 
   return (
-    <div className="wf wf-screen pt-root">
+    <div className="wf wf-screen">
       <TopBar
         left={<Brand />}
         title={null}

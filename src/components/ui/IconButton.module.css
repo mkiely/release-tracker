@@ -1,0 +1,13 @@
+.iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--rt-line);
+  background: var(--rt-paper);
+  color: var(--rt-t2);
+  border-radius: 8px;
+  padding: 7px;
+  cursor: pointer;
+  transition: border-color 0.12s, background-color 0.25s ease, color 0.25s ease;
+}
+.iconbtn:hover { border-color: var(--rt-line-strong); color: var(--rt-ink); }

@@ -1,0 +1,22 @@
+.seg {
+  display: flex;
+  gap: 8px;
+}
+.seg > button {
+  flex: 1;
+  text-align: center;
+  padding: 11px 0;
+  border-radius: 9px;
+  font-weight: 700;
+  font-size: 15px;
+  border: 1.5px solid var(--rt-line);
+  background: var(--rt-paper);
+  color: var(--rt-t2);
+  cursor: pointer;
+  font-family: var(--rt-sans);
+}
+.seg > button.on {
+  border-color: var(--rt-ink);
+  background: var(--rt-ink);
+  color: var(--rt-on-ink);
+}

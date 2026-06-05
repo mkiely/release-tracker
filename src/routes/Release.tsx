@@ -81,7 +81,7 @@ export function Release() {
   };
 
   return (
-    <div className="wf wf-screen pt-root">
+    <div className="wf wf-screen">
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={() => navigate('/')} />}
         title={r.name}
@@ -149,9 +149,9 @@ export function Release() {
               return (
                 <div
                   key={ws.id}
-                  className="wf-card pt-link"
+                  className="wf-card"
                   onClick={() => navigate(`/releases/${id}/streams/${ws.id}`)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', flexShrink: 0, background: WF.paper }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', flexShrink: 0, background: WF.paper, cursor: 'pointer' }}
                 >
                   <span style={{ fontSize: 12.5, fontWeight: 650, whiteSpace: 'nowrap', color: WF.ink }}>{ws.name}</span>
                   <span className="wf-mono" style={{ fontSize: 11, color: WF.t3 }}>{its.length}</span>
@@ -205,7 +205,7 @@ export function Release() {
               return (
                 <div
                   key={sp.id}
-                  className={'wf-card wf-sprintrow pt-link' + (isAct ? ' wf-active' : '')}
+                  className={'wf-card wf-sprintrow' + (isAct ? ' wf-active' : '')}
                   onClick={() => navigate(`/releases/${id}/sprints/${sp.id}`)}
                   style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', cursor: 'pointer' }}
                 >
@@ -248,7 +248,7 @@ export function Release() {
                         {lane.map((e) => (
                           <div
                             key={e.ws ? e.ws.id : '__unassigned__'}
-                            className={'wf-card' + (e.ws ? ' pt-link' : '')}
+                            className={'wf-card' + (e.ws ? '' : '')}
                             onClick={e.ws ? (ev) => { ev.stopPropagation(); navigate(`/releases/${id}/streams/${e.ws!.id}`); } : undefined}
                             style={{ flex: `${e.n} 1 0`, minWidth: 86, padding: '8px 11px', display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden', background: WF.paper, cursor: e.ws ? 'pointer' : 'default' }}
                           >

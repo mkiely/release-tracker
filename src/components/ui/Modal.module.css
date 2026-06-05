@@ -1,0 +1,61 @@
+.backdrop,
+.backdrop *,
+.modal,
+.modal * {
+  box-sizing: border-box;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--rt-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 24px;
+  animation: modalFade 0.14s ease;
+}
+@keyframes modalFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.modal {
+  font-family: var(--rt-sans);
+  background: var(--rt-paper);
+  border-radius: 14px;
+  box-shadow: 0 24px 70px var(--rt-shadow);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  max-height: 92vh;
+  animation: modalPop 0.16s ease;
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+@keyframes modalPop {
+  from { opacity: 0; transform: translateY(8px) scale(0.99); }
+  to   { opacity: 1; transform: none; }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1.5px solid var(--rt-line);
+}
+.body {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: auto;
+}
+.foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 22px;
+  border-top: 1.5px solid var(--rt-line);
+}

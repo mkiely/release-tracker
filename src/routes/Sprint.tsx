@@ -105,13 +105,13 @@ export function Sprint() {
   const isFiltered = memberFilter.size > 0 || statusFilter.size > 0 || buildFilter.size > 0;
 
   return (
-    <div className="wf wf-screen pt-root">
+    <div className="wf wf-screen">
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={() => navigate(`/releases/${id}`)} />}
         title={
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: WF.t3, marginBottom: 3, whiteSpace: 'nowrap' }}>
-              <span className="pt-link" onClick={() => navigate(`/releases/${id}`)} style={{ cursor: 'pointer' }}>
+              <span onClick={() => navigate(`/releases/${id}`)} style={{ cursor: 'pointer' }}>
                 {r.name}
               </span>
               {Icon.chevRight}
@@ -348,7 +348,6 @@ export function Sprint() {
             {streamCols.map((col) => (
               <div key={col.ws.id} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div
-                  className="pt-link"
                   onClick={() => navigate(`/releases/${id}/streams/${col.ws.id}`)}
                   style={{ display: 'flex', alignItems: 'center', padding: '0 2px', cursor: 'pointer', gap: 8 }}
                 >
