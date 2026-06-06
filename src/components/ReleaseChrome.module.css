@@ -1,0 +1,28 @@
+/* Toolbar row: scrolling work-streams strip + pinned axis toggle. */
+.toolbar {
+  display: flex;
+  align-items: center;
+  border-bottom: 1.5px solid var(--rt-line);
+  background: var(--rt-paper);
+  flex-shrink: 0;
+}
+
+.streamStrip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 22px;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+}
+
+.axisSlot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 0 12px;
+  border-left: 1.5px solid var(--rt-line);
+  align-self: stretch;
+}

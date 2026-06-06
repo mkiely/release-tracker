@@ -1,0 +1,22 @@
+.spark {
+  display: block;
+  flex: 0 0 56px;
+  width: 56px;
+  height: 16px;
+}
+
+.ring {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ringPct {
+  font-family: var(--rt-mono);
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-bold);
+  color: var(--rt-t2);
+  width: 26px;
+  text-align: right;
+}

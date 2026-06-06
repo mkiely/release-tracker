@@ -3,8 +3,9 @@ import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } 
 import { releaseToTSV } from '../lib/exportRelease';
 import { useApp } from '../app-context';
 import { dOf, fmtShort } from '../lib/dates';
-import { activeSprint, eventsIn, sprintVel, statusSegs } from '../lib/derive';
+import { activeSprint, eventsIn, sprintVel, statusSegs, streamHealth, type StreamHealth } from '../lib/derive';
 import { connectorLabel } from '../sync/client';
+import type { RowData, RowMetrics } from '../lib/rowData';
 import type { Release, ReleaseEvent, Sprint, StatusSeg, Team, WorkItem, WorkStream } from '../types';
 
 /** Counts items by their work-item-type label, preserving first-seen order. Untyped items are skipped. */
@@ -20,20 +21,13 @@ function typeCounts(items: WorkItem[]): { label: string; n: number }[] {
   return order.map((label) => ({ label, n: counts.get(label)! }));
 }
 
-export interface SprintLaneEntry {
+export interface SprintLaneEntry extends RowMetrics {
   ws: { id: string; name: string } | null;
-  n: number;
-  points: number;
-  /** Count of items in the 'Complete' status — drives the completion ring. */
-  done: number;
-  segs: StatusSeg[];
-  /** Per work-item-type counts (e.g. Story/Bug/Task), in first-seen order. */
-  types: { label: string; n: number }[];
   /** This lane's points per sprint across the whole release, for the trend sparkline. */
   series: number[];
 }
 
-export interface SprintRowData {
+interface SprintHeader {
   sprint: Sprint;
   /** This sprint's index within the release (sparkline highlight position). */
   sprintIndex: number;
@@ -42,8 +36,9 @@ export interface SprintRowData {
   planned: number;
   itemCount: number;
   events: ReleaseEvent[];
-  lane: SprintLaneEntry[];
 }
+
+export type SprintRowData = RowData<SprintHeader, SprintLaneEntry>;
 
 export interface WorkStreamBadgeData {
   ws: WorkStream;
@@ -51,10 +46,34 @@ export interface WorkStreamBadgeData {
   segs: StatusSeg[];
 }
 
+/** One sprint's slice of a stream row — the transpose of a SprintLaneEntry. */
+export interface StreamLaneEntry extends RowMetrics {
+  sprint: Sprint;
+  sprintIndex: number;
+  isActive: boolean;
+}
+
+/** A work stream indexed across the release: row header + per-sprint lane. */
+interface StreamHeader {
+  /** null = the Unassigned row. */
+  ws: WorkStream | null;
+  itemCount: number;
+  points: number;
+  segs: StatusSeg[];
+  /** Points per sprint across the release, for the row-header sparkline. */
+  series: number[];
+  /** Completion + finish projection for the row. */
+  health: StreamHealth;
+}
+
+/** Lane covers every sprint, including empty ones, so cells form aligned columns. */
+export type StreamRowData = RowData<StreamHeader, StreamLaneEntry>;
+
 export interface ReleaseViewProps {
   release: Release;
   team: Team | undefined;
   sprintRows: SprintRowData[];
+  streamRows: StreamRowData[];
   workStreamBadges: WorkStreamBadgeData[];
   unassignedCount: number;
   unassignedSegs: StatusSeg[];
@@ -146,6 +165,38 @@ export function useReleaseView(): ReleaseViewProps | null {
     return { ws, itemCount: its.length, segs: statusSegs(its) };
   });
 
+  // The transpose of sprintRows: one row per work stream, lane = every sprint.
+  const buildStreamRow = (ws: WorkStream | null, streamItems: WorkItem[], series: number[]): StreamRowData => {
+    return {
+      ws,
+      itemCount: streamItems.length,
+      points: sumPoints(streamItems),
+      segs: statusSegs(streamItems),
+      series,
+      health: streamHealth(streamItems),
+      lane: r.sprints.map((sp, sprintIndex) => {
+        const its = streamItems.filter((i) => i.sprintId === sp.id);
+        return {
+          sprint: sp,
+          sprintIndex,
+          isActive: !!active && active.id === sp.id,
+          n: its.length,
+          points: sumPoints(its),
+          done: its.filter((i) => i.status === 'Complete').length,
+          segs: statusSegs(its),
+          types: typeCounts(its),
+        };
+      }),
+    };
+  };
+
+  const streamRows: StreamRowData[] = r.workStreams.map((ws) =>
+    buildStreamRow(ws, items.filter((i) => i.workStreamId === ws.id), streamSeries.get(ws.id) ?? []),
+  );
+  if (unassigned.length > 0) {
+    streamRows.push(buildStreamRow(null, unassigned, unassignedSeries));
+  }
+
   const onExport = async () => {
     const tsv = releaseToTSV(st, id);
     try {
@@ -170,6 +221,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     release: r,
     team,
     sprintRows,
+    streamRows,
     workStreamBadges,
     unassignedCount: unassigned.length,
     unassignedSegs: statusSegs(unassigned),

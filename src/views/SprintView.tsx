@@ -7,24 +7,22 @@ import { EventBadge } from '../components/badges';
 import { SprintRail } from '../components/dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
 import { IconButton, PButton } from '../components/primitives';
+import { SegmentedToggle } from '../components/SegmentedToggle';
 import { statusVars } from '../components/statusVars';
 import { STATUSES } from '../types';
 import sprintStyles from '../routes/Sprint.module.css';
 
 function GroupToggle({ value, onChange }: { value: GroupBy; onChange: (v: GroupBy) => void }) {
   return (
-    <div className={sprintStyles.groupToggle}>
-      {(['stream', 'status'] as const).map((mode) => (
-        <button
-          key={mode}
-          onClick={() => onChange(mode)}
-          title={mode === 'stream' ? 'Group by work stream' : 'Group by status'}
-          className={`${sprintStyles.groupBtn} ${value === mode ? sprintStyles.groupBtnActive : ''}`}
-        >
-          {mode === 'stream' ? 'By stream' : 'By status'}
-        </button>
-      ))}
-    </div>
+    <SegmentedToggle<GroupBy>
+      ariaLabel="Group work items by"
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: 'stream', label: 'By stream', title: 'Group by work stream' },
+        { value: 'status', label: 'By status', title: 'Group by status' },
+      ]}
+    />
   );
 }
 

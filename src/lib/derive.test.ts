@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSprint, capPct, eventsIn, fullCap, groupItemsByStream, sprintVel, statusSegs } from './derive';
+import { activeSprint, capPct, eventsIn, fullCap, groupItemsByStream, sprintVel, statusSegs, streamHealth } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
 import type { Release, Sprint, Team, WorkItem } from '../types';
 
@@ -279,5 +279,46 @@ describe('groupItemsByStream', () => {
     const result = groupItemsByStream(items, streams);
     expect(result[0].wsName).toBe('My Stream');
     expect(result[1].wsName).toBeNull();
+  });
+});
+
+describe('streamHealth', () => {
+  const it_ = (status: WorkItem['status'], points: number): WorkItem => ({
+    id: Math.random().toString(), releaseId: 'r', workStreamId: 'w', sprintId: 'sp1',
+    key: 'K', subject: 's', description: '', status, points,
+    externalId: null, assignedMemberId: null, build: null, dirtyFields: [], itemType: null,
+  });
+
+  it('computes points-based completion, not count-based', () => {
+    const h = streamHealth([it_('Complete', 13), it_('Not Started', 1)]);
+    expect(h.totalPts).toBe(14);
+    expect(h.donePts).toBe(13);
+    expect(h.pct).toBe(93); // 13/14, not 50% by count
+    expect(h.remainingPts).toBe(1);
+  });
+
+  it('sums blocked points', () => {
+    const h = streamHealth([it_('Complete', 40), it_('Blocked', 5), it_('Blocked', 3)]);
+    expect(h.blockedPts).toBe(8);
+  });
+
+  it('is 100% when all points are complete', () => {
+    const h = streamHealth([it_('Complete', 8), it_('Complete', 5)]);
+    expect(h.pct).toBe(100);
+    expect(h.remainingPts).toBe(0);
+  });
+
+  it('produces non-zero points-by-status in STATUSES order', () => {
+    const h = streamHealth([it_('Complete', 5), it_('Not Started', 2), it_('In Progress', 3)]);
+    expect(h.pointsByStatus).toEqual([
+      { k: 'Not Started', v: 2 },
+      { k: 'In Progress', v: 3 },
+      { k: 'Complete', v: 5 },
+    ]);
+  });
+
+  it('is all-zero for an empty stream', () => {
+    const h = streamHealth([]);
+    expect(h).toMatchObject({ totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [] });
   });
 });

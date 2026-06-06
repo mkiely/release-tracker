@@ -31,6 +31,35 @@ export const eventsIn = (release: Release, sp: Sprint) =>
 export const statusSegs = (items: WorkItem[]): StatusSeg[] =>
   STATUSES.map((k) => ({ k, v: items.filter((i) => i.status === k).length })).filter((s) => s.v > 0);
 
+export interface StreamHealth {
+  totalPts: number;
+  donePts: number;
+  remainingPts: number;
+  blockedPts: number;
+  /** Points-based completion, 0–100. */
+  pct: number;
+  /** Non-zero points by status, for the progress/breakdown bar. */
+  pointsByStatus: StatusSeg[];
+}
+
+/**
+ * Current-state completion metrics for a work stream (points-based). Deliberately
+ * carries no finish projection or on-track verdict: in this domain past sprints
+ * are always fully complete (incomplete items roll forward), so a meaningful
+ * "health" verdict is a forward capacity question — see docs/work-stream-health.md.
+ */
+export function streamHealth(items: WorkItem[]): StreamHealth {
+  const pts = (pred: (i: WorkItem) => boolean) =>
+    items.reduce((a, i) => (pred(i) ? a + i.points : a), 0);
+  const totalPts = pts(() => true);
+  const donePts = pts((i) => i.status === 'Complete');
+  const blockedPts = pts((i) => i.status === 'Blocked');
+  const remainingPts = Math.max(0, totalPts - donePts);
+  const pct = totalPts > 0 ? Math.round((donePts / totalPts) * 100) : 0;
+  const pointsByStatus = STATUSES.map((k) => ({ k, v: pts((i) => i.status === k) })).filter((s) => s.v > 0);
+  return { totalPts, donePts, remainingPts, blockedPts, pct, pointsByStatus };
+}
+
 /**
  * Groups a flat list of items by work stream, preserving the release's stream
  * order. Items whose workStreamId is absent from the stream list (or null) are
