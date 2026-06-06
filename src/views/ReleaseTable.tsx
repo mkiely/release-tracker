@@ -1,20 +1,10 @@
 import type { ReleaseViewProps } from '../hooks/useReleaseView';
-import type { Status } from '../types';
 import { fmtShort, todayISO } from '../lib/dates';
 import { PushButton, SyncButton, TopBar } from '../components/chrome';
 import { Icon } from '../components/Icon';
 import { SegBar, EventBadge } from '../components/badges';
 import { IconButton, PButton } from '../components/primitives';
-import { statusVars } from '../components/statusVars';
 import styles from './ReleaseTable.module.css';
-
-const STATUS_ABBR: Record<Status, string> = {
-  'Not Started':  'N',
-  'In Progress':  'P',
-  'Under Review': 'R',
-  'Blocked':      'B',
-  'Complete':     'C',
-};
 
 function F3SprintRow({
   row,
@@ -57,9 +47,11 @@ function F3SprintRow({
       <div className={styles.rowRight}>
         {lane.length === 0 ? (
           <span className={styles.noItems}>No work items</span>
-        ) : (
-          lane.map((e) => {
+        ) : (() => {
+          const total = lane.reduce((s, e) => s + e.n, 0);
+          return lane.map((e) => {
             const isUnassigned = e.ws === null;
+            const pct = total > 0 ? Math.round((e.n / total) * 100) : 100;
             return (
               <div key={e.ws ? e.ws.id : '__unassigned__'} className={styles.trackRow}>
                 <span
@@ -73,31 +65,17 @@ function F3SprintRow({
                   {e.ws ? e.ws.name : 'Unassigned'}
                 </span>
                 <div className={styles.trackBar}>
-                  <SegBar segs={e.segs} height={6} radius={3} />
-                </div>
-                <div className={styles.trackChips}>
-                  {e.segs.map((s, i) => {
-                    const sv = statusVars(s.k);
-                    return (
-                      <span
-                        key={i}
-                        className={styles.trackChip}
-                        style={{
-                          color: sv.text,
-                          border: `1px solid ${sv.dot}55`,
-                          background: sv.soft,
-                        }}
-                      >
-                        {s.v}{STATUS_ABBR[s.k]}
-                      </span>
-                    );
-                  })}
+                  <div className={styles.trackTrack}>
+                    <div className={styles.trackFill} style={{ width: `${pct}%` }}>
+                      <SegBar segs={e.segs} height={6} radius={3} />
+                    </div>
+                  </div>
                 </div>
                 <span className={styles.trackTotal}>{e.n}</span>
               </div>
             );
-          })
-        )}
+          });
+        })()}
       </div>
     </div>
   );

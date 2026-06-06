@@ -3,7 +3,7 @@ import { fmtShort } from '../lib/dates';
 import { PushButton, SyncButton, TopBar } from '../components/chrome';
 import { Icon } from '../components/Icon';
 import { EventBadge } from '../components/badges';
-import { SprintRail } from '../components/dnd';
+import { Drag, SprintRail, setDragGhost, useDrag } from '../components/dnd';
 import { IconButton, PButton } from '../components/primitives';
 import { statusVars } from '../components/statusVars';
 import { STATUSES, type Member, type Status } from '../types';
@@ -81,13 +81,14 @@ function ColHeaders({ groupBy }: { groupBy: GroupBy }) {
       </div>
       <div className={styles.colHeaderRight}>
         <div className={`${styles.colKey} ${styles.colHeaderLabel}`}>Key</div>
-        <div className={`${styles.colTitle} ${styles.colHeaderLabel}`}>Title</div>
         <div className={`${styles.colType} ${styles.colHeaderLabel}`}>Type</div>
         <div className={`${styles.colPts} ${styles.colHeaderLabel}`}>Pts</div>
-        <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`} />
-        <div className={`${styles.colTrailing} ${styles.colHeaderLabel}`}>
-          {groupBy === 'stream' ? 'Status' : 'Stream'}
-        </div>
+        <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`}>Assignee</div>
+        <div className={`${styles.colStatus} ${styles.colHeaderLabel}`}>Status</div>
+        {groupBy === 'status' && (
+          <div className={`${styles.colWorkStream} ${styles.colHeaderLabel}`}>Work Stream</div>
+        )}
+        <div className={`${styles.colTitle} ${styles.colHeaderLabel}`}>Title</div>
       </div>
     </div>
   );
@@ -95,12 +96,12 @@ function ColHeaders({ groupBy }: { groupBy: GroupBy }) {
 
 function ItemRow({
   item,
-  trailingLabel,
+  workStreamName,
   members,
   onOpen,
 }: {
   item: SprintViewProps['filteredItems'][0];
-  trailingLabel: string;
+  workStreamName?: string;
   members: Member[];
   onOpen: () => void;
 }) {
@@ -108,11 +109,27 @@ function ItemRow({
     ? members.find((m) => m.id === item.assignedMemberId)
     : undefined;
   const tv = typeVars(item.itemType?.label);
+  const sv = statusVars(item.status);
+  const dragging = useDrag();
+  const isMe = dragging?.id === item.id;
 
   return (
-    <div className={styles.itemRow} onClick={onOpen}>
-      <div className={styles.colKey}>{item.key}</div>
-      <div className={styles.colTitle}>{item.subject}</div>
+    <div className={styles.itemRow} onClick={onOpen} style={isMe ? { opacity: 0.4 } : undefined}>
+      <div
+        className={styles.colKey}
+        draggable
+        style={{ cursor: 'grab' }}
+        onDragStart={(e) => {
+          e.stopPropagation();
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', item.id);
+          setDragGhost(e, item.key);
+          Drag.start(item);
+        }}
+        onDragEnd={() => Drag.end()}
+      >
+        {item.key}
+      </div>
       <div className={styles.colType}>
         {item.itemType && (
           <span
@@ -127,7 +144,29 @@ function ItemRow({
       <div className={styles.colAssignee}>
         {assignee && <Avatar member={assignee} />}
       </div>
-      <div className={styles.colTrailing}>{trailingLabel}</div>
+      <div className={styles.colStatus}>
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            padding: '1px 7px 1px 6px',
+            borderRadius: 20,
+            background: sv.soft,
+            color: sv.text,
+            fontSize: 11,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: sv.dot, flexShrink: 0 }} />
+          {item.status}
+        </span>
+      </div>
+      {workStreamName !== undefined && (
+        <div className={styles.colWorkStream}>{workStreamName}</div>
+      )}
+      <div className={styles.colTitle}>{item.subject}</div>
     </div>
   );
 }
@@ -136,16 +175,25 @@ function StreamSection({
   col,
   members,
   onOpenItem,
+  onNavigateToStream,
 }: {
   col: StreamColumn;
   members: Member[];
   onOpenItem: (id: string) => void;
+  onNavigateToStream: (wsId: string) => void;
 }) {
   const pts = col.items.reduce((a, i) => a + i.points, 0);
   return (
     <div className={styles.section}>
       <div className={styles.sectionLeft}>
-        <div className={styles.sectionName}>{col.ws.name}</div>
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}
+          onClick={() => onNavigateToStream(col.ws.id)}
+          title={`Go to ${col.ws.name}`}
+        >
+          <span className={styles.sectionName}>{col.ws.name}</span>
+          <span style={{ color: 'var(--rt-t3)', display: 'flex', flexShrink: 0 }}>{Icon.chevRight}</span>
+        </div>
         <div className={styles.sectionMeta}>
           {col.items.length} item{col.items.length !== 1 ? 's' : ''} · {pts} pts
         </div>
@@ -155,7 +203,6 @@ function StreamSection({
           <ItemRow
             key={it.id}
             item={it}
-            trailingLabel={it.status}
             members={members}
             onOpen={() => onOpenItem(it.id)}
           />
@@ -201,7 +248,7 @@ function StatusSection({
             <ItemRow
               key={it.id}
               item={it}
-              trailingLabel={ws?.name ?? 'Unassigned'}
+              workStreamName={ws?.name ?? 'Unassigned'}
               members={members}
               onOpen={() => onOpenItem(it.id)}
             />
@@ -410,6 +457,7 @@ export function SprintTable({
   isFiltered,
   onBack,
   onGoToSprint,
+  onNavigateToStream,
   onEditSprint,
   onNewItem,
   onOpenItem,
@@ -540,6 +588,7 @@ export function SprintTable({
               col={col}
               members={members}
               onOpenItem={onOpenItem}
+              onNavigateToStream={onNavigateToStream}
             />
           ))
         ) : (

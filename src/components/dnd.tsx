@@ -35,6 +35,32 @@ export function useDrag(): WorkItem | null {
   return Drag.get();
 }
 
+// Creates a styled key-badge ghost for table-row drag operations.
+export function setDragGhost(e: React.DragEvent, text: string) {
+  const cs = getComputedStyle(document.documentElement);
+  const el = document.createElement('div');
+  el.textContent = text;
+  Object.assign(el.style, {
+    position: 'fixed',
+    top: '-100px',
+    left: '-100px',
+    background: cs.getPropertyValue('--rt-paper').trim() || '#fff',
+    color: cs.getPropertyValue('--rt-ink').trim() || '#111',
+    border: `1.5px solid ${cs.getPropertyValue('--rt-line').trim() || '#ddd'}`,
+    borderRadius: '6px',
+    padding: '5px 12px',
+    fontFamily: cs.getPropertyValue('--rt-mono').trim() || 'ui-monospace,monospace',
+    fontSize: '12.5px',
+    fontWeight: '700',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+    pointerEvents: 'none',
+    whiteSpace: 'nowrap',
+  });
+  document.body.appendChild(el);
+  e.dataTransfer.setDragImage(el, Math.round(el.offsetWidth / 2), Math.round(el.offsetHeight / 2));
+  requestAnimationFrame(() => { el.parentNode?.removeChild(el); });
+}
+
 // ── planned-vs-capacity meter ───────────────────────────────────────────
 export function CapacityMeter({ planned, cap, style }: { planned: number; cap: number; style?: CSSProperties }) {
   const over = planned > cap;

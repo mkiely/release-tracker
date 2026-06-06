@@ -39,7 +39,7 @@
   border-right: 1px solid var(--rt-line);
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 5px;
   min-width: 0;
 }
@@ -138,6 +138,22 @@
 .trackBar {
   flex: 1;
   min-width: 0;
+}
+
+/* Gantt-style proportional bar inside the track */
+.trackTrack {
+  position: relative;
+  height: 6px;
+  background: var(--rt-fill);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.trackFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
 }
 
 .trackChips {

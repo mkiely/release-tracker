@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import type { WorkStreamViewProps } from '../hooks/useWorkStreamView';
 import type { Member, Sprint, WorkItem } from '../types';
 import { STATUSES } from '../types';
 import { fmtShort } from '../lib/dates';
 import { PushButton, SyncButton, TopBar } from '../components/chrome';
 import { Icon } from '../components/Icon';
+import { Drag, setDragGhost, useDrag } from '../components/dnd';
 import { IconButton, PButton } from '../components/primitives';
 import { statusVars } from '../components/statusVars';
+import { getActions } from '../store/store';
 import styles from './SprintTable.module.css';
 
 // ── Helpers (shared with SprintTable) ─────────────────────────────────────
@@ -52,11 +55,26 @@ function ItemRow({
     : undefined;
   const tv = typeVars(item.itemType?.label);
   const sv = statusVars(item.status);
+  const dragging = useDrag();
+  const isMe = dragging?.id === item.id;
 
   return (
-    <div className={styles.itemRow} onClick={onOpen}>
-      <div className={styles.colKey}>{item.key}</div>
-      <div className={styles.colTitle}>{item.subject}</div>
+    <div className={styles.itemRow} onClick={onOpen} style={isMe ? { opacity: 0.4 } : undefined}>
+      <div
+        className={styles.colKey}
+        draggable
+        style={{ cursor: 'grab' }}
+        onDragStart={(e) => {
+          e.stopPropagation();
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', item.id);
+          setDragGhost(e, item.key);
+          Drag.start(item);
+        }}
+        onDragEnd={() => Drag.end()}
+      >
+        {item.key}
+      </div>
       <div className={styles.colType}>
         {item.itemType && (
           <span
@@ -79,7 +97,7 @@ function ItemRow({
           </div>
         )}
       </div>
-      <div className={styles.colTrailing}>
+      <div className={styles.colStatus}>
         <span
           style={{
             display: 'inline-flex',
@@ -98,6 +116,7 @@ function ItemRow({
           {item.status}
         </span>
       </div>
+      <div className={styles.colTitle}>{item.subject}</div>
     </div>
   );
 }
@@ -109,24 +128,65 @@ function SprintSection({
   isActive,
   items,
   members,
+  notify,
   onOpenItem,
 }: {
   sp: Sprint;
   isActive: boolean;
   items: WorkItem[];
   members: Member[];
+  notify: (msg: string) => void;
   onOpenItem: (id: string) => void;
 }) {
   const pts = items.reduce((a, i) => a + i.points, 0);
   const sv = statusVars('In Progress');
+  const draggingItem = useDrag();
+  const [over, setOver] = useState(false);
+  const canDrop = !!draggingItem && draggingItem.sprintId !== sp.id;
+
   return (
-    <div className={styles.section}>
+    <div
+      className={styles.section}
+      data-over={over || undefined}
+      style={over ? { background: 'var(--rt-fill)' } : undefined}
+      onDragOver={(e) => {
+        const it = Drag.get();
+        if (it && it.sprintId !== sp.id) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (!over) setOver(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(false);
+      }}
+      onDrop={(e) => {
+        const it = Drag.get();
+        if (it && it.sprintId !== sp.id) {
+          e.preventDefault();
+          getActions().updateItem(it.id, { sprintId: sp.id });
+          notify(`Moved ${it.key} → ${sp.name}`);
+        }
+        setOver(false);
+        Drag.end();
+      }}
+    >
       <div
         className={styles.sectionLeft}
         style={isActive ? { boxShadow: `inset 4px 0 0 ${sv.dot}` } : undefined}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-          <span className={styles.sectionName}>{sp.name}</span>
+          <span
+            style={{
+              fontSize: 17,
+              fontWeight: 800,
+              letterSpacing: '-0.022em',
+              color: 'var(--rt-ink)',
+              lineHeight: 1.2,
+            }}
+          >
+            {sp.name}
+          </span>
           {isActive && (
             <span
               style={{
@@ -152,6 +212,11 @@ function SprintSection({
         <div className={styles.sectionMeta}>
           {items.length} item{items.length !== 1 ? 's' : ''} · {pts} pts
         </div>
+        {canDrop && (
+          <div style={{ marginTop: 4, fontSize: 10, fontWeight: 700, color: over ? 'var(--rt-st-ac-text)' : 'var(--rt-t3)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            {over ? 'Drop to move here' : 'Drop to reassign'}
+          </div>
+        )}
       </div>
       <div className={styles.sectionRight}>
         {items.map((it) => (
@@ -263,11 +328,11 @@ function ColHeaders() {
       </div>
       <div className={styles.colHeaderRight}>
         <div className={`${styles.colKey} ${styles.colHeaderLabel}`}>Key</div>
-        <div className={`${styles.colTitle} ${styles.colHeaderLabel}`}>Title</div>
         <div className={`${styles.colType} ${styles.colHeaderLabel}`}>Type</div>
         <div className={`${styles.colPts} ${styles.colHeaderLabel}`}>Pts</div>
-        <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`} />
-        <div className={`${styles.colTrailing} ${styles.colHeaderLabel}`}>Status</div>
+        <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`}>Assignee</div>
+        <div className={`${styles.colStatus} ${styles.colHeaderLabel}`}>Status</div>
+        <div className={`${styles.colTitle} ${styles.colHeaderLabel}`}>Title</div>
       </div>
     </div>
   );
@@ -295,6 +360,7 @@ export function WorkStreamTable({
   onClearFilters,
   onSync,
   onPush,
+  notify,
 }: WorkStreamViewProps) {
   const members = team?.members ?? [];
 
@@ -361,6 +427,7 @@ export function WorkStreamTable({
                 isActive={sp.id === activeSprintId}
                 items={items}
                 members={members}
+                notify={notify}
                 onOpenItem={onOpenItem}
               />
             ))}

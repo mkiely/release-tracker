@@ -47,7 +47,7 @@ function SprintRow({
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           gap: 12,
           padding: '9px 14px',
           background: 'var(--rt-fill)',
@@ -57,14 +57,15 @@ function SprintRow({
         <span
           title={sp.name}
           style={{
-            fontWeight: 750,
-            fontSize: 13.5,
+            fontWeight: 800,
+            fontSize: 17,
             color: 'var(--rt-ink)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             minWidth: 0,
             flex: '0 1 auto',
+            lineHeight: 1.1,
           }}
         >
           {sp.name}
