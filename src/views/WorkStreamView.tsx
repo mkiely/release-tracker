@@ -41,7 +41,7 @@ export function WorkStreamView({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 7,
-                fontSize: 12.5,
+                fontSize: 'var(--rt-fs-sm)',
                 color: 'var(--rt-t3)',
                 marginBottom: 3,
                 whiteSpace: 'nowrap',
@@ -51,12 +51,12 @@ export function WorkStreamView({
                 {r.name}
               </span>
               {Icon.chevRight}
-              <span style={{ fontWeight: 600, color: 'var(--rt-t2)' }}>Work stream</span>
+              <span style={{ fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)' }}>Work stream</span>
             </div>
             <div
               style={{
-                fontSize: 19,
-                fontWeight: 750,
+                fontSize: 'var(--rt-fs-xl)',
+                fontWeight: 'var(--rt-fw-heading)',
                 letterSpacing: '-0.02em',
                 lineHeight: 1,
                 whiteSpace: 'nowrap',
@@ -68,7 +68,7 @@ export function WorkStreamView({
         }
         right={
           <>
-            <span style={{ fontSize: 12.5, color: 'var(--rt-t3)' }}>
+            <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
               {totalItemCount} items · {totalPts} pts · drag cards between sprints
             </span>
             <PushButton release={r} onPush={onPush} />
@@ -97,7 +97,7 @@ export function WorkStreamView({
           flexWrap: 'wrap',
         }}
       >
-        <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--rt-t3)', marginRight: 2 }}>Status</span>
+        <span style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t3)', marginRight: 2 }}>Status</span>
         {STATUSES.map((s) => {
           const active = statusFilter.has(s);
           const sv = statusVars(s);
@@ -116,7 +116,7 @@ export function WorkStreamView({
                 background: active ? sv.soft : 'transparent',
                 color: active ? sv.text : 'var(--rt-t3)',
                 cursor: 'pointer',
-                fontSize: 11.5,
+                fontSize: 'var(--rt-fs-xs)',
                 fontWeight: active ? 700 : 500,
                 fontFamily: 'var(--rt-sans)',
                 whiteSpace: 'nowrap',
@@ -155,7 +155,7 @@ export function WorkStreamView({
                     background: active ? 'var(--rt-fill)' : 'transparent',
                     color: active ? 'var(--rt-ink)' : 'var(--rt-t3)',
                     cursor: 'pointer',
-                    fontSize: 11.5,
+                    fontSize: 'var(--rt-fs-xs)',
                     fontWeight: active ? 700 : 500,
                     fontFamily: 'var(--rt-sans)',
                     whiteSpace: 'nowrap',
@@ -183,8 +183,8 @@ export function WorkStreamView({
               onClick={onClearFilters}
               title="Clear filters"
               style={{
-                fontSize: 11.5,
-                fontWeight: 600,
+                fontSize: 'var(--rt-fs-xs)',
+                fontWeight: 'var(--rt-fw-semibold)',
                 color: 'var(--rt-t3)',
                 background: 'none',
                 border: 'none',
@@ -203,7 +203,7 @@ export function WorkStreamView({
         {filteredItems.length === 0 ? (
           <div
             className="card dash"
-            style={{ padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 14 }}
+            style={{ padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-md)' }}
           >
             {isFiltered ? 'No items match the current filters.' : 'No work items yet. Create one to get started.'}
           </div>

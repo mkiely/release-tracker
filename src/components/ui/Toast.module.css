@@ -9,8 +9,8 @@
   color: var(--rt-on-ink);
   border-radius: 10px;
   padding: 12px 18px;
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: var(--rt-fs-base);
+  font-weight: var(--rt-fw-semibold);
   display: flex;
   align-items: center;
   gap: 10px;

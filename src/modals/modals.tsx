@@ -42,7 +42,7 @@ export function ConfirmModal({
         </>
       }
     >
-      <span style={{ fontSize: 14, color: 'var(--rt-t2)', lineHeight: 1.5 }}>{body}</span>
+      <span style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 'var(--rt-lh-normal)' }}>{body}</span>
     </Modal>
   );
 }
@@ -112,7 +112,7 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span className="flabel">Members</span>
-          <span style={{ fontSize: 12, color: 'var(--rt-t3)' }}>{named}</span>
+          <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>{named}</span>
         </div>
         {members.map((m, i) => {
           const isSynced = !!m.externalId;
@@ -135,7 +135,7 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
                 style={{ flex: 1 }}
               />
               {isSynced ? (
-                <span className="tag" style={{ flex: '0 0 auto', fontSize: 10.5, color: 'var(--rt-t3)' }}>
+                <span className="tag" style={{ flex: '0 0 auto', fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>
                   synced
                 </span>
               ) : (
@@ -192,7 +192,7 @@ export function WorkStreamModal({ releaseId, onClose }: { releaseId: string; onC
           }}
         />
       </PField>
-      <span style={{ fontSize: 12.5, color: 'var(--rt-t3)' }}>
+      <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
         A work stream groups related work items across the release's sprints.
       </span>
     </Modal>
@@ -258,7 +258,7 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
       </PField>
       <div className="card" style={{ background: 'var(--rt-bg)', padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ width: 9, height: 9, borderRadius: 2, background: sp ? 'var(--rt-st-ac-dot)' : 'var(--rt-line-strong)', flex: '0 0 auto' }} />
-        <span style={{ fontSize: 13, color: 'var(--rt-t2)', lineHeight: 1.45 }}>
+        <span style={{ fontSize: 'var(--rt-fs-base)', color: 'var(--rt-t2)', lineHeight: 1.45 }}>
           {!date ? (
             'Pick a date within the release to place this event on a sprint.'
           ) : sp ? (
@@ -280,7 +280,7 @@ function Row({ k, v, big }: { k: ReactNode; v: ReactNode; big?: boolean }) {
   return (
     <div className="calc" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, fontSize: big ? 15 : 13 }}>
       <span style={{ color: big ? 'var(--rt-ink)' : 'var(--rt-t2)', fontWeight: big ? 700 : 400, whiteSpace: 'nowrap' }}>{k}</span>
-      <span className="mono" style={{ fontWeight: 600, color: big ? statusVars('In Progress').text : 'var(--rt-ink)', whiteSpace: 'nowrap', fontSize: big ? 15 : 13 }}>
+      <span className="mono" style={{ fontWeight: 'var(--rt-fw-semibold)', color: big ? statusVars('In Progress').text : 'var(--rt-ink)', whiteSpace: 'nowrap', fontSize: big ? 15 : 13 }}>
         {v}
       </span>
     </div>
@@ -320,9 +320,9 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
       }
     >
       {isConnector && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 4, fontSize: 11.5, color: 'var(--rt-t3)', background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`, borderRadius: 7 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 4, fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`, borderRadius: 7 }}>
           {Icon.sync}
-          <span>Sprint details are managed by the connector. <strong style={{ color: 'var(--rt-t2)', fontWeight: 600 }}>Days off</strong> is stored locally.</span>
+          <span>Sprint details are managed by the connector. <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>Days off</strong> is stored locally.</span>
         </div>
       )}
       {!isConnector && (
@@ -339,14 +339,14 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
             display: 'flex', alignItems: 'center',
             width: '100%', border: '1.5px solid var(--rt-line-strong)',
             background: 'var(--rt-paper)', borderRadius: 9,
-            padding: '11px 13px', fontSize: 15, fontFamily: 'inherit',
+            padding: '11px 13px', fontSize: 'var(--rt-fs-md)', fontFamily: 'inherit',
             color: 'var(--rt-t2)', minHeight: 46,
           }}>
             {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
           </span>
         </PField>
       </div>
-      <span style={{ fontSize: 11.5, color: 'var(--rt-t3)', marginTop: -4 }}>
+      <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', marginTop: -4 }}>
         One holiday for a team of {memberCount} = {memberCount} days off.
       </span>
       <div className="card" style={{ background: 'var(--rt-bg)', padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -531,13 +531,33 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
     onClose();
   };
 
+  // Connector context banner — rendered in the footer (left of the buttons) so it
+  // doesn't eat vertical space the description can use.
+  const bannerStyle = {
+    display: 'flex', alignItems: 'center', gap: 6, marginRight: 'auto',
+    padding: '5px 10px', fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)',
+    background: 'var(--rt-fill)', border: '1.5px solid var(--rt-line)', borderRadius: 7,
+    flex: '0 1 auto', minWidth: 0,
+  } as const;
+  const syncBanner = synced ? (
+    <div style={bannerStyle}>
+      {Icon.sync}
+      <span>Synced — most fields refresh on sync. <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>Points</strong> and <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>sprint</strong> are writeable.</span>
+    </div>
+  ) : connectorRelease ? (
+    <div style={bannerStyle}>
+      {Icon.sync}
+      <span>Connector release — <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>status</strong> editing is coming soon.</span>
+    </div>
+  ) : null;
+
   return (
     <Modal
       onClose={onClose}
       width={640}
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span className="mono" style={{ fontSize: 12.5, color: 'var(--rt-t3)', background: 'var(--rt-fill)', padding: '3px 7px', borderRadius: 5 }}>
+          <span className="mono" style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', background: 'var(--rt-fill)', padding: '3px 7px', borderRadius: 5 }}>
             {it.key}
           </span>
           {it.itemType && (
@@ -545,7 +565,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
               title="Item type (connector-assigned, read-only)"
               style={{
                 display: 'inline-flex', alignItems: 'center',
-                fontSize: 11.5, fontWeight: 600, color: 'var(--rt-t2)',
+                fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)',
                 background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`,
                 borderRadius: 5, padding: '2px 8px',
               }}
@@ -558,7 +578,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
               title={`Build: ${it.build}`}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontSize: 11.5, fontWeight: 600, color: 'var(--rt-t3)',
+                fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t3)',
                 background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`,
                 borderRadius: 5, padding: '2px 8px',
               }}
@@ -567,7 +587,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
               {it.build}
             </span>
           )}
-          <span style={{ fontSize: 17, fontWeight: 750 }}>Work item</span>
+          <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Work item</span>
           {isDirty && (
             <span
               title="Modified — pending push"
@@ -578,6 +598,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       }
       footer={
         <>
+          {syncBanner}
           <PButton variant="subtle" onClick={onClose}>
             Close
           </PButton>
@@ -585,18 +606,6 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
         </>
       }
     >
-      {synced && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 10, fontSize: 11.5, color: 'var(--rt-t3)', background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`, borderRadius: 7 }}>
-          {Icon.sync}
-          <span>Synced — most fields refresh on sync. <strong style={{ color: 'var(--rt-t2)', fontWeight: 600 }}>Points</strong> and <strong style={{ color: 'var(--rt-t2)', fontWeight: 600 }}>sprint</strong> are writeable.</span>
-        </div>
-      )}
-      {!synced && connectorRelease && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 10, fontSize: 11.5, color: 'var(--rt-t3)', background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`, borderRadius: 7 }}>
-          {Icon.sync}
-          <span>Connector release — <strong style={{ color: 'var(--rt-t2)', fontWeight: 600 }}>status</strong> editing is coming soon.</span>
-        </div>
-      )}
       <PField label="Subject">
         <PInput value={subject} disabled={readOnlyCore} onChange={(e) => setSubject(e.target.value)} />
       </PField>
@@ -610,7 +619,8 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
               background: 'var(--rt-paper)',
               borderRadius: 9,
               padding: '11px 13px',
-              maxHeight: 120,
+              minHeight: 140,
+              maxHeight: '38vh',
               overflowY: 'auto',
             }}
           />
@@ -620,7 +630,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
             disabled={readOnlyCore}
             placeholder="No description yet — add detail, acceptance criteria, links…"
             onChange={(e) => setDesc(e.target.value)}
-            style={{ minHeight: 80 }}
+            style={{ minHeight: 140 }}
           />
         )}
       </PField>

@@ -20,19 +20,18 @@
 }
 
 .sprintName {
-  font-size: 22px;
-  font-weight: 800;
+  font-size: var(--rt-fs-xl);
+  font-weight: var(--rt-fw-display);
   letter-spacing: -0.025em;
   color: var(--rt-ink);
   line-height: 1.1;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .activeBadge {
-  font-size: 9.5px;
-  font-weight: 800;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-display);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #fff;
@@ -58,7 +57,7 @@
   align-items: center;
   gap: 8px;
   color: var(--rt-t2);
-  font-size: 12.5px;
+  font-size: var(--rt-fs-sm);
   flex-wrap: wrap;
 }
 
@@ -81,17 +80,17 @@
   border-radius: 5px;
   border: none;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--rt-fs-sm);
+  font-weight: var(--rt-fw-medium);
   background: transparent;
   color: var(--rt-t3);
   font-family: var(--rt-sans);
-  line-height: 1.5;
+  line-height: var(--rt-lh-normal);
 }
 
 .groupBtnActive {
   border: 1px solid var(--rt-line);
-  font-weight: 700;
+  font-weight: var(--rt-fw-bold);
   background: var(--rt-paper);
   color: var(--rt-ink);
 }
@@ -114,8 +113,8 @@
 }
 
 .filterLabel {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-bold);
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--rt-t3);
@@ -143,8 +142,8 @@
 }
 
 .clearBtn {
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: var(--rt-fs-xs);
+  font-weight: var(--rt-fw-semibold);
   color: var(--rt-t3);
   background: none;
   border: none;
@@ -171,12 +170,12 @@
 }
 
 .colHeaderLeft {
-  width: 310px;
+  width: 280px;
   flex-shrink: 0;
   padding: 6px 20px;
   border-right: 1px solid var(--rt-line);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-bold);
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--rt-t3);
@@ -206,7 +205,7 @@
 }
 
 .sectionLeft {
-  width: 310px;
+  width: 280px;
   flex-shrink: 0;
   padding: 14px 20px;
   border-right: 1px solid var(--rt-line);
@@ -217,8 +216,8 @@
 }
 
 .sectionName {
-  font-size: 13px;
-  font-weight: 650;
+  font-size: var(--rt-fs-base);
+  font-weight: var(--rt-fw-semibold);
   color: var(--rt-ink);
   white-space: nowrap;
   overflow: hidden;
@@ -226,14 +225,14 @@
 }
 
 .sectionMeta {
-  font-size: 11px;
+  font-size: var(--rt-fs-xs);
   color: var(--rt-t3);
   font-family: var(--rt-mono);
 }
 
 .statusName {
-  font-size: 12.5px;
-  font-weight: 650;
+  font-size: var(--rt-fs-sm);
+  font-weight: var(--rt-fw-semibold);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -277,7 +276,7 @@
   flex-shrink: 0;
   padding: 0 10px 0 14px;
   font-family: var(--rt-mono);
-  font-size: 11.5px;
+  font-size: var(--rt-fs-xs);
   color: var(--rt-t3);
   white-space: nowrap;
   overflow: hidden;
@@ -288,7 +287,8 @@
   flex: 1;
   min-width: 0;
   padding: 0 8px;
-  font-size: 13px;
+  font-size: var(--rt-fs-md);
+  font-weight: var(--rt-fw-medium);
   color: var(--rt-ink);
   white-space: nowrap;
   overflow: hidden;
@@ -309,8 +309,8 @@
   box-sizing: border-box;
   padding: 2px 7px;
   border-radius: 4px;
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-semibold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -324,7 +324,7 @@
   flex-shrink: 0;
   padding: 0 10px 0 4px;
   font-family: var(--rt-mono);
-  font-size: 11.5px;
+  font-size: var(--rt-fs-xs);
   color: var(--rt-t3);
   text-align: right;
 }
@@ -345,15 +345,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
-  font-weight: 700;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-bold);
   font-family: var(--rt-sans);
   flex-shrink: 0;
   letter-spacing: 0.02em;
 }
 
 .colStatus {
-  width: 140px;
+  width: 120px;
   flex-shrink: 0;
   padding: 0 10px 0 8px;
   display: flex;
@@ -364,7 +364,7 @@
   width: 130px;
   flex-shrink: 0;
   padding: 0 10px 0 8px;
-  font-size: 12px;
+  font-size: var(--rt-fs-sm);
   color: var(--rt-t2);
   white-space: nowrap;
   overflow: hidden;
@@ -373,8 +373,8 @@
 
 /* col header labels — only sets vertical padding so column-specific horizontal padding is preserved */
 .colHeaderLabel {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-bold);
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--rt-t3);
@@ -387,5 +387,5 @@
   padding: 40px;
   text-align: center;
   color: var(--rt-t3);
-  font-size: 14px;
+  font-size: var(--rt-fs-md);
 }

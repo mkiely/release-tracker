@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { ReleaseViewProps, SprintRowData } from '../hooks/useReleaseView';
 import { STATUSES } from '../types';
 import { fmtShort } from '../lib/dates';
@@ -16,7 +17,7 @@ function StatusLegend() {
       {STATUSES.map((s) => (
         <span
           key={s}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--rt-t2)' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)' }}
         >
           <span className="dot" style={{ background: statusVars(s).dot }} />
           {s}
@@ -28,11 +29,13 @@ function StatusLegend() {
 
 function SprintRow({
   row,
+  rowRef,
   onNavigate,
   onNavigateToStream,
   onOpenEvent,
 }: {
   row: SprintRowData;
+  rowRef?: React.Ref<HTMLDivElement>;
   onNavigate: () => void;
   onNavigateToStream: (wsId: string) => void;
   onOpenEvent: (eventId: string) => void;
@@ -40,6 +43,7 @@ function SprintRow({
   const { sprint: sp, isActive, vel, planned, itemCount, events, lane } = row;
   return (
     <div
+      ref={rowRef}
       className={['card', releaseStyles.sprintrow, isActive && releaseStyles.active].filter(Boolean).join(' ')}
       onClick={onNavigate}
       style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', cursor: 'pointer' }}
@@ -57,8 +61,8 @@ function SprintRow({
         <span
           title={sp.name}
           style={{
-            fontWeight: 800,
-            fontSize: 17,
+            fontWeight: 'var(--rt-fw-display)',
+            fontSize: 'var(--rt-fs-lg)',
             color: 'var(--rt-ink)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
@@ -70,11 +74,11 @@ function SprintRow({
         >
           {sp.name}
         </span>
-        <span style={{ fontSize: 11.5, color: 'var(--rt-t3)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
+        <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
           {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
         </span>
         <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
-        <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: 'var(--rt-t3)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
+        <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-bold)', color: 'var(--rt-t3)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
           {itemCount} item{itemCount !== 1 ? 's' : ''}
         </span>
         <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
@@ -91,7 +95,7 @@ function SprintRow({
               alignItems: 'center',
               justifyContent: 'center',
               color: 'var(--rt-t3)',
-              fontSize: 12.5,
+              fontSize: 'var(--rt-fs-sm)',
             }}
           >
             No work items
@@ -125,8 +129,8 @@ function SprintRow({
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                   <span
                     style={{
-                      fontSize: 13,
-                      fontWeight: 650,
+                      fontSize: 'var(--rt-fs-base)',
+                      fontWeight: 'var(--rt-fw-semibold)',
                       color: e.ws ? 'var(--rt-t2)' : 'var(--rt-t3)',
                       fontStyle: e.ws ? undefined : 'italic',
                       whiteSpace: 'nowrap',
@@ -138,7 +142,7 @@ function SprintRow({
                   >
                     {e.ws ? e.ws.name : 'Unassigned'}
                   </span>
-                  <span className="mono" style={{ fontSize: 11.5, color: 'var(--rt-t3)', flex: '0 0 auto' }}>
+                  <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', flex: '0 0 auto' }}>
                     {e.n}
                   </span>
                 </div>
@@ -173,6 +177,13 @@ export function ReleaseView({
   onSync,
   onPush,
 }: ReleaseViewProps) {
+  const activeRowRef = useRef<HTMLDivElement>(null);
+
+  // Center the viewport on the active sprint when the view first loads.
+  useEffect(() => {
+    activeRowRef.current?.scrollIntoView({ block: 'center' });
+  }, []);
+
   return (
     <div className="wf screen">
       <TopBar
@@ -234,7 +245,7 @@ export function ReleaseView({
         </span>
         <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
         {workStreamBadges.length === 0 && !hasUnassigned ? (
-          <span style={{ fontSize: 12.5, color: 'var(--rt-t3)' }}>
+          <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
             No work streams yet — add one with the button above.
           </span>
         ) : (
@@ -254,10 +265,10 @@ export function ReleaseView({
                   cursor: 'pointer',
                 }}
               >
-                <span style={{ fontSize: 12.5, fontWeight: 650, whiteSpace: 'nowrap', color: 'var(--rt-ink)' }}>
+                <span style={{ fontSize: 'var(--rt-fs-sm)', fontWeight: 'var(--rt-fw-semibold)', whiteSpace: 'nowrap', color: 'var(--rt-ink)' }}>
                   {ws.name}
                 </span>
-                <span className="mono" style={{ fontSize: 11, color: 'var(--rt-t3)' }}>{itemCount}</span>
+                <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>{itemCount}</span>
                 {itemCount > 0 && <SegBar segs={segs} height={4} />}
               </div>
             ))}
@@ -275,8 +286,8 @@ export function ReleaseView({
               >
                 <span
                   style={{
-                    fontSize: 12.5,
-                    fontWeight: 650,
+                    fontSize: 'var(--rt-fs-sm)',
+                    fontWeight: 'var(--rt-fw-semibold)',
                     whiteSpace: 'nowrap',
                     color: 'var(--rt-t3)',
                     fontStyle: 'italic',
@@ -284,7 +295,7 @@ export function ReleaseView({
                 >
                   Unassigned
                 </span>
-                <span className="mono" style={{ fontSize: 11, color: 'var(--rt-t3)' }}>{unassignedCount}</span>
+                <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>{unassignedCount}</span>
                 <SegBar segs={unassignedSegs} height={4} />
               </div>
             )}
@@ -317,9 +328,9 @@ export function ReleaseView({
                 {Icon.sprint}Sprints · {r.sprints.length}
               </span>
               <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
-              <span style={{ fontSize: 11.5, color: 'var(--rt-t3)' }}>{team ? team.name : '—'}</span>
+              <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>{team ? team.name : '—'}</span>
               <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
-              <span style={{ fontSize: 11.5, color: 'var(--rt-t3)' }}>Velocity {teamVelocity} pts</span>
+              <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>Velocity {teamVelocity} pts</span>
             </div>
             <StatusLegend />
           </div>
@@ -327,7 +338,7 @@ export function ReleaseView({
             {r.sprints.length === 0 ? (
               <div
                 className="card dash"
-                style={{ padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 14 }}
+                style={{ padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-md)' }}
               >
                 {r.connector
                   ? 'No sprints yet. Run a sync to populate the release plan.'
@@ -338,6 +349,7 @@ export function ReleaseView({
                 <SprintRow
                   key={row.sprint.id}
                   row={row}
+                  rowRef={row.isActive ? activeRowRef : undefined}
                   onNavigate={() => onNavigateToSprint(row.sprint.id)}
                   onNavigateToStream={onNavigateToStream}
                   onOpenEvent={onOpenEvent}

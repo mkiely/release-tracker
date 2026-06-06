@@ -30,8 +30,8 @@
 
 .settingsSectionLabel {
   padding: 4px 14px 6px;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-bold);
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--rt-t3);
@@ -53,8 +53,8 @@
   border: none;
   cursor: pointer;
   font-family: var(--rt-sans);
-  font-size: 13px;
-  font-weight: 400;
+  font-size: var(--rt-fs-base);
+  font-weight: var(--rt-fw-normal);
   color: var(--rt-ink);
   text-align: left;
 }
@@ -65,7 +65,7 @@
 
 .paletteOptionActive {
   background: var(--rt-fill);
-  font-weight: 650;
+  font-weight: var(--rt-fw-semibold);
 }
 
 .topBar {
@@ -87,8 +87,8 @@
 }
 
 .topBarTitle {
-  font-size: 19px;
-  font-weight: 750;
+  font-size: var(--rt-fs-xl);
+  font-weight: var(--rt-fw-heading);
   letter-spacing: -0.02em;
   line-height: 1.05;
   white-space: nowrap;
@@ -99,7 +99,7 @@
   align-items: center;
   gap: 6px;
   color: var(--rt-t3);
-  font-size: 12.5px;
+  font-size: var(--rt-fs-sm);
   margin-top: 3px;
   white-space: nowrap;
 }
@@ -140,8 +140,8 @@
 }
 
 .brandLabel {
-  font-weight: 700;
-  font-size: 16px;
+  font-weight: var(--rt-fw-bold);
+  font-size: var(--rt-fs-lg);
   letter-spacing: -0.01em;
 }
 
@@ -152,7 +152,7 @@
 }
 
 .notFoundLabel {
-  font-size: 16px;
-  font-weight: 650;
+  font-size: var(--rt-fs-lg);
+  font-weight: var(--rt-fw-semibold);
   color: var(--rt-t2);
 }

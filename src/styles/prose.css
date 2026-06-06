@@ -4,7 +4,7 @@
    All colors reference --rt-* tokens so light/dark mode works automatically. */
 
 .prose {
-  font-size: 14px;
+  font-size: var(--rt-fs-md);
   line-height: 1.6;
   color: var(--rt-ink);
   word-break: break-word;
@@ -27,8 +27,8 @@
 .prose h3,
 .prose h4 {
   font-family: inherit;
-  font-weight: 700;
-  line-height: 1.3;
+  font-weight: var(--rt-fw-bold);
+  line-height: var(--rt-lh-snug);
   margin: 1.25em 0 0.4em;
   color: var(--rt-ink);
 }
@@ -74,7 +74,7 @@
 }
 
 .prose strong {
-  font-weight: 600;
+  font-weight: var(--rt-fw-semibold);
   color: var(--rt-ink);
 }
 
@@ -107,7 +107,7 @@
   border-radius: 0;
   padding: 0;
   font-size: 0.875em;
-  line-height: 1.5;
+  line-height: var(--rt-lh-normal);
 }
 
 .prose blockquote {
@@ -138,7 +138,7 @@
 
 .prose th {
   background: var(--rt-fill);
-  font-weight: 600;
+  font-weight: var(--rt-fw-semibold);
   color: var(--rt-t2);
 }
 

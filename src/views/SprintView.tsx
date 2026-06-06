@@ -80,7 +80,7 @@ export function SprintView({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 7,
-                fontSize: 12.5,
+                fontSize: 'var(--rt-fs-sm)',
                 color: 'var(--rt-t3)',
                 marginBottom: 3,
                 whiteSpace: 'nowrap',
@@ -90,13 +90,13 @@ export function SprintView({
                 {r.name}
               </span>
               {Icon.chevRight}
-              <span style={{ fontWeight: 600, color: 'var(--rt-t2)' }}>Sprint</span>
+              <span style={{ fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)' }}>Sprint</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
               <span
                 style={{
-                  fontSize: 19,
-                  fontWeight: 750,
+                  fontSize: 'var(--rt-fs-xl)',
+                  fontWeight: 'var(--rt-fw-heading)',
                   letterSpacing: '-0.02em',
                   lineHeight: 1,
                   whiteSpace: 'nowrap',
@@ -122,7 +122,7 @@ export function SprintView({
               {sp.daysOff} person-day{sp.daysOff === 1 ? '' : 's'} off
             </span>
             <span style={{ opacity: 0.5 }}>·</span>
-            <span style={totalPts > vel ? { color: 'var(--rt-st-bl-text)', fontWeight: 700 } : undefined}>
+            <span style={totalPts > vel ? { color: 'var(--rt-st-bl-text)', fontWeight: 'var(--rt-fw-bold)' } : undefined}>
               {sprintItemCount} items · {totalPts} pts planned
               {totalPts > vel ? ` · over by ${totalPts - vel}` : ''}
             </span>
@@ -220,8 +220,8 @@ export function SprintView({
                 border: isActive ? `2px solid ${'var(--rt-ink)'}` : `1.5px solid ${'var(--rt-line)'}`,
                 background: isActive ? 'var(--rt-fill)' : 'transparent',
                 cursor: 'pointer',
-                fontSize: 10,
-                fontWeight: 700,
+                fontSize: 'var(--rt-fs-micro)',
+                fontWeight: 'var(--rt-fw-bold)',
                 color: isActive ? 'var(--rt-ink)' : 'var(--rt-t3)',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -257,7 +257,7 @@ export function SprintView({
                 background: active ? sv.soft : 'transparent',
                 color: active ? sv.text : 'var(--rt-t3)',
                 cursor: 'pointer',
-                fontSize: 11.5,
+                fontSize: 'var(--rt-fs-xs)',
                 fontWeight: active ? 700 : 500,
                 fontFamily: 'var(--rt-sans)',
                 whiteSpace: 'nowrap',
@@ -297,7 +297,7 @@ export function SprintView({
                     background: active ? 'var(--rt-fill)' : 'transparent',
                     color: active ? 'var(--rt-ink)' : 'var(--rt-t3)',
                     cursor: 'pointer',
-                    fontSize: 11.5,
+                    fontSize: 'var(--rt-fs-xs)',
                     fontWeight: active ? 700 : 500,
                     fontFamily: 'var(--rt-sans)',
                     whiteSpace: 'nowrap',
@@ -339,7 +339,7 @@ export function SprintView({
                     background: active ? 'var(--rt-fill)' : 'transparent',
                     color: active ? 'var(--rt-ink)' : 'var(--rt-t3)',
                     cursor: 'pointer',
-                    fontSize: 11.5,
+                    fontSize: 'var(--rt-fs-xs)',
                     fontWeight: active ? 700 : 500,
                     fontFamily: 'var(--rt-sans)',
                     whiteSpace: 'nowrap',
@@ -368,8 +368,8 @@ export function SprintView({
               onClick={onClearFilters}
               title="Clear all filters"
               style={{
-                fontSize: 11.5,
-                fontWeight: 600,
+                fontSize: 'var(--rt-fs-xs)',
+                fontWeight: 'var(--rt-fw-semibold)',
                 color: 'var(--rt-t3)',
                 background: 'none',
                 border: 'none',
@@ -388,7 +388,7 @@ export function SprintView({
         {filteredItems.length === 0 ? (
           <div
             className="card dash"
-            style={{ padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 14 }}
+            style={{ padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-md)' }}
           >
             {isFiltered ? 'No items match the current filters.' : 'No work items in this sprint yet.'}
           </div>
@@ -405,8 +405,8 @@ export function SprintView({
                 >
                   <span
                     style={{
-                      fontWeight: 750,
-                      fontSize: 13.5,
+                      fontWeight: 'var(--rt-fw-heading)',
+                      fontSize: 'var(--rt-fs-base)',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -425,7 +425,7 @@ export function SprintView({
                       color: 'var(--rt-t3)',
                     }}
                   >
-                    <span className="mono" style={{ fontSize: 11.5, fontWeight: 700 }}>
+                    <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-bold)' }}>
                       {col.items.reduce((a, i) => a + i.points, 0)} pts
                     </span>
                     {Icon.chevRight}
@@ -447,7 +447,7 @@ export function SprintView({
             {unassignedItems.length > 0 && (
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px', gap: 8 }}>
-                  <span style={{ fontWeight: 750, fontSize: 13.5, color: 'var(--rt-t3)', fontStyle: 'italic' }}>
+                  <span style={{ fontWeight: 'var(--rt-fw-heading)', fontSize: 'var(--rt-fs-base)', color: 'var(--rt-t3)', fontStyle: 'italic' }}>
                     Unassigned
                   </span>
                   <span
@@ -460,7 +460,7 @@ export function SprintView({
                       color: 'var(--rt-t3)',
                     }}
                   >
-                    <span className="mono" style={{ fontSize: 11.5, fontWeight: 700 }}>
+                    <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-bold)' }}>
                       {unassignedItems.reduce((a, i) => a + i.points, 0)} pts
                     </span>
                   </span>
@@ -506,8 +506,8 @@ export function SprintView({
                         borderRadius: 20,
                         background: sv.soft,
                         color: sv.text,
-                        fontSize: 11.5,
-                        fontWeight: 700,
+                        fontSize: 'var(--rt-fs-xs)',
+                        fontWeight: 'var(--rt-fw-bold)',
                         whiteSpace: 'nowrap',
                       }}
                     >
@@ -516,7 +516,7 @@ export function SprintView({
                     </span>
                     <span
                       className="mono"
-                      style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--rt-t3)', marginLeft: 'auto' }}
+                      style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-bold)', color: 'var(--rt-t3)', marginLeft: 'auto' }}
                     >
                       {col.items.reduce((a, i) => a + i.points, 0)} pts
                     </span>
@@ -530,8 +530,8 @@ export function SprintView({
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 2px' }}>
                           <span
                             style={{
-                              fontSize: 12,
-                              fontWeight: 700,
+                              fontSize: 'var(--rt-fs-sm)',
+                              fontWeight: 'var(--rt-fw-bold)',
                               color: grp.wsName ? 'var(--rt-t2)' : 'var(--rt-t3)',
                               fontStyle: grp.wsName ? undefined : 'italic',
                               whiteSpace: 'nowrap',
@@ -541,7 +541,7 @@ export function SprintView({
                           >
                             {grp.wsName ?? 'Unassigned'}
                           </span>
-                          <span className="mono" style={{ fontSize: 11, color: 'var(--rt-t3)', flex: '0 0 auto' }}>
+                          <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', flex: '0 0 auto' }}>
                             {grp.items.reduce((a, i) => a + i.points, 0)} pts
                           </span>
                         </div>

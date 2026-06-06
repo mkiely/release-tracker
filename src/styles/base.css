@@ -60,13 +60,28 @@ body { margin: 0; }
 
 /* ── Shared text / typographic utilities ─────────────────────────────────── */
 
+/* Role-based type classes. Prefer these over ad-hoc font-size/weight so text
+   stays proportional as the scale is tuned. Each maps a role onto the --rt-fs-*
+   ramp + --rt-fw-* weights in tokens.css. Colour is left to the consumer except
+   where a role implies it (meta/micro/label are tertiary by default). */
+.t-display { font-size: var(--rt-fs-display); font-weight: var(--rt-fw-display); line-height: var(--rt-lh-tight); letter-spacing: -0.022em; }
+.t-title   { font-size: var(--rt-fs-xl);      font-weight: var(--rt-fw-display); line-height: var(--rt-lh-tight); letter-spacing: -0.02em; }
+.t-heading { font-size: var(--rt-fs-lg);      font-weight: var(--rt-fw-heading); line-height: var(--rt-lh-tight); letter-spacing: -0.018em; }
+.t-subhead { font-size: var(--rt-fs-md);      font-weight: var(--rt-fw-bold);    line-height: var(--rt-lh-snug); }
+.t-body    { font-size: var(--rt-fs-base);    font-weight: var(--rt-fw-normal);  line-height: var(--rt-lh-normal); }
+.t-body-sm { font-size: var(--rt-fs-sm);      font-weight: var(--rt-fw-normal);  line-height: var(--rt-lh-normal); }
+.t-meta    { font-size: var(--rt-fs-xs);      font-weight: var(--rt-fw-medium);  color: var(--rt-t3); }
+.t-micro   { font-size: var(--rt-fs-micro);   font-weight: var(--rt-fw-medium);  color: var(--rt-t3); }
+.t-label   { font-size: var(--rt-fs-xs);      font-weight: var(--rt-fw-bold);    letter-spacing: 0.04em; text-transform: uppercase; color: var(--rt-t3); }
+.t-num     { font-family: var(--rt-mono);     font-weight: var(--rt-fw-bold); }
+
 /* monospace helper */
 .mono { font-family: var(--rt-mono); }
 
 /* uppercase section label */
 .tag {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--rt-fs-xs);
+  font-weight: var(--rt-fw-bold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--rt-t3);
@@ -75,8 +90,8 @@ body { margin: 0; }
 /* field-label style (used standalone outside PField in modals) */
 .flabel {
   font-family: var(--rt-sans);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--rt-fs-sm);
+  font-weight: var(--rt-fw-semibold);
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--rt-t3);
@@ -89,8 +104,8 @@ body { margin: 0; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: var(--rt-fs-sm);
+  font-weight: var(--rt-fw-semibold);
   padding: 4px 9px;
   border-radius: 999px;
   line-height: 1.2;
@@ -115,16 +130,16 @@ body { margin: 0; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--rt-fs-xs);
+  font-weight: var(--rt-fw-bold);
   color: var(--rt-t2);
 }
 
 /* mono capacity/points pill */
 .pts {
   font-family: var(--rt-mono);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--rt-fs-xs);
+  font-weight: var(--rt-fw-bold);
   color: var(--rt-t2);
   background: var(--rt-fill);
   border-radius: 5px;
@@ -140,10 +155,10 @@ body { margin: 0; }
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  font-size: 13px;
+  font-size: var(--rt-fs-base);
 }
 .calc .k { color: var(--rt-t2); white-space: nowrap; }
-.calc .v { font-family: var(--rt-mono); font-weight: 600; color: var(--rt-ink); white-space: nowrap; }
+.calc .v { font-family: var(--rt-mono); font-weight: var(--rt-fw-semibold); color: var(--rt-ink); white-space: nowrap; }
 
 /* horizontal divider */
 .divider {

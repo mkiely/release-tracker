@@ -11,8 +11,8 @@
 }
 
 .capValue {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--rt-fs-xs);
+  font-weight: var(--rt-fw-bold);
   white-space: nowrap;
   color: var(--rt-t2);
 }
@@ -22,8 +22,8 @@
 }
 
 .capUnit {
-  font-size: 9.5px;
-  font-weight: 700;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-bold);
   letter-spacing: .04em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -99,8 +99,8 @@
 }
 
 .pillName {
-  font-weight: 700;
-  font-size: 12px;
+  font-weight: var(--rt-fw-bold);
+  font-size: var(--rt-fs-sm);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -108,8 +108,8 @@
 }
 
 .pillBadge {
-  font-size: 9px;
-  font-weight: 800;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-display);
   letter-spacing: .06em;
   margin-left: auto;
   flex: 0 0 auto;
@@ -117,8 +117,8 @@
 }
 
 .pillBadgeDrop {
-  font-size: 9px;
-  font-weight: 800;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-display);
   letter-spacing: .06em;
   margin-left: auto;
   flex: 0 0 auto;
@@ -146,8 +146,8 @@
 }
 
 .columnHeaderName {
-  font-weight: 750;
-  font-size: 13px;
+  font-weight: var(--rt-fw-heading);
+  font-size: var(--rt-fs-base);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -155,8 +155,8 @@
 }
 
 .columnHeaderNow {
-  font-size: 9px;
-  font-weight: 800;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-display);
   letter-spacing: .06em;
   color: var(--rt-st-ac-text);
   margin-left: auto;
@@ -164,13 +164,13 @@
 }
 
 .columnHeaderDates {
-  font-size: 10.5px;
+  font-size: var(--rt-fs-micro);
   color: var(--rt-t3);
   white-space: nowrap;
 }
 
 .columnHeaderMeta {
-  font-size: 10px;
+  font-size: var(--rt-fs-micro);
   color: var(--rt-t3);
   white-space: nowrap;
 }
@@ -195,7 +195,7 @@
 .emptyDrop {
   padding: 16px 10px;
   text-align: center;
-  font-size: 11.5px;
+  font-size: var(--rt-fs-xs);
   color: var(--rt-t3);
 }
 

@@ -25,8 +25,8 @@ function ReleaseCard({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
         <div
           style={{
-            fontWeight: 700,
-            fontSize: 16,
+            fontWeight: 'var(--rt-fw-bold)',
+            fontSize: 'var(--rt-fs-lg)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -37,11 +37,11 @@ function ReleaseCard({
           {r.name}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--rt-t2)' }}>{Math.round(doneRatio * 100)}%</span>
+          <span style={{ fontSize: 'var(--rt-fs-sm)', fontWeight: 'var(--rt-fw-bold)', color: 'var(--rt-t2)' }}>{Math.round(doneRatio * 100)}%</span>
           <IconButton icon={Icon.trash} title="Delete release" onClick={onDelete} style={{ color: 'var(--rt-t3)' }} />
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--rt-t3)', fontSize: 13, whiteSpace: 'nowrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-base)', whiteSpace: 'nowrap' }}>
         {Icon.team}
         <span>{team ? team.name : '—'}</span>
         {connLabel && (
@@ -51,7 +51,7 @@ function ReleaseCard({
         )}
       </div>
       <Meter v={doneRatio} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: 'var(--rt-t3)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           {Icon.stream}
           {r.workStreams.length}
@@ -126,8 +126,8 @@ export function HomeView({
       >
         <div style={{ width: 440, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 26, fontWeight: 750, letterSpacing: '-0.02em' }}>New release</div>
-            <div style={{ fontSize: 14.5, color: 'var(--rt-t3)', marginTop: 5 }}>Start tracking a release cycle.</div>
+            <div style={{ fontSize: 'var(--rt-fs-display)', fontWeight: 'var(--rt-fw-heading)', letterSpacing: '-0.02em' }}>New release</div>
+            <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t3)', marginTop: 5 }}>Start tracking a release cycle.</div>
           </div>
           <div className="card" style={{ width: '100%', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
             <PField label="Release name">
@@ -216,7 +216,7 @@ export function HomeView({
             <span className="tag">Your releases · {releases.length}</span>
           </div>
           {releases.length === 0 ? (
-            <div className="card dash" style={{ padding: 30, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 14 }}>
+            <div className="card dash" style={{ padding: 30, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-md)' }}>
               No releases yet — create one above.
             </div>
           ) : (

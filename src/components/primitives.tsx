@@ -33,7 +33,7 @@ export function PField({
       {label && (
         <span className={fieldStyles.label}>
           {label}
-          {hint && <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500, color: 'var(--rt-t3)' }}> · {hint}</span>}
+          {hint && <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 'var(--rt-fw-medium)', color: 'var(--rt-t3)' }}> · {hint}</span>}
         </span>
       )}
       {children}
@@ -128,7 +128,7 @@ export function Modal({
         <div className={modalStyles.head}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
             {icon}
-            <span style={{ fontSize: 17, fontWeight: 750, whiteSpace: 'nowrap' }}>{title}</span>
+            <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)', whiteSpace: 'nowrap' }}>{title}</span>
           </div>
           <IconButton icon={Icon.close} onClick={onClose} title="Close" style={{ border: 'none', padding: 4 }} />
         </div>

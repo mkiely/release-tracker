@@ -32,8 +32,8 @@
 }
 
 .label {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--rt-fs-xs);
+  font-weight: var(--rt-fw-bold);
   white-space: nowrap;
   color: var(--rt-t2);
 }
@@ -44,5 +44,5 @@
 
 .sub {
   opacity: 0.55;
-  font-weight: 400;
+  font-weight: var(--rt-fw-normal);
 }

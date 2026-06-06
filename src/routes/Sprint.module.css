@@ -13,25 +13,25 @@
   border-radius: 5px;
   border: none;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--rt-fs-sm);
+  font-weight: var(--rt-fw-medium);
   background: transparent;
   color: var(--rt-t3);
   font-family: var(--rt-sans);
-  line-height: 1.5;
+  line-height: var(--rt-lh-normal);
 }
 
 .groupBtnActive {
   border: 1px solid var(--rt-line);
-  font-weight: 700;
+  font-weight: var(--rt-fw-bold);
   background: var(--rt-paper);
   color: var(--rt-ink);
 }
 
 /* "Active" badge shown on the currently active sprint */
 .now {
-  font-size: 9.5px;
-  font-weight: 800;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-display);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #fff;

@@ -5,8 +5,8 @@
 }
 .label {
   font-family: var(--rt-sans);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--rt-fs-sm);
+  font-weight: var(--rt-fw-semibold);
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--rt-t3);

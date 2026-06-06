@@ -3,8 +3,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11.5px;
-  font-weight: 700;
+  font-size: var(--rt-fs-xs);
+  font-weight: var(--rt-fw-bold);
   color: var(--rt-ink);
   background: var(--rt-fill);
   border: 1.5px solid var(--rt-line-strong);
@@ -28,6 +28,6 @@
 
 .date {
   color: var(--rt-t3);
-  font-weight: 500;
+  font-weight: var(--rt-fw-medium);
   flex: 0 0 auto;
 }

@@ -31,10 +31,10 @@ export function TeamsView({
             <div key={t.id} className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 15 }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 750, fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontWeight: 'var(--rt-fw-heading)', fontSize: 'var(--rt-fs-lg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {t.name}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--rt-t3)', marginTop: 3 }}>
+                  <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', marginTop: 3 }}>
                     {t.members.length} members
                     {t.members.some((m) => m.nonContributing) && (
                       <span style={{ marginLeft: 6 }}>
@@ -45,7 +45,7 @@ export function TeamsView({
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
                   {t.externalId ? (
-                    <span className="tag" style={{ fontSize: 10.5, color: 'var(--rt-t3)' }}>
+                    <span className="tag" style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>
                       synced
                     </span>
                   ) : (
@@ -70,8 +70,8 @@ export function TeamsView({
                   />
                 </PField>
                 <div style={{ flex: 1, paddingBottom: 13 }}>
-                  <div style={{ fontSize: 11.5, color: 'var(--rt-t3)' }}>Full capacity</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--rt-t2)' }}>
+                  <div style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>Full capacity</div>
+                  <div style={{ fontSize: 'var(--rt-fs-base)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)' }}>
                     {t.members.filter((m) => !m.nonContributing).length * WORKDAYS} person-days / sprint
                   </div>
                 </div>
@@ -89,8 +89,8 @@ export function TeamsView({
                     </span>
                     <span
                       style={{
-                        fontSize: 13.5,
-                        fontWeight: 500,
+                        fontSize: 'var(--rt-fs-base)',
+                        fontWeight: 'var(--rt-fw-medium)',
                         whiteSpace: 'nowrap',
                         color: m.nonContributing ? 'var(--rt-t3)' : undefined,
                       }}
@@ -98,7 +98,7 @@ export function TeamsView({
                       {m.name}
                     </span>
                     {m.nonContributing && (
-                      <span className="tag" style={{ fontSize: 10.5, color: 'var(--rt-t3)' }}>
+                      <span className="tag" style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>
                         no capacity
                       </span>
                     )}

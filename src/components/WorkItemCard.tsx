@@ -87,7 +87,7 @@ export function WorkItemCard({
       onDragEnd={draggable ? () => Drag.end() : undefined}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--rt-t2)' }}>
+        <span className="mono" style={{ fontSize: 'var(--rt-fs-sm)', fontWeight: 'var(--rt-fw-bold)', color: 'var(--rt-t2)' }}>
           {it.key}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -97,9 +97,9 @@ export function WorkItemCard({
       </div>
       <div
         style={{
-          fontSize: 14.5,
-          fontWeight: 600,
-          lineHeight: 1.3,
+          fontSize: 'var(--rt-fs-md)',
+          fontWeight: 'var(--rt-fw-semibold)',
+          lineHeight: 'var(--rt-lh-snug)',
           display: '-webkit-box',
           WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',

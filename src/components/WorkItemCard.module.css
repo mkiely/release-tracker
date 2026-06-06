@@ -27,7 +27,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
+  font-weight: var(--rt-fw-bold);
   color: var(--rt-t2);
   flex-shrink: 0;
   letter-spacing: -0.02em;
@@ -47,8 +47,8 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-semibold);
   background: var(--rt-fill);
   border: 1px solid var(--rt-line);
   border-radius: 4px;
@@ -74,8 +74,8 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-semibold);
   color: var(--rt-t3);
   background: transparent;
   border: 1px dashed var(--rt-line);

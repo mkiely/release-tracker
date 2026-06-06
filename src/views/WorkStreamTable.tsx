@@ -107,8 +107,8 @@ function ItemRow({
             borderRadius: 20,
             background: sv.soft,
             color: sv.text,
-            fontSize: 11,
-            fontWeight: 600,
+            fontSize: 'var(--rt-fs-xs)',
+            fontWeight: 'var(--rt-fw-semibold)',
             whiteSpace: 'nowrap',
           }}
         >
@@ -178,8 +178,8 @@ function SprintSection({
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
           <span
             style={{
-              fontSize: 17,
-              fontWeight: 800,
+              fontSize: 'var(--rt-fs-lg)',
+              fontWeight: 'var(--rt-fw-display)',
               letterSpacing: '-0.022em',
               color: 'var(--rt-ink)',
               lineHeight: 1.2,
@@ -190,8 +190,8 @@ function SprintSection({
           {isActive && (
             <span
               style={{
-                fontSize: 9,
-                fontWeight: 800,
+                fontSize: 'var(--rt-fs-micro)',
+                fontWeight: 'var(--rt-fw-display)',
                 letterSpacing: '0.07em',
                 textTransform: 'uppercase',
                 background: 'var(--rt-st-ac-dot)',
@@ -213,7 +213,7 @@ function SprintSection({
           {items.length} item{items.length !== 1 ? 's' : ''} · {pts} pts
         </div>
         {canDrop && (
-          <div style={{ marginTop: 4, fontSize: 10, fontWeight: 700, color: over ? 'var(--rt-st-ac-text)' : 'var(--rt-t3)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          <div style={{ marginTop: 4, fontSize: 'var(--rt-fs-micro)', fontWeight: 'var(--rt-fw-bold)', color: over ? 'var(--rt-st-ac-text)' : 'var(--rt-t3)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             {over ? 'Drop to move here' : 'Drop to reassign'}
           </div>
         )}
@@ -263,7 +263,7 @@ function FilterBar({
                       border: `1.5px solid ${active ? tv.dot : 'var(--rt-line)'}`,
                       background: active ? tv.soft : 'transparent',
                       color: active ? tv.text : 'var(--rt-t3)',
-                      cursor: 'pointer', fontSize: 11.5,
+                      cursor: 'pointer', fontSize: 'var(--rt-fs-xs)',
                       fontWeight: active ? 700 : 500, fontFamily: 'var(--rt-sans)', whiteSpace: 'nowrap',
                     }}
                   >
@@ -295,7 +295,7 @@ function FilterBar({
                   border: `1.5px solid ${active ? sv.dot : 'var(--rt-line)'}`,
                   background: active ? sv.soft : 'transparent',
                   color: active ? sv.text : 'var(--rt-t3)',
-                  cursor: 'pointer', fontSize: 11.5,
+                  cursor: 'pointer', fontSize: 'var(--rt-fs-xs)',
                   fontWeight: active ? 700 : 500, fontFamily: 'var(--rt-sans)', whiteSpace: 'nowrap',
                 }}
               >
@@ -375,15 +375,15 @@ export function WorkStreamTable({
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
         title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--rt-t3)', whiteSpace: 'nowrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', whiteSpace: 'nowrap' }}>
             <span onClick={onBack} style={{ cursor: 'pointer' }}>{r.name}</span>
             {Icon.chevRight}
-            <span style={{ fontWeight: 600, color: 'var(--rt-t2)' }}>{ws.name}</span>
+            <span style={{ fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)' }}>{ws.name}</span>
           </div>
         }
         right={
           <>
-            <span style={{ fontSize: 12.5, color: 'var(--rt-t3)' }}>
+            <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
               {totalItemCount} items · {totalPts} pts
             </span>
             <PushButton release={r} onPush={onPush} />

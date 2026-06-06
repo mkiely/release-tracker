@@ -4,7 +4,7 @@
   background: var(--rt-paper);
   border-radius: 9px;
   padding: 11px 13px;
-  font-size: 15px;
+  font-size: var(--rt-fs-md);
   font-family: var(--rt-sans);
   color: var(--rt-ink);
   min-height: 46px;
@@ -30,5 +30,5 @@ select.input {
 textarea.input {
   min-height: 78px;
   resize: vertical;
-  line-height: 1.5;
+  line-height: var(--rt-lh-normal);
 }

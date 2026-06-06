@@ -29,9 +29,35 @@
   --rt-st-bl-dot: #c2785f; --rt-st-bl-soft: #f6e9e4; --rt-st-bl-text: #9c5640; /* Blocked      */
   --rt-st-co-dot: #6f9d77; --rt-st-co-soft: #e7f0e8; --rt-st-co-text: #4d7a55; /* Complete     */
 
-  /* type */
+  /* type — families */
   --rt-sans: "Hanken Grotesk", system-ui, sans-serif;
   --rt-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+
+  /* type — scale. A single 7-step ramp (+ display). Every size is multiplied by
+     --rt-type-scale, so bumping that one value rescales all UI text proportionally
+     (the global "feel" lever). Roles map onto these via the .t-* classes in base.css. */
+  --rt-type-scale: 1;
+  --rt-fs-micro:   calc(10px   * var(--rt-type-scale));  /* counts, tiny labels   */
+  --rt-fs-xs:      calc(11.5px * var(--rt-type-scale));  /* meta, dates, tags     */
+  --rt-fs-sm:      calc(12.5px * var(--rt-type-scale));  /* secondary text        */
+  --rt-fs-base:    calc(13.5px * var(--rt-type-scale));  /* body                  */
+  --rt-fs-md:      calc(15px   * var(--rt-type-scale));  /* inputs, emphasized     */
+  --rt-fs-lg:      calc(17px   * var(--rt-type-scale));  /* card / section titles */
+  --rt-fs-xl:      calc(22px   * var(--rt-type-scale));  /* screen titles         */
+  --rt-fs-display: calc(26px   * var(--rt-type-scale));  /* home hero             */
+
+  /* type — weights (Hanken Grotesk; note the bespoke 750) */
+  --rt-fw-normal: 400;
+  --rt-fw-medium: 500;
+  --rt-fw-semibold: 600;
+  --rt-fw-bold: 700;
+  --rt-fw-heading: 750;
+  --rt-fw-display: 800;
+
+  /* type — line heights */
+  --rt-lh-tight: 1.15;
+  --rt-lh-snug: 1.3;
+  --rt-lh-normal: 1.5;
 }
 
 :root[data-theme="dark"] {
