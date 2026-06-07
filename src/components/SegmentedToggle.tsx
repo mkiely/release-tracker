@@ -1,8 +1,11 @@
+import type { ReactNode } from 'react';
 import styles from './SegmentedToggle.module.css';
 
 export interface SegOption<T extends string> {
   value: T;
   label: string;
+  /** Optional entity icon shown before the label. */
+  icon?: ReactNode;
   /** Tooltip for the segment (e.g. what grouping it selects). */
   title?: string;
 }
@@ -33,6 +36,7 @@ export function SegmentedToggle<T extends string>({
           aria-pressed={value === o.value}
           className={`${styles.btn} ${value === o.value ? styles.btnActive : ''}`}
         >
+          {o.icon}
           {o.label}
         </button>
       ))}

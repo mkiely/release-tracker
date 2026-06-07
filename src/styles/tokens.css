@@ -13,7 +13,7 @@
   /* neutrals */
   --rt-ink: #23262b;          /* primary text (sprint name)            */
   --rt-t2: #5a606a;           /* secondary text, capacity label        */
-  --rt-t3: #8b919b;           /* tertiary text (dates, counts, event date) */
+  --rt-t3: #767d88;           /* tertiary text (dates, counts, event date) */
   --rt-line: #dde1e7;         /* hairline borders, dividers            */
   --rt-line-strong: #c4c9d1;  /* hover border, input border            */
   --rt-fill: #eef0f4;         /* meter track, chip background          */
@@ -26,7 +26,7 @@
   --rt-st-ns-dot: #aab0ba; --rt-st-ns-soft: #eceef2; --rt-st-ns-text: #6b717b; /* Not Started  */
   --rt-st-ac-dot: #5b82b8; --rt-st-ac-soft: #e6edf6; --rt-st-ac-text: #3f5e8c; /* In Progress  */
   --rt-st-ur-dot: #9068c0; --rt-st-ur-soft: #f0eaf8; --rt-st-ur-text: #6b46a0; /* Under Review */
-  --rt-st-bl-dot: #c2785f; --rt-st-bl-soft: #f6e9e4; --rt-st-bl-text: #9c5640; /* Blocked      */
+  --rt-st-bl-dot: #d04a39; --rt-st-bl-soft: #f9e6e2; --rt-st-bl-text: #a8311f; /* Blocked (warning = high-contrast red) */
   --rt-st-co-dot: #6f9d77; --rt-st-co-soft: #e7f0e8; --rt-st-co-text: #4d7a55; /* Complete     */
 
   /* type — families */
@@ -63,7 +63,7 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --rt-ink: #e9ebee; --rt-t2: #a6acb6; --rt-t3: #787e88;
+  --rt-ink: #e9ebee; --rt-t2: #a6acb6; --rt-t3: #8b919b;
   --rt-line: #2c3036; --rt-line-strong: #3b404a;
   --rt-fill: #24272d; --rt-fill-deep: #2c3037;
   --rt-paper: #1c1f24; --rt-bg: #131519; --rt-on-ink: #15181c;
@@ -71,7 +71,7 @@
   --rt-st-ns-dot: #787e88; --rt-st-ns-soft: #272b31; --rt-st-ns-text: #9da3ad;
   --rt-st-ac-dot: #6b93c9; --rt-st-ac-soft: #1d2a3b; --rt-st-ac-text: #9cbde9;
   --rt-st-ur-dot: #a882e0; --rt-st-ur-soft: #251a35; --rt-st-ur-text: #c9a8f0;
-  --rt-st-bl-dot: #d08a70; --rt-st-bl-soft: #352017; --rt-st-bl-text: #e2a78c;
+  --rt-st-bl-dot: #e35d48; --rt-st-bl-soft: #3a1a14; --rt-st-bl-text: #f0a08c;
   --rt-st-co-dot: #7fae87; --rt-st-co-soft: #1b2a1f; --rt-st-co-text: #9bcfa3;
 }
 
@@ -79,13 +79,13 @@
 :root[data-theme="coastal"] {
   color-scheme: light;
   --rt-bg: #F4EFE2; --rt-paper: #FFFEFA; --rt-fill: #EDE9D0; --rt-fill-deep: #E2DCC4;
-  --rt-ink: #1B3D60; --rt-t2: #3B6080; --rt-t3: #7A9AB8; --rt-on-ink: #FFFEFA;
+  --rt-ink: #1B3D60; --rt-t2: #3B6080; --rt-t3: #5E7E9C; --rt-on-ink: #FFFEFA;
   --rt-line: #D8D2BF; --rt-line-strong: #C4BCA2;
   --rt-backdrop: rgba(27,61,96,0.40); --rt-shadow: rgba(27,61,96,0.22);
   --rt-st-ns-dot: #A0AABB; --rt-st-ns-soft: #EBF0F4; --rt-st-ns-text: #6A7888;
   --rt-st-ac-dot: #1E6FAD; --rt-st-ac-soft: #DDEAF8; --rt-st-ac-text: #1B4F8A;
   --rt-st-ur-dot: #8050C0; --rt-st-ur-soft: #EDE4F8; --rt-st-ur-text: #5C38A0;
-  --rt-st-bl-dot: #E07848; --rt-st-bl-soft: #FAE8DC; --rt-st-bl-text: #A05030;
+  --rt-st-bl-dot: #D24536; --rt-st-bl-soft: #FAE3DD; --rt-st-bl-text: #A0301F;
   --rt-st-co-dot: #5A8A6A; --rt-st-co-soft: #DFF0E4; --rt-st-co-text: #3A6A4A;
 }
 
@@ -93,13 +93,13 @@
 :root[data-theme="dusk-berry"] {
   color-scheme: light;
   --rt-bg: #FAF4F7; --rt-paper: #FFFBFD; --rt-fill: #F5EBF0; --rt-fill-deep: #EDD9E5;
-  --rt-ink: #350D1A; --rt-t2: #6A3248; --rt-t3: #A07888; --rt-on-ink: #FFFBFD;
+  --rt-ink: #350D1A; --rt-t2: #6A3248; --rt-t3: #865E70; --rt-on-ink: #FFFBFD;
   --rt-line: #E4D0D9; --rt-line-strong: #D0B8C6;
   --rt-backdrop: rgba(53,13,26,0.42); --rt-shadow: rgba(53,13,26,0.20);
   --rt-st-ns-dot: #B896A8; --rt-st-ns-soft: #F5EBF2; --rt-st-ns-text: #7A5268;
   --rt-st-ac-dot: #DC1E5A; --rt-st-ac-soft: #FDEAF1; --rt-st-ac-text: #A81443;
   --rt-st-ur-dot: #8F3AB4; --rt-st-ur-soft: #F4E4FA; --rt-st-ur-text: #6A2888;
-  --rt-st-bl-dot: #F9BA2A; --rt-st-bl-soft: #FEF3D8; --rt-st-bl-text: #A07818;
+  --rt-st-bl-dot: #E03152; --rt-st-bl-soft: #FCE3E8; --rt-st-bl-text: #AC1E3C;
   --rt-st-co-dot: #1B7A76; --rt-st-co-soft: #DEF0EE; --rt-st-co-text: #0E5550;
 }
 
@@ -107,28 +107,28 @@
 :root[data-theme="midnight-navy"] {
   color-scheme: dark;
   --rt-bg: #091624; --rt-paper: #0D1D2E; --rt-fill: #102235; --rt-fill-deep: #163040;
-  --rt-ink: #EDE9D0; --rt-t2: #A8C4D8; --rt-t3: #5A7A96; --rt-on-ink: #091624;
+  --rt-ink: #EDE9D0; --rt-t2: #A8C4D8; --rt-t3: #7193AE; --rt-on-ink: #091624;
   --rt-line: #162840; --rt-line-strong: #1E3450;
   --rt-backdrop: rgba(6,10,16,0.65); --rt-shadow: rgba(0,0,0,0.55);
   --rt-st-ns-dot: #485A70; --rt-st-ns-soft: rgba(72,90,112,0.22); --rt-st-ns-text: #7898B0;
   --rt-st-ac-dot: #2E8FD4; --rt-st-ac-soft: rgba(46,143,212,0.18); --rt-st-ac-text: #7DC0F0;
   --rt-st-ur-dot: #9A7AE0; --rt-st-ur-soft: rgba(154,122,224,0.18); --rt-st-ur-text: #C4A8F8;
-  --rt-st-bl-dot: #F0A882; --rt-st-bl-soft: rgba(240,168,130,0.18); --rt-st-bl-text: #F0C0A0;
-  --rt-st-co-dot: #3AAFE0; --rt-st-co-soft: rgba(58,175,224,0.15); --rt-st-co-text: #88D0F0;
+  --rt-st-bl-dot: #F06A60; --rt-st-bl-soft: rgba(240,106,96,0.18); --rt-st-bl-text: #F5A098;
+  --rt-st-co-dot: #52B97E; --rt-st-co-soft: rgba(82,185,126,0.16); --rt-st-co-text: #8FD8A8;
 }
 
 /* ── Neon Reef ── dark, teal-black + vivid status ── */
 :root[data-theme="neon-reef"] {
   color-scheme: dark;
   --rt-bg: #071A16; --rt-paper: #0A2520; --rt-fill: #0C2A26; --rt-fill-deep: #103430;
-  --rt-ink: #F0F8F5; --rt-t2: #84BAAE; --rt-t3: #4A7068; --rt-on-ink: #071A16;
+  --rt-ink: #F0F8F5; --rt-t2: #84BAAE; --rt-t3: #6A9488; --rt-on-ink: #071A16;
   --rt-line: #102E2A; --rt-line-strong: #164038;
   --rt-backdrop: rgba(4,12,10,0.65); --rt-shadow: rgba(0,0,0,0.55);
   --rt-st-ns-dot: #4A7068; --rt-st-ns-soft: rgba(74,112,104,0.22); --rt-st-ns-text: #84BAAE;
   --rt-st-ac-dot: #2ECC9A; --rt-st-ac-soft: rgba(46,204,154,0.18); --rt-st-ac-text: #7EECD8;
   --rt-st-ur-dot: #D468FF; --rt-st-ur-soft: rgba(212,104,255,0.18); --rt-st-ur-text: #E8A8FF;
   --rt-st-bl-dot: #F24166; --rt-st-bl-soft: rgba(242,65,102,0.18); --rt-st-bl-text: #F890A8;
-  --rt-st-co-dot: #FAD35A; --rt-st-co-soft: rgba(250,211,90,0.15); --rt-st-co-text: #FAE090;
+  --rt-st-co-dot: #7DE85C; --rt-st-co-soft: rgba(125,232,92,0.16); --rt-st-co-text: #B4F49A;
 }
 
 /* ----------------------------------------------------------------------------

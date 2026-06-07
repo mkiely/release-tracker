@@ -119,7 +119,7 @@ function ItemRow({
       <div
         className={styles.colKey}
         draggable
-        style={{ cursor: 'grab' }}
+        style={{ cursor: 'grab', userSelect: 'none', WebkitUserSelect: 'none' }}
         onDragStart={(e) => {
           e.stopPropagation();
           e.dataTransfer.effectAllowed = 'move';
@@ -457,6 +457,7 @@ export function SprintTable({
   typeFilter,
   sprintItemCount,
   isFiltered,
+  onHome,
   onBack,
   onGoToSprint,
   onNavigateToStream,
@@ -495,11 +496,17 @@ export function SprintTable({
               whiteSpace: 'nowrap',
             }}
           >
+            <span onClick={onHome} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {Icon.release}Releases
+            </span>
+            {Icon.chevRight}
             <span onClick={onBack} style={{ cursor: 'pointer' }}>
               {r.name}
             </span>
             {Icon.chevRight}
-            <span style={{ fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)' }}>{sp.name}</span>
+            <span style={{ fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {Icon.sprint}{sp.name}
+            </span>
           </div>
         }
         right={

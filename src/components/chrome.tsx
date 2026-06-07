@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { THEMES, ThemeStore, useTheme } from '../store/theme';
 import { ViewModeStore, useViewMode } from '../store/viewMode';
+import { PresentationStore, usePresentationMode } from '../store/presentationMode';
 import type { Release } from '../types';
 import { selDirtyCount, useStore } from '../store/store';
 import { Icon } from './Icon';
@@ -96,14 +97,30 @@ export function SettingsPanel() {
 /** @deprecated Use SettingsPanel instead. Kept for callers that haven't migrated. */
 export const PalettePicker = SettingsPanel;
 
+/** Persistent top-bar toggle for presentation mode — enlarges all UI text for
+ *  readability when sharing the app in a meeting tab. Lives in every TopBar. */
+export function PresentationToggle() {
+  const on = usePresentationMode();
+  return (
+    <IconButton
+      icon={Icon.present}
+      active={on}
+      onClick={() => PresentationStore.toggle()}
+      title={on ? 'Presentation mode on — larger text (click to exit)' : 'Presentation mode — larger text for screen sharing'}
+    />
+  );
+}
+
 export function TopBar({
   left,
   title,
+  titleIcon,
   sub,
   right,
 }: {
   left?: ReactNode;
   title: ReactNode | null;
+  titleIcon?: ReactNode;
   sub?: ReactNode;
   right?: ReactNode;
 }) {
@@ -113,7 +130,10 @@ export function TopBar({
         {left}
         <div style={{ minWidth: 0 }}>
           {typeof title === 'string' ? (
-            <div className={styles.topBarTitle}>{title}</div>
+            <div className={styles.topBarTitle} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {titleIcon && <span style={{ display: 'inline-flex', color: 'var(--rt-t2)', flexShrink: 0 }}>{titleIcon}</span>}
+              {title}
+            </div>
           ) : (
             title
           )}
@@ -122,7 +142,8 @@ export function TopBar({
       </div>
       <div className={styles.topBarRight}>
         {right && <div className={styles.topBarActions}>{right}</div>}
-        <div className={right ? styles.topBarPaletteDivider : styles.topBarPalette}>
+        <div className={right ? styles.topBarPaletteDivider : styles.topBarPalette} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <PresentationToggle />
           <SettingsPanel />
         </div>
       </div>

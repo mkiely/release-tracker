@@ -52,6 +52,7 @@ export function SprintView({
   buildFilter,
   sprintItemCount,
   isFiltered,
+  onHome,
   onBack,
   onGoToSprint,
   onNavigateToStream,
@@ -86,6 +87,13 @@ export function SprintView({
                 whiteSpace: 'nowrap',
               }}
             >
+              <span
+                onClick={onHome}
+                style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              >
+                {Icon.release}Releases
+              </span>
+              {Icon.chevRight}
               <span onClick={onBack} style={{ cursor: 'pointer' }}>
                 {r.name}
               </span>
@@ -93,6 +101,7 @@ export function SprintView({
               <span style={{ fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)' }}>Sprint</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <span style={{ display: 'inline-flex', color: 'var(--rt-t2)', flexShrink: 0 }}>{Icon.sprint}</span>
               <span
                 style={{
                   fontSize: 'var(--rt-fs-xl)',

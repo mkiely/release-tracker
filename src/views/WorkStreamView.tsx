@@ -22,6 +22,7 @@ export function WorkStreamView({
   statusFilter,
   typeFilter,
   isFiltered,
+  onHome,
   onBack,
   onNewItem,
   onOpenItem,
@@ -49,22 +50,32 @@ export function WorkStreamView({
                 whiteSpace: 'nowrap',
               }}
             >
+              <span
+                onClick={onHome}
+                style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              >
+                {Icon.release}Releases
+              </span>
+              {Icon.chevRight}
               <span onClick={onBack} style={{ cursor: 'pointer' }}>
                 {r.name}
               </span>
               {Icon.chevRight}
               <span style={{ fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)' }}>Work stream</span>
             </div>
-            <div
-              style={{
-                fontSize: 'var(--rt-fs-xl)',
-                fontWeight: 'var(--rt-fw-heading)',
-                letterSpacing: '-0.02em',
-                lineHeight: 1,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {ws.name}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ display: 'inline-flex', color: 'var(--rt-t2)', flexShrink: 0 }}>{Icon.stream}</span>
+              <span
+                style={{
+                  fontSize: 'var(--rt-fs-xl)',
+                  fontWeight: 'var(--rt-fw-heading)',
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {ws.name}
+              </span>
             </div>
           </>
         }

@@ -41,6 +41,7 @@ export interface SprintViewProps {
   buildFilter: Set<string>;
   sprintItemCount: number;
   isFiltered: boolean;
+  onHome: () => void;
   onBack: () => void;
   onGoToSprint: (sprintId: string) => void;
   onNavigateToStream: (wsId: string) => void;
@@ -149,6 +150,7 @@ export function useSprintView(): SprintViewProps | null {
     buildFilter,
     sprintItemCount: items.length,
     isFiltered,
+    onHome: () => navigate('/'),
     onBack: () => navigate(`/releases/${id}`),
     onGoToSprint: (sid) => navigate(`/releases/${id}/sprints/${sid}`),
     onNavigateToStream: (wsId) => navigate(`/releases/${id}/streams/${wsId}`),

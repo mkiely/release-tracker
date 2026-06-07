@@ -11,6 +11,7 @@ import { TopBar } from './chrome';
 export function ScreenScaffold({
   left,
   title,
+  titleIcon,
   sub,
   right,
   toolbar,
@@ -18,6 +19,7 @@ export function ScreenScaffold({
 }: {
   left?: ReactNode;
   title: ReactNode | null;
+  titleIcon?: ReactNode;
   sub?: ReactNode;
   right?: ReactNode;
   toolbar?: ReactNode;
@@ -25,7 +27,7 @@ export function ScreenScaffold({
 }) {
   return (
     <div className="wf screen">
-      <TopBar left={left} title={title} sub={sub} right={right} />
+      <TopBar left={left} title={title} titleIcon={titleIcon} sub={sub} right={right} />
       {toolbar}
       {children}
     </div>

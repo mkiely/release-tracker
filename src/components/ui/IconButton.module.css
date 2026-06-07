@@ -11,3 +11,10 @@
   transition: border-color 0.12s, background-color 0.25s ease, color 0.25s ease;
 }
 .iconbtn:hover { border-color: var(--rt-line-strong); color: var(--rt-ink); }
+
+.iconbtnActive {
+  background: var(--rt-ink);
+  border-color: var(--rt-ink);
+  color: var(--rt-on-ink);
+}
+.iconbtnActive:hover { background: var(--rt-ink); border-color: var(--rt-ink); color: var(--rt-on-ink); }

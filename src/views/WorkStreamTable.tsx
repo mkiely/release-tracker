@@ -64,7 +64,7 @@ function ItemRow({
       <div
         className={styles.colKey}
         draggable
-        style={{ cursor: 'grab' }}
+        style={{ cursor: 'grab', userSelect: 'none', WebkitUserSelect: 'none' }}
         onDragStart={(e) => {
           e.stopPropagation();
           e.dataTransfer.effectAllowed = 'move';
@@ -354,6 +354,7 @@ export function WorkStreamTable({
   statusFilter,
   typeFilter,
   isFiltered,
+  onHome,
   onBack,
   onNewItem,
   onOpenItem,
@@ -378,9 +379,11 @@ export function WorkStreamTable({
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', whiteSpace: 'nowrap' }}>
+            <span onClick={onHome} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icon.release}Releases</span>
+            {Icon.chevRight}
             <span onClick={onBack} style={{ cursor: 'pointer' }}>{r.name}</span>
             {Icon.chevRight}
-            <span style={{ fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)' }}>{ws.name}</span>
+            <span style={{ fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icon.stream}{ws.name}</span>
           </div>
         }
         sub={team ? <TeamLink name={team.name} onClick={onOpenTeam} /> : undefined}

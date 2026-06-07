@@ -110,6 +110,7 @@ export function ReleaseChrome({
     <ScreenScaffold
       left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
       title={r.name}
+      titleIcon={Icon.release}
       sub={
         <>
           {team ? (
@@ -204,8 +205,8 @@ export function ReleaseChrome({
               value={axis}
               onChange={AxisModeStore.set}
               options={[
-                { value: 'sprint', label: 'By sprint', title: 'Rows are sprints' },
-                { value: 'stream', label: 'By stream', title: 'Rows are work streams' },
+                { value: 'sprint', label: 'By sprint', icon: Icon.sprint, title: 'Rows are sprints' },
+                { value: 'stream', label: 'By stream', icon: Icon.stream, title: 'Rows are work streams' },
               ]}
             />
           </div>
