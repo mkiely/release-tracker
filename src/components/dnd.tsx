@@ -175,7 +175,7 @@ export function SprintRail({
             onGo={() => onGo(sp.id)}
             onDropItem={(it) => {
               if (it.sprintId !== sp.id) {
-                getActions().updateItem(it.id, { sprintId: sp.id });
+                getActions().moveItemToSprint(it.id, sp.id);
                 notify(`Moved ${it.key} → ${sp.name}`);
               }
             }}
@@ -242,7 +242,7 @@ export function StreamSprintColumn({
           const it = Drag.get();
           if (it && it.sprintId !== sp.id) {
             e.preventDefault();
-            getActions().updateItem(it.id, { sprintId: sp.id });
+            getActions().moveItemToSprint(it.id, sp.id);
             notify(`Moved ${it.key} → ${sp.name}`);
           }
           setOver(false);

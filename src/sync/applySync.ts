@@ -207,6 +207,9 @@ export function applySync(
       const pointsDirty = writeableItemFields.includes('points') && existing.dirtyFields.includes('points');
       if (!sprintDirty) existing.sprintId = sprintId;
       if (!pointsDirty) existing.points = m.fields.points;
+      // Record the incoming external value as the baseline regardless of local dirt —
+      // it's what a pending push diverges from and reverts to.
+      existing.syncedValues = { points: m.fields.points, sprintId };
       result.updated++;
     } else {
       items.push({
@@ -225,6 +228,7 @@ export function applySync(
         build: m.fields.build ?? null,
         itemType: m.fields.itemType ?? null,
         dirtyFields: [],
+        syncedValues: { points: m.fields.points, sprintId },
       });
       result.created++;
     }

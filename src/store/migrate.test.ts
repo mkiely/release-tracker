@@ -303,6 +303,42 @@ describe('migrate — v9 → current', () => {
   });
 });
 
+describe('migrate — v10 → current', () => {
+  const sp = { id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 0, externalId: null };
+  // Minimal v10 item — all v10 fields, no syncedValues.
+  const v10Item = (over: Record<string, unknown> = {}) => ({
+    ...v8Item(), itemType: null, status: 'Not Started', sprintId: 'sp1', points: 3, ...over,
+  });
+  const v10 = {
+    version: 10,
+    teams: [],
+    meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: null }], sprints: [sp] }],
+    items: [v10Item({ externalId: 'EXT-1' })],
+  };
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v10 as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('seeds syncedValues from the current value for synced items', () => {
+    const next = migrate(v10 as any)!;
+    expect(next.items[0].syncedValues).toEqual({ points: 3, sprintId: 'sp1' });
+  });
+
+  it('sets syncedValues null for local items (no externalId)', () => {
+    const local = { ...v10, items: [v10Item({ externalId: null })] };
+    const next = migrate(local as any)!;
+    expect(next.items[0].syncedValues).toBeNull();
+  });
+
+  it('preserves an existing syncedValues when already set', () => {
+    const withVal = { ...v10, items: [v10Item({ externalId: 'EXT-1', syncedValues: { points: 8, sprintId: null } })] };
+    const next = migrate(withVal as any)!;
+    expect(next.items[0].syncedValues).toEqual({ points: 8, sprintId: null });
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

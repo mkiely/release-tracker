@@ -165,7 +165,7 @@ function SprintSection({
         const it = Drag.get();
         if (it && it.sprintId !== sp.id) {
           e.preventDefault();
-          getActions().updateItem(it.id, { sprintId: sp.id });
+          getActions().moveItemToSprint(it.id, sp.id);
           notify(`Moved ${it.key} → ${sp.name}`);
         }
         setOver(false);

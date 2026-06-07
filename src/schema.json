@@ -283,6 +283,21 @@
           },
           "description": "Names of fields edited locally since the last sync/push, awaiting push to the external system. Empty array for clean (unmodified) items."
         },
+        "syncedValues": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "points": { "type": "integer", "minimum": 0 },
+                "sprintId": { "type": ["string", "null"] }
+              },
+              "required": ["points", "sprintId"],
+              "additionalProperties": false
+            },
+            { "type": "null" }
+          ],
+          "description": "Last value seen from the connector for the writeable fields (points, sprint). The baseline a dirty edit diverges from; used to preview a pending push (old → new) and to revert an item to its synced value. Null for locally-created items. Optional — absence implies null."
+        },
         "itemType": {
           "oneOf": [
             { "$ref": "#/definitions/ItemType" },
@@ -410,7 +425,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 8,
+      "value": 11,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPushChanges } from './push';
+import { buildPushChanges, buildPushPreview } from './push';
 import type { Sprint, WorkItem } from '../types';
 
 const sprint = (id: string, externalId: string | null): Sprint => ({
@@ -103,5 +103,49 @@ describe('buildPushChanges', () => {
     const changes = buildPushChanges(items, sprints, ['points', 'sprint']);
     expect(changes).toHaveLength(2);
     expect(changes.map((c) => c.externalId)).toEqual(['EXT-1', 'EXT-3']);
+  });
+});
+
+describe('buildPushPreview', () => {
+  it('returns empty when nothing is dirty', () => {
+    expect(buildPushPreview([item({ dirtyFields: [] })], ['points', 'sprint'])).toHaveLength(0);
+  });
+
+  it('skips local items (externalId === null)', () => {
+    const items = [item({ externalId: null, dirtyFields: ['points'] })];
+    expect(buildPushPreview(items, ['points', 'sprint'])).toHaveLength(0);
+  });
+
+  it('reports points from synced baseline to local value', () => {
+    const items = [item({ points: 13, dirtyFields: ['points'], syncedValues: { points: 5, sprintId: 'sp_1' } })];
+    const [p] = buildPushPreview(items, ['points', 'sprint']);
+    expect(p).toMatchObject({ key: 'EXT-1', externalId: 'EXT-1' });
+    expect(p.diffs).toEqual([{ field: 'points', from: 5, to: 13 }]);
+  });
+
+  it('reports sprint change as local sprint ids (caller resolves names)', () => {
+    const items = [item({ sprintId: 'sp_2', dirtyFields: ['sprint'], syncedValues: { points: 5, sprintId: 'sp_1' } })];
+    const [p] = buildPushPreview(items, ['points', 'sprint']);
+    expect(p.diffs).toEqual([{ field: 'sprint', from: 'sp_1', to: 'sp_2' }]);
+  });
+
+  it('uses null `from` when there is no synced baseline', () => {
+    const items = [item({ points: 8, dirtyFields: ['points'], syncedValues: null })];
+    const [p] = buildPushPreview(items, ['points', 'sprint']);
+    expect(p.diffs).toEqual([{ field: 'points', from: null, to: 8 }]);
+  });
+
+  it('emits both fields when both are dirty', () => {
+    const items = [item({ points: 8, sprintId: 'sp_2', dirtyFields: ['points', 'sprint'], syncedValues: { points: 3, sprintId: null } })];
+    const [p] = buildPushPreview(items, ['points', 'sprint']);
+    expect(p.diffs).toEqual([
+      { field: 'points', from: 3, to: 8 },
+      { field: 'sprint', from: null, to: 'sp_2' },
+    ]);
+  });
+
+  it('omits a dirty field that is not writeable', () => {
+    const items = [item({ points: 8, dirtyFields: ['points'], syncedValues: { points: 3, sprintId: 'sp_1' } })];
+    expect(buildPushPreview(items, ['sprint'])).toHaveLength(0);
   });
 });

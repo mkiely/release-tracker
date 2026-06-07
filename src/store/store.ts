@@ -137,6 +137,21 @@ export function migrate(p: AppState): AppState | null {
       })),
     };
   }
+  // v10 → v11: synced work items gain syncedValues — the last connector value for
+  // the writeable fields (points, sprint), used to preview/revert pending pushes.
+  // Seed from the current value (best available baseline for already-stored items).
+  if (s.version === 10) {
+    s = {
+      ...s,
+      version: 11,
+      items: s.items.map((it) => ({
+        ...it,
+        syncedValues:
+          (it as any).syncedValues ??
+          (it.externalId != null ? { points: it.points, sprintId: it.sprintId } : null),
+      })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -181,6 +196,10 @@ interface Actions {
     input: { workStreamId: string | null; sprintId: string | null; subject: string; description?: string; status?: Status; points?: number; assignedMemberId?: string | null; itemType?: ItemType | null },
   ) => WorkItem | null;
   updateItem: (id: string, patch: Partial<WorkItem>) => void;
+  /** Move an item to another sprint (e.g. via drag-and-drop). For synced items, marks or clears the 'sprint' dirty flag relative to the synced baseline so the move is pushable. */
+  moveItemToSprint: (id: string, sprintId: string | null) => void;
+  /** Discard an item's pending push: restore its dirty writeable fields to the last synced value. No-op without a synced baseline. */
+  revertItem: (id: string) => void;
   /** Pull from this release's connector and upsert the result. No-op for Local releases. */
   syncRelease: (releaseId: string) => Promise<SyncOutcome>;
   /** Push locally-dirty writeable fields back to the external system. */
@@ -353,6 +372,7 @@ export const useStore = create<StoreState>((set, get) => {
         assignedMemberId: assignedMemberId ?? null,
         build: null,
         dirtyFields: [],
+        syncedValues: null,
         itemType: itemType ?? null,
       };
       commit((d) => { d.items = [...d.items, it]; });
@@ -362,6 +382,36 @@ export const useStore = create<StoreState>((set, get) => {
     updateItem: (id, patch) => {
       commit((d) => {
         d.items = d.items.map((i) => (i.id === id ? { ...i, ...patch } : i));
+      });
+    },
+
+    moveItemToSprint: (id, sprintId) => {
+      commit((d) => {
+        d.items = d.items.map((i) => {
+          if (i.id !== id || i.sprintId === sprintId) return i;
+          const next: WorkItem = { ...i, sprintId };
+          // Synced items track the sprint change for push-back, measured against the
+          // synced baseline — moving back to the synced sprint clears the dirty flag.
+          if (i.externalId && i.syncedValues) {
+            const sprintDirty = sprintId !== i.syncedValues.sprintId;
+            const has = i.dirtyFields.includes('sprint');
+            if (sprintDirty && !has) next.dirtyFields = [...i.dirtyFields, 'sprint'];
+            else if (!sprintDirty && has) next.dirtyFields = i.dirtyFields.filter((f) => f !== 'sprint');
+          }
+          return next;
+        });
+      });
+    },
+
+    revertItem: (id) => {
+      commit((d) => {
+        d.items = d.items.map((i) => {
+          if (i.id !== id || !i.syncedValues || i.dirtyFields.length === 0) return i;
+          const next: WorkItem = { ...i, dirtyFields: [] };
+          if (i.dirtyFields.includes('points')) next.points = i.syncedValues.points;
+          if (i.dirtyFields.includes('sprint')) next.sprintId = i.syncedValues.sprintId;
+          return next;
+        });
       });
     },
 
@@ -426,12 +476,13 @@ export const useStore = create<StoreState>((set, get) => {
         const result = await syncClient.push(r.connector, changes);
         const at = stamp();
 
-        // Clear dirtyFields on successfully pushed items.
+        // Clear dirtyFields on successfully pushed items, and advance the synced
+        // baseline to the just-pushed values (the external system now matches).
         const pushedExternalIds = new Set(changes.map((c) => c.externalId));
         commit((d) => {
           d.items = d.items.map((i) =>
             i.releaseId === releaseId && i.externalId && pushedExternalIds.has(i.externalId)
-              ? { ...i, dirtyFields: [] }
+              ? { ...i, dirtyFields: [], syncedValues: { points: i.points, sprintId: i.sprintId } }
               : i,
           );
           d.releases = d.releases.map((rel) =>

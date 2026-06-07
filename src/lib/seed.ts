@@ -312,5 +312,12 @@ export function seed(): AppState {
     });
   });
 
-  return { version: SCHEMA_VERSION, teams, releases: [demo, nexus], items, meta: { lastSyncISO: null } };
+  // Attach the synced baseline to connector-sourced items so pending-push previews
+  // and reverts have a value to diverge from. Local items have no baseline.
+  const itemsWithBaseline = items.map((it) => ({
+    ...it,
+    syncedValues: it.externalId != null ? { points: it.points, sprintId: it.sprintId } : null,
+  }));
+
+  return { version: SCHEMA_VERSION, teams, releases: [demo, nexus], items: itemsWithBaseline, meta: { lastSyncISO: null } };
 }

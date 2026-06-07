@@ -16,6 +16,7 @@ export type ModalSpec =
   | { type: 'sprint'; releaseId: string; sprintId: string }
   | { type: 'item'; releaseId: string; presetStreamId?: string; presetSprintId?: string }
   | { type: 'itemDetail'; itemId: string }
+  | { type: 'pushReview'; releaseId: string; onConfirm: () => void | Promise<void> }
   | { type: 'confirm'; title: string; body: string; confirmLabel: string; onConfirm: () => void };
 
 interface AppCtx {

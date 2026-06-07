@@ -9,7 +9,7 @@ export type Status = (typeof STATUSES)[number];
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 export interface Member {
   id: string;
@@ -118,6 +118,13 @@ export interface WorkItem {
   descriptionFormat?: 'text' | 'html';
   /** Writeable fields edited locally since last sync/push, awaiting push. Empty for clean items. */
   dirtyFields: string[];
+  /**
+   * Last value seen from the connector for the writeable fields (points, sprint).
+   * This is the baseline a dirty edit diverges from — used to preview a pending
+   * push (old → new) and to revert an item back to its synced value. Null for
+   * local (never-synced) items, where no synced baseline exists.
+   */
+  syncedValues?: { points: number; sprintId: string | null } | null;
   /** Work item type (Bug, Story, Task, etc.). Connector-supplied and read-only. Null for local items or when unset. */
   itemType: ItemType | null;
 }

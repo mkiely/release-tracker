@@ -5,7 +5,8 @@ import DOMPurify from 'dompurify';
 import { LOCAL_ITEM_TYPES, STATUSES, type Member, type Status } from '../types';
 import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
 import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth } from '../lib/derive';
-import { getActions, selItem, selRelease, selTeam, useStore } from '../store/store';
+import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
+import { buildPushPreview, type PushItemPreview } from '../sync/push';
 import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
@@ -946,6 +947,150 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
         {/* Points is writeable even for synced items */}
         <PointSeg value={points} onChange={setPoints} />
       </PField>
+    </Modal>
+  );
+}
+
+// ── Push review / confirm modal ─────────────────────────────────────────
+// Fields the app knows how to push back (the universe buildPushChanges maps). The
+// connector may writeable-restrict this further at push time, but these are what
+// the dirty indicators already surface, so the preview uses the same set.
+const PUSHABLE_FIELDS = ['points', 'sprint'];
+
+// Summarizes the pending push: per item, which writeable fields are changing
+// (synced → local) before anything is sent. Each row can be removed, which
+// reverts that item's dirty fields back to its synced value.
+
+export function PushReviewModal({
+  releaseId,
+  onConfirm,
+  onClose,
+}: {
+  releaseId: string;
+  onConfirm: () => void | Promise<void>;
+  onClose: () => void;
+}) {
+  const r = useStore((s) => selRelease(s, releaseId));
+  const items = useStore((s) => selItemsFor(s, releaseId));
+  const [busy, setBusy] = useState(false);
+
+  if (!r) {
+    return (
+      <Modal title="Push changes" icon={Icon.sync} onClose={onClose} width={520}>
+        <span style={{ color: 'var(--rt-t3)' }}>This release no longer exists.</span>
+      </Modal>
+    );
+  }
+
+  const sprintName = (id: string | null): string =>
+    id == null ? 'Backlog' : (r.sprints.find((s) => s.id === id)?.name ?? 'Unknown sprint');
+  const fieldLabel = (f: 'points' | 'sprint') => (f === 'points' ? 'Points' : 'Sprint');
+  const valueText = (p: PushItemPreview['diffs'][number], v: number | string | null): string => {
+    if (v == null && p.field === 'points') return '—';
+    return p.field === 'sprint' ? sprintName(v as string | null) : String(v);
+  };
+
+  const previews = buildPushPreview(items, PUSHABLE_FIELDS);
+  const total = previews.length;
+
+  const doPush = async () => {
+    if (busy || total === 0) return;
+    setBusy(true);
+    try {
+      await onConfirm();
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const arrow = (
+    <span style={{ color: 'var(--rt-t3)', fontWeight: 'var(--rt-fw-semibold)' }} aria-label="changes to">→</span>
+  );
+
+  return (
+    <Modal
+      title="Push changes"
+      icon={Icon.sync}
+      onClose={onClose}
+      width={560}
+      footer={
+        <>
+          <PButton variant="subtle" onClick={onClose}>
+            Cancel
+          </PButton>
+          <PButton
+            onClick={doPush}
+            disabled={busy || total === 0}
+            style={total > 0 ? { color: statusVars('In Progress').text } : undefined}
+          >
+            {busy ? 'Pushing…' : total > 0 ? `Push ${total} change${total !== 1 ? 's' : ''}` : 'Nothing to push'}
+          </PButton>
+        </>
+      }
+    >
+      {total === 0 ? (
+        <span style={{ color: 'var(--rt-t2)', fontSize: 'var(--rt-fs-md)', lineHeight: 'var(--rt-lh-normal)' }}>
+          No pending changes to push — everything is in sync with the external system.
+        </span>
+      ) : (
+        <>
+          <div style={{ marginBottom: 12, fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 'var(--rt-lh-normal)' }}>
+            {total} item{total !== 1 ? 's' : ''} will be written back to{' '}
+            <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>{r.name}</strong>. Review each change, or
+            remove one to revert it to its synced value.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '52vh', overflowY: 'auto' }}>
+            {previews.map((p) => (
+              <div
+                key={p.itemId}
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 12,
+                  padding: '10px 12px',
+                  border: '1.5px solid var(--rt-line)', borderRadius: 9, background: 'var(--rt-paper)',
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span
+                      className="mono"
+                      style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', background: 'var(--rt-fill)', padding: '2px 6px', borderRadius: 5, flexShrink: 0 }}
+                    >
+                      {p.key}
+                    </span>
+                    <span
+                      title={p.subject}
+                      style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    >
+                      {p.subject}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {p.diffs.map((d) => (
+                      <div key={d.field} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--rt-fs-sm)' }}>
+                        <span style={{ color: 'var(--rt-t3)', minWidth: 52 }}>{fieldLabel(d.field)}</span>
+                        <span style={{ color: 'var(--rt-t3)', textDecoration: 'line-through' }}>{valueText(d, d.from)}</span>
+                        {arrow}
+                        <span style={{ color: 'var(--rt-t1)', fontWeight: 'var(--rt-fw-semibold)' }}>{valueText(d, d.to)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <PButton
+                  variant="subtle"
+                  sm
+                  onClick={() => getActions().revertItem(p.itemId)}
+                  disabled={busy}
+                  title="Revert this item to its synced value"
+                  style={{ flexShrink: 0 }}
+                >
+                  Remove
+                </PButton>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </Modal>
   );
 }

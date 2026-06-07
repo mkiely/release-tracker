@@ -7,6 +7,7 @@ import { ViewModeStore, useViewMode } from '../store/viewMode';
 import { PresentationStore, usePresentationMode } from '../store/presentationMode';
 import type { Release } from '../types';
 import { selDirtyCount, useStore } from '../store/store';
+import { useApp } from '../app-context';
 import { Icon } from './Icon';
 import { IconButton, PButton } from './primitives';
 import { statusVars } from './statusVars';
@@ -204,29 +205,23 @@ export function SyncButton({ release, onSync }: { release: Release; onSync: () =
 }
 
 export function PushButton({ release, onPush }: { release: Release; onPush: () => void | Promise<void> }) {
-  const [busy, setBusy] = useState(false);
+  const { openModal } = useApp();
   const dirtyCount = useStore((s) => selDirtyCount(s, release.id));
 
   if (!release.connector) return null;
-  if (dirtyCount === 0 && !busy) return null;
+  if (dirtyCount === 0) return null;
 
-  const run = async () => {
-    if (busy) return;
-    setBusy(true);
-    try { await onPush(); } finally { setBusy(false); }
-  };
-
+  // Clicking Push opens the review modal; the modal performs the actual push on confirm.
   return (
     <PButton
       variant="subtle"
       sm
       icon={Icon.sync}
-      onClick={run}
-      disabled={busy || dirtyCount === 0}
-      title={dirtyCount > 0 ? `${dirtyCount} pending change${dirtyCount !== 1 ? 's' : ''}` : undefined}
-      style={dirtyCount > 0 ? { color: statusVars('In Progress').text } : undefined}
+      onClick={() => openModal({ type: 'pushReview', releaseId: release.id, onConfirm: onPush })}
+      title={`${dirtyCount} pending change${dirtyCount !== 1 ? 's' : ''}`}
+      style={{ color: statusVars('In Progress').text }}
     >
-      {busy ? 'Pushing…' : `Push${dirtyCount > 0 ? ` (${dirtyCount})` : ''}`}
+      {`Push (${dirtyCount})`}
     </PButton>
   );
 }
