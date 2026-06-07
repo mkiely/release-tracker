@@ -1,13 +1,15 @@
-import { useEffect, useRef } from 'react';
 import type { ReleaseViewProps, SprintRowData } from '../hooks/useReleaseView';
 import { STATUSES } from '../types';
 import { fmtShort } from '../lib/dates';
 import { Icon } from '../components/Icon';
 import { SegBar } from '../components/badges';
 import { CapBarInline } from '../components/CapBarInline';
+import { EmptyState } from '../components/EmptyState';
 import { EventStrip } from '../components/EventStrip';
 import { ReleaseChrome } from '../components/ReleaseChrome';
+import { VDivider } from '../components/VDivider';
 import { statusVars } from '../components/statusVars';
+import { useScrollActiveIntoView } from '../hooks/useScrollActiveIntoView';
 import releaseStyles from '../routes/Release.module.css';
 
 function StatusLegend() {
@@ -76,11 +78,11 @@ function SprintRow({
         <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
           {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
         </span>
-        <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
+        <VDivider stretch />
         <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-bold)', color: 'var(--rt-t3)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
           {itemCount} item{itemCount !== 1 ? 's' : ''}
         </span>
-        <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
+        <VDivider stretch />
         <CapBarInline planned={planned} cap={vel} />
         <EventStrip events={events} align="flex-end" onEventClick={onOpenEvent} />
       </div>
@@ -165,12 +167,7 @@ export function ReleaseView(props: ReleaseViewProps) {
     onNavigateToStream,
     onOpenEvent,
   } = props;
-  const activeRowRef = useRef<HTMLDivElement>(null);
-
-  // Center the viewport on the active sprint when the view first loads.
-  useEffect(() => {
-    activeRowRef.current?.scrollIntoView({ block: 'center' });
-  }, []);
+  const activeRowRef = useScrollActiveIntoView<HTMLDivElement>();
 
   return (
     <ReleaseChrome {...props}>
@@ -198,23 +195,20 @@ export function ReleaseView(props: ReleaseViewProps) {
               <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                 {Icon.sprint}Sprints · {r.sprints.length}
               </span>
-              <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
+              <VDivider stretch />
               <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>{team ? team.name : '—'}</span>
-              <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
+              <VDivider stretch />
               <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>Velocity {teamVelocity} pts</span>
             </div>
             <StatusLegend />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {r.sprints.length === 0 ? (
-              <div
-                className="card dash"
-                style={{ padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-md)' }}
-              >
+              <EmptyState>
                 {r.connector
                   ? 'No sprints yet. Run a sync to populate the release plan.'
                   : 'No sprints configured.'}
-              </div>
+              </EmptyState>
             ) : (
               sprintRows.map((row) => (
                 <SprintRow

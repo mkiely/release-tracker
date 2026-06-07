@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import DOMPurify from 'dompurify';
 import { LOCAL_ITEM_TYPES, STATUSES, type Member, type Status } from '../types';
 import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
-import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth } from '../lib/derive';
+import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
 import { useApp } from '../app-context';
@@ -272,7 +272,7 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
   const forecast = streamForecast(health, ws.engineersRequired, ctx, contention);
   const v = verdictVars(forecast.verdict);
 
-  const series = r.sprints.map((sp) => streamItems.filter((i) => i.sprintId === sp.id).reduce((a, i) => a + i.points, 0));
+  const series = r.sprints.map((sp) => sumPoints(streamItems.filter((i) => i.sprintId === sp.id)));
   const today = todayISO();
   const friRaw = r.sprints.findIndex((sp) => sp.endISO >= today);
   const firstRemainingIndex = friRaw < 0 ? r.sprints.length : friRaw;

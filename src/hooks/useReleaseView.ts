@@ -3,7 +3,7 @@ import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } 
 import { releaseToTSV } from '../lib/exportRelease';
 import { useApp } from '../app-context';
 import { dOf, fmtShort } from '../lib/dates';
-import { activeSprint, eventsIn, releaseCapacity, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, type StreamForecast, type StreamHealth } from '../lib/derive';
+import { activeSprint, eventsIn, releaseCapacity, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, sumPoints, type StreamForecast, type StreamHealth } from '../lib/derive';
 import { connectorLabel } from '../sync/client';
 import type { RowData, RowMetrics } from '../lib/rowData';
 import type { Release, ReleaseEvent, Sprint, StatusSeg, Team, WorkItem, WorkStream } from '../types';
@@ -125,7 +125,6 @@ export function useReleaseView(): ReleaseViewProps | null {
 
   // Points-per-sprint series for each stream (and the unassigned bucket), used by
   // the per-lane trend sparkline. Computed once, then sliced per row by sprint index.
-  const sumPoints = (its: typeof items) => its.reduce((a, i) => a + i.points, 0);
   const seriesFor = (pred: (i: (typeof items)[number]) => boolean): number[] =>
     r.sprints.map((sp) => sumPoints(items.filter((i) => pred(i) && i.sprintId === sp.id)));
   const streamSeries = new Map<string, number[]>(
@@ -137,7 +136,7 @@ export function useReleaseView(): ReleaseViewProps | null {
   const sprintRows: SprintRowData[] = r.sprints.map((sp, sprintIndex) => {
     const vel = sprintVel(team, sp, sp.daysOff);
     const spItems = items.filter((i) => i.sprintId === sp.id);
-    const planned = spItems.reduce((a, i) => a + i.points, 0);
+    const planned = sumPoints(spItems);
     const isActive = !!active && active.id === sp.id;
     const evts = eventsIn(r, sp);
 

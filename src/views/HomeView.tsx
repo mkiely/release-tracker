@@ -2,6 +2,7 @@ import type { HomeViewProps, ReleaseCardData } from '../hooks/useHomeView';
 import { Brand, TopBar } from '../components/chrome';
 import { Icon } from '../components/Icon';
 import { Meter } from '../components/badges';
+import { EmptyState } from '../components/EmptyState';
 import { IconButton, PButton, PField, PInput, PSelect } from '../components/primitives';
 import { fmtShort } from '../lib/dates';
 import styles from '../routes/Home.module.css';
@@ -216,9 +217,7 @@ export function HomeView({
             <span className="tag">Your releases · {releases.length}</span>
           </div>
           {releases.length === 0 ? (
-            <div className="card dash" style={{ padding: 30, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-md)' }}>
-              No releases yet — create one above.
-            </div>
+            <EmptyState style={{ padding: 30 }}>No releases yet — create one above.</EmptyState>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
               {releases.map((d) => (

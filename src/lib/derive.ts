@@ -31,6 +31,10 @@ export const eventsIn = (release: Release, sp: Sprint) =>
 export const statusSegs = (items: WorkItem[]): StatusSeg[] =>
   STATUSES.map((k) => ({ k, v: items.filter((i) => i.status === k).length })).filter((s) => s.v > 0);
 
+/** Sum of story points across a set of work items. */
+export const sumPoints = (items: { points: number }[]): number =>
+  items.reduce((a, i) => a + i.points, 0);
+
 export interface StreamHealth {
   totalPts: number;
   donePts: number;

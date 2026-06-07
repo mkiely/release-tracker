@@ -1,14 +1,19 @@
 import type { SprintViewProps, GroupBy } from '../hooks/useSprintView';
 import { fmtShort } from '../lib/dates';
-import { groupItemsByStream } from '../lib/derive';
-import { PushButton, SyncButton, TopBar } from '../components/chrome';
+import { groupItemsByStream, sumPoints } from '../lib/derive';
+import { SprintTopActions, TopBar } from '../components/chrome';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { EmptyState } from '../components/EmptyState';
+import { FilterChip, ClearFiltersButton } from '../components/FilterChip';
 import { Icon } from '../components/Icon';
-import { EventBadge } from '../components/badges';
+import { EventBadge, StatusPill } from '../components/badges';
+import { memberInitials } from '../components/Avatar';
 import { SprintRail } from '../components/dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
-import { IconButton, PButton } from '../components/primitives';
+import { IconButton } from '../components/primitives';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { TeamLink } from '../components/TeamLink';
+import { VDivider } from '../components/VDivider';
 import { statusVars } from '../components/statusVars';
 import { STATUSES } from '../types';
 import sprintStyles from '../routes/Sprint.module.css';
@@ -76,30 +81,14 @@ export function SprintView({
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
         title={
           <>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 7,
-                fontSize: 'var(--rt-fs-sm)',
-                color: 'var(--rt-t3)',
-                marginBottom: 3,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <span
-                onClick={onHome}
-                style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-              >
-                {Icon.release}Releases
-              </span>
-              {Icon.chevRight}
-              <span onClick={onBack} style={{ cursor: 'pointer' }}>
-                {r.name}
-              </span>
-              {Icon.chevRight}
-              <span style={{ fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)' }}>Sprint</span>
-            </div>
+            <Breadcrumb
+              marginBottom={3}
+              crumbs={[
+                { label: 'Releases', icon: Icon.release, onClick: onHome },
+                { label: r.name, onClick: onBack },
+                { label: 'Sprint' },
+              ]}
+            />
             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
               <span style={{ display: 'inline-flex', color: 'var(--rt-t2)', flexShrink: 0 }}>{Icon.sprint}</span>
               <span
@@ -144,28 +133,13 @@ export function SprintView({
           </>
         }
         right={
-          <>
-            {r.connector ? (
-              <PButton variant="subtle" sm icon={Icon.cal} onClick={onEditSprint}>
-                Days off
-              </PButton>
-            ) : (
-              <PButton variant="subtle" sm icon={Icon.sprint} onClick={onEditSprint}>
-                Edit sprint
-              </PButton>
-            )}
-            <PushButton release={r} onPush={onPush} />
-            <SyncButton release={r} onSync={onSync} />
-            <PButton
-              sm
-              icon={Icon.item}
-              disabled={!!r.connector}
-              title={r.connector ? 'Work items are managed by the connector' : undefined}
-              onClick={onNewItem}
-            >
-              New work item
-            </PButton>
-          </>
+          <SprintTopActions
+            release={r}
+            onEditSprint={onEditSprint}
+            onPush={onPush}
+            onSync={onSync}
+            onNewItem={onNewItem}
+          />
         }
       />
 
@@ -212,32 +186,25 @@ export function SprintView({
         }}
       >
         <GroupToggle value={groupBy} onChange={onSetGroupBy} />
-        <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />
+        <VDivider />
 
         {sprintMembers.map((m) => {
-          const isActive = memberFilter.has(m.id);
-          const initials = m.name
-            .trim()
-            .split(' ')
-            .map((p) => p[0])
-            .slice(0, 2)
-            .join('')
-            .toUpperCase();
+          const isMemberActive = memberFilter.has(m.id);
           return (
             <button
               key={m.id}
-              title={isActive ? `Hide ${m.name}` : `Filter: ${m.name}`}
+              title={isMemberActive ? `Hide ${m.name}` : `Filter: ${m.name}`}
               onClick={() => onToggleMember(m.id)}
               style={{
                 width: 26,
                 height: 26,
                 borderRadius: '50%',
-                border: isActive ? `2px solid ${'var(--rt-ink)'}` : `1.5px solid ${'var(--rt-line)'}`,
-                background: isActive ? 'var(--rt-fill)' : 'transparent',
+                border: isMemberActive ? `2px solid ${'var(--rt-ink)'}` : `1.5px solid ${'var(--rt-line)'}`,
+                background: isMemberActive ? 'var(--rt-fill)' : 'transparent',
                 cursor: 'pointer',
                 fontSize: 'var(--rt-fs-micro)',
                 fontWeight: 'var(--rt-fw-bold)',
-                color: isActive ? 'var(--rt-ink)' : 'var(--rt-t3)',
+                color: isMemberActive ? 'var(--rt-ink)' : 'var(--rt-t3)',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -245,168 +212,68 @@ export function SprintView({
                 fontFamily: 'var(--rt-sans)',
               }}
             >
-              {initials}
+              {memberInitials(m.name)}
             </button>
           );
         })}
 
-        {sprintMembers.length > 0 && (
-          <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />
-        )}
+        {sprintMembers.length > 0 && <VDivider />}
 
-        {STATUSES.map((s) => {
-          const active = statusFilter.has(s);
-          const sv = statusVars(s);
-          return (
-            <button
-              key={s}
-              onClick={() => onToggleStatus(s)}
-              title={active ? `Remove filter: ${s}` : `Filter: ${s}`}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '2px 9px 2px 7px',
-                borderRadius: 20,
-                border: `1.5px solid ${active ? sv.dot : 'var(--rt-line)'}`,
-                background: active ? sv.soft : 'transparent',
-                color: active ? sv.text : 'var(--rt-t3)',
-                cursor: 'pointer',
-                fontSize: 'var(--rt-fs-xs)',
-                fontWeight: active ? 700 : 500,
-                fontFamily: 'var(--rt-sans)',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: active ? sv.dot : 'var(--rt-t3)',
-                  flexShrink: 0,
-                }}
-              />
-              {s}
-            </button>
-          );
-        })}
+        {STATUSES.map((s) => (
+          <FilterChip
+            key={s}
+            active={statusFilter.has(s)}
+            vars={statusVars(s)}
+            label={s}
+            title={statusFilter.has(s) ? `Remove filter: ${s}` : `Filter: ${s}`}
+            onClick={() => onToggleStatus(s)}
+          />
+        ))}
 
         {sprintTypes.length > 0 && (
           <>
-            <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />
-            {sprintTypes.map((t) => {
-              const active = typeFilter.has(t);
-              return (
-                <button
-                  key={t}
-                  onClick={() => onToggleType(t)}
-                  title={active ? `Remove filter: ${t}` : `Filter: ${t}`}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 5,
-                    padding: '2px 9px 2px 7px',
-                    borderRadius: 20,
-                    border: `1.5px solid ${active ? 'var(--rt-ink)' : 'var(--rt-line)'}`,
-                    background: active ? 'var(--rt-fill)' : 'transparent',
-                    color: active ? 'var(--rt-ink)' : 'var(--rt-t3)',
-                    cursor: 'pointer',
-                    fontSize: 'var(--rt-fs-xs)',
-                    fontWeight: active ? 700 : 500,
-                    fontFamily: 'var(--rt-sans)',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      background: active ? 'var(--rt-ink)' : 'var(--rt-t3)',
-                      flexShrink: 0,
-                    }}
-                  />
-                  {t}
-                </button>
-              );
-            })}
+            <VDivider />
+            {sprintTypes.map((t) => (
+              <FilterChip
+                key={t}
+                active={typeFilter.has(t)}
+                label={t}
+                title={typeFilter.has(t) ? `Remove filter: ${t}` : `Filter: ${t}`}
+                onClick={() => onToggleType(t)}
+              />
+            ))}
           </>
         )}
 
         {sprintBuilds.length > 0 && (
           <>
-            <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />
-            {sprintBuilds.map((b) => {
-              const active = buildFilter.has(b);
-              return (
-                <button
-                  key={b}
-                  onClick={() => onToggleBuild(b)}
-                  title={active ? `Remove filter: ${b}` : `Filter: ${b}`}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 5,
-                    padding: '2px 9px 2px 7px',
-                    borderRadius: 20,
-                    border: `1.5px solid ${active ? 'var(--rt-ink)' : 'var(--rt-line)'}`,
-                    background: active ? 'var(--rt-fill)' : 'transparent',
-                    color: active ? 'var(--rt-ink)' : 'var(--rt-t3)',
-                    cursor: 'pointer',
-                    fontSize: 'var(--rt-fs-xs)',
-                    fontWeight: active ? 700 : 500,
-                    fontFamily: 'var(--rt-sans)',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 2,
-                      background: active ? 'var(--rt-ink)' : 'var(--rt-t3)',
-                      flexShrink: 0,
-                    }}
-                  />
-                  {b}
-                </button>
-              );
-            })}
+            <VDivider />
+            {sprintBuilds.map((b) => (
+              <FilterChip
+                key={b}
+                active={buildFilter.has(b)}
+                dotShape="square"
+                label={b}
+                title={buildFilter.has(b) ? `Remove filter: ${b}` : `Filter: ${b}`}
+                onClick={() => onToggleBuild(b)}
+              />
+            ))}
           </>
         )}
 
         {isFiltered && (
           <>
-            <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />
-            <button
-              onClick={onClearFilters}
-              title="Clear all filters"
-              style={{
-                fontSize: 'var(--rt-fs-xs)',
-                fontWeight: 'var(--rt-fw-semibold)',
-                color: 'var(--rt-t3)',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'var(--rt-sans)',
-                padding: '2px 4px',
-              }}
-            >
-              Clear
-            </button>
+            <VDivider />
+            <ClearFiltersButton onClick={onClearFilters} title="Clear all filters" />
           </>
         )}
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '18px 24px' }}>
         {filteredItems.length === 0 ? (
-          <div
-            className="card dash"
-            style={{ padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-md)' }}
-          >
+          <EmptyState>
             {isFiltered ? 'No items match the current filters.' : 'No work items in this sprint yet.'}
-          </div>
+          </EmptyState>
         ) : groupBy === 'stream' ? (
           <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
             {streamCols.map((col) => (
@@ -441,7 +308,7 @@ export function SprintView({
                     }}
                   >
                     <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-bold)' }}>
-                      {col.items.reduce((a, i) => a + i.points, 0)} pts
+                      {sumPoints(col.items)} pts
                     </span>
                     {Icon.chevRight}
                   </span>
@@ -476,7 +343,7 @@ export function SprintView({
                     }}
                   >
                     <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-bold)' }}>
-                      {unassignedItems.reduce((a, i) => a + i.points, 0)} pts
+                      {sumPoints(unassignedItems)} pts
                     </span>
                   </span>
                 </div>
@@ -497,7 +364,6 @@ export function SprintView({
         ) : (
           <div style={{ display: 'flex', gap: 7, alignItems: 'stretch' }}>
             {statusCols.map((col, idx) => {
-              const sv = statusVars(col.status);
               const isLast = idx === statusCols.length - 1;
               return (
                 <div
@@ -512,28 +378,12 @@ export function SprintView({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px', gap: 8 }}>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        padding: '2px 9px 2px 7px',
-                        borderRadius: 20,
-                        background: sv.soft,
-                        color: sv.text,
-                        fontSize: 'var(--rt-fs-xs)',
-                        fontWeight: 'var(--rt-fw-bold)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: sv.dot }} />
-                      {col.status}
-                    </span>
+                    <StatusPill status={col.status} />
                     <span
                       className="mono"
                       style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-bold)', color: 'var(--rt-t3)', marginLeft: 'auto' }}
                     >
-                      {col.items.reduce((a, i) => a + i.points, 0)} pts
+                      {sumPoints(col.items)} pts
                     </span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -557,7 +407,7 @@ export function SprintView({
                             {grp.wsName ?? 'Unassigned'}
                           </span>
                           <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', flex: '0 0 auto' }}>
-                            {grp.items.reduce((a, i) => a + i.points, 0)} pts
+                            {sumPoints(grp.items)} pts
                           </span>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>

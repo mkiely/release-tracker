@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
 import type { ReleaseViewProps } from '../hooks/useReleaseView';
 import { fmtShort, todayISO } from '../lib/dates';
 import { SegBar, EventBadge } from '../components/badges';
+import { EmptyState } from '../components/EmptyState';
 import { ReleaseChrome } from '../components/ReleaseChrome';
 import { Sparkline, CompletionRing } from '../components/trend';
+import { useScrollActiveIntoView } from '../hooks/useScrollActiveIntoView';
 import styles from './ReleaseTable.module.css';
 
 function F3SprintRow({
@@ -96,20 +97,15 @@ function F3SprintRow({
 export function ReleaseTable(props: ReleaseViewProps) {
   const { release: r, sprintRows, onNavigateToSprint, onNavigateToStream, onOpenEvent } = props;
   const today = todayISO();
-  const activeRowRef = useRef<HTMLDivElement>(null);
-
-  // Center the viewport on the active sprint when the view first loads.
-  useEffect(() => {
-    activeRowRef.current?.scrollIntoView({ block: 'center' });
-  }, []);
+  const activeRowRef = useScrollActiveIntoView<HTMLDivElement>();
 
   return (
     <ReleaseChrome {...props}>
       <div className={styles.body}>
         {r.sprints.length === 0 ? (
-          <div className="card dash" style={{ margin: 24, padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-md)' }}>
+          <EmptyState style={{ margin: 24 }}>
             {r.connector ? 'No sprints yet. Run a sync to populate the release plan.' : 'No sprints configured.'}
-          </div>
+          </EmptyState>
         ) : (
           sprintRows.map((row) => (
             <F3SprintRow

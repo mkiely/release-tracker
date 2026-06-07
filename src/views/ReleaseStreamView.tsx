@@ -1,7 +1,9 @@
 import type { ReleaseViewProps, StreamRowData } from '../hooks/useReleaseView';
 import { fmtShort } from '../lib/dates';
 import { SegBar } from '../components/badges';
+import { EmptyState } from '../components/EmptyState';
 import { ReleaseChrome } from '../components/ReleaseChrome';
+import { VDivider } from '../components/VDivider';
 import { Sparkline } from '../components/trend';
 import { VerdictBadge, VerdictLine } from '../components/VerdictLine';
 import releaseStyles from '../routes/Release.module.css';
@@ -58,17 +60,17 @@ function StreamRow({
         >
           {ws ? ws.name : 'Unassigned'}
         </span>
-        <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
+        <VDivider stretch />
         <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-bold)', color: 'var(--rt-t3)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
           {itemCount} item{itemCount !== 1 ? 's' : ''}
         </span>
-        <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
+        <VDivider stretch />
         <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-bold)', color: 'var(--rt-t3)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
           {points} pts
         </span>
         {ws && ws.engineersRequired != null && (
           <>
-            <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
+            <VDivider stretch />
             <span
               className="mono"
               title={`${ws.engineersRequired} engineer${ws.engineersRequired !== 1 ? 's' : ''} required`}
@@ -157,9 +159,9 @@ export function ReleaseStreamView(props: ReleaseViewProps) {
       <div style={{ flex: 1, overflow: 'hidden' }}>
         <div style={{ height: '100%', padding: '16px 22px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {streamRows.length === 0 ? (
-            <div className="card dash" style={{ padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-md)' }}>
+            <EmptyState>
               {r.connector ? 'No work streams yet. Run a sync to populate the release.' : 'No work streams yet.'}
-            </div>
+            </EmptyState>
           ) : (
             streamRows.map((row) => (
               <StreamRow

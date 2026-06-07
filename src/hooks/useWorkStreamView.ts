@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { selRelease, selItemsForStream, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
-import { activeSprint } from '../lib/derive';
+import { activeSprint, sumPoints } from '../lib/derive';
 import type { Release, Status, Team, WorkItem, WorkStream } from '../types';
 
 export interface WorkStreamViewProps {
@@ -48,7 +48,7 @@ export function useWorkStreamView(): WorkStreamViewProps | null {
   const team = selTeam(st, r.teamId);
   const allItems = st.items.filter((i) => i.releaseId === r.id);
   const act = activeSprint(r);
-  const totalPts = items.reduce((a, i) => a + i.points, 0);
+  const totalPts = sumPoints(items);
 
   const streamTypes = [...new Set(items.map((i) => i.itemType?.label).filter((t): t is string => t !== undefined))];
 

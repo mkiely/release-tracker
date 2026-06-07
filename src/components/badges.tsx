@@ -3,6 +3,8 @@ import type { Status, StatusSeg } from '../types';
 import { statusVars } from './statusVars';
 import styles from './badges.module.css';
 
+/** A calendar-event chip (flag + label + optional date). Long labels are
+ *  truncated to `max` chars with the full text in a tooltip. */
 export function EventBadge({
   children,
   date,
@@ -41,8 +43,33 @@ export function StatusChip({ status, count }: { status: Status; count?: number }
   );
 }
 
-export function Avatar({ initials }: { initials: ReactNode }) {
-  return <span className="avatar">{initials}</span>;
+/**
+ * A soft-tinted status pill (dot + label). `sm` is the compact form used in
+ * dense table rows; the default is the slightly larger form used as a column
+ * heading. Distinct from {@link StatusChip}, which uses the global `.chip` class.
+ */
+export function StatusPill({ status, sm }: { status: Status; sm?: boolean }) {
+  const { soft, text, dot } = statusVars(status);
+  const d = sm ? 5 : 6;
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: sm ? '1px 7px 1px 6px' : '2px 9px 2px 7px',
+        borderRadius: 20,
+        background: soft,
+        color: text,
+        fontSize: 'var(--rt-fs-xs)',
+        fontWeight: sm ? 'var(--rt-fw-semibold)' : 'var(--rt-fw-bold)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span style={{ width: d, height: d, borderRadius: '50%', background: dot, flexShrink: 0 }} />
+      {status}
+    </span>
+  );
 }
 
 // segmented micro-bar showing status breakdown of a set of items

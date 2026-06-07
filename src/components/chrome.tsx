@@ -226,6 +226,63 @@ export function PushButton({ release, onPush }: { release: Release; onPush: () =
   );
 }
 
+/** "New work item" button — disabled (with an explanatory title) on connector
+ *  releases, where items are owned by the external system. */
+export function NewItemButton({
+  release,
+  onClick,
+  icon = Icon.item,
+}: {
+  release: Release;
+  onClick: () => void;
+  icon?: ReactNode;
+}) {
+  return (
+    <PButton
+      sm
+      icon={icon}
+      disabled={!!release.connector}
+      title={release.connector ? 'Work items are managed by the connector' : undefined}
+      onClick={onClick}
+    >
+      New work item
+    </PButton>
+  );
+}
+
+/** The shared TopBar action cluster for both sprint presenters (card + table):
+ *  edit-sprint (or "Days off" on connector releases), Push, Sync, New work item. */
+export function SprintTopActions({
+  release,
+  onEditSprint,
+  onPush,
+  onSync,
+  onNewItem,
+}: {
+  release: Release;
+  onEditSprint: () => void;
+  onPush: () => void | Promise<void>;
+  onSync: () => void | Promise<void>;
+  onNewItem: () => void;
+}) {
+  return (
+    <>
+      {release.connector ? (
+        <PButton variant="subtle" sm icon={Icon.cal} onClick={onEditSprint}>
+          Days off
+        </PButton>
+      ) : (
+        <PButton variant="subtle" sm icon={Icon.sprint} onClick={onEditSprint}>
+          Edit sprint
+        </PButton>
+      )}
+      <PushButton release={release} onPush={onPush} />
+      <SyncButton release={release} onSync={onSync} />
+      <NewItemButton release={release} onClick={onNewItem} />
+    </>
+  );
+}
+
 export function NotFound({ label }: { label: string }) {
   const navigate = useNavigate();
   return (

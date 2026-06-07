@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { selRelease, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
-import { activeSprint, capPct, eventsIn, sprintVel } from '../lib/derive';
+import { activeSprint, capPct, eventsIn, sprintVel, sumPoints } from '../lib/derive';
 import { STATUSES, type Member, type Release, type ReleaseEvent, type Sprint, type Status, type Team, type WorkItem, type WorkStream } from '../types';
 
 export type GroupBy = 'stream' | 'status';
@@ -93,7 +93,7 @@ export function useSprintView(): SprintViewProps | null {
   const act = activeSprint(r);
   const isActive = !!act && act.id === sp.id;
   const evts = eventsIn(r, sp);
-  const totalPts = items.reduce((a, i) => a + i.points, 0);
+  const totalPts = sumPoints(items);
 
   const sprintTypes = [...new Set(items.map((i) => i.itemType?.label).filter((t): t is string => t !== undefined))];
   const sprintBuilds = [...new Set(items.map((i) => i.build).filter((b): b is string => b !== null))];

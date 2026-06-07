@@ -8,6 +8,7 @@ import { SegBar } from './badges';
 import { IconButton, PButton } from './primitives';
 import { SegmentedToggle } from './SegmentedToggle';
 import { TeamLink } from './TeamLink';
+import { VDivider } from './VDivider';
 import { AxisModeStore, useAxisMode, type AxisMode } from '../store/axisMode';
 import styles from './ReleaseChrome.module.css';
 
@@ -170,7 +171,7 @@ export function ReleaseChrome({
             >
               {Icon.stream}Work streams
             </span>
-            <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
+            <VDivider stretch />
             {workStreamBadges.length === 0 && !hasUnassigned ? (
               <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
                 No work streams yet — add one with the button above.

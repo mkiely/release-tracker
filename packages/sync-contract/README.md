@@ -15,6 +15,7 @@ A single sync service can expose multiple connectors (one per backend type). The
 | `GET` | `/connectors` | List available connectors and the config fields each requires |
 | `POST` | `/connectors/{type}/validate` | Validate a connector's config/credentials before saving |
 | `POST` | `/releases/{id}/sync` | Fetch and map external data for a release |
+| `POST` | `/releases/{id}/push` | Push locally-modified writeable fields back to the external system |
 
 Full schema: [`openapi.yaml`](./openapi.yaml).
 
@@ -25,11 +26,13 @@ Types are generated from the OpenAPI spec and re-exported from `src/index.ts` wi
 ```ts
 import type {
   ConnectorMeta,       // A connector's id, label, and required config fields
-  MappedRelease,       // Sync response: workStreams + sprints + items
+  MappedRelease,       // Sync response: optional team + workStreams + sprints + items
+  MappedTeam,          // Normalised team with its member roster (optional)
+  MappedMember,        // Normalised team member
   MappedWorkStream,    // Normalised epic / track of work
   MappedSprint,        // Normalised sprint with ISO date range
   MappedItem,          // Normalised work item; status coerced to ContractStatus
-  ContractStatus,      // 'Not Started' | 'Active' | 'Blocked' | 'Complete'
+  ContractStatus,      // 'Not Started' | 'In Progress' | 'Under Review' | 'Blocked' | 'Complete'
   ValidateResult,      // { ok: boolean; error?: string }
 } from '@release-tracker/sync-contract';
 ```
@@ -49,19 +52,20 @@ Config values (project keys, board IDs, etc.) are stored on the release and pass
 When `POST /releases/{id}/sync` is called, the service should:
 
 1. Read the connector `type` and `config` from the request body.
-2. Fetch work streams (epics), sprints, and items from the backend.
-3. Return a `MappedRelease` with all three lists normalized to the contract shapes.
+2. Fetch work streams (epics), sprints, and items from the backend — and optionally the team + member roster.
+3. Return a `MappedRelease` with the lists (and optional `team`) normalized to the contract shapes.
 
 The app's `applySync` function handles merging the response into local state — the service only needs to produce the payload.
 
 ### Status coercion
 
-External statuses must be coerced to one of the four `ContractStatus` values before returning:
+External statuses must be coerced to one of the five `ContractStatus` values before returning:
 
 | Value | Meaning |
 |---|---|
 | `Not Started` | Work has not begun |
-| `Active` | In progress |
+| `In Progress` | Actively being worked |
+| `Under Review` | In review / awaiting verification |
 | `Blocked` | Impeded |
 | `Complete` | Done |
 

@@ -1,6 +1,7 @@
 import type { ReleaseViewProps, StreamRowData } from '../hooks/useReleaseView';
 import type { StreamHealth } from '../lib/derive';
 import { SegBar } from '../components/badges';
+import { EmptyState } from '../components/EmptyState';
 import { ReleaseChrome } from '../components/ReleaseChrome';
 import { Sparkline, CompletionRing } from '../components/trend';
 import { statusVars } from '../components/statusVars';
@@ -140,9 +141,9 @@ export function ReleaseStreamTable(props: ReleaseViewProps) {
           </div>
         )}
         {streamRows.length === 0 ? (
-          <div className="card dash" style={{ margin: 24, padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-md)' }}>
+          <EmptyState style={{ margin: 24 }}>
             {r.connector ? 'No work streams yet. Run a sync to populate the release.' : 'No work streams yet.'}
-          </div>
+          </EmptyState>
         ) : (
           streamRows.map((row) => (
             <StreamRow

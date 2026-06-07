@@ -3,124 +3,19 @@ import type { WorkStreamViewProps } from '../hooks/useWorkStreamView';
 import type { Member, Sprint, WorkItem } from '../types';
 import { STATUSES } from '../types';
 import { fmtShort } from '../lib/dates';
-import { PushButton, SyncButton, TopBar } from '../components/chrome';
+import { sumPoints } from '../lib/derive';
+import { NewItemButton, PushButton, SyncButton, TopBar } from '../components/chrome';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { EmptyState } from '../components/EmptyState';
+import { FilterChip, ClearFiltersButton } from '../components/FilterChip';
 import { Icon } from '../components/Icon';
-import { Drag, setDragGhost, useDrag } from '../components/dnd';
-import { IconButton, PButton } from '../components/primitives';
+import { Drag, useDrag } from '../components/dnd';
+import { IconButton } from '../components/primitives';
 import { TeamLink } from '../components/TeamLink';
-import { statusVars } from '../components/statusVars';
+import { statusVars, typeVars } from '../components/statusVars';
 import { getActions } from '../store/store';
+import { ItemRow } from './ItemRow';
 import styles from './SprintTable.module.css';
-
-// ── Helpers (shared with SprintTable) ─────────────────────────────────────
-
-const AVATAR_PALETTES = [
-  { bg: 'var(--rt-st-ac-soft)', color: 'var(--rt-st-ac-text)' },
-  { bg: 'var(--rt-st-co-soft)', color: 'var(--rt-st-co-text)' },
-  { bg: 'var(--rt-st-ur-soft)', color: 'var(--rt-st-ur-text)' },
-  { bg: 'var(--rt-st-bl-soft)', color: 'var(--rt-st-bl-text)' },
-  { bg: 'var(--rt-st-ns-soft)', color: 'var(--rt-st-ns-text)' },
-];
-
-function avatarPalette(id: string) {
-  let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) | 0;
-  return AVATAR_PALETTES[Math.abs(h) % AVATAR_PALETTES.length];
-}
-
-function memberInitials(name: string): string {
-  return name.trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
-}
-
-function typeVars(label: string | undefined) {
-  if (!label) return statusVars('Not Started');
-  if (label === 'Bug') return statusVars('Blocked');
-  if (label === 'User Story' || label === 'Story') return statusVars('In Progress');
-  if (label === 'Investigation') return statusVars('Under Review');
-  return statusVars('Not Started');
-}
-
-// ── Item row ──────────────────────────────────────────────────────────────
-
-function ItemRow({
-  item,
-  members,
-  onOpen,
-}: {
-  item: WorkItem;
-  members: Member[];
-  onOpen: () => void;
-}) {
-  const assignee = item.assignedMemberId
-    ? members.find((m) => m.id === item.assignedMemberId)
-    : undefined;
-  const tv = typeVars(item.itemType?.label);
-  const sv = statusVars(item.status);
-  const dragging = useDrag();
-  const isMe = dragging?.id === item.id;
-
-  return (
-    <div className={styles.itemRow} onClick={onOpen} style={isMe ? { opacity: 0.4 } : undefined}>
-      <div
-        className={styles.colKey}
-        draggable
-        style={{ cursor: 'grab', userSelect: 'none', WebkitUserSelect: 'none' }}
-        onDragStart={(e) => {
-          e.stopPropagation();
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', item.id);
-          setDragGhost(e, item.key);
-          Drag.start(item);
-        }}
-        onDragEnd={() => Drag.end()}
-      >
-        {item.key}
-      </div>
-      <div className={styles.colType}>
-        {item.itemType && (
-          <span
-            className={styles.typeChip}
-            style={{ borderColor: tv.dot, color: tv.text, background: tv.soft }}
-          >
-            {item.itemType.label}
-          </span>
-        )}
-      </div>
-      <div className={styles.colPts}>{item.points > 0 ? item.points : ''}</div>
-      <div className={styles.colAssignee}>
-        {assignee && (
-          <div
-            className={styles.avatar}
-            title={assignee.name}
-            style={{ background: avatarPalette(assignee.id).bg, color: avatarPalette(assignee.id).color }}
-          >
-            {memberInitials(assignee.name)}
-          </div>
-        )}
-      </div>
-      <div className={styles.colStatus}>
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            padding: '1px 7px 1px 6px',
-            borderRadius: 20,
-            background: sv.soft,
-            color: sv.text,
-            fontSize: 'var(--rt-fs-xs)',
-            fontWeight: 'var(--rt-fw-semibold)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <span style={{ width: 5, height: 5, borderRadius: '50%', background: sv.dot, flexShrink: 0 }} />
-          {item.status}
-        </span>
-      </div>
-      <div className={styles.colTitle}>{item.subject}</div>
-    </div>
-  );
-}
 
 // ── Sprint section ────────────────────────────────────────────────────────
 
@@ -139,7 +34,7 @@ function SprintSection({
   notify: (msg: string) => void;
   onOpenItem: (id: string) => void;
 }) {
-  const pts = items.reduce((a, i) => a + i.points, 0);
+  const pts = sumPoints(items);
   const sv = statusVars('In Progress');
   const draggingItem = useDrag();
   const [over, setOver] = useState(false);
@@ -250,29 +145,16 @@ function FilterBar({
           <div className={styles.filterGroup}>
             <span className={styles.filterLabel}>Type</span>
             <div className={styles.filterChips}>
-              {streamTypes.map((t) => {
-                const active = typeFilter.has(t);
-                const tv = typeVars(t);
-                return (
-                  <button
-                    key={t}
-                    onClick={() => onToggleType(t)}
-                    title={active ? `Remove filter: ${t}` : `Filter: ${t}`}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      padding: '2px 9px 2px 7px', borderRadius: 20,
-                      border: `1.5px solid ${active ? tv.dot : 'var(--rt-line)'}`,
-                      background: active ? tv.soft : 'transparent',
-                      color: active ? tv.text : 'var(--rt-t3)',
-                      cursor: 'pointer', fontSize: 'var(--rt-fs-xs)',
-                      fontWeight: active ? 700 : 500, fontFamily: 'var(--rt-sans)', whiteSpace: 'nowrap',
-                    }}
-                  >
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? tv.dot : 'var(--rt-t3)', flexShrink: 0 }} />
-                    {t}
-                  </button>
-                );
-              })}
+              {streamTypes.map((t) => (
+                <FilterChip
+                  key={t}
+                  active={typeFilter.has(t)}
+                  vars={typeVars(t)}
+                  label={t}
+                  title={typeFilter.has(t) ? `Remove filter: ${t}` : `Filter: ${t}`}
+                  onClick={() => onToggleType(t)}
+                />
+              ))}
             </div>
           </div>
           <div className={styles.filterDivider} />
@@ -282,37 +164,22 @@ function FilterBar({
       <div className={styles.filterGroup}>
         <span className={styles.filterLabel}>Status</span>
         <div className={styles.filterChips}>
-          {STATUSES.map((s) => {
-            const active = statusFilter.has(s);
-            const sv = statusVars(s);
-            return (
-              <button
-                key={s}
-                onClick={() => onToggleStatus(s)}
-                title={active ? `Remove filter: ${s}` : `Filter: ${s}`}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  padding: '2px 9px 2px 7px', borderRadius: 20,
-                  border: `1.5px solid ${active ? sv.dot : 'var(--rt-line)'}`,
-                  background: active ? sv.soft : 'transparent',
-                  color: active ? sv.text : 'var(--rt-t3)',
-                  cursor: 'pointer', fontSize: 'var(--rt-fs-xs)',
-                  fontWeight: active ? 700 : 500, fontFamily: 'var(--rt-sans)', whiteSpace: 'nowrap',
-                }}
-              >
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? sv.dot : 'var(--rt-t3)', flexShrink: 0 }} />
-                {s}
-              </button>
-            );
-          })}
+          {STATUSES.map((s) => (
+            <FilterChip
+              key={s}
+              active={statusFilter.has(s)}
+              vars={statusVars(s)}
+              label={s}
+              title={statusFilter.has(s) ? `Remove filter: ${s}` : `Filter: ${s}`}
+              onClick={() => onToggleStatus(s)}
+            />
+          ))}
         </div>
       </div>
 
       {isFiltered && (
         <div className={styles.filterClear}>
-          <button className={styles.clearBtn} onClick={onClearFilters} title="Clear all filters">
-            Clear
-          </button>
+          <ClearFiltersButton onClick={onClearFilters} />
         </div>
       )}
     </div>
@@ -378,13 +245,13 @@ export function WorkStreamTable({
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
         title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', whiteSpace: 'nowrap' }}>
-            <span onClick={onHome} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icon.release}Releases</span>
-            {Icon.chevRight}
-            <span onClick={onBack} style={{ cursor: 'pointer' }}>{r.name}</span>
-            {Icon.chevRight}
-            <span style={{ fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icon.stream}{ws.name}</span>
-          </div>
+          <Breadcrumb
+            crumbs={[
+              { label: 'Releases', icon: Icon.release, onClick: onHome },
+              { label: r.name, onClick: onBack },
+              { label: ws.name, icon: Icon.stream },
+            ]}
+          />
         }
         sub={team ? <TeamLink name={team.name} onClick={onOpenTeam} /> : undefined}
         right={
@@ -394,15 +261,7 @@ export function WorkStreamTable({
             </span>
             <PushButton release={r} onPush={onPush} />
             <SyncButton release={r} onSync={onSync} />
-            <PButton
-              sm
-              icon={Icon.plus}
-              disabled={!!r.connector}
-              title={r.connector ? 'Work items are managed by the connector' : undefined}
-              onClick={onNewItem}
-            >
-              New work item
-            </PButton>
+            <NewItemButton release={r} onClick={onNewItem} icon={Icon.plus} />
           </>
         }
       />
@@ -421,9 +280,9 @@ export function WorkStreamTable({
         <ColHeaders />
 
         {filteredItems.length === 0 ? (
-          <div className={`card dash ${styles.empty}`}>
+          <EmptyState>
             {isFiltered ? 'No items match the current filters.' : 'No work items yet. Create one to get started.'}
-          </div>
+          </EmptyState>
         ) : (
           <>
             {sprintSections.map(({ sp, items }) => (

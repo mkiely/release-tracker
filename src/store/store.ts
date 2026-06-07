@@ -155,6 +155,8 @@ export function migrate(p: AppState): AppState | null {
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
+/** Read persisted state from localStorage, migrating it forward if needed.
+ *  Falls back to fresh seed data on a missing/corrupt/too-old store. */
 export function load(): AppState {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -170,6 +172,7 @@ export function load(): AppState {
   return seed();
 }
 
+/** Write the data slice to localStorage. Silently no-ops if storage is unavailable. */
 export function persist(state: AppState) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(state));
@@ -178,6 +181,9 @@ export function persist(state: AppState) {
   }
 }
 
+/** All state mutations, grouped under `store.actions`. Each commits immutably,
+ *  persists to localStorage, and triggers a re-render. CRUD entries are named for
+ *  their effect; non-obvious ones (move/revert/sync/push) carry their own docs. */
 interface Actions {
   reset: () => void;
   createTeam: (input: { name: string; velocity: number | string; members: string[] }) => Team;
@@ -206,6 +212,8 @@ interface Actions {
   pushRelease: (releaseId: string) => Promise<PushOutcome>;
 }
 
+/** The Zustand store value: the persisted {@link AppState} plus the {@link Actions}
+ *  that mutate it. Components select slices via {@link useStore}. */
 type StoreState = AppState & { actions: Actions };
 
 // helper: shallow-clone the data slice for an immutable update
@@ -213,6 +221,9 @@ function snapshot(s: StoreState): AppState {
   return { version: s.version, teams: s.teams, releases: s.releases, items: s.items, meta: s.meta };
 }
 
+/** The application store. Initialized from {@link load} (and written back on first
+ *  run), then every action persists through the `commit` helper. This is the seam
+ *  a real backend would slot behind in place of localStorage + the sync client. */
 export const useStore = create<StoreState>((set, get) => {
   const initial = load();
   persist(initial); // ensure first-run seed is written, matching the prototype
@@ -508,11 +519,14 @@ export const useStore = create<StoreState>((set, get) => {
   return { ...initial, actions };
 });
 
-// non-reactive accessors
+// Non-reactive accessors — for reading state / firing actions outside React
+// render (event handlers, drag-and-drop, async flows) without subscribing.
 export const getState = () => useStore.getState();
 export const getActions = () => useStore.getState().actions;
 
 // ---- selectors (pure; take the current state) ----
+// Small lookups over an AppState snapshot. Pure so they can run inside useStore
+// selectors (reactive) or against a plain snapshot (tests, async flows) alike.
 export const selTeam = (s: AppState, id: string | undefined): Team | undefined =>
   s.teams.find((t) => t.id === id);
 export const selRelease = (s: AppState, id: string | undefined): Release | undefined =>

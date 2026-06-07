@@ -11,6 +11,7 @@ export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
 export const SCHEMA_VERSION = 11;
 
+/** A person on a team. Members supply the per-sprint capacity (person-days). */
 export interface Member {
   id: string;
   name: string;
@@ -32,6 +33,8 @@ export interface ItemType {
 export const LOCAL_ITEM_TYPES = ['Bug', 'User Story', 'Investigation'] as const;
 export type LocalItemType = (typeof LOCAL_ITEM_TYPES)[number];
 
+/** A delivery team. `velocity` is points completed at full capacity; it scales
+ *  down per sprint by the capacity fraction (see derive.sprintVel). */
 export interface Team {
   id: string;
   name: string;
@@ -50,6 +53,8 @@ export interface WorkStream {
   engineersRequired: number | null;
 }
 
+/** A dated milestone on the release calendar (e.g. code freeze). Rendered on the
+ *  sprint row whose date range contains `dateISO`. */
 export interface ReleaseEvent {
   id: string;
   label: string;
@@ -57,6 +62,8 @@ export interface ReleaseEvent {
   externalId: string | null;
 }
 
+/** One sprint in a release. `daysOff` is person-days lost (holidays, PTO) and
+ *  reduces the sprint's effective capacity. Dates are inclusive ISO (YYYY-MM-DD). */
 export interface Sprint {
   id: string;
   name: string;
@@ -87,6 +94,9 @@ export interface SyncStatus {
   message: string | null;
 }
 
+/** A release cycle: a team, a sprint schedule, and the work streams/events
+ *  planned across it. Work items reference it by id (they live in AppState.items,
+ *  not nested here). A connector-backed release also carries sync state. */
 export interface Release {
   id: string;
   name: string;
@@ -100,6 +110,9 @@ export interface Release {
   sync: SyncStatus | null;
 }
 
+/** A single piece of work. Belongs to one release, optionally assigned to a work
+ *  stream and a sprint (null sprint = backlog). Synced items track a dirty/baseline
+ *  pair so local edits can be previewed and pushed back to the external system. */
 export interface WorkItem {
   id: string;
   releaseId: string;
@@ -129,6 +142,8 @@ export interface WorkItem {
   itemType: ItemType | null;
 }
 
+/** The entire persisted application state — the single object the store holds
+ *  and serializes to localStorage. `version` drives schema migrations on load. */
 export interface AppState {
   version: number;
   teams: Team[];

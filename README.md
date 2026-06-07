@@ -7,19 +7,21 @@ A frontend application for planning and tracking software release cycles across 
 Release Tracker helps engineering teams organize sprint-based releases. You define a release with a start date and a team; the app generates a sequence of sprints, lets you assign work items to streams and sprints, and visualizes capacity versus planned points across the whole release.
 
 **Key concepts:**
-- **Releases** — a named release cycle with a start date, a team, and a fixed sequence of two-week sprints
+- **Releases** — a named release cycle with a start date, a team, and a sequence of two-week sprints (count configurable, or driven by a connector)
 - **Teams** — a group of members with a velocity that drives per-sprint capacity
 - **Work streams** — parallel tracks of work within a release (analogous to epics)
 - **Work items** — individual units of work with a status, point estimate, and sprint assignment
 
 ## Features
 
-- Release plan view — horizontal sprint rows with inline capacity meters and event markers
-- Sprint view — columns by work stream; drag work items between sprints
+- Release plan view — sprint or work-stream rows with inline capacity meters, status bars, and event markers; switch the row axis and toggle a card or table layout
+- Sprint view — group by work stream or status; filter by member, status, type, build; drag work items between sprints
 - Work stream view — columns by sprint for a single stream
-- Light / dark theme, persisted across sessions
+- Work-stream health — forward capacity-fit forecast (on-track / at-risk) with a burndown-vs-capacity detail modal
+- Connector sync — pull work items, sprints, and streams from an external system via the [sync contract](./packages/sync-contract/README.md), review pending local edits, and push them back
+- TSV export for pasting a release plan into a spreadsheet
+- Multiple color themes (light + dark variants) and a presentation mode, persisted across sessions
 - All data persists in `localStorage`
-- Connector extensibility — pull work items, sprints, and streams from any external work tracking system via the [sync contract](./packages/sync-contract/README.md)
 
 ## Stack
 
@@ -29,7 +31,7 @@ Release Tracker helps engineering teams organize sprint-based releases. You defi
 | Build | Vite |
 | Routing | React Router v6 |
 | State | Zustand |
-| Styling | CSS custom properties (`design-tokens.css`) |
+| Styling | CSS Modules + CSS custom-property design tokens (`src/styles/tokens.css`) |
 | Sync contract | OpenAPI 3.0 + generated TypeScript types |
 
 ## Getting started
@@ -39,7 +41,7 @@ npm install
 npm run dev
 ```
 
-The app seeds demo data on first run. Use the sun/moon control in the top bar to toggle the theme.
+The app seeds demo data on first run. Use the settings control (sliders icon) in the top bar to switch the color theme and the card/table view style.
 
 ## Connecting an external backend
 
@@ -55,11 +57,15 @@ When no `VITE_SYNC_BASE_URL` is set the app runs in local mode — all data is c
 
 ```
 src/
-  routes/         # Page-level components (Home, Release, Sprint, WorkStream)
-  components/     # Shared UI primitives (buttons, inputs, modals, badges)
-  store/          # Zustand store, typed data model, localStorage persistence
-  sync/           # SyncClient interface, fixture client, applySync
-  lib/            # Pure utilities: dates, capacity derivations, seed data
+  routes/         # Thin route wrappers — bind URL params to a view hook + presenter
+  hooks/          # Per-screen view-model hooks (useReleaseView, useSprintView, …)
+  views/          # Presenters — card + table renderers for each screen
+  components/     # Shared UI primitives (buttons, inputs, modal, badges, filter chips, dnd)
+  modals/         # Modal dialogs + the modal host
+  store/          # Zustand store, typed data model, localStorage persistence + migrations
+  sync/           # SyncClient interface, fixture client, applySync + push
+  lib/            # Pure utilities: dates, capacity/health derivations, seed, TSV export
+  styles/         # Global tokens.css + base.css (the type scale and role classes)
 packages/
   sync-contract/  # OpenAPI spec + generated TypeScript types (the sync wire contract)
 scripts/          # Repo tooling (e.g. check-typography.mjs — the type-token guard)

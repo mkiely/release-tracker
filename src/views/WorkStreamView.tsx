@@ -1,10 +1,14 @@
 import type { WorkStreamViewProps } from '../hooks/useWorkStreamView';
-import { PushButton, SyncButton, TopBar } from '../components/chrome';
+import { NewItemButton, PushButton, SyncButton, TopBar } from '../components/chrome';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { EmptyState } from '../components/EmptyState';
+import { FilterChip, ClearFiltersButton } from '../components/FilterChip';
 import { Icon } from '../components/Icon';
 import { StreamSprintColumn } from '../components/dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
-import { IconButton, PButton } from '../components/primitives';
+import { IconButton } from '../components/primitives';
 import { TeamLink } from '../components/TeamLink';
+import { VDivider } from '../components/VDivider';
 import { statusVars } from '../components/statusVars';
 import { STATUSES } from '../types';
 
@@ -39,30 +43,14 @@ export function WorkStreamView({
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
         title={
           <>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 7,
-                fontSize: 'var(--rt-fs-sm)',
-                color: 'var(--rt-t3)',
-                marginBottom: 3,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <span
-                onClick={onHome}
-                style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-              >
-                {Icon.release}Releases
-              </span>
-              {Icon.chevRight}
-              <span onClick={onBack} style={{ cursor: 'pointer' }}>
-                {r.name}
-              </span>
-              {Icon.chevRight}
-              <span style={{ fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)' }}>Work stream</span>
-            </div>
+            <Breadcrumb
+              marginBottom={3}
+              crumbs={[
+                { label: 'Releases', icon: Icon.release, onClick: onHome },
+                { label: r.name, onClick: onBack },
+                { label: 'Work stream' },
+              ]}
+            />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ display: 'inline-flex', color: 'var(--rt-t2)', flexShrink: 0 }}>{Icon.stream}</span>
               <span
@@ -87,15 +75,7 @@ export function WorkStreamView({
             </span>
             <PushButton release={r} onPush={onPush} />
             <SyncButton release={r} onSync={onSync} />
-            <PButton
-              sm
-              icon={Icon.plus}
-              disabled={!!r.connector}
-              title={r.connector ? 'Work items are managed by the connector' : undefined}
-              onClick={onNewItem}
-            >
-              New work item
-            </PButton>
+            <NewItemButton release={r} onClick={onNewItem} icon={Icon.plus} />
           </>
         }
       />
@@ -112,115 +92,43 @@ export function WorkStreamView({
         }}
       >
         <span style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t3)', marginRight: 2 }}>Status</span>
-        {STATUSES.map((s) => {
-          const active = statusFilter.has(s);
-          const sv = statusVars(s);
-          return (
-            <button
-              key={s}
-              onClick={() => onToggleStatus(s)}
-              title={active ? `Remove filter: ${s}` : `Filter: ${s}`}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '2px 9px 2px 7px',
-                borderRadius: 20,
-                border: `1.5px solid ${active ? sv.dot : 'var(--rt-line)'}`,
-                background: active ? sv.soft : 'transparent',
-                color: active ? sv.text : 'var(--rt-t3)',
-                cursor: 'pointer',
-                fontSize: 'var(--rt-fs-xs)',
-                fontWeight: active ? 700 : 500,
-                fontFamily: 'var(--rt-sans)',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: active ? sv.dot : 'var(--rt-t3)',
-                  flexShrink: 0,
-                }}
-              />
-              {s}
-            </button>
-          );
-        })}
+        {STATUSES.map((s) => (
+          <FilterChip
+            key={s}
+            active={statusFilter.has(s)}
+            vars={statusVars(s)}
+            label={s}
+            title={statusFilter.has(s) ? `Remove filter: ${s}` : `Filter: ${s}`}
+            onClick={() => onToggleStatus(s)}
+          />
+        ))}
         {streamTypes.length > 0 && (
           <>
-            <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />
-            {streamTypes.map((t) => {
-              const active = typeFilter.has(t);
-              return (
-                <button
-                  key={t}
-                  onClick={() => onToggleType(t)}
-                  title={active ? `Remove filter: ${t}` : `Filter: ${t}`}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 5,
-                    padding: '2px 9px 2px 7px',
-                    borderRadius: 20,
-                    border: `1.5px solid ${active ? 'var(--rt-ink)' : 'var(--rt-line)'}`,
-                    background: active ? 'var(--rt-fill)' : 'transparent',
-                    color: active ? 'var(--rt-ink)' : 'var(--rt-t3)',
-                    cursor: 'pointer',
-                    fontSize: 'var(--rt-fs-xs)',
-                    fontWeight: active ? 700 : 500,
-                    fontFamily: 'var(--rt-sans)',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      background: active ? 'var(--rt-ink)' : 'var(--rt-t3)',
-                      flexShrink: 0,
-                    }}
-                  />
-                  {t}
-                </button>
-              );
-            })}
+            <VDivider />
+            {streamTypes.map((t) => (
+              <FilterChip
+                key={t}
+                active={typeFilter.has(t)}
+                label={t}
+                title={typeFilter.has(t) ? `Remove filter: ${t}` : `Filter: ${t}`}
+                onClick={() => onToggleType(t)}
+              />
+            ))}
           </>
         )}
         {isFiltered && (
           <>
-            <span style={{ width: 1, height: 16, background: 'var(--rt-line)', flexShrink: 0 }} />
-            <button
-              onClick={onClearFilters}
-              title="Clear filters"
-              style={{
-                fontSize: 'var(--rt-fs-xs)',
-                fontWeight: 'var(--rt-fw-semibold)',
-                color: 'var(--rt-t3)',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'var(--rt-sans)',
-                padding: '2px 4px',
-              }}
-            >
-              Clear
-            </button>
+            <VDivider />
+            <ClearFiltersButton onClick={onClearFilters} title="Clear filters" />
           </>
         )}
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '18px 24px' }}>
         {filteredItems.length === 0 ? (
-          <div
-            className="card dash"
-            style={{ padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-md)' }}
-          >
+          <EmptyState>
             {isFiltered ? 'No items match the current filters.' : 'No work items yet. Create one to get started.'}
-          </div>
+          </EmptyState>
         ) : (
           <div style={{ display: 'flex', gap: 14, alignItems: 'stretch', minHeight: '100%' }}>
             {r.sprints.map((sp) => (

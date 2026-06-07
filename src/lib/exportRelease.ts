@@ -8,7 +8,7 @@
 
 import type { AppState, WorkItem } from '../types';
 import { fmtShort } from './dates';
-import { eventsIn, sprintVel } from './derive';
+import { eventsIn, sprintVel, sumPoints } from './derive';
 
 const TAB = '\t';
 
@@ -33,7 +33,7 @@ export function releaseToTSV(state: AppState, releaseId: string): string {
     ['Days off', ...sprints.map((s) => String(s.daysOff))],
     ['Events', ...sprints.map((s) => cell(eventsIn(release, s).map((e) => `${e.label} (${fmtShort(e.dateISO)})`).join('; ')))],
     ['Capacity', ...sprints.map((s) => String(sprintVel(team, s, s.daysOff)))],
-    ['Planned', ...sprints.map((s) => String(state.items.filter((i) => i.releaseId === releaseId && i.sprintId === s.id).reduce((sum, i) => sum + i.points, 0)))],
+    ['Planned', ...sprints.map((s) => String(sumPoints(state.items.filter((i) => i.releaseId === releaseId && i.sprintId === s.id))))],
   ];
 
   const streamsToExport: Array<{ name: string; matchId: string | null }> = [

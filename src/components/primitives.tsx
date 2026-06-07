@@ -17,6 +17,8 @@ import iconBtnStyles from './ui/IconButton.module.css';
 import segStyles from './ui/PointSeg.module.css';
 import fieldStyles from './ui/PField.module.css';
 
+/** A labelled form field: an optional uppercase label (with an optional inline
+ *  hint) above whatever control is passed as children. Wraps in a `<label>`. */
 export function PField({
   label,
   hint,
@@ -41,6 +43,8 @@ export function PField({
   );
 }
 
+// Themed form controls — native elements wearing the shared input style. They
+// forward all native props, so use them anywhere a plain input/textarea/select fits.
 export const PInput = (p: InputHTMLAttributes<HTMLInputElement>) => <input className={inputStyles.input} {...p} />;
 export const PTextarea = (p: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea className={inputStyles.input} {...p} />;
 export const PSelect = ({ children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) => (
@@ -49,6 +53,8 @@ export const PSelect = ({ children, ...rest }: SelectHTMLAttributes<HTMLSelectEl
   </select>
 );
 
+/** The standard button. `variant` switches the visual style (default is the
+ *  primary fill); `sm` is the compact size; `icon` renders before the label. */
 export function PButton({
   children,
   variant,
@@ -77,6 +83,8 @@ export function PButton({
   );
 }
 
+/** A square icon-only button. `title` doubles as the `aria-label` (required, since
+ *  there's no text); `active` reflects a pressed/toggled state. */
 export function IconButton({
   icon,
   onClick,
@@ -104,6 +112,9 @@ export function IconButton({
   );
 }
 
+/** Modal shell: a centered dialog with a titled header, scrollable body, and
+ *  optional footer. Closes on Escape and on backdrop click. `width` caps the
+ *  dialog's max width. */
 export function Modal({
   title,
   icon,
@@ -148,6 +159,7 @@ export function Modal({
   );
 }
 
+/** A transient, bottom-anchored status message (e.g. after a sync or item move). */
 export const Toast = ({ children }: { children: ReactNode }): ReactElement => (
   <div className={toastStyles.toast}>
     {Icon.sync}
@@ -155,6 +167,8 @@ export const Toast = ({ children }: { children: ReactNode }): ReactElement => (
   </div>
 );
 
+/** A segmented control for picking a story-point estimate from a fixed scale
+ *  (Fibonacci by default). */
 export function PointSeg({
   value,
   onChange,

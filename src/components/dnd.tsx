@@ -4,7 +4,7 @@
 import { useEffect, useReducer, useState, type CSSProperties, type ReactNode } from 'react';
 import type { Release, Sprint, Team, WorkItem } from '../types';
 import { fmtShort } from '../lib/dates';
-import { sprintVel } from '../lib/derive';
+import { sprintVel, sumPoints } from '../lib/derive';
 import { getActions } from '../store/store';
 import styles from './dnd.module.css';
 
@@ -162,7 +162,7 @@ export function SprintRail({
     <div className={styles.rail}>
       <span className="tag" style={{ alignSelf: 'center', flex: '0 0 auto' }}>Sprints</span>
       {release.sprints.map((sp) => {
-        const planned = allItems.filter((i) => i.sprintId === sp.id).reduce((a, i) => a + i.points, 0);
+        const planned = sumPoints(allItems.filter((i) => i.sprintId === sp.id));
         const cap = sprintVel(team, sp, sp.daysOff);
         return (
           <SprintPill
@@ -206,9 +206,9 @@ export function StreamSprintColumn({
 }) {
   const draggingItem = useDrag();
   const [over, setOver] = useState(false);
-  const planned = allItems.filter((i) => i.sprintId === sp.id).reduce((a, i) => a + i.points, 0);
+  const planned = sumPoints(allItems.filter((i) => i.sprintId === sp.id));
   const cap = sprintVel(team, sp, sp.daysOff);
-  const streamPts = streamItems.reduce((a, i) => a + i.points, 0);
+  const streamPts = sumPoints(streamItems);
   const canDrop = !!draggingItem && draggingItem.sprintId !== sp.id;
   return (
     <div style={{ flex: 1, minWidth: 158, display: 'flex', flexDirection: 'column', gap: 10 }}>
