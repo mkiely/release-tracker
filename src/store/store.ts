@@ -34,7 +34,7 @@ export type PushOutcome =
   | { ok: true; result: PushResult }
   | { ok: false; reason: 'no-connector' | 'nothing-to-push' | 'error'; message: string };
 
-const LS_KEY = 'release-tracker:v1';
+export const LS_KEY = 'release-tracker:v1';
 
 // Migrate a persisted state forward to the current SCHEMA_VERSION. Returns null
 // if the stored shape is too old/unknown to upgrade safely.
@@ -155,7 +155,7 @@ export function migrate(p: AppState): AppState | null {
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
-function load(): AppState {
+export function load(): AppState {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
@@ -170,7 +170,7 @@ function load(): AppState {
   return seed();
 }
 
-function persist(state: AppState) {
+export function persist(state: AppState) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(state));
   } catch {
