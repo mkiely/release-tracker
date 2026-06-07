@@ -123,6 +123,17 @@ describe('applySync — external wins on re-sync', () => {
     expect(next.releases[0].sprints[0].daysOff).toBe(4);
   });
 
+  it('defaults engineersRequired to null on create and preserves it across re-sync', () => {
+    const first = applySync(baseState(), 'rel_1', mapped());
+    expect(first.next.releases[0].workStreams[0].engineersRequired).toBeNull();
+    first.next.releases[0].workStreams[0].engineersRequired = 3; // user enriches the stream
+    const { next } = applySync(first.next, 'rel_1', mapped({
+      workStreams: [{ externalId: 'EPIC-A', fields: { name: 'Checkout API (renamed)' } }],
+    }));
+    expect(next.releases[0].workStreams[0].name).toBe('Checkout API (renamed)'); // external wins on name
+    expect(next.releases[0].workStreams[0].engineersRequired).toBe(3); // app-owned enrichment survives
+  });
+
   it('matches the same work stream / sprint rather than duplicating', () => {
     const first = applySync(baseState(), 'rel_1', mapped());
     const { next } = applySync(first.next, 'rel_1', mapped());

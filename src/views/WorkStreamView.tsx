@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon';
 import { StreamSprintColumn } from '../components/dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
 import { IconButton, PButton } from '../components/primitives';
+import { TeamLink } from '../components/TeamLink';
 import { statusVars } from '../components/statusVars';
 import { STATUSES } from '../types';
 
@@ -11,6 +12,7 @@ export function WorkStreamView({
   release: r,
   workStream: ws,
   team,
+  onOpenTeam,
   allItems,
   filteredItems,
   activeSprintId,
@@ -66,6 +68,7 @@ export function WorkStreamView({
             </div>
           </>
         }
+        sub={team ? <TeamLink name={team.name} onClick={onOpenTeam} /> : undefined}
         right={
           <>
             <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>

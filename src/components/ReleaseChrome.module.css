@@ -26,3 +26,26 @@
   border-left: 1.5px solid var(--rt-line);
   align-self: stretch;
 }
+
+/* Clickable "Overbooked" warning tag beside the team name in the sub-line. */
+.overTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  cursor: pointer;
+  border: 1.5px solid var(--rt-st-bl-soft);
+  background: var(--rt-st-bl-soft);
+  color: var(--rt-st-bl-text);
+  font-weight: var(--rt-fw-semibold);
+  transition: filter 80ms;
+}
+
+.overTag:hover {
+  filter: brightness(0.96);
+}
+
+.overTag:focus-visible {
+  outline: 2px solid var(--rt-st-bl-dot);
+  outline-offset: 1px;
+}

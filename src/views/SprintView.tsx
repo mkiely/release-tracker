@@ -8,6 +8,7 @@ import { SprintRail } from '../components/dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
 import { IconButton, PButton } from '../components/primitives';
 import { SegmentedToggle } from '../components/SegmentedToggle';
+import { TeamLink } from '../components/TeamLink';
 import { statusVars } from '../components/statusVars';
 import { STATUSES } from '../types';
 import sprintStyles from '../routes/Sprint.module.css';
@@ -30,6 +31,7 @@ export function SprintView({
   release: r,
   sprint: sp,
   team,
+  onOpenTeam,
   isActive,
   vel,
   pct,
@@ -108,6 +110,12 @@ export function SprintView({
         }
         sub={
           <>
+            {team && (
+              <>
+                <TeamLink name={team.name} onClick={onOpenTeam} />
+                <span style={{ opacity: 0.5 }}>·</span>
+              </>
+            )}
             <span>
               {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
             </span>

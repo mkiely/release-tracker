@@ -3,12 +3,15 @@
 import { useState, type ReactNode } from 'react';
 import DOMPurify from 'dompurify';
 import { LOCAL_ITEM_TYPES, STATUSES, type Member, type Status } from '../types';
-import { between, fmtShort, workdaysInRange } from '../lib/dates';
-import { capPct, fullCap, sprintVel } from '../lib/derive';
+import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
+import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth } from '../lib/derive';
 import { getActions, selItem, selRelease, selTeam, useStore } from '../store/store';
+import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
-import { statusVars } from '../components/statusVars';
+import { SegBar } from '../components/badges';
+import { StreamBurnChart } from '../components/trend';
+import { statusVars, verdictVars } from '../components/statusVars';
 
 // ── Confirm / danger modal ─────────────────────────────────────────────
 export function ConfirmModal({
@@ -157,16 +160,37 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
   );
 }
 
-// ── Work Stream create modal ───────────────────────────────────────────
-export function WorkStreamModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
-  const [name, setName] = useState('');
+// ── Work Stream create / edit modal ────────────────────────────────────
+export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: string; wsId?: string; onClose: () => void }) {
+  const r = useStore((s) => selRelease(s, releaseId));
+  const existing = wsId ? r?.workStreams.find((w) => w.id === wsId) : undefined;
+  const editing = !!existing;
+  // The connector owns the names of synced streams — keep the field read-only so a
+  // local rename can't be silently overwritten on the next sync. engineersRequired is
+  // app-owned and stays editable regardless.
+  const nameLocked = !!existing?.externalId;
+  const [name, setName] = useState(existing ? existing.name : '');
+  const [engineers, setEngineers] = useState(
+    existing && existing.engineersRequired != null ? String(existing.engineersRequired) : '',
+  );
+  const parseEngineers = (): number | null => {
+    const n = Number(engineers);
+    return engineers.trim() && Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+  };
   const save = () => {
-    if (name.trim()) getActions().createWorkStream(releaseId, name.trim());
+    if (!name.trim()) return;
+    if (editing && wsId) {
+      getActions().updateWorkStream(releaseId, wsId, { name: name.trim(), engineersRequired: parseEngineers() });
+    } else {
+      const ws = getActions().createWorkStream(releaseId, name.trim());
+      const er = parseEngineers();
+      if (ws && er != null) getActions().updateWorkStream(releaseId, ws.id, { engineersRequired: er });
+    }
     onClose();
   };
   return (
     <Modal
-      title="New work stream"
+      title={editing ? 'Edit work stream' : 'New work stream'}
       icon={Icon.stream}
       onClose={onClose}
       width={440}
@@ -176,15 +200,16 @@ export function WorkStreamModal({ releaseId, onClose }: { releaseId: string; onC
             Cancel
           </PButton>
           <PButton onClick={save} disabled={!name.trim()}>
-            Create
+            {editing ? 'Save' : 'Create'}
           </PButton>
         </>
       }
     >
-      <PField label="Name">
+      <PField label="Name" hint={nameLocked ? 'managed by the connector' : undefined}>
         <PInput
-          autoFocus
+          autoFocus={!nameLocked}
           value={name}
+          disabled={nameLocked}
           placeholder="e.g. Checkout API"
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
@@ -192,9 +217,256 @@ export function WorkStreamModal({ releaseId, onClose }: { releaseId: string; onC
           }}
         />
       </PField>
+      <PField label="Engineers required" hint="drives the capacity-fit health forecast">
+        <PInput
+          autoFocus={nameLocked}
+          type="number"
+          min="0"
+          step="1"
+          value={engineers}
+          placeholder="e.g. 2"
+          onChange={(e) => setEngineers(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') save();
+          }}
+        />
+      </PField>
       <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
-        A work stream groups related work items across the release's sprints.
+        {nameLocked
+          ? "This stream's name is managed by the connector. Engineers required is kept locally and survives sync."
+          : "A work stream groups related work items across the release's sprints. Engineers required is kept locally and survives connector sync."}
       </span>
+    </Modal>
+  );
+}
+
+// ── Verdict badge (shared by the health modal + stream table) ───────────
+export function VerdictBadge({ verdict }: { verdict: import('../lib/derive').HealthVerdict }) {
+  const v = verdictVars(verdict);
+  return (
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)',
+        color: v.tone === 'muted' ? 'var(--rt-t3)' : v.text,
+        background: v.tone === 'muted' ? 'var(--rt-fill)' : v.soft,
+        border: `1.5px solid ${v.tone === 'muted' ? 'var(--rt-line)' : v.soft}`,
+        borderRadius: 6, padding: '3px 9px', lineHeight: 1, whiteSpace: 'nowrap',
+      }}
+    >
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: v.tone === 'muted' ? 'var(--rt-t3)' : v.dot, flexShrink: 0 }} />
+      {v.label}
+    </span>
+  );
+}
+
+// ── Work-stream health detail modal (read-only) ─────────────────────────
+export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: string; wsId: string; onClose: () => void }) {
+  const r = useStore((s) => selRelease(s, releaseId));
+  const team = useStore((s) => (r ? selTeam(s, r.teamId) : undefined));
+  const allItems = useStore((s) => s.items);
+  const { openModal } = useApp();
+
+  const ws = r?.workStreams.find((w) => w.id === wsId);
+  if (!r || !ws) {
+    return (
+      <Modal title="Work stream" icon={Icon.stream} onClose={onClose} width={520}>
+        <span style={{ color: 'var(--rt-t3)' }}>This work stream no longer exists.</span>
+      </Modal>
+    );
+  }
+
+  const items = allItems.filter((i) => i.releaseId === releaseId);
+  const streamItems = items.filter((i) => i.workStreamId === wsId);
+  const health = streamHealth(streamItems);
+  const ctx = releaseCapacity(r, team);
+  const contention = streamContention(
+    r.workStreams
+      .filter((w) => w.engineersRequired != null && streamHealth(items.filter((i) => i.workStreamId === w.id)).remainingPts > 0)
+      .map((w) => w.engineersRequired!),
+    ctx.contributingCount,
+  );
+  const forecast = streamForecast(health, ws.engineersRequired, ctx, contention);
+  const v = verdictVars(forecast.verdict);
+
+  const series = r.sprints.map((sp) => streamItems.filter((i) => i.sprintId === sp.id).reduce((a, i) => a + i.points, 0));
+  const today = todayISO();
+  const friRaw = r.sprints.findIndex((sp) => sp.endISO >= today);
+  const firstRemainingIndex = friRaw < 0 ? r.sprints.length : friRaw;
+  const activeIndex = r.sprints.findIndex((sp) => between(today, sp.startISO, sp.endISO));
+
+  const n1 = (x: number) => (Math.round(x * 10) / 10).toString();
+  const shortfall = forecast.shortfallPts;
+  const configured = ws.engineersRequired != null;
+
+  const editStream = () => openModal({ type: 'stream', releaseId, wsId });
+
+  return (
+    <Modal
+      onClose={onClose}
+      width={640}
+      title={
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <VerdictBadge verdict={forecast.verdict} />
+          <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>{ws.name}</span>
+        </span>
+      }
+      footer={
+        <>
+          <PButton variant="subtle" onClick={editStream} style={{ marginRight: 'auto' }}>
+            {Icon.stream} Edit stream
+          </PButton>
+          <PButton variant="subtle" onClick={onClose}>
+            Close
+          </PButton>
+        </>
+      }
+    >
+      {/* Plain-language verdict */}
+      <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>{forecast.summary}</div>
+
+      {/* Current-state breakdown */}
+      {health.totalPts > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <span className="tag">Progress</span>
+            <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>{health.donePts} / {health.totalPts} pts · {health.pct}%</span>
+          </div>
+          <SegBar segs={health.pointsByStatus} height={10} radius={5} />
+        </div>
+      )}
+
+      {/* The chart */}
+      {configured ? (
+        <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 14px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span className="tag">Remaining work burndown vs capacity</span>
+          <StreamBurnChart
+            series={series}
+            firstRemainingIndex={firstRemainingIndex}
+            activeIndex={activeIndex}
+            remainingPts={health.remainingPts}
+            effectiveCap={forecast.effectiveCap}
+            tone={v.tone === 'risk' ? 'risk' : 'ok'}
+          />
+          <span style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)', lineHeight: 1.4 }}>
+            Bars show planned points per sprint (x-axis = sprint assignment, not completion history — an approximation).
+            The line burns the remaining {health.remainingPts} pts down by the stream's capacity; where it reaches zero is the projected finish.
+          </span>
+        </div>
+      ) : (
+        <div className="card dash" style={{ padding: '18px 16px', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-sm)', lineHeight: 1.5 }}>
+          Set <strong style={{ color: 'var(--rt-t2)' }}>engineers required</strong> for this stream to compute a capacity-fit forecast.
+        </div>
+      )}
+
+      {/* The calculation */}
+      {configured && (
+        <div className="card" style={{ background: 'var(--rt-bg)', padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <span className="tag" style={{ marginBottom: 2 }}>The calculation</span>
+          <Row k="Remaining points" v={`${health.remainingPts} pts`} />
+          <Row k="Engineers required" v={`${ws.engineersRequired}`} />
+          <Row k="Per-engineer capacity" v={`${n1(ctx.perEngineerCap)} pts (over ${ctx.remainingSprintCount} sprint${ctx.remainingSprintCount !== 1 ? 's' : ''})`} />
+          {forecast.contended ? (
+            <>
+              <Row k="Team overbooked" v={`${contention.totalRequired} req / ${ctx.contributingCount} avail`} />
+              <Row k="Effective engineers" v={`${ws.engineersRequired} × ${n1(contention.scale)} = ${n1(forecast.effectiveEngineers)}`} />
+            </>
+          ) : null}
+          <Row k="Stream capacity" v={`${n1(forecast.effectiveEngineers)} × ${n1(ctx.perEngineerCap)} = ${Math.round(forecast.effectiveCap)} pts`} />
+          <Row k="Runway" v={Number.isFinite(forecast.runwaySprints) ? `~${n1(forecast.runwaySprints)} sprints` : '—'} />
+          <hr className="divider" style={{ margin: '3px 0' }} />
+          <Row
+            k={shortfall > 0.5 ? 'Shortfall' : 'Surplus'}
+            v={`${shortfall > 0.5 ? '' : '+'}${Math.round(Math.abs(shortfall))} pts`}
+            big
+          />
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ── Team over-allocation explainer (read-only) ──────────────────────────
+export function OverbookedModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
+  const r = useStore((s) => selRelease(s, releaseId));
+  const team = useStore((s) => (r ? selTeam(s, r.teamId) : undefined));
+  const allItems = useStore((s) => s.items);
+  const { openModal } = useApp();
+
+  if (!r) {
+    return (
+      <Modal title="Team capacity" icon={Icon.alert} onClose={onClose} width={520}>
+        <span style={{ color: 'var(--rt-t3)' }}>This release no longer exists.</span>
+      </Modal>
+    );
+  }
+
+  const items = allItems.filter((i) => i.releaseId === releaseId);
+  const ctx = releaseCapacity(r, team);
+
+  // Streams with remaining work and a declared engineer need — the ones that
+  // collectively claim more of the team than exists.
+  const active = r.workStreams
+    .map((ws) => ({ ws, remainingPts: streamHealth(items.filter((i) => i.workStreamId === ws.id)).remainingPts }))
+    .filter((s) => s.ws.engineersRequired != null && s.remainingPts > 0)
+    .sort((a, b) => (b.ws.engineersRequired ?? 0) - (a.ws.engineersRequired ?? 0));
+
+  const contention = streamContention(active.map((s) => s.ws.engineersRequired!), ctx.contributingCount);
+  const over = contention.totalRequired - ctx.contributingCount;
+
+  return (
+    <Modal
+      onClose={onClose}
+      width={560}
+      title={
+        <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <span style={{ display: 'inline-flex', color: statusVars('Blocked').text }}>{Icon.alert}</span>
+          <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Team over-allocated</span>
+        </span>
+      }
+      footer={
+        <PButton variant="subtle" onClick={onClose}>
+          Close
+        </PButton>
+      }
+    >
+      <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
+        The active work streams collectively ask for <strong style={{ color: 'var(--rt-ink)' }}>{contention.totalRequired} engineers</strong>, but{' '}
+        {team ? team.name : 'the team'} has only <strong style={{ color: 'var(--rt-ink)' }}>{ctx.contributingCount} contributing</strong>
+        {over > 0 ? <> — over by <strong style={{ color: 'var(--rt-ink)' }}>{over}</strong>.</> : '.'} Everyone can't be on everything at once, so
+        each stream's <em>effective</em> staffing is scaled down and its forecast below reflects that contention.
+      </div>
+
+      {/* Per-stream demand */}
+      <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <span className="tag" style={{ marginBottom: 2 }}>Engineers requested · active streams</span>
+        {active.map((s) => (
+          <Row key={s.ws.id} k={s.ws.name} v={`${s.ws.engineersRequired} eng · ${s.remainingPts} pts left`} />
+        ))}
+        <hr className="divider" style={{ margin: '3px 0' }} />
+        <Row k="Total requested" v={`${contention.totalRequired} eng`} />
+      </div>
+
+      {/* The math */}
+      <div className="card" style={{ background: 'var(--rt-bg)', padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <span className="tag" style={{ marginBottom: 2 }}>The math</span>
+        <Row k="Engineers available" v={`${ctx.contributingCount} contributing`} />
+        <Row k="Engineers requested" v={`${contention.totalRequired}`} />
+        <Row k="Allocation factor" v={`${ctx.contributingCount} ÷ ${contention.totalRequired} = ×${contention.scale.toFixed(2)}`} />
+        <hr className="divider" style={{ margin: '3px 0' }} />
+        <Row k="Effect" v={`each stream runs at ${Math.round(contention.scale * 100)}% staffing`} big />
+      </div>
+
+      <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.5 }}>
+        To clear the over-allocation, lower some streams' <strong style={{ color: 'var(--rt-t2)' }}>engineers required</strong>, add contributing
+        team members, or move work out of the release. Open any stream's verdict to see its individual capacity-fit detail.
+      </div>
+
+      {team && (
+        <PButton variant="subtle" onClick={() => openModal({ type: 'team', teamId: team.id })} style={{ alignSelf: 'flex-start' }}>
+          {Icon.team} View team
+        </PButton>
+      )}
     </Modal>
   );
 }

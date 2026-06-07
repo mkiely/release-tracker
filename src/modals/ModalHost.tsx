@@ -2,7 +2,7 @@
 // modal switch at the bottom of proto-app.jsx's App().
 
 import type { ModalSpec } from '../app-context';
-import { ConfirmModal, EventModal, SprintModal, TeamModal, WorkItemDetailModal, WorkItemModal, WorkStreamModal } from './modals';
+import { ConfirmModal, EventModal, OverbookedModal, SprintModal, StreamHealthModal, TeamModal, WorkItemDetailModal, WorkItemModal, WorkStreamModal } from './modals';
 
 export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose: () => void }) {
   if (!modal) return null;
@@ -10,7 +10,11 @@ export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose
     case 'team':
       return <TeamModal teamId={modal.teamId} onClose={onClose} />;
     case 'stream':
-      return <WorkStreamModal releaseId={modal.releaseId} onClose={onClose} />;
+      return <WorkStreamModal releaseId={modal.releaseId} wsId={modal.wsId} onClose={onClose} />;
+    case 'streamHealth':
+      return <StreamHealthModal releaseId={modal.releaseId} wsId={modal.wsId} onClose={onClose} />;
+    case 'overbooked':
+      return <OverbookedModal releaseId={modal.releaseId} onClose={onClose} />;
     case 'event':
       return <EventModal releaseId={modal.releaseId} eventId={modal.eventId} onClose={onClose} />;
     case 'sprint':

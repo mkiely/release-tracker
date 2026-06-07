@@ -7,6 +7,7 @@ import { PushButton, SyncButton, TopBar } from '../components/chrome';
 import { Icon } from '../components/Icon';
 import { Drag, setDragGhost, useDrag } from '../components/dnd';
 import { IconButton, PButton } from '../components/primitives';
+import { TeamLink } from '../components/TeamLink';
 import { statusVars } from '../components/statusVars';
 import { getActions } from '../store/store';
 import styles from './SprintTable.module.css';
@@ -344,6 +345,7 @@ export function WorkStreamTable({
   release: r,
   workStream: ws,
   team,
+  onOpenTeam,
   filteredItems,
   activeSprintId,
   totalItemCount,
@@ -381,6 +383,7 @@ export function WorkStreamTable({
             <span style={{ fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)' }}>{ws.name}</span>
           </div>
         }
+        sub={team ? <TeamLink name={team.name} onClick={onOpenTeam} /> : undefined}
         right={
           <>
             <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>

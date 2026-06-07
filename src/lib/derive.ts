@@ -60,6 +60,135 @@ export function streamHealth(items: WorkItem[]): StreamHealth {
   return { totalPts, donePts, remainingPts, blockedPts, pct, pointsByStatus };
 }
 
+// ── Forward capacity-fit health ─────────────────────────────────────────────
+// Does a work stream's remaining work fit the remaining team capacity? This is a
+// FORWARD question by design: past sprints are always fully complete (incomplete
+// items roll forward), so there is no past slippage to detect — see
+// docs/work-stream-health.md. Assumptions are spelled out at each step.
+
+export type HealthVerdict = 'on-track' | 'at-risk' | 'complete' | 'unconfigured';
+
+/** Sprints whose range hasn't fully elapsed (endISO >= today). The active sprint is
+ *  included; fully-past sprints are excluded — encoding the "past sprints are
+ *  complete" domain rule. ISO date strings compare lexically. */
+export const remainingSprints = (release: Release, today: string = todayISO()): Sprint[] =>
+  release.sprints.filter((s) => s.endISO >= today);
+
+export interface ReleaseCapacity {
+  remainingSprintCount: number;
+  /** Σ sprintVel over remaining sprints — capacity-adjusted (respects each sprint's daysOff). */
+  teamRemainingCap: number;
+  contributingCount: number;
+  /** Points one engineer can deliver across the remaining sprints. 0-safe. */
+  perEngineerCap: number;
+}
+
+/** Remaining team capacity for a release, split per contributing engineer. Engineers
+ *  are assumed interchangeable; per-engineer velocity = team velocity ÷ contributing
+ *  members. Future sprints use their own daysOff (0 unless set). */
+export const releaseCapacity = (release: Release, team: Team | undefined, today: string = todayISO()): ReleaseCapacity => {
+  const rem = remainingSprints(release, today);
+  const teamRemainingCap = rem.reduce((a, sp) => a + sprintVel(team, sp, sp.daysOff), 0);
+  const contributingCount = team ? team.members.filter((m) => !m.nonContributing).length : 0;
+  const perEngineerCap = contributingCount > 0 ? teamRemainingCap / contributingCount : 0;
+  return { remainingSprintCount: rem.length, teamRemainingCap, contributingCount, perEngineerCap };
+};
+
+export interface StreamContention {
+  /** Σ engineersRequired over streams that still have remaining work. */
+  totalRequired: number;
+  overAllocated: boolean;
+  /** contributingCount / totalRequired when over-allocated, else 1. In (0, 1]. */
+  scale: number;
+}
+
+/** Release-level parallelism check: if the streams with remaining work collectively
+ *  demand more engineers than the team has, no stream can be staffed at its full
+ *  ask, so effective engineers scale down proportionally. */
+export const streamContention = (activeEngineerCounts: number[], contributingCount: number): StreamContention => {
+  const totalRequired = activeEngineerCounts.reduce((a, n) => a + n, 0);
+  const overAllocated = contributingCount > 0 && totalRequired > contributingCount;
+  const scale = overAllocated ? contributingCount / totalRequired : 1;
+  return { totalRequired, overAllocated, scale };
+};
+
+export interface StreamForecast {
+  verdict: HealthVerdict;
+  remainingPts: number;
+  engineersRequired: number | null;
+  remainingSprintCount: number;
+  perEngineerCap: number;
+  /** engineersRequired × perEngineerCap — assumes the stream gets its full ask. */
+  nominalCap: number;
+  /** engineersRequired × contention.scale — what the stream realistically gets. */
+  effectiveEngineers: number;
+  /** effectiveEngineers × perEngineerCap. */
+  effectiveCap: number;
+  /** remainingPts − effectiveCap (>0 = short). */
+  shortfallPts: number;
+  /** Sprints needed to finish at the effective rate (Infinity if no capacity). */
+  runwaySprints: number;
+  /** runwaySprints − remainingSprintCount. */
+  sprintsShort: number;
+  /** Release is over-allocated and this stream still has work — parallelism bites. */
+  contended: boolean;
+  /** Plain-language one-liner for the row + modal. */
+  summary: string;
+}
+
+const r0 = (n: number) => Math.round(n);
+
+/** Forward capacity-fit forecast for one stream. Verdict is on-track when remaining
+ *  work fits the contention-adjusted capacity, at-risk otherwise. */
+export function streamForecast(
+  health: StreamHealth,
+  engineersRequired: number | null,
+  ctx: ReleaseCapacity,
+  contention: StreamContention,
+): StreamForecast {
+  const remainingPts = health.remainingPts;
+  const base = {
+    remainingPts,
+    engineersRequired,
+    remainingSprintCount: ctx.remainingSprintCount,
+    perEngineerCap: ctx.perEngineerCap,
+  };
+
+  if (engineersRequired == null) {
+    return { ...base, verdict: 'unconfigured', nominalCap: 0, effectiveEngineers: 0, effectiveCap: 0, shortfallPts: 0, runwaySprints: 0, sprintsShort: 0, contended: false, summary: 'Set engineers required to assess capacity fit' };
+  }
+  if (remainingPts === 0) {
+    return { ...base, verdict: 'complete', nominalCap: 0, effectiveEngineers: engineersRequired, effectiveCap: 0, shortfallPts: 0, runwaySprints: 0, sprintsShort: 0, contended: false, summary: 'All work complete' };
+  }
+
+  const contended = contention.overAllocated;
+  const nominalCap = engineersRequired * ctx.perEngineerCap;
+  const effectiveEngineers = engineersRequired * contention.scale;
+  const effectiveCap = effectiveEngineers * ctx.perEngineerCap;
+  const shortfallPts = remainingPts - effectiveCap;
+  const perSprintRate = ctx.remainingSprintCount > 0 ? effectiveCap / ctx.remainingSprintCount : 0;
+  const runwaySprints = perSprintRate > 0 ? remainingPts / perSprintRate : Infinity;
+  const sprintsShort = runwaySprints - ctx.remainingSprintCount;
+
+  const EPS = 0.5; // points tolerance to avoid float-noise flips
+  const verdict: HealthVerdict = shortfallPts > EPS ? 'at-risk' : 'on-track';
+
+  const overbook = contended ? ` \xb7 team overbooked (${contention.totalRequired} req / ${ctx.contributingCount} avail)` : '';
+  let summary: string;
+  if (ctx.remainingSprintCount === 0) {
+    summary = `${remainingPts} pts left, no sprints remaining → won't land`;
+  } else if (!Number.isFinite(runwaySprints)) {
+    summary = `${remainingPts} pts left, no forward capacity (check team velocity)`;
+  } else if (verdict === 'on-track') {
+    summary = `${remainingPts} pts left \xb7 ${engineersRequired} eng \xd7 ~${r0(perSprintRate)} pts/sprint \xd7 ${ctx.remainingSprintCount} = ${r0(effectiveCap)} cap → fits${overbook}`;
+  } else {
+    const short = Math.max(1, Math.ceil(sprintsShort));
+    summary = `${remainingPts} pts left, ~${runwaySprints.toFixed(1)} sprints of runway at ${engineersRequired} eng → short by ~${short} sprint${short !== 1 ? 's' : ''}${overbook}`;
+  }
+
+  return { ...base, verdict, nominalCap, effectiveEngineers, effectiveCap, shortfallPts, runwaySprints, sprintsShort, contended, summary };
+}
+
 /**
  * Groups a flat list of items by work stream, preserving the release's stream
  * order. Items whose workStreamId is absent from the stream list (or null) are

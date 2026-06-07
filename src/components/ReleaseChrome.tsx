@@ -7,6 +7,7 @@ import { Icon } from './Icon';
 import { SegBar } from './badges';
 import { IconButton, PButton } from './primitives';
 import { SegmentedToggle } from './SegmentedToggle';
+import { TeamLink } from './TeamLink';
 import { AxisModeStore, useAxisMode, type AxisMode } from '../store/axisMode';
 import styles from './ReleaseChrome.module.css';
 
@@ -69,6 +70,9 @@ type ReleaseChromeProps = Pick<
   | 'hasUnassigned'
   | 'onBack'
   | 'onNavigateToStream'
+  | 'onOpenTeam'
+  | 'onOpenOverbooked'
+  | 'overAllocated'
   | 'onExport'
   | 'onNewEvent'
   | 'onNewStream'
@@ -91,6 +95,9 @@ export function ReleaseChrome({
   hasUnassigned,
   onBack,
   onNavigateToStream,
+  onOpenTeam,
+  onOpenOverbooked,
+  overAllocated,
   onExport,
   onNewEvent,
   onNewStream,
@@ -105,8 +112,25 @@ export function ReleaseChrome({
       title={r.name}
       sub={
         <>
-          {Icon.team}
-          <span>{team ? team.name : '—'}</span>
+          {team ? (
+            <TeamLink name={team.name} onClick={onOpenTeam} />
+          ) : (
+            <>
+              {Icon.team}
+              <span>—</span>
+            </>
+          )}
+          {overAllocated && (
+            <button
+              type="button"
+              className={`tag ${styles.overTag}`}
+              onClick={onOpenOverbooked}
+              title="Team over-allocated — view details"
+            >
+              {Icon.alert}
+              Overbooked
+            </button>
+          )}
           <span style={{ opacity: 0.5 }}>·</span>
           <span>{dateRange}</span>
           {connLabel && (

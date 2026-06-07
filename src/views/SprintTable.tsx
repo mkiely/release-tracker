@@ -5,6 +5,7 @@ import { Icon } from '../components/Icon';
 import { EventBadge } from '../components/badges';
 import { Drag, SprintRail, setDragGhost, useDrag } from '../components/dnd';
 import { IconButton, PButton } from '../components/primitives';
+import { TeamLink } from '../components/TeamLink';
 import { statusVars } from '../components/statusVars';
 import { STATUSES, type Member, type Status } from '../types';
 import styles from './SprintTable.module.css';
@@ -438,6 +439,7 @@ export function SprintTable({
   release: r,
   sprint: sp,
   team,
+  onOpenTeam,
   isActive,
   vel,
   pct,
@@ -534,6 +536,12 @@ export function SprintTable({
         </div>
         <div className={styles.identityRight}>
           <div className={styles.identityMeta}>
+            {team && (
+              <>
+                <TeamLink name={team.name} onClick={onOpenTeam} />
+                <span className={styles.identityDot}>·</span>
+              </>
+            )}
             <span>{fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}</span>
             <span className={styles.identityDot}>·</span>
             <span>{vel} pts capacity{pct < 100 ? ` (${pct}%)` : ''}</span>

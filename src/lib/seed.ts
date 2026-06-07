@@ -81,7 +81,13 @@ export function seed(): AppState {
   ];
 
   const streamNames = ['Checkout API', 'Search Revamp', 'Mobile Onboarding', 'Billing Migration', 'Notifications', 'Admin Console'];
-  const demoStreams = streamNames.map((n) => ({ id: uid('ws'), name: n, externalId: null }));
+  // engineersRequired drives the capacity-fit forecast; values chosen to give a mix
+  // of on-track / at-risk and to over-subscribe the team (Σ > contributing members).
+  const demoEngineers: Record<string, number> = {
+    'Checkout API': 3, 'Search Revamp': 2, 'Mobile Onboarding': 2,
+    'Billing Migration': 2, 'Notifications': 1, 'Admin Console': 2,
+  };
+  const demoStreams = streamNames.map((n) => ({ id: uid('ws'), name: n, externalId: null, engineersRequired: demoEngineers[n] ?? null }));
   const demoStart = '2026-04-13';
   const demo: Release = {
     id: 'rel_demo', name: 'Orion 2.0', startISO: demoStart, teamId: 'team_core',
@@ -226,8 +232,9 @@ export function seed(): AppState {
   // (today 2026-06-04 falls inside it). Sprint lengths deliberately vary: 10, 14, 14,
   // 14, 14, 21, 14, 14 days to show the connector-style scheduling model.
   const nexusStreamNames = ['Data Ingestion', 'API Gateway', 'Auth & SSO', 'Reporting & Analytics', 'Webhooks', 'SDK & Developer Tools'];
+  const nexusEngineers = [2, 3, 2, 2, 1, 1]; // app-owned enrichment; survives connector sync
   const nexusStreams = nexusStreamNames.map((n, i) => ({
-    id: uid('ws'), name: n, externalId: `EPIC-NXS-${i + 1}`,
+    id: uid('ws'), name: n, externalId: `EPIC-NXS-${i + 1}`, engineersRequired: nexusEngineers[i] ?? null,
   }));
   const nexusSprints: Sprint[] = [
     { id: uid('sp'), name: 'Kickoff',                   startISO: '2026-03-16', endISO: '2026-03-25', daysOff: 0, externalId: 'JSPR-2241' },

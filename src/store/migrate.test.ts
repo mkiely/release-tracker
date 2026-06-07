@@ -275,6 +275,34 @@ describe('migrate — v8 → current', () => {
   });
 });
 
+describe('migrate — v9 → current', () => {
+  const v9 = {
+    version: 9,
+    teams: [],
+    meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), workStreams: [{ id: 'ws1', name: 'API', externalId: null }] }],
+    items: [],
+  };
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v9 as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('adds engineersRequired: null to work streams that lack it', () => {
+    const next = migrate(v9 as any)!;
+    expect(next.releases[0].workStreams[0].engineersRequired).toBeNull();
+  });
+
+  it('preserves an existing engineersRequired value', () => {
+    const withVal = {
+      ...v9,
+      releases: [{ ...v2Release(), workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: 3 }] }],
+    };
+    const next = migrate(withVal as any)!;
+    expect(next.releases[0].workStreams[0].engineersRequired).toBe(3);
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

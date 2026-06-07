@@ -19,6 +19,7 @@ export interface WorkStreamViewProps {
   typeFilter: Set<string>;
   isFiltered: boolean;
   onBack: () => void;
+  onOpenTeam: () => void;
   onNewItem: () => void;
   onOpenItem: (itemId: string) => void;
   onToggleStatus: (s: Status) => void;
@@ -69,6 +70,7 @@ export function useWorkStreamView(): WorkStreamViewProps | null {
     typeFilter,
     isFiltered,
     onBack: () => navigate(`/releases/${id}`),
+    onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
     onNewItem: () => openModal({ type: 'item', releaseId: id, presetStreamId: ws.id }),
     onOpenItem: (itemId) => openModal({ type: 'itemDetail', itemId }),
     onToggleStatus: (s) =>

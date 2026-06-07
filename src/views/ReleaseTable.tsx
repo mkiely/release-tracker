@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { ReleaseViewProps } from '../hooks/useReleaseView';
 import { fmtShort, todayISO } from '../lib/dates';
-import { Icon } from '../components/Icon';
 import { SegBar, EventBadge } from '../components/badges';
 import { ReleaseChrome } from '../components/ReleaseChrome';
 import { Sparkline, CompletionRing } from '../components/trend';

@@ -44,6 +44,7 @@ export interface SprintViewProps {
   onBack: () => void;
   onGoToSprint: (sprintId: string) => void;
   onNavigateToStream: (wsId: string) => void;
+  onOpenTeam: () => void;
   onEditSprint: () => void;
   onNewItem: () => void;
   onOpenItem: (itemId: string) => void;
@@ -151,6 +152,7 @@ export function useSprintView(): SprintViewProps | null {
     onBack: () => navigate(`/releases/${id}`),
     onGoToSprint: (sid) => navigate(`/releases/${id}/sprints/${sid}`),
     onNavigateToStream: (wsId) => navigate(`/releases/${id}/streams/${wsId}`),
+    onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
     onEditSprint: () => openModal({ type: 'sprint', releaseId: id, sprintId: sp.id }),
     onNewItem: () => openModal({ type: 'item', releaseId: id, presetSprintId: sp.id }),
     onOpenItem: (itemId) => openModal({ type: 'itemDetail', itemId }),

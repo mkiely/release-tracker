@@ -9,7 +9,7 @@ export type Status = (typeof STATUSES)[number];
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 export interface Member {
   id: string;
@@ -44,6 +44,10 @@ export interface WorkStream {
   id: string;
   name: string;
   externalId: string | null;
+  /** App-owned enrichment: engineers the stream needs to progress. Drives the
+   *  capacity-fit health forecast. Survives connector sync (sync only owns name).
+   *  null = not yet configured. */
+  engineersRequired: number | null;
 }
 
 export interface ReleaseEvent {

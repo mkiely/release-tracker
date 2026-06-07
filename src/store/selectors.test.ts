@@ -10,7 +10,7 @@ const team = (id: string): Team => ({
 
 const release = (id: string): Release => ({
   id, name: `Release ${id}`, startISO: '2026-04-13', teamId: 't1',
-  workStreams: [{ id: 'ws1', name: 'API', externalId: null }],
+  workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: null }],
   events: [], sprints: [], externalId: null, connector: null, sync: null,
 });
 

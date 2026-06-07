@@ -1,10 +1,30 @@
 import type { ReleaseViewProps, StreamRowData } from '../hooks/useReleaseView';
-import type { StreamHealth } from '../lib/derive';
+import type { StreamForecast, StreamHealth } from '../lib/derive';
 import { SegBar } from '../components/badges';
 import { ReleaseChrome } from '../components/ReleaseChrome';
 import { Sparkline, CompletionRing } from '../components/trend';
 import { statusVars } from '../components/statusVars';
+import { VerdictBadge } from '../modals/modals';
 import styles from './ReleaseTable.module.css';
+
+/** Always-visible verdict + plain-language "why", clickable to the detail modal
+ *  (or the edit modal when engineers haven't been set yet). */
+function VerdictLine({ forecast, onOpen }: { forecast: StreamForecast; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      className={styles.verdictBtn}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen();
+      }}
+      title={forecast.verdict === 'unconfigured' ? 'Set engineers required' : 'View capacity-fit details'}
+    >
+      <VerdictBadge verdict={forecast.verdict} />
+      <span className={styles.verdictSummary}>{forecast.summary}</span>
+    </button>
+  );
+}
 
 /** Remaining work, broken down by status — the "why" behind what's left. */
 function RemainingChips({ health }: { health: StreamHealth }) {
@@ -56,11 +76,15 @@ function HealthPanel({ health }: { health: StreamHealth }) {
 function StreamRow({
   row,
   onNavigateToStream,
+  onOpenStreamHealth,
+  onEditStream,
 }: {
   row: StreamRowData;
   onNavigateToStream: (wsId: string) => void;
+  onOpenStreamHealth: (wsId: string) => void;
+  onEditStream: (wsId: string) => void;
 }) {
-  const { ws, itemCount, points, series, health } = row;
+  const { ws, itemCount, points, series, health, forecast } = row;
   const activeIndex = row.lane.find((e) => e.isActive)?.sprintIndex ?? -1;
   const clickable = ws !== null;
 
@@ -81,31 +105,72 @@ function StreamRow({
           <span>{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
           <span className={styles.metaDot}>·</span>
           <span>{points} pts</span>
-          <span className={styles.trackEnd} style={{ paddingLeft: 0, marginLeft: 8 }}>
-            <Sparkline series={series} activeIndex={activeIndex} />
-            <CompletionRing done={health.donePts} total={health.totalPts} />
-          </span>
+          {ws && ws.engineersRequired != null && (
+            <>
+              <span className={styles.metaDot}>·</span>
+              <span className={styles.engMeta} title={`${ws.engineersRequired} engineer${ws.engineersRequired !== 1 ? 's' : ''} required`}>
+                {ws.engineersRequired} eng
+              </span>
+            </>
+          )}
+          {itemCount > 0 && (
+            <span className={styles.metaRing}>
+              <CompletionRing done={health.donePts} total={health.totalPts} />
+            </span>
+          )}
         </div>
+        {series.length > 0 && (
+          <div className={styles.sparkRow}>
+            <Sparkline series={series} activeIndex={activeIndex} width={262} height={30} />
+          </div>
+        )}
       </div>
       <div className={styles.rowRight}>
-        {itemCount === 0 ? <span className={styles.noItems}>No work items</span> : <HealthPanel health={health} />}
+        {itemCount === 0 ? (
+          <span className={styles.noItems}>No work items</span>
+        ) : (
+          <>
+            <HealthPanel health={health} />
+            {ws && (
+              <VerdictLine
+                forecast={forecast}
+                onOpen={() => (forecast.verdict === 'unconfigured' ? onEditStream(ws.id) : onOpenStreamHealth(ws.id))}
+              />
+            )}
+          </>
+        )}
       </div>
     </div>
   );
 }
 
 export function ReleaseStreamTable(props: ReleaseViewProps) {
-  const { release: r, streamRows, onNavigateToStream } = props;
+  const { release: r, streamRows, onNavigateToStream, onOpenStreamHealth, onEditStream, overAllocated, engineersRequiredTotal, contributingCount } = props;
   return (
     <ReleaseChrome {...props}>
       <div className={styles.body}>
+        {overAllocated && (
+          <div className={styles.allocNote}>
+            <span className={styles.allocDot} />
+            <span>
+              Team over-allocated — active streams need <strong>{engineersRequiredTotal}</strong> engineers but the team has{' '}
+              <strong>{contributingCount}</strong>. At-risk forecasts below account for this contention.
+            </span>
+          </div>
+        )}
         {streamRows.length === 0 ? (
           <div className="card dash" style={{ margin: 24, padding: 40, textAlign: 'center', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-md)' }}>
             {r.connector ? 'No work streams yet. Run a sync to populate the release.' : 'No work streams yet.'}
           </div>
         ) : (
           streamRows.map((row) => (
-            <StreamRow key={row.ws ? row.ws.id : '__unassigned__'} row={row} onNavigateToStream={onNavigateToStream} />
+            <StreamRow
+              key={row.ws ? row.ws.id : '__unassigned__'}
+              row={row}
+              onNavigateToStream={onNavigateToStream}
+              onOpenStreamHealth={onOpenStreamHealth}
+              onEditStream={onEditStream}
+            />
           ))
         )}
       </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSprint, capPct, eventsIn, fullCap, groupItemsByStream, sprintVel, statusSegs, streamHealth } from './derive';
+import { activeSprint, capPct, eventsIn, fullCap, groupItemsByStream, releaseCapacity, remainingSprints, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, type StreamHealth } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
 import type { Release, Sprint, Team, WorkItem } from '../types';
 
@@ -320,5 +320,104 @@ describe('streamHealth', () => {
   it('is all-zero for an empty stream', () => {
     const h = streamHealth([]);
     expect(h).toMatchObject({ totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [] });
+  });
+});
+
+// ── Forward capacity-fit health ─────────────────────────────────────────────
+describe('forward capacity-fit health', () => {
+  // A calendar-relative release: one fully-past sprint, the active sprint, and two
+  // future sprints. With daysOff 0, sprintVel == velocity, so capacity is exact.
+  const calRelease = (): Release => {
+    const today = todayISO();
+    const past: Sprint = { id: 'p', name: 'P', startISO: addDays(today, -28), endISO: addDays(today, -15), daysOff: 0, externalId: null };
+    const active: Sprint = { id: 'a', name: 'A', startISO: addDays(today, -5), endISO: addDays(today, 9), daysOff: 0, externalId: null };
+    const f1: Sprint = { id: 'f1', name: 'F1', startISO: addDays(today, 10), endISO: addDays(today, 23), daysOff: 0, externalId: null };
+    const f2: Sprint = { id: 'f2', name: 'F2', startISO: addDays(today, 24), endISO: addDays(today, 37), daysOff: 0, externalId: null };
+    return { id: 'r', name: 'R', startISO: past.startISO, teamId: 't', workStreams: [], events: [], sprints: [past, active, f1, f2], externalId: null, connector: null, sync: null };
+  };
+
+  const hp = (remainingPts: number): StreamHealth => ({ totalPts: remainingPts, donePts: 0, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
+
+  describe('remainingSprints', () => {
+    it('excludes fully-past sprints and includes the active + future ones', () => {
+      const ids = remainingSprints(calRelease()).map((s) => s.id);
+      expect(ids).toEqual(['a', 'f1', 'f2']);
+    });
+  });
+
+  describe('releaseCapacity', () => {
+    it('splits remaining team capacity per contributing engineer', () => {
+      const ctx = releaseCapacity(calRelease(), team(4, 40));
+      expect(ctx.remainingSprintCount).toBe(3);
+      expect(ctx.teamRemainingCap).toBe(120); // 40 × 3 remaining sprints
+      expect(ctx.contributingCount).toBe(4);
+      expect(ctx.perEngineerCap).toBe(30); // 120 / 4
+    });
+
+    it('is 0-safe when there is no team', () => {
+      const ctx = releaseCapacity(calRelease(), undefined);
+      expect(ctx.contributingCount).toBe(0);
+      expect(ctx.perEngineerCap).toBe(0);
+    });
+  });
+
+  describe('streamContention', () => {
+    it('flags over-allocation and scales engineers down proportionally', () => {
+      const c = streamContention([2, 3, 4], 4);
+      expect(c.totalRequired).toBe(9);
+      expect(c.overAllocated).toBe(true);
+      expect(c.scale).toBeCloseTo(4 / 9);
+    });
+
+    it('does not scale when demand fits the team', () => {
+      const c = streamContention([2, 1], 4);
+      expect(c.overAllocated).toBe(false);
+      expect(c.scale).toBe(1);
+    });
+  });
+
+  describe('streamForecast', () => {
+    const ctx = () => releaseCapacity(calRelease(), team(4, 40)); // perEngineerCap 30, 3 sprints
+    const noContention = streamContention([], 4);
+
+    it('is unconfigured when engineersRequired is null', () => {
+      const f = streamForecast(hp(50), null, ctx(), noContention);
+      expect(f.verdict).toBe('unconfigured');
+    });
+
+    it('is complete when no work remains', () => {
+      const f = streamForecast(hp(0), 2, ctx(), noContention);
+      expect(f.verdict).toBe('complete');
+    });
+
+    it('is on-track when remaining work fits capacity', () => {
+      const f = streamForecast(hp(50), 2, ctx(), noContention); // cap = 2 × 30 = 60
+      expect(f.verdict).toBe('on-track');
+      expect(f.effectiveCap).toBe(60);
+      expect(f.shortfallPts).toBeLessThanOrEqual(0);
+    });
+
+    it('is at-risk when remaining work exceeds capacity, with a shortfall', () => {
+      const f = streamForecast(hp(80), 2, ctx(), noContention); // cap = 60
+      expect(f.verdict).toBe('at-risk');
+      expect(f.shortfallPts).toBeCloseTo(20);
+      expect(f.sprintsShort).toBeGreaterThan(0);
+    });
+
+    it('downgrades a nominally-fine stream when the release is over-allocated', () => {
+      const contended = streamContention([2, 3, 4], 4); // scale 4/9
+      const f = streamForecast(hp(50), 2, ctx(), contended);
+      expect(f.contended).toBe(true);
+      expect(f.effectiveCap).toBeLessThan(f.nominalCap); // 26.7 < 60
+      expect(f.verdict).toBe('at-risk');
+      expect(f.summary).toContain('overbooked');
+    });
+
+    it('is at-risk with infinite runway when there is no forward capacity', () => {
+      const ctx0 = releaseCapacity(calRelease(), undefined); // perEngineerCap 0
+      const f = streamForecast(hp(20), 2, ctx0, streamContention([], 0));
+      expect(f.verdict).toBe('at-risk');
+      expect(Number.isFinite(f.runwaySprints)).toBe(false);
+    });
   });
 });

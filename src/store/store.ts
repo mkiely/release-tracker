@@ -126,6 +126,17 @@ export function migrate(p: AppState): AppState | null {
       })),
     };
   }
+  // v9 → v10: work streams gain engineersRequired (app-owned enrichment; default null).
+  if (s.version === 9) {
+    s = {
+      ...s,
+      version: 10,
+      releases: s.releases.map((r) => ({
+        ...r,
+        workStreams: r.workStreams.map((ws) => ({ ...ws, engineersRequired: (ws as any).engineersRequired ?? null })),
+      })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -160,6 +171,7 @@ interface Actions {
   createRelease: (input: { name: string; startISO: string; teamId: string; connector?: ReleaseConnector | null; sprintCount?: number }) => Release;
   deleteRelease: (id: string) => void;
   createWorkStream: (releaseId: string, name: string) => WorkStream | null;
+  updateWorkStream: (releaseId: string, wsId: string, patch: Partial<Pick<WorkStream, 'name' | 'engineersRequired'>>) => void;
   createEvent: (releaseId: string, input: { label: string; dateISO: string }) => void;
   updateEvent: (releaseId: string, eventId: string, patch: Partial<Pick<ReleaseEvent, 'label' | 'dateISO'>>) => void;
   deleteEvent: (releaseId: string, eventId: string) => void;
@@ -265,13 +277,23 @@ export const useStore = create<StoreState>((set, get) => {
 
     createWorkStream: (releaseId, name) => {
       if (!release(releaseId)) return null;
-      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null };
+      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null };
       commit((d) => {
         d.releases = d.releases.map((r) =>
           r.id === releaseId ? { ...r, workStreams: [...r.workStreams, ws] } : r,
         );
       });
       return ws;
+    },
+
+    updateWorkStream: (releaseId, wsId, patch) => {
+      commit((d) => {
+        d.releases = d.releases.map((r) =>
+          r.id === releaseId
+            ? { ...r, workStreams: r.workStreams.map((ws) => (ws.id === wsId ? { ...ws, ...patch } : ws)) }
+            : r,
+        );
+      });
     },
 
     createEvent: (releaseId, { label, dateISO }) => {

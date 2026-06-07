@@ -3,7 +3,7 @@ import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } 
 import { releaseToTSV } from '../lib/exportRelease';
 import { useApp } from '../app-context';
 import { dOf, fmtShort } from '../lib/dates';
-import { activeSprint, eventsIn, sprintVel, statusSegs, streamHealth, type StreamHealth } from '../lib/derive';
+import { activeSprint, eventsIn, releaseCapacity, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, type StreamForecast, type StreamHealth } from '../lib/derive';
 import { connectorLabel } from '../sync/client';
 import type { RowData, RowMetrics } from '../lib/rowData';
 import type { Release, ReleaseEvent, Sprint, StatusSeg, Team, WorkItem, WorkStream } from '../types';
@@ -62,8 +62,10 @@ interface StreamHeader {
   segs: StatusSeg[];
   /** Points per sprint across the release, for the row-header sparkline. */
   series: number[];
-  /** Completion + finish projection for the row. */
+  /** Current-state completion metrics for the row. */
   health: StreamHealth;
+  /** Forward capacity-fit forecast (verdict + the "why"). */
+  forecast: StreamForecast;
 }
 
 /** Lane covers every sprint, including empty ones, so cells form aligned columns. */
@@ -81,9 +83,19 @@ export interface ReleaseViewProps {
   dateRange: string;
   connLabel: string | null;
   teamVelocity: number;
+  /** Release-level parallelism: streams with work collectively need more engineers
+   *  than the team has. Drives the over-allocation note in the stream table. */
+  overAllocated: boolean;
+  engineersRequiredTotal: number;
+  contributingCount: number;
   onBack: () => void;
   onNavigateToSprint: (sprintId: string) => void;
   onNavigateToStream: (wsId: string) => void;
+  onOpenStreamHealth: (wsId: string) => void;
+  onEditStream: (wsId: string) => void;
+  onOpenTeam: () => void;
+  /** Opens the explainer for the release-level over-allocation. */
+  onOpenOverbooked: () => void;
   onExport: () => void;
   onNewEvent: () => void;
   onNewStream: () => void;
@@ -166,36 +178,44 @@ export function useReleaseView(): ReleaseViewProps | null {
   });
 
   // The transpose of sprintRows: one row per work stream, lane = every sprint.
-  const buildStreamRow = (ws: WorkStream | null, streamItems: WorkItem[], series: number[]): StreamRowData => {
-    return {
-      ws,
-      itemCount: streamItems.length,
-      points: sumPoints(streamItems),
-      segs: statusSegs(streamItems),
-      series,
-      health: streamHealth(streamItems),
-      lane: r.sprints.map((sp, sprintIndex) => {
-        const its = streamItems.filter((i) => i.sprintId === sp.id);
-        return {
-          sprint: sp,
-          sprintIndex,
-          isActive: !!active && active.id === sp.id,
-          n: its.length,
-          points: sumPoints(its),
-          done: its.filter((i) => i.status === 'Complete').length,
-          segs: statusSegs(its),
-          types: typeCounts(its),
-        };
-      }),
-    };
-  };
+  // First pass collects items + current-state health per stream; contention (the
+  // release-level parallelism check) needs every stream's remaining work before any
+  // forward forecast can be computed; second pass builds the rows with the forecast.
+  const ctx = releaseCapacity(r, team);
+  const streamInputs: Array<{ ws: WorkStream | null; items: WorkItem[]; series: number[]; health: StreamHealth }> = [
+    ...r.workStreams.map((ws) => ({ ws, items: items.filter((i) => i.workStreamId === ws.id), series: streamSeries.get(ws.id) ?? [] })),
+    ...(unassigned.length > 0 ? [{ ws: null as WorkStream | null, items: unassigned, series: unassignedSeries }] : []),
+  ].map((s) => ({ ...s, health: streamHealth(s.items) }));
 
-  const streamRows: StreamRowData[] = r.workStreams.map((ws) =>
-    buildStreamRow(ws, items.filter((i) => i.workStreamId === ws.id), streamSeries.get(ws.id) ?? []),
+  const contention = streamContention(
+    streamInputs
+      .filter((s) => s.ws && s.ws.engineersRequired != null && s.health.remainingPts > 0)
+      .map((s) => s.ws!.engineersRequired!),
+    ctx.contributingCount,
   );
-  if (unassigned.length > 0) {
-    streamRows.push(buildStreamRow(null, unassigned, unassignedSeries));
-  }
+
+  const streamRows: StreamRowData[] = streamInputs.map(({ ws, items: streamItems, series, health }) => ({
+    ws,
+    itemCount: streamItems.length,
+    points: sumPoints(streamItems),
+    segs: statusSegs(streamItems),
+    series,
+    health,
+    forecast: streamForecast(health, ws ? ws.engineersRequired : null, ctx, contention),
+    lane: r.sprints.map((sp, sprintIndex) => {
+      const its = streamItems.filter((i) => i.sprintId === sp.id);
+      return {
+        sprint: sp,
+        sprintIndex,
+        isActive: !!active && active.id === sp.id,
+        n: its.length,
+        points: sumPoints(its),
+        done: its.filter((i) => i.status === 'Complete').length,
+        segs: statusSegs(its),
+        types: typeCounts(its),
+      };
+    }),
+  }));
 
   const onExport = async () => {
     const tsv = releaseToTSV(st, id);
@@ -229,9 +249,16 @@ export function useReleaseView(): ReleaseViewProps | null {
     dateRange,
     connLabel: r.connector ? connectorLabel(r.connector.type) : null,
     teamVelocity: team ? team.velocity : 0,
+    overAllocated: contention.overAllocated,
+    engineersRequiredTotal: contention.totalRequired,
+    contributingCount: ctx.contributingCount,
     onBack: () => navigate('/'),
     onNavigateToSprint: (spId) => navigate(`/releases/${id}/sprints/${spId}`),
     onNavigateToStream: (wsId) => navigate(`/releases/${id}/streams/${wsId}`),
+    onOpenStreamHealth: (wsId) => openModal({ type: 'streamHealth', releaseId: id, wsId }),
+    onEditStream: (wsId) => openModal({ type: 'stream', releaseId: id, wsId }),
+    onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
+    onOpenOverbooked: () => openModal({ type: 'overbooked', releaseId: id }),
     onExport,
     onNewEvent: () => openModal({ type: 'event', releaseId: id }),
     onNewStream: () => openModal({ type: 'stream', releaseId: id }),
