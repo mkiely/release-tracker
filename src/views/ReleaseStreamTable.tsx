@@ -1,30 +1,11 @@
 import type { ReleaseViewProps, StreamRowData } from '../hooks/useReleaseView';
-import type { StreamForecast, StreamHealth } from '../lib/derive';
+import type { StreamHealth } from '../lib/derive';
 import { SegBar } from '../components/badges';
 import { ReleaseChrome } from '../components/ReleaseChrome';
 import { Sparkline, CompletionRing } from '../components/trend';
 import { statusVars } from '../components/statusVars';
-import { VerdictBadge } from '../modals/modals';
+import { VerdictLine } from '../components/VerdictLine';
 import styles from './ReleaseTable.module.css';
-
-/** Always-visible verdict + plain-language "why", clickable to the detail modal
- *  (or the edit modal when engineers haven't been set yet). */
-function VerdictLine({ forecast, onOpen }: { forecast: StreamForecast; onOpen: () => void }) {
-  return (
-    <button
-      type="button"
-      className={styles.verdictBtn}
-      onClick={(e) => {
-        e.stopPropagation();
-        onOpen();
-      }}
-      title={forecast.verdict === 'unconfigured' ? 'Set engineers required' : 'View capacity-fit details'}
-    >
-      <VerdictBadge verdict={forecast.verdict} />
-      <span className={styles.verdictSummary}>{forecast.summary}</span>
-    </button>
-  );
-}
 
 /** Remaining work, broken down by status — the "why" behind what's left. */
 function RemainingChips({ health }: { health: StreamHealth }) {

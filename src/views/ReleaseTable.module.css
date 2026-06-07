@@ -126,41 +126,6 @@
   font-style: italic;
 }
 
-/* ── Verdict + "why" line ───────────────────────────────────────────────── */
-.verdictBtn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  padding: 4px 6px;
-  margin-left: -6px;
-  border-radius: 7px;
-  cursor: pointer;
-  min-width: 0;
-  transition: background 80ms;
-}
-
-.verdictBtn:hover {
-  background: var(--rt-fill);
-}
-
-.verdictBtn:focus-visible {
-  outline: 2px solid var(--rt-st-ac-dot);
-  outline-offset: 1px;
-}
-
-.verdictSummary {
-  font-size: var(--rt-fs-xs);
-  color: var(--rt-t2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
 /* ── Release-level over-allocation note ─────────────────────────────────── */
 .allocNote {
   display: flex;

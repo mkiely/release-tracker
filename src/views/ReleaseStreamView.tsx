@@ -2,20 +2,28 @@ import type { ReleaseViewProps, StreamRowData } from '../hooks/useReleaseView';
 import { fmtShort } from '../lib/dates';
 import { SegBar } from '../components/badges';
 import { ReleaseChrome } from '../components/ReleaseChrome';
+import { Sparkline } from '../components/trend';
+import { VerdictBadge, VerdictLine } from '../components/VerdictLine';
 import releaseStyles from '../routes/Release.module.css';
 
 function StreamRow({
   row,
   onNavigateToStream,
   onNavigateToSprint,
+  onOpenStreamHealth,
+  onEditStream,
 }: {
   row: StreamRowData;
   onNavigateToStream: (wsId: string) => void;
   onNavigateToSprint: (sprintId: string) => void;
+  onOpenStreamHealth: (wsId: string) => void;
+  onEditStream: (wsId: string) => void;
 }) {
-  const { ws, itemCount, points, segs, lane } = row;
+  const { ws, itemCount, points, segs, series, forecast, lane } = row;
   const filled = lane.filter((e) => e.n > 0);
+  const activeIndex = lane.find((e) => e.isActive)?.sprintIndex ?? -1;
   const clickable = ws !== null;
+  const showVerdict = ws !== null && itemCount > 0;
 
   return (
     <div
@@ -58,9 +66,29 @@ function StreamRow({
         <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-bold)', color: 'var(--rt-t3)', whiteSpace: 'nowrap', flex: '0 0 auto' }}>
           {points} pts
         </span>
+        {ws && ws.engineersRequired != null && (
+          <>
+            <span style={{ width: 1.5, alignSelf: 'stretch', background: 'var(--rt-line)', flexShrink: 0, margin: '0 4px' }} />
+            <span
+              className="mono"
+              title={`${ws.engineersRequired} engineer${ws.engineersRequired !== 1 ? 's' : ''} required`}
+              style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-bold)', color: 'var(--rt-t2)', whiteSpace: 'nowrap', flex: '0 0 auto' }}
+            >
+              {ws.engineersRequired} eng
+            </span>
+          </>
+        )}
         <div style={{ flex: 1, minWidth: 40, marginLeft: 4 }}>{itemCount > 0 && <SegBar segs={segs} height={9} />}</div>
+        {series.length > 0 && <Sparkline series={series} activeIndex={activeIndex} />}
+        {showVerdict && <VerdictBadge verdict={forecast.verdict} />}
       </div>
-      <div style={{ padding: '10px 13px' }}>
+      <div style={{ padding: '10px 13px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {showVerdict && (
+          <VerdictLine
+            forecast={forecast}
+            onOpen={() => (forecast.verdict === 'unconfigured' ? onEditStream(ws!.id) : onOpenStreamHealth(ws!.id))}
+          />
+        )}
         {filled.length === 0 ? (
           <div
             className="card dash"
@@ -123,7 +151,7 @@ function StreamRow({
 }
 
 export function ReleaseStreamView(props: ReleaseViewProps) {
-  const { release: r, streamRows, onNavigateToStream, onNavigateToSprint } = props;
+  const { release: r, streamRows, onNavigateToStream, onNavigateToSprint, onOpenStreamHealth, onEditStream } = props;
   return (
     <ReleaseChrome {...props}>
       <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -139,6 +167,8 @@ export function ReleaseStreamView(props: ReleaseViewProps) {
                 row={row}
                 onNavigateToStream={onNavigateToStream}
                 onNavigateToSprint={onNavigateToSprint}
+                onOpenStreamHealth={onOpenStreamHealth}
+                onEditStream={onEditStream}
               />
             ))
           )}

@@ -11,6 +11,7 @@ import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
 import { SegBar } from '../components/badges';
 import { StreamBurnChart } from '../components/trend';
+import { VerdictBadge } from '../components/VerdictLine';
 import { statusVars, verdictVars } from '../components/statusVars';
 
 // ── Confirm / danger modal ─────────────────────────────────────────────
@@ -241,25 +242,6 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
 }
 
 // ── Verdict badge (shared by the health modal + stream table) ───────────
-export function VerdictBadge({ verdict }: { verdict: import('../lib/derive').HealthVerdict }) {
-  const v = verdictVars(verdict);
-  return (
-    <span
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)',
-        color: v.tone === 'muted' ? 'var(--rt-t3)' : v.text,
-        background: v.tone === 'muted' ? 'var(--rt-fill)' : v.soft,
-        border: `1.5px solid ${v.tone === 'muted' ? 'var(--rt-line)' : v.soft}`,
-        borderRadius: 6, padding: '3px 9px', lineHeight: 1, whiteSpace: 'nowrap',
-      }}
-    >
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: v.tone === 'muted' ? 'var(--rt-t3)' : v.dot, flexShrink: 0 }} />
-      {v.label}
-    </span>
-  );
-}
-
 // ── Work-stream health detail modal (read-only) ─────────────────────────
 export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: string; wsId: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId));
@@ -859,7 +841,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
               {it.build}
             </span>
           )}
-          <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Work item</span>
+          {/* <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Work item</span> */}
           {isDirty && (
             <span
               title="Modified — pending push"
