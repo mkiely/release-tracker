@@ -7,6 +7,8 @@ import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
 import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
+import { conceptWriteable, itemTypeFor, type EditConcept } from '../lib/connectorFields';
+import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
@@ -739,6 +741,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const it = useStore((s) => selItem(s, itemId));
   const r = useStore((s) => (it ? selRelease(s, it.releaseId) : undefined));
   const team = useStore((s) => (r ? selTeam(s, r.teamId) : undefined));
+  const meta = useConnectorMeta(r?.connector?.type);
 
   const [subject, setSubject] = useState(it ? it.subject : '');
   const [desc, setDesc] = useState(it ? it.description : '');
@@ -759,10 +762,12 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
 
   const synced = !!it.externalId;
   const connectorRelease = !!r.connector;
-  // Writeable fields for synced items: points and sprint are unlocked.
-  // All other synced fields stay read-only (external wins on next sync).
-  const readOnlyCore = synced; // subject, description, work stream, assignee
-  const statusReadOnly = synced || connectorRelease; // status locked for connector releases too
+  // Lock state derives from the connector's itemTypes catalog: a synced field is
+  // editable only where its type marks it writeable. Unknown/local items fall back —
+  // local (never-synced) items are fully editable; unknown synced types allow
+  // points + sprint (see conceptWriteable). One declared source, no hand-coded rules.
+  const itype = itemTypeFor(it.itemType?.id, meta?.itemTypes);
+  const canWrite = (c: EditConcept) => !synced || conceptWriteable(itype, c);
   const isDirty = it.dirtyFields.length > 0;
 
   const save = () => {
@@ -862,7 +867,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       }
     >
       <PField label="Subject">
-        <PInput value={subject} disabled={readOnlyCore} onChange={(e) => setSubject(e.target.value)} />
+        <PInput value={subject} disabled={!canWrite('subject')} onChange={(e) => setSubject(e.target.value)} />
       </PField>
       <PField label="Description">
         {it.descriptionFormat === 'html' ? (
@@ -882,7 +887,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
         ) : (
           <PTextarea
             value={desc}
-            disabled={readOnlyCore}
+            disabled={!canWrite('description')}
             placeholder="No description yet — add detail, acceptance criteria, links…"
             onChange={(e) => setDesc(e.target.value)}
             style={{ minHeight: 140 }}
@@ -891,7 +896,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       </PField>
       <div style={{ display: 'flex', gap: 12 }}>
         <PField label="Work stream" style={{ flex: 1 }}>
-          <PSelect value={wsId ?? ''} disabled={readOnlyCore} onChange={(e) => setWsId(e.target.value || null)}>
+          <PSelect value={wsId ?? ''} disabled={!canWrite('workStream')} onChange={(e) => setWsId(e.target.value || null)}>
             <option value="">None (unassigned)</option>
             {r.workStreams.map((w) => (
               <option key={w.id} value={w.id}>
@@ -901,8 +906,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           </PSelect>
         </PField>
         <PField label="Sprint" style={{ flex: 1 }}>
-          {/* Sprint is writeable even for synced items */}
-          <PSelect value={sprintId ?? ''} onChange={(e) => setSprintId(e.target.value || null)}>
+          <PSelect value={sprintId ?? ''} disabled={!canWrite('sprint')} onChange={(e) => setSprintId(e.target.value || null)}>
             <option value="">Backlog</option>
             {r.sprints.map((s) => (
               <option key={s.id} value={s.id}>
@@ -914,7 +918,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       </div>
       <div style={{ display: 'flex', gap: 12 }}>
         <PField label="Assignee" style={{ flex: 1 }}>
-          <PSelect value={assignedMemberId ?? ''} disabled={readOnlyCore} onChange={(e) => setAssignedMemberId(e.target.value || null)}>
+          <PSelect value={assignedMemberId ?? ''} disabled={!canWrite('assignee')} onChange={(e) => setAssignedMemberId(e.target.value || null)}>
             <option value="">Unassigned</option>
             {(team?.members ?? []).map((m) => (
               <option key={m.id} value={m.id}>
@@ -924,7 +928,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           </PSelect>
         </PField>
         <PField label="Status" style={{ flex: 1 }}>
-          <PSelect value={status} disabled={statusReadOnly} onChange={(e) => setStatus(e.target.value as Status)}>
+          <PSelect value={status} disabled={!canWrite('status')} onChange={(e) => setStatus(e.target.value as Status)}>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -944,22 +948,17 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
         </PField>
       )}
       <PField label="Points">
-        {/* Points is writeable even for synced items */}
-        <PointSeg value={points} onChange={setPoints} />
+        <PointSeg value={points} onChange={setPoints} disabled={!canWrite('points')} />
       </PField>
     </Modal>
   );
 }
 
 // ── Push review / confirm modal ─────────────────────────────────────────
-// Fields the app knows how to push back (the universe buildPushChanges maps). The
-// connector may writeable-restrict this further at push time, but these are what
-// the dirty indicators already surface, so the preview uses the same set.
-const PUSHABLE_FIELDS = ['points', 'sprint'];
-
 // Summarizes the pending push: per item, which writeable fields are changing
-// (synced → local) before anything is sent. Each row can be removed, which
-// reverts that item's dirty fields back to its synced value.
+// (synced → local) before anything is sent. Writeability is derived per item from
+// the connector's itemTypes catalog. Each row can be removed, which reverts that
+// item's dirty fields back to its synced value.
 
 export function PushReviewModal({
   releaseId,
@@ -972,6 +971,7 @@ export function PushReviewModal({
 }) {
   const r = useStore((s) => selRelease(s, releaseId));
   const items = useStore((s) => selItemsFor(s, releaseId));
+  const meta = useConnectorMeta(r?.connector?.type);
   const [busy, setBusy] = useState(false);
 
   if (!r) {
@@ -990,7 +990,7 @@ export function PushReviewModal({
     return p.field === 'sprint' ? sprintName(v as string | null) : String(v);
   };
 
-  const previews = buildPushPreview(items, PUSHABLE_FIELDS);
+  const previews = buildPushPreview(items, meta?.itemTypes);
   const total = previews.length;
 
   const doPush = async () => {

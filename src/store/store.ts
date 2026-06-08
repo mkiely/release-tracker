@@ -19,9 +19,10 @@ import {
 } from '../types';
 import { buildSprints, todayISO, uid } from '../lib/dates';
 import { seed } from '../lib/seed';
-import { applySync } from '../sync/applySync';
+import { applyCreatedItem, applySync } from '../sync/applySync';
 import { buildPushChanges } from '../sync/push';
-import { syncClient } from '../sync/client';
+import { allWriteableLocalFields } from '../lib/connectorFields';
+import { syncClient, type CreateItemInput } from '../sync/client';
 import type { PushResult, SyncResult } from '../sync/schema';
 
 /** Result of a sync attempt, shaped so the UI can craft a precise toast. */
@@ -33,6 +34,11 @@ export type SyncOutcome =
 export type PushOutcome =
   | { ok: true; result: PushResult }
   | { ok: false; reason: 'no-connector' | 'nothing-to-push' | 'error'; message: string };
+
+/** Result of creating an item on a connector release. */
+export type CreateItemOutcome =
+  | { ok: true; item: WorkItem }
+  | { ok: false; reason: 'no-connector' | 'error'; message: string };
 
 export const LS_KEY = 'release-tracker:v1';
 
@@ -206,6 +212,9 @@ interface Actions {
   moveItemToSprint: (id: string, sprintId: string | null) => void;
   /** Discard an item's pending push: restore its dirty writeable fields to the last synced value. No-op without a synced baseline. */
   revertItem: (id: string) => void;
+  /** Create a work item on a connector release via the sync service, then reconcile
+   *  the returned item into local state as a synced item. No-op for Local releases. */
+  createConnectorItem: (releaseId: string, req: CreateItemInput) => Promise<CreateItemOutcome>;
   /** Pull from this release's connector and upsert the result. No-op for Local releases. */
   syncRelease: (releaseId: string) => Promise<SyncOutcome>;
   /** Push locally-dirty writeable fields back to the external system. */
@@ -426,6 +435,28 @@ export const useStore = create<StoreState>((set, get) => {
       });
     },
 
+    createConnectorItem: async (releaseId, req) => {
+      const r = release(releaseId);
+      if (!r) return { ok: false, reason: 'error', message: 'Release not found' };
+      if (!r.connector) return { ok: false, reason: 'no-connector', message: 'Release is not connected' };
+
+      try {
+        // The connector's writeable fields drive the created item's dirty baseline.
+        const connectors = await syncClient.listConnectors();
+        const meta = connectors.find((c) => c.type === r.connector!.type);
+        const writeableItemFields = [...allWriteableLocalFields(meta?.itemTypes)];
+
+        const mapped = await syncClient.createItem(r.connector, req);
+        const { next, item, warning } = applyCreatedItem(snapshot(get()), releaseId, mapped, writeableItemFields);
+        if (!item) return { ok: false, reason: 'error', message: warning ?? 'Created item could not be placed' };
+        persist(next);
+        set({ ...next });
+        return { ok: true, item };
+      } catch (e) {
+        return { ok: false, reason: 'error', message: e instanceof Error ? e.message : String(e) };
+      }
+    },
+
     syncRelease: async (releaseId) => {
       const r = release(releaseId);
       if (!r) return { ok: false, reason: 'error', message: 'Release not found' };
@@ -436,7 +467,7 @@ export const useStore = create<StoreState>((set, get) => {
         // Fetch the connector's writeable field list so dirty-aware pull knows what to preserve.
         const connectors = await syncClient.listConnectors();
         const meta = connectors.find((c) => c.type === r.connector!.type);
-        const writeableItemFields = meta?.writeable?.item ?? [];
+        const writeableItemFields = [...allWriteableLocalFields(meta?.itemTypes)];
 
         const mapped = await syncClient.sync(r.connector);
         const { next, result } = applySync(snapshot(get()), releaseId, mapped, writeableItemFields);
@@ -471,7 +502,6 @@ export const useStore = create<StoreState>((set, get) => {
       try {
         const connectors = await syncClient.listConnectors();
         const meta = connectors.find((c) => c.type === r.connector!.type);
-        const writeableItemFields = meta?.writeable?.item ?? [];
 
         const releaseItems = get().items.filter((i) => i.releaseId === releaseId && i.externalId !== null && i.dirtyFields.length > 0);
         if (releaseItems.length === 0) {
@@ -479,7 +509,7 @@ export const useStore = create<StoreState>((set, get) => {
         }
 
         const releaseSprints = r.sprints;
-        const changes = buildPushChanges(releaseItems, releaseSprints, writeableItemFields);
+        const changes = buildPushChanges(releaseItems, releaseSprints, meta?.itemTypes);
         if (changes.length === 0) {
           return { ok: false, reason: 'nothing-to-push', message: 'No writeable changes to push' };
         }

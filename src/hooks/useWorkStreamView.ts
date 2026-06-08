@@ -73,7 +73,7 @@ export function useWorkStreamView(): WorkStreamViewProps | null {
     onHome: () => navigate('/'),
     onBack: () => navigate(`/releases/${id}`),
     onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
-    onNewItem: () => openModal({ type: 'item', releaseId: id, presetStreamId: ws.id }),
+    onNewItem: () => openModal({ type: r.connector ? 'connectorItem' : 'item', releaseId: id, presetStreamId: ws.id }),
     onOpenItem: (itemId) => openModal({ type: 'itemDetail', itemId }),
     onToggleStatus: (s) =>
       setStatusFilter((prev) => {

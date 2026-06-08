@@ -16,6 +16,9 @@ export type {
   ContractStatus,
   PushItemChange,
   PushResult,
+  FieldSpec,
+  ConnectorItemType,
+  CreateItemRequest,
 } from '@release-tracker/sync-contract';
 
 /** Outcome of applying a MappedRelease to local state. App-internal; never on the wire. */

@@ -8,6 +8,8 @@ import { PresentationStore, usePresentationMode } from '../store/presentationMod
 import type { Release } from '../types';
 import { selDirtyCount, useStore } from '../store/store';
 import { useApp } from '../app-context';
+import { useConnectorMeta } from '../hooks/useConnectorMeta';
+import { connectorCreateTypes } from '../sync/client';
 import { Icon } from './Icon';
 import { IconButton, PButton } from './primitives';
 import { statusVars } from './statusVars';
@@ -226,8 +228,9 @@ export function PushButton({ release, onPush }: { release: Release; onPush: () =
   );
 }
 
-/** "New work item" button — disabled (with an explanatory title) on connector
- *  releases, where items are owned by the external system. */
+/** "New work item" button. Always shown for local releases. For connector
+ *  releases it's shown only when the connector advertises a create capability
+ *  (`creatable.item.types`); otherwise it's hidden — items are owned externally. */
 export function NewItemButton({
   release,
   onClick,
@@ -237,14 +240,10 @@ export function NewItemButton({
   onClick: () => void;
   icon?: ReactNode;
 }) {
+  const meta = useConnectorMeta(release.connector?.type);
+  if (release.connector && connectorCreateTypes(meta).length === 0) return null;
   return (
-    <PButton
-      sm
-      icon={icon}
-      disabled={!!release.connector}
-      title={release.connector ? 'Work items are managed by the connector' : undefined}
-      onClick={onClick}
-    >
+    <PButton sm icon={icon} onClick={onClick}>
       New work item
     </PButton>
   );

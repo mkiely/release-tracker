@@ -7,7 +7,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SCHEMA_VERSION } from '../types';
-import type { MappedRelease } from '../sync/schema';
+import type { ConnectorItemType, MappedRelease } from '../sync/schema';
 
 // Mock the syncClient seam used by syncRelease / pushRelease. Keep the rest of
 // the module (createSyncClient, connectorLabel, …) intact.
@@ -36,12 +36,22 @@ const client = syncClient as unknown as {
 
 const A = getActions; // shorthand: A() → the live actions object
 
-// A connector meta whose writeable item fields are points + sprint.
+// Default item type: points + sprint are writeable (matches legacy behavior).
+const STORY_TYPE: ConnectorItemType = {
+  id: 'jira_story',
+  label: 'Story',
+  fields: [
+    { key: 'points', kind: 'number', role: 'points', writeable: true },
+    { key: 'sprint', kind: 'ref', target: 'sprint', writeable: true },
+  ],
+};
+
+// A connector meta whose item catalog makes points + sprint writeable.
 const jiraMeta = (over: Record<string, unknown> = {}) => ({
   type: 'jira',
   label: 'Jira',
   configFields: [],
-  writeable: { item: ['points', 'sprint'] },
+  itemTypes: [STORY_TYPE],
   ...over,
 });
 
@@ -262,13 +272,14 @@ describe('syncRelease', () => {
 
 describe('pushRelease', () => {
   // Create a connector release with one synced, points-dirty item.
-  const setupDirty = (over: { dirtyFields?: string[] } = {}) => {
+  const setupDirty = (over: { dirtyFields?: string[]; itemType?: { id: string; label: string } } = {}) => {
     const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'jira', config: {} } });
     const it = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'S', points: 13 })!;
     A().updateItem(it.id, {
       externalId: 'EXT-1',
       dirtyFields: over.dirtyFields ?? ['points'],
       syncedValues: { points: 5, sprintId: null },
+      ...(over.itemType ? { itemType: over.itemType } : {}),
     });
     return { r, itemId: it.id };
   };
@@ -287,9 +298,18 @@ describe('pushRelease', () => {
     expect(client.push).not.toHaveBeenCalled();
   });
 
-  it("returns 'nothing-to-push' when dirty fields are not in the writeable set", async () => {
-    client.listConnectors.mockResolvedValue([jiraMeta({ writeable: { item: ['sprint'] } })]);
-    setupDirty({ dirtyFields: ['points'] }); // points dirty, but only sprint is writeable
+  it("returns 'nothing-to-push' when a dirty field is not writeable for the item's type", async () => {
+    // A type where points is create-once (writeable:false); the item resolves to it.
+    const sprintOnly: ConnectorItemType = {
+      id: 'jira_story',
+      label: 'Story',
+      fields: [
+        { key: 'sprint', kind: 'ref', target: 'sprint', writeable: true },
+        { key: 'points', kind: 'number', role: 'points', writeable: false },
+      ],
+    };
+    client.listConnectors.mockResolvedValue([jiraMeta({ itemTypes: [sprintOnly] })]);
+    setupDirty({ dirtyFields: ['points'], itemType: { id: 'jira_story', label: 'Story' } });
     expect(await A().pushRelease(getState().releases[0].id)).toMatchObject({ ok: false, reason: 'nothing-to-push' });
     expect(client.push).not.toHaveBeenCalled();
   });

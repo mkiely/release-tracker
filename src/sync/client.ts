@@ -4,12 +4,15 @@
 // changes no other app code. The store and UI depend only on this interface.
 
 import type { ConnectorType, ReleaseConnector } from '../types';
-import type { ConnectorMeta, MappedRelease, PushItemChange, PushResult, ValidateResult } from '@release-tracker/sync-contract';
-import { FIXTURE_CONNECTORS, fixtureMappedRelease } from './fixtures';
+import type { ConnectorItemType, ConnectorMeta, CreateItemRequest, MappedItem, MappedRelease, PushItemChange, PushResult, ValidateResult } from '@release-tracker/sync-contract';
+import { FIXTURE_CONNECTORS, fixtureCreatedItem, fixtureMappedRelease } from './fixtures';
 
 // Wire types come from the app-owned Sync Contract; re-export so app code can keep
 // importing them from the client module.
-export type { ConnectorMeta, ValidateResult, PushItemChange, PushResult } from '@release-tracker/sync-contract';
+export type { ConnectorMeta, ValidateResult, PushItemChange, PushResult, ConnectorItemType, FieldSpec } from '@release-tracker/sync-contract';
+
+/** Create-item request body minus `connector` (the client supplies that). */
+export type CreateItemInput = Omit<CreateItemRequest, 'connector'>;
 
 export interface SyncClient {
   /** GET /connectors — available connectors + their required config. */
@@ -20,6 +23,8 @@ export interface SyncClient {
   sync(connector: ReleaseConnector): Promise<MappedRelease>;
   /** POST /releases/{id}/push — write locally-dirty writeable fields back to the external system. */
   push(connector: ReleaseConnector, changes: PushItemChange[]): Promise<PushResult>;
+  /** POST /releases/{id}/items — create a work item; returns it mapped for reconciliation. */
+  createItem(connector: ReleaseConnector, req: CreateItemInput): Promise<MappedItem>;
 }
 
 /** Shared helper: confirm all required config fields for a connector are filled. */
@@ -49,6 +54,10 @@ export class FixtureSyncClient implements SyncClient {
 
   async push(_connector: ReleaseConnector, changes: PushItemChange[]): Promise<PushResult> {
     return { pushed: changes.length, failed: 0, errors: [] };
+  }
+
+  async createItem(connector: ReleaseConnector, req: CreateItemInput): Promise<MappedItem> {
+    return fixtureCreatedItem(connector, req);
   }
 }
 
@@ -89,6 +98,13 @@ export class HttpSyncClient implements SyncClient {
       body: JSON.stringify({ connector, changes }),
     });
   }
+
+  createItem(connector: ReleaseConnector, req: CreateItemInput): Promise<MappedItem> {
+    return this.json<MappedItem>('/releases/items', {
+      method: 'POST',
+      body: JSON.stringify({ connector, ...req }),
+    });
+  }
 }
 
 /** Display label for a connector type id (e.g. 'jira' → 'Jira'); '' → 'Local'. */
@@ -105,3 +121,16 @@ export function createSyncClient(): SyncClient {
 
 /** App-wide singleton. */
 export const syncClient: SyncClient = createSyncClient();
+
+// Memoized connector list — a single fetch shared across the app so render-time
+// capability checks (e.g. "can this connector create items?") don't refetch.
+let connectorsPromise: Promise<ConnectorMeta[]> | null = null;
+export function getConnectors(): Promise<ConnectorMeta[]> {
+  if (!connectorsPromise) connectorsPromise = syncClient.listConnectors();
+  return connectorsPromise;
+}
+
+/** The item types that have at least one creatable field; empty when creation is disabled. */
+export function connectorCreateTypes(meta: ConnectorMeta | undefined): ConnectorItemType[] {
+  return (meta?.itemTypes ?? []).filter((t) => t.fields.some((f) => f.creatable));
+}

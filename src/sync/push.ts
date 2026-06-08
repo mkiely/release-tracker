@@ -3,7 +3,8 @@
 // dirty writeable fields — read-only fields are never pushed.
 
 import type { WorkItem, Sprint } from '../types';
-import type { PushItemChange } from './schema';
+import type { ConnectorItemType, PushItemChange } from './schema';
+import { writeableLocalFieldsForItem } from '../lib/connectorFields';
 
 /** A single writeable field changing in a pending push: its synced (old) and local (new) value. */
 export interface PushFieldDiff {
@@ -27,20 +28,22 @@ export interface PushItemPreview {
  * writeable fields that are dirty with their synced (old) → local (new) values.
  * Pure. Mirrors buildPushChanges' filtering so the preview matches the payload.
  * Sprint ids are returned raw (local ids); the caller resolves them to names.
+ * Writeability is derived per item from the connector's itemTypes catalog.
  */
-export function buildPushPreview(items: WorkItem[], writeable: string[]): PushItemPreview[] {
+export function buildPushPreview(items: WorkItem[], types: ConnectorItemType[] | undefined): PushItemPreview[] {
   const previews: PushItemPreview[] = [];
 
   for (const item of items) {
     if (!item.externalId || item.dirtyFields.length === 0) continue;
 
+    const writeable = writeableLocalFieldsForItem(item, types);
     const base = item.syncedValues ?? null;
     const diffs: PushFieldDiff[] = [];
 
-    if (writeable.includes('points') && item.dirtyFields.includes('points')) {
+    if (writeable.has('points') && item.dirtyFields.includes('points')) {
       diffs.push({ field: 'points', from: base ? base.points : null, to: item.points });
     }
-    if (writeable.includes('sprint') && item.dirtyFields.includes('sprint')) {
+    if (writeable.has('sprint') && item.dirtyFields.includes('sprint')) {
       diffs.push({ field: 'sprint', from: base ? base.sprintId : null, to: item.sprintId });
     }
 
@@ -55,14 +58,14 @@ export function buildPushPreview(items: WorkItem[], writeable: string[]): PushIt
 /**
  * Build the changes payload for a push. Pure: no side effects.
  *
- * @param items      All work items for the release.
- * @param sprints    The release's sprints (for sprintId → externalId mapping).
- * @param writeable  The field keys the connector advertises as writeable (e.g. ['points','sprint']).
+ * @param items    All work items for the release.
+ * @param sprints  The release's sprints (for sprintId → externalId mapping).
+ * @param types    The connector's itemTypes catalog; writeability is derived per item.
  */
 export function buildPushChanges(
   items: WorkItem[],
   sprints: Sprint[],
-  writeable: string[],
+  types: ConnectorItemType[] | undefined,
 ): PushItemChange[] {
   const sprintExtById = new Map<string, string | null>();
   for (const s of sprints) {
@@ -75,15 +78,16 @@ export function buildPushChanges(
     // Only push synced items (externalId !== null) that have pending dirty fields.
     if (!item.externalId || item.dirtyFields.length === 0) continue;
 
+    const writeable = writeableLocalFieldsForItem(item, types);
     const fields: PushItemChange['fields'] = {};
     let hasDirtyWriteable = false;
 
-    if (writeable.includes('points') && item.dirtyFields.includes('points')) {
+    if (writeable.has('points') && item.dirtyFields.includes('points')) {
       fields.points = item.points;
       hasDirtyWriteable = true;
     }
 
-    if (writeable.includes('sprint') && item.dirtyFields.includes('sprint')) {
+    if (writeable.has('sprint') && item.dirtyFields.includes('sprint')) {
       // Map to external sprint id; null means backlog.
       const extSprintId = item.sprintId != null ? (sprintExtById.get(item.sprintId) ?? null) : null;
       fields.extSprintId = extSprintId;

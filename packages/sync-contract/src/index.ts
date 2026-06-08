@@ -24,6 +24,10 @@ export type ConnectorConfigField = Schemas['ConnectorConfigField'];
 export type ConnectorMeta = Schemas['ConnectorMeta'];
 export type ValidateResult = Schemas['ValidateResult'];
 
+/** The connector's item-type catalog + per-field schema (see ConnectorMeta.itemTypes). */
+export type FieldSpec = Schemas['FieldSpec'];
+export type ConnectorItemType = Schemas['ConnectorItemType'];
+
 /** Request bodies (primarily for the service side). */
 export type ReleaseConnectorPayload = Schemas['ReleaseConnector'];
 export type SyncRequest = Schemas['SyncRequest'];
@@ -31,6 +35,7 @@ export type ValidateRequest = Schemas['ValidateRequest'];
 export type PushItemChange = Schemas['PushItemChange'];
 export type PushRequest = Schemas['PushRequest'];
 export type PushResult = Schemas['PushResult'];
+export type CreateItemRequest = Schemas['CreateItemRequest'];
 
 /** Raw generated paths/components, for codegen-heavy consumers (e.g. typed fetch). */
 export type { paths, components, operations } from './generated';
@@ -40,4 +45,4 @@ export type { paths, components, operations } from './generated';
  * app's localStorage SCHEMA_VERSION — this versions the wire contract between the
  * app and the sync service.
  */
-export const SYNC_CONTRACT_VERSION = '0.5.0';
+export const SYNC_CONTRACT_VERSION = '0.7.0';

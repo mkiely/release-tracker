@@ -5,8 +5,64 @@
 // `FIXTURE_CONNECTORS` mirrors `GET /connectors`; `fixtureMappedRelease()` mirrors
 // `POST /releases/{id}/sync` for the Jira connector with representative sample data.
 
-import type { ConnectorMeta } from './client';
-import type { MappedRelease } from './schema';
+import type { ConnectorMeta, CreateItemInput } from './client';
+import type { ContractStatus, ConnectorItemType, MappedItem, MappedRelease } from './schema';
+import type { ReleaseConnector } from '../types';
+
+// The Jira fixture's item-type catalog, declared as DATA (kind/role/target +
+// access). Each field is listed once; `creatable` shows it on the create form,
+// `writeable` makes it pushable. Story/Task/Bug keep points + sprint writeable to
+// match current push behavior; identity fields are create-once (writeable:false).
+const JIRA_ITEM_TYPES: ConnectorItemType[] = [
+  {
+    id: 'jira_story',
+    label: 'Story',
+    fields: [
+      { key: 'subject', label: 'Summary', kind: 'string', role: 'subject', required: true, creatable: true, writeable: false },
+      { key: 'description', label: 'Description', kind: 'string', role: 'description', multiline: true, creatable: true, writeable: false },
+      { key: 'workStream', label: 'Epic', kind: 'ref', target: 'workStream', required: true, creatable: true, writeable: false },
+      { key: 'sprint', label: 'Sprint', kind: 'ref', target: 'sprint', creatable: true, writeable: true },
+      { key: 'assignee', label: 'Assignee', kind: 'ref', target: 'member', creatable: true, writeable: false },
+      { key: 'points', label: 'Story points', kind: 'number', role: 'points', creatable: true, writeable: true },
+    ],
+  },
+  {
+    id: 'jira_task',
+    label: 'Task',
+    fields: [
+      { key: 'subject', label: 'Summary', kind: 'string', role: 'subject', required: true, creatable: true, writeable: false },
+      { key: 'workStream', label: 'Epic', kind: 'ref', target: 'workStream', creatable: true, writeable: false },
+      { key: 'sprint', label: 'Sprint', kind: 'ref', target: 'sprint', creatable: true, writeable: true },
+      { key: 'points', label: 'Story points', kind: 'number', role: 'points', creatable: true, writeable: true },
+    ],
+  },
+  {
+    id: 'jira_bug',
+    label: 'Bug',
+    fields: [
+      { key: 'subject', label: 'Summary', kind: 'string', role: 'subject', required: true, creatable: true, writeable: false },
+      { key: 'description', label: 'Steps to reproduce', kind: 'string', role: 'description', multiline: true, creatable: true, writeable: false },
+      { key: 'workStream', label: 'Epic', kind: 'ref', target: 'workStream', required: true, creatable: true, writeable: false },
+      { key: 'sprint', label: 'Sprint', kind: 'ref', target: 'sprint', creatable: true, writeable: true },
+      { key: 'assignee', label: 'Assignee', kind: 'ref', target: 'member', creatable: true, writeable: false },
+      { key: 'points', label: 'Story points', kind: 'number', role: 'points', creatable: true, writeable: true },
+      {
+        key: 'severity',
+        label: 'Severity',
+        kind: 'enum',
+        required: true,
+        creatable: true,
+        writeable: true,
+        options: [
+          { value: 'low', label: 'Low' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'high', label: 'High' },
+          { value: 'critical', label: 'Critical' },
+        ],
+      },
+    ],
+  },
+];
 
 export const FIXTURE_CONNECTORS: ConnectorMeta[] = [
   {
@@ -19,9 +75,39 @@ export const FIXTURE_CONNECTORS: ConnectorMeta[] = [
       { key: 'siteUrl', label: 'Site URL', required: true, hint: 'e.g. your-org.atlassian.net' },
       { key: 'storyPointsField', label: 'Story-points field id', required: false, hint: 'defaults to customfield_10016' },
     ],
-    writeable: { item: ['points', 'sprint'] },
+    itemTypes: JIRA_ITEM_TYPES,
   },
 ];
+
+// Monotonic counter so each fixture-created item gets a unique externalId/key.
+let createSeq = 0;
+
+/**
+ * Stand-in for `POST /releases/{id}/items`: synthesizes the MappedItem the real
+ * service would return after creating the item in the backend (key + externalId
+ * assigned, fields normalized), so the app can reconcile it as a synced item.
+ */
+export function fixtureCreatedItem(connector: ReleaseConnector, req: CreateItemInput): MappedItem {
+  const n = 900 + createSeq++;
+  const prefix = (connector.config.projectKey || 'NEW').toUpperCase();
+  const fields = (req.fields ?? {}) as Record<string, unknown>;
+  const typeLabel = JIRA_ITEM_TYPES.find((t) => t.id === req.type)?.label ?? 'Task';
+  const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  return {
+    externalId: `EXT-${n}`,
+    extWorkStreamId: req.extWorkStreamId ?? null,
+    extSprintId: req.extSprintId ?? null,
+    extAssigneeId: req.extAssigneeId ?? null,
+    fields: {
+      key: `${prefix}-${n}`,
+      subject: String(fields.subject ?? 'Untitled item'),
+      description: String(fields.description ?? ''),
+      status: ((fields.status as ContractStatus) ?? 'Not Started'),
+      points: num(fields.points),
+      itemType: { id: req.type, label: typeLabel },
+    },
+  };
+}
 
 // External sprint dates are intentionally near the typical demo release start; the engine
 // links them onto the fixed grid by chronological order regardless of exact dates.

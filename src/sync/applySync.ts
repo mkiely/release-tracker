@@ -19,9 +19,135 @@
 //    is created or reused by externalId, members are upserted, and release.teamId
 //    is repointed. Velocity is app-owned and never overwritten.
 
-import type { AppState, Member, Sprint, Team, WorkItem, WorkStream } from '../types';
+import type { AppState, ItemType, Member, Release, Sprint, Team, WorkItem, WorkStream } from '../types';
 import { uid } from '../lib/dates';
-import type { MappedRelease, SyncResult } from './schema';
+import type { MappedItem, MappedRelease, SyncResult } from './schema';
+
+/** External-id → local-id lookups for resolving a MappedItem's refs. */
+export interface ExtMaps {
+  wsByExt: Map<string, string>;
+  sprintByExt: Map<string, string>;
+  memberByExt: Map<string, string>;
+}
+
+/** Build ref lookups from a release's already-synced entities (each carrying an
+ *  externalId). Used by the single-item create path; full sync builds them
+ *  incrementally as it upserts streams/sprints/members. */
+export function buildExtMaps(release: Release, teams: Team[]): ExtMaps {
+  const wsByExt = new Map<string, string>();
+  for (const ws of release.workStreams) if (ws.externalId) wsByExt.set(ws.externalId, ws.id);
+  const sprintByExt = new Map<string, string>();
+  for (const s of release.sprints) if (s.externalId) sprintByExt.set(s.externalId, s.id);
+  const memberByExt = new Map<string, string>();
+  const team = teams.find((t) => t.id === release.teamId);
+  for (const m of team?.members ?? []) if (m.externalId) memberByExt.set(m.externalId, m.id);
+  return { wsByExt, sprintByExt, memberByExt };
+}
+
+/** Normalize a wire itemType (whose `id` is optional) to the app's ItemType. */
+function mapItemType(it: MappedItem['fields']['itemType']): ItemType | null {
+  return it ? { id: it.id ?? null, label: it.label } : null;
+}
+
+/**
+ * Resolve one MappedItem's refs and insert or update it in `items` (mutated in
+ * place). Returns the outcome so callers can tally results. Read-only fields are
+ * always overwritten (external wins); dirty writeable fields are preserved.
+ */
+export function upsertItem(
+  items: WorkItem[],
+  m: MappedItem,
+  releaseId: string,
+  maps: ExtMaps,
+  writeableItemFields: string[],
+): { status: 'created' | 'updated' | 'skipped'; warning?: string } {
+  let workStreamId: string | null;
+  if (m.extWorkStreamId == null) {
+    workStreamId = null;
+  } else {
+    const resolved = maps.wsByExt.get(m.extWorkStreamId);
+    if (resolved === undefined) {
+      return { status: 'skipped', warning: `Item ${m.fields.key} skipped: unresolved work stream (${m.extWorkStreamId}).` };
+    }
+    workStreamId = resolved;
+  }
+
+  let sprintId: string | null = null; // backlog by default
+  let warning: string | undefined;
+  if (m.extSprintId != null) {
+    const resolved = maps.sprintByExt.get(m.extSprintId);
+    if (resolved === undefined) {
+      warning = `Item ${m.fields.key}: sprint ${m.extSprintId} not mapped; placed in backlog.`;
+    } else {
+      sprintId = resolved;
+    }
+  }
+
+  const assignedMemberId = m.extAssigneeId != null ? (maps.memberByExt.get(m.extAssigneeId) ?? null) : null;
+
+  const existing = items.find((i) => i.releaseId === releaseId && i.externalId === m.externalId);
+  if (existing) {
+    existing.workStreamId = workStreamId;
+    existing.key = m.fields.key;
+    existing.subject = m.fields.subject;
+    existing.description = m.fields.description;
+    existing.descriptionFormat = m.fields.descriptionFormat ?? 'text';
+    existing.status = m.fields.status;
+    existing.assignedMemberId = assignedMemberId;
+    existing.build = m.fields.build ?? null;
+    existing.itemType = mapItemType(m.fields.itemType);
+    // Dirty-aware: preserve local value for writeable fields pending push.
+    const sprintDirty = writeableItemFields.includes('sprint') && existing.dirtyFields.includes('sprint');
+    const pointsDirty = writeableItemFields.includes('points') && existing.dirtyFields.includes('points');
+    if (!sprintDirty) existing.sprintId = sprintId;
+    if (!pointsDirty) existing.points = m.fields.points;
+    // Record the incoming external value as the baseline a pending push diverges from.
+    existing.syncedValues = { points: m.fields.points, sprintId };
+    return { status: 'updated', warning };
+  }
+
+  items.push({
+    id: uid('it'),
+    releaseId,
+    workStreamId,
+    sprintId,
+    key: m.fields.key,
+    subject: m.fields.subject,
+    description: m.fields.description,
+    descriptionFormat: m.fields.descriptionFormat ?? 'text',
+    status: m.fields.status,
+    points: m.fields.points,
+    externalId: m.externalId,
+    assignedMemberId,
+    build: m.fields.build ?? null,
+    itemType: mapItemType(m.fields.itemType),
+    dirtyFields: [],
+    syncedValues: { points: m.fields.points, sprintId },
+  });
+  return { status: 'created', warning };
+}
+
+/**
+ * Apply a single connector-created item (the MappedItem returned by the create
+ * endpoint) onto local state, reconciling it as a synced item. Refs are resolved
+ * against the release's existing entities. Returns the inserted item (or null on
+ * an unresolved/​missing release).
+ */
+export function applyCreatedItem(
+  state: AppState,
+  releaseId: string,
+  mapped: MappedItem,
+  writeableItemFields: string[] = [],
+): { next: AppState; item: WorkItem | null; warning?: string } {
+  const release = state.releases.find((r) => r.id === releaseId);
+  if (!release) return { next: state, item: null, warning: `Release ${releaseId} not found.` };
+  const maps = buildExtMaps(release, state.teams);
+  const items = state.items.map((i) => ({ ...i }));
+  const { status, warning } = upsertItem(items, mapped, releaseId, maps, writeableItemFields);
+  if (status === 'skipped') return { next: state, item: null, warning };
+  const item = items.find((i) => i.releaseId === releaseId && i.externalId === mapped.externalId) ?? null;
+  return { next: { ...state, items }, item, warning };
+}
 
 export function applySync(
   state: AppState,
@@ -162,76 +288,13 @@ export function applySync(
 
   // --- 3. Items: resolve refs, then match by externalId or create ---
   const items: WorkItem[] = state.items.map((i) => ({ ...i }));
+  const maps: ExtMaps = { wsByExt, sprintByExt, memberByExt };
   for (const m of mapped.items) {
-    let workStreamId: string | null;
-    if (m.extWorkStreamId === null) {
-      workStreamId = null;
-    } else {
-      const resolved = wsByExt.get(m.extWorkStreamId);
-      if (resolved === undefined) {
-        result.skipped++;
-        result.warnings.push(`Item ${m.fields.key} skipped: unresolved work stream (${m.extWorkStreamId}).`);
-        continue;
-      }
-      workStreamId = resolved;
-    }
-
-    let sprintId: string | null = null; // backlog by default
-    if (m.extSprintId !== null) {
-      const resolved = sprintByExt.get(m.extSprintId);
-      if (resolved === undefined) {
-        result.warnings.push(`Item ${m.fields.key}: sprint ${m.extSprintId} not mapped; placed in backlog.`);
-      } else {
-        sprintId = resolved;
-      }
-    }
-
-    // Resolve assignee; unknown or null → null.
-    const assignedMemberId =
-      m.extAssigneeId != null ? (memberByExt.get(m.extAssigneeId) ?? null) : null;
-
-    const existing = items.find((i) => i.releaseId === releaseId && i.externalId === m.externalId);
-    if (existing) {
-      // Always overwrite read-only fields (external wins).
-      existing.workStreamId = workStreamId;
-      existing.key = m.fields.key;
-      existing.subject = m.fields.subject;
-      existing.description = m.fields.description;
-      existing.descriptionFormat = m.fields.descriptionFormat ?? 'text';
-      existing.status = m.fields.status;
-      existing.assignedMemberId = assignedMemberId;
-      existing.build = m.fields.build ?? null;
-      existing.itemType = m.fields.itemType ?? null;
-      // Dirty-aware: preserve local value for writeable fields pending push.
-      const sprintDirty = writeableItemFields.includes('sprint') && existing.dirtyFields.includes('sprint');
-      const pointsDirty = writeableItemFields.includes('points') && existing.dirtyFields.includes('points');
-      if (!sprintDirty) existing.sprintId = sprintId;
-      if (!pointsDirty) existing.points = m.fields.points;
-      // Record the incoming external value as the baseline regardless of local dirt —
-      // it's what a pending push diverges from and reverts to.
-      existing.syncedValues = { points: m.fields.points, sprintId };
-      result.updated++;
-    } else {
-      items.push({
-        id: uid('it'),
-        releaseId,
-        workStreamId,
-        sprintId,
-        key: m.fields.key,
-        subject: m.fields.subject,
-        description: m.fields.description,
-        descriptionFormat: m.fields.descriptionFormat ?? 'text',
-        status: m.fields.status,
-        points: m.fields.points,
-        externalId: m.externalId,
-        assignedMemberId,
-        build: m.fields.build ?? null,
-        itemType: m.fields.itemType ?? null,
-        dirtyFields: [],
-        syncedValues: { points: m.fields.points, sprintId },
-      });
-      result.created++;
-    }
+    const { status, warning } = upsertItem(items, m, releaseId, maps, writeableItemFields);
+    if (status === 'created') result.created++;
+    else if (status === 'updated') result.updated++;
+    else result.skipped++;
+    if (warning) result.warnings.push(warning);
   }
 
   const releases = state.releases.map((r) =>

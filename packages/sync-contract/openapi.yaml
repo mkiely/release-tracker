@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.5.0
+  version: 0.7.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
@@ -80,6 +80,29 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PushResult' }
+
+  /releases/{id}/items:
+    post:
+      operationId: createItem
+      summary: Create a new work item in the external system and return it mapped.
+      description: >-
+        Only valid when the connector advertises a `creatable.item` capability.
+        The service creates the item in the backend, assigns its key/id, and
+        returns the fully-normalized MappedItem so the app can reconcile it as a
+        synced item (no follow-up sync required).
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateItemRequest' }
+      responses:
+        '200':
+          description: The created item, normalized to the app's schema.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MappedItem' }
 
 components:
   schemas:
@@ -228,6 +251,75 @@ components:
           enum: [text, date, number, password]
           description: 'Input type hint for the UI; controls which input control is rendered. Omit or use text for plain text inputs.'
 
+    FieldSpec:
+      type: object
+      description: >-
+        Describes ONE field of an item type as DATA, never as a control. The app's
+        presentation registry maps (kind, role, target) to an input; the contract
+        never names a UI control. Access is per field: `creatable` (shown on the
+        create form) and `writeable` (pushable on an existing item). A field with
+        creatable:true, writeable:false is set once at creation and immutable after.
+      required: [key, kind]
+      properties:
+        key:
+          type: string
+          description: Connector-native field key, echoed back in CreateItemRequest.fields (or mapped to a ref id for ref kinds).
+        label: { type: string }
+        kind:
+          type: string
+          enum: [string, number, boolean, date, enum, ref]
+          description: The field's data kind. Drives validation and (via the app registry) the control.
+        target:
+          type: string
+          enum: [workStream, sprint, member]
+          description: 'For kind=ref: the release entity referenced. Resolved to a live entity + a wire ref id (extWorkStreamId/extSprintId/extAssigneeId).'
+        enumRef:
+          type: string
+          enum: [status]
+          description: 'For kind=enum backed by an app-canonical set (the app supplies the options); else use `options`.'
+        role:
+          type: string
+          enum: [subject, description, points, status]
+          description: >-
+            Optional semantic tag for fields that map to well-known app concepts.
+            Lets the app recognize a field regardless of `key` (e.g. Jira's
+            customfield_10016 with role=points) — used for serialization + control choice.
+        hint: { type: string, description: 'Placeholder / helper text for the input.' }
+        multiline: { type: boolean, description: 'kind=string: long-form text (data hint; registry → textarea).' }
+        sensitive: { type: boolean, description: 'kind=string: secret value (data hint; registry → masked input).' }
+        options:
+          type: array
+          description: Choices for kind=enum (connector-defined).
+          items:
+            type: object
+            required: [value, label]
+            properties:
+              value: { type: string }
+              label: { type: string }
+        required: { type: boolean }
+        min: { type: number }
+        max: { type: number }
+        step: { type: number }
+        maxLength: { type: number }
+        pattern: { type: string, description: 'Regex the value must match (kind=string).' }
+        creatable: { type: boolean, description: 'Shown on the create form. Default false.' }
+        writeable: { type: boolean, description: 'Pushable on an existing item. Default false.' }
+
+    ConnectorItemType:
+      type: object
+      description: >-
+        One work-item type the connector emits, with its full field catalog. Lists
+        every field (creatable and/or writeable), each declared once. The app
+        derives the create form (creatable fields), push capability (writeable
+        fields), and edit lock-state from this single source.
+      required: [id, label, fields]
+      properties:
+        id: { type: string, description: 'Connector-native type id, e.g. jira_story.' }
+        label: { type: string, description: 'Display label, e.g. Story.' }
+        fields:
+          type: array
+          items: { $ref: '#/components/schemas/FieldSpec' }
+
     ConnectorMeta:
       type: object
       required: [type, label, configFields]
@@ -237,14 +329,13 @@ components:
         configFields:
           type: array
           items: { $ref: '#/components/schemas/ConnectorConfigField' }
-        writeable:
-          type: object
-          description: Per-entity field keys the app may push back. Absent means nothing is writeable.
-          properties:
-            item:
-              type: array
-              items: { type: string }
-              description: "Writeable work-item fields, e.g. ['points','sprint']"
+        itemTypes:
+          type: array
+          description: >-
+            The connector's work-item type catalog. Absent or empty means no item
+            types are exposed: nothing is creatable (the app hides "New work item")
+            and nothing is writeable.
+          items: { $ref: '#/components/schemas/ConnectorItemType' }
 
     ReleaseConnector:
       type: object
@@ -311,3 +402,22 @@ components:
         errors:
           type: array
           items: { type: string }
+
+    CreateItemRequest:
+      type: object
+      description: >-
+        Request to create one work item. `type` is a CreatableItemType.id. The ref
+        ids carry the well-known stream/sprint/member selections (resolved by the
+        app from local entities to externalIds); `fields` carries the remaining
+        well-known scalars (subject, description, points, status) and any custom
+        field values, keyed by FieldSpec.key.
+      required: [connector, type]
+      properties:
+        connector: { $ref: '#/components/schemas/ReleaseConnector' }
+        type: { type: string }
+        extWorkStreamId: { type: string, nullable: true }
+        extSprintId: { type: string, nullable: true }
+        extAssigneeId: { type: string, nullable: true }
+        fields:
+          type: object
+          additionalProperties: true

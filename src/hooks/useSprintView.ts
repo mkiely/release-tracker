@@ -156,7 +156,7 @@ export function useSprintView(): SprintViewProps | null {
     onNavigateToStream: (wsId) => navigate(`/releases/${id}/streams/${wsId}`),
     onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
     onEditSprint: () => openModal({ type: 'sprint', releaseId: id, sprintId: sp.id }),
-    onNewItem: () => openModal({ type: 'item', releaseId: id, presetSprintId: sp.id }),
+    onNewItem: () => openModal({ type: r.connector ? 'connectorItem' : 'item', releaseId: id, presetSprintId: sp.id }),
     onOpenItem: (itemId) => openModal({ type: 'itemDetail', itemId }),
     onOpenEvent: (eventId) => openModal({ type: 'event', releaseId: id, eventId }),
     onSetGroupBy: setGroupBy,

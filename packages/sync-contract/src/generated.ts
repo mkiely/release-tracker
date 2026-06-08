@@ -72,6 +72,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/releases/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a new work item in the external system and return it mapped.
+         * @description Only valid when the connector advertises a `creatable.item` capability. The service creates the item in the backend, assigns its key/id, and returns the fully-normalized MappedItem so the app can reconcile it as a synced item (no follow-up sync required).
+         */
+        post: operations["createItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -101,11 +121,7 @@ export interface components {
             externalId: string;
             fields: {
                 name: string;
-                /**
-                 * @description When true, this member does not count toward team capacity (e.g. EMs, PMs).
-                 * Treated as a hint: applied on initial member creation; the app owns the value
-                 * after that and the user may override it. Omit or false for engineers.
-                 */
+                /** @description When true, this member does not count toward team capacity (e.g. EMs, PMs). Treated as a hint: applied on initial member creation; the app owns the value after that and the user may override it. Omit or false for engineers. */
                 nonContributing?: boolean;
             };
         };
@@ -138,13 +154,10 @@ export interface components {
                  * @enum {string}
                  */
                 descriptionFormat?: "text" | "html";
-                /**
-                 * @description Connector-assigned work item type (e.g. Bug, Story, Task). Read-only in the app.
-                 * The `id` preserves the connector's native type key for future item-creation support.
-                 */
+                /** @description Connector-assigned work item type (e.g. Bug, Story, Task). Read-only in the app. The `id` preserves the connector's native type key for future item-creation support; `label` is the display string shown in the UI. */
                 itemType?: {
                     /** @description Connector-native type ID; null if the connector does not expose one. */
-                    id: string | null;
+                    id?: string | null;
                     /** @description Display label, e.g. Bug, Story, Task, Investigation. */
                     label: string;
                 } | null;
@@ -169,17 +182,70 @@ export interface components {
              */
             type?: "text" | "date" | "number" | "password";
         };
+        /** @description Describes ONE field of an item type as DATA, never as a control. The app's presentation registry maps (kind, role, target) to an input; the contract never names a UI control. Access is per field: `creatable` (shown on the create form) and `writeable` (pushable on an existing item). A field with creatable:true, writeable:false is set once at creation and immutable after. */
+        FieldSpec: {
+            /** @description Connector-native field key, echoed back in CreateItemRequest.fields (or mapped to a ref id for ref kinds). */
+            key: string;
+            label?: string;
+            /**
+             * @description The field's data kind. Drives validation and (via the app registry) the control.
+             * @enum {string}
+             */
+            kind: "string" | "number" | "boolean" | "date" | "enum" | "ref";
+            /**
+             * @description For kind=ref: the release entity referenced. Resolved to a live entity + a wire ref id (extWorkStreamId/extSprintId/extAssigneeId).
+             * @enum {string}
+             */
+            target?: "workStream" | "sprint" | "member";
+            /**
+             * @description For kind=enum backed by an app-canonical set (the app supplies the options); else use `options`.
+             * @enum {string}
+             */
+            enumRef?: "status";
+            /**
+             * @description Optional semantic tag for fields that map to well-known app concepts. Lets the app recognize a field regardless of `key` (e.g. Jira's customfield_10016 with role=points) — used for serialization + control choice.
+             * @enum {string}
+             */
+            role?: "subject" | "description" | "points" | "status";
+            /** @description Placeholder / helper text for the input. */
+            hint?: string;
+            /** @description kind=string: long-form text (data hint; registry → textarea). */
+            multiline?: boolean;
+            /** @description kind=string: secret value (data hint; registry → masked input). */
+            sensitive?: boolean;
+            /** @description Choices for kind=enum (connector-defined). */
+            options?: {
+                value: string;
+                label: string;
+            }[];
+            required?: boolean;
+            min?: number;
+            max?: number;
+            step?: number;
+            maxLength?: number;
+            /** @description Regex the value must match (kind=string). */
+            pattern?: string;
+            /** @description Shown on the create form. Default false. */
+            creatable?: boolean;
+            /** @description Pushable on an existing item. Default false. */
+            writeable?: boolean;
+        };
+        /** @description One work-item type the connector emits, with its full field catalog. Lists every field (creatable and/or writeable), each declared once. The app derives the create form (creatable fields), push capability (writeable fields), and edit lock-state from this single source. */
+        ConnectorItemType: {
+            /** @description Connector-native type id, e.g. jira_story. */
+            id: string;
+            /** @description Display label, e.g. Story. */
+            label: string;
+            fields: components["schemas"]["FieldSpec"][];
+        };
         ConnectorMeta: {
             /** @description e.g. 'jira' */
             type: string;
             /** @description e.g. 'Jira' */
             label: string;
             configFields: components["schemas"]["ConnectorConfigField"][];
-            /** @description Per-entity field keys the app may push back. Absent means nothing is writeable. */
-            writeable?: {
-                /** @description Writeable work-item fields, e.g. ['points','sprint'] */
-                item?: string[];
-            };
+            /** @description The connector's work-item type catalog. Absent or empty means no item types are exposed: nothing is creatable (the app hides "New work item") and nothing is writeable. */
+            itemTypes?: components["schemas"]["ConnectorItemType"][];
         };
         /** @description A release's binding to a backend. config holds only non-secret routing params. */
         ReleaseConnector: {
@@ -218,6 +284,17 @@ export interface components {
             pushed: number;
             failed: number;
             errors: string[];
+        };
+        /** @description Request to create one work item. `type` is a CreatableItemType.id. The ref ids carry the well-known stream/sprint/member selections (resolved by the app from local entities to externalIds); `fields` carries the remaining well-known scalars (subject, description, points, status) and any custom field values, keyed by FieldSpec.key. */
+        CreateItemRequest: {
+            connector: components["schemas"]["ReleaseConnector"];
+            type: string;
+            extWorkStreamId?: string | null;
+            extSprintId?: string | null;
+            extAssigneeId?: string | null;
+            fields?: {
+                [key: string]: unknown;
+            };
         };
     };
     responses: never;
@@ -322,6 +399,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PushResult"];
+                };
+            };
+        };
+    };
+    createItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateItemRequest"];
+            };
+        };
+        responses: {
+            /** @description The created item, normalized to the app's schema. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MappedItem"];
                 };
             };
         };

@@ -3,6 +3,7 @@
 
 import type { ModalSpec } from '../app-context';
 import { ConfirmModal, EventModal, OverbookedModal, PushReviewModal, SprintModal, StreamHealthModal, TeamModal, WorkItemDetailModal, WorkItemModal, WorkStreamModal } from './modals';
+import { ConnectorItemModal } from './ConnectorItemModal';
 
 export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose: () => void }) {
   if (!modal) return null;
@@ -22,6 +23,15 @@ export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose
     case 'item':
       return (
         <WorkItemModal
+          releaseId={modal.releaseId}
+          presetStreamId={modal.presetStreamId}
+          presetSprintId={modal.presetSprintId}
+          onClose={onClose}
+        />
+      );
+    case 'connectorItem':
+      return (
+        <ConnectorItemModal
           releaseId={modal.releaseId}
           presetStreamId={modal.presetStreamId}
           presetSprintId={modal.presetSprintId}

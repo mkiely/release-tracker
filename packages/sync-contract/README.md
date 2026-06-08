@@ -16,6 +16,7 @@ A single sync service can expose multiple connectors (one per backend type). The
 | `POST` | `/connectors/{type}/validate` | Validate a connector's config/credentials before saving |
 | `POST` | `/releases/{id}/sync` | Fetch and map external data for a release |
 | `POST` | `/releases/{id}/push` | Push locally-modified writeable fields back to the external system |
+| `POST` | `/releases/{id}/items` | Create a work item; returns it mapped for reconciliation |
 
 Full schema: [`openapi.yaml`](./openapi.yaml).
 
@@ -33,6 +34,9 @@ import type {
   MappedSprint,        // Normalised sprint with ISO date range
   MappedItem,          // Normalised work item; status coerced to ContractStatus
   ContractStatus,      // 'Not Started' | 'In Progress' | 'Under Review' | 'Blocked' | 'Complete'
+  ConnectorItemType,   // A work-item type + its field catalog (FieldSpec[])
+  FieldSpec,           // One field as DATA: kind/role/target + constraints + access flags
+  CreateItemRequest,   // POST /releases/{id}/items body
   ValidateResult,      // { ok: boolean; error?: string }
 } from '@release-tracker/sync-contract';
 ```
@@ -72,6 +76,41 @@ External statuses must be coerced to one of the five `ContractStatus` values bef
 ### Unscheduled items
 
 If an item has no external sprint assignment, set `extSprintId: null`. The app places such items into the release backlog.
+
+### Item types & fields
+
+A connector describes its work-item types in **one catalog**: `ConnectorMeta.itemTypes`,
+a list of `ConnectorItemType` (`id`, `label`, `fields`). List every type the
+connector emits — the app derives the create form, push capability, and edit
+lock-state from this single source. Absent or empty ⇒ nothing is creatable (the
+app hides "New work item") and nothing is writeable.
+
+Each `FieldSpec` describes a field as **data**, never as a UI control — the app
+owns the data→control mapping. Access is per field: `creatable` (shown on the
+create form) and `writeable` (pushable on an existing item). A field with
+`creatable: true, writeable: false` is set once at creation and immutable after.
+
+| `kind` | Meaning | Create/push mapping |
+|---|---|---|
+| `string` | text (hints: `multiline`, `sensitive`) | `fields[key]` |
+| `number` | numeric (use `role: points` for an estimate) | `fields[key]` |
+| `boolean` | flag | `fields[key]` |
+| `date` | ISO date | `fields[key]` |
+| `enum` | choices — `options[]`, or `enumRef: status` (app supplies the set) | `fields[key]` |
+| `ref` + `target: workStream` | a work stream | `extWorkStreamId` |
+| `ref` + `target: sprint` | a sprint | `extSprintId` (null = backlog) |
+| `ref` + `target: member` | an assignee | `extAssigneeId` |
+
+`role` (`subject | description | points | status`) tags a field that maps to a
+well-known app concept, so the app recognizes it regardless of `key` (e.g. Jira's
+`customfield_10016` with `role: points`) — used for serialization, control choice,
+and edit-lock derivation. Validation hints: `required`, `options`, `min`/`max`/`step`,
+`maxLength`/`pattern`. The app validates client-side before calling the service.
+
+When `POST /releases/{id}/items` is called, the service should create the item in
+the backend, assign its key/id, and return a fully-normalized **`MappedItem`** (the
+same shape sync returns). The app reconciles it as a synced item — no follow-up
+sync required.
 
 ## Regenerating types
 
