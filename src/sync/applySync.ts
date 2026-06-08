@@ -222,11 +222,12 @@ export function applySync(
   for (const m of mapped.workStreams) {
     const existing = workStreams.find((ws) => ws.externalId === m.externalId);
     if (existing) {
-      existing.name = m.fields.name; // external wins on name only; engineersRequired stays app-owned
+      existing.name = m.fields.name; // external wins on name + build; engineersRequired stays app-owned
+      existing.build = m.fields.build ?? null;
       wsByExt.set(m.externalId, existing.id);
       result.updated++;
     } else {
-      const ws: WorkStream = { id: uid('ws'), name: m.fields.name, externalId: m.externalId, engineersRequired: null };
+      const ws: WorkStream = { id: uid('ws'), name: m.fields.name, externalId: m.externalId, engineersRequired: null, build: m.fields.build ?? null };
       workStreams.push(ws);
       wsByExt.set(m.externalId, ws.id);
       result.created++;

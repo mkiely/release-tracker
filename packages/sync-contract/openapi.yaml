@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.7.0
+  version: 0.8.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
@@ -121,6 +121,15 @@ components:
           required: [name]
           properties:
             name: { type: string }
+            build:
+              type: string
+              nullable: true
+              description: >-
+                Build/release label this work stream belongs to, when it differs
+                from the release being synced (e.g. "Orion 1.5") — i.e. the stream
+                was carried in from a prior release rather than planned for this one.
+                Null (or omitted) for streams native to the current release. Mirrors
+                the item-level `build` field; lets the app hide carried-in streams.
 
     MappedSprint:
       type: object

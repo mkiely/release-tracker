@@ -1,7 +1,7 @@
 // Seed data — ported from proto-store.jsx seed(). Builds a primary demo
 // release plus two lighter releases so the home list feels real.
 
-import { SCHEMA_VERSION, type AppState, type ItemType, type Release, type Sprint, type Status, type WorkItem } from '../types';
+import { SCHEMA_VERSION, type AppState, type ItemType, type Release, type Sprint, type Status, type WorkItem, type WorkStream } from '../types';
 import { buildSprints, uid } from './dates';
 
 // curated subjects per work stream so generated items read believably
@@ -87,7 +87,7 @@ export function seed(): AppState {
     'Checkout API': 3, 'Search Revamp': 2, 'Mobile Onboarding': 2,
     'Billing Migration': 2, 'Notifications': 1, 'Admin Console': 2,
   };
-  const demoStreams = streamNames.map((n) => ({ id: uid('ws'), name: n, externalId: null, engineersRequired: demoEngineers[n] ?? null }));
+  const demoStreams = streamNames.map((n) => ({ id: uid('ws'), name: n, externalId: null, engineersRequired: demoEngineers[n] ?? null, build: null }));
   const demoStart = '2026-04-13';
   const demo: Release = {
     id: 'rel_demo', name: 'Orion 2.0', startISO: demoStart, teamId: 'team_core',
@@ -233,9 +233,16 @@ export function seed(): AppState {
   // 14, 14, 21, 14, 14 days to show the connector-style scheduling model.
   const nexusStreamNames = ['Data Ingestion', 'API Gateway', 'Auth & SSO', 'Reporting & Analytics', 'Webhooks', 'SDK & Developer Tools'];
   const nexusEngineers = [2, 3, 2, 2, 1, 1]; // app-owned enrichment; survives connector sync
-  const nexusStreams = nexusStreamNames.map((n, i) => ({
-    id: uid('ws'), name: n, externalId: `EPIC-NXS-${i + 1}`, engineersRequired: nexusEngineers[i] ?? null,
+  const nexusStreams: WorkStream[] = nexusStreamNames.map((n, i) => ({
+    id: uid('ws'), name: n, externalId: `EPIC-NXS-${i + 1}`, engineersRequired: nexusEngineers[i] ?? null, build: null,
   }));
+  // A carried-in stream: an epic from the prior build whose items overlap this
+  // release's sprint window. build !== null marks it off-build; the "on-build only"
+  // lens hides it. Exercises the build-filter feature in the demo data.
+  const nexusCarriedStream: WorkStream = {
+    id: uid('ws'), name: 'Beta 2 Carryover', externalId: 'EPIC-NXS-B2', engineersRequired: null, build: 'Nexus Beta 2',
+  };
+  nexusStreams.push(nexusCarriedStream);
   const nexusSprints: Sprint[] = [
     { id: uid('sp'), name: 'Kickoff',                   startISO: '2026-03-16', endISO: '2026-03-25', daysOff: 0, externalId: 'JSPR-2241' },
     { id: uid('sp'), name: 'Foundation',                startISO: '2026-03-26', endISO: '2026-04-08', daysOff: 0, externalId: 'JSPR-2242' },
@@ -309,6 +316,24 @@ export function seed(): AppState {
       assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
       build: 'Nexus Beta 2', dirtyFields: [],
       itemType: { id: 'jira_bug', label: 'Bug' },
+    });
+  });
+
+  // Items in the carried-in "Beta 2 Carryover" stream — overlap this release's
+  // window but belong to the prior build. The on-build lens hides the whole stream.
+  const carriedItems: { subject: string; sprintIdx: number; status: Status; pts: number }[] = [
+    { subject: 'Migrate legacy session store off Redis 5', sprintIdx: 5, status: 'In Progress', pts: 5 },
+    { subject: 'Decommission Beta 2 feature flags',         sprintIdx: 6, status: 'Not Started', pts: 3 },
+  ];
+  carriedItems.forEach(({ subject, sprintIdx, status, pts }) => {
+    items.push({
+      id: uid('it'), releaseId: 'rel_nexus', workStreamId: nexusCarriedStream.id,
+      sprintId: nexusSprints[sprintIdx].id,
+      key: `NXS-${nxsKeyN}`, subject, description: '', status,
+      points: pts, externalId: `NXS-${nxsKeyN++}`,
+      assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
+      build: 'Nexus Beta 2', dirtyFields: [],
+      itemType: { id: 'jira_task', label: 'Task' },
     });
   });
 

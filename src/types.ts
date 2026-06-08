@@ -9,7 +9,7 @@ export type Status = (typeof STATUSES)[number];
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 /** A person on a team. Members supply the per-sprint capacity (person-days). */
 export interface Member {
@@ -51,6 +51,11 @@ export interface WorkStream {
    *  capacity-fit health forecast. Survives connector sync (sync only owns name).
    *  null = not yet configured. */
   engineersRequired: number | null;
+  /** Connector-owned provenance: the build/release this stream was carried in from,
+   *  when it differs from this release. null = native to this release. Drives the
+   *  "on-build only" lens (hide carried-in streams). Mirrors WorkItem.build; set by
+   *  sync (external wins), null for locally-created streams. */
+  build: string | null;
 }
 
 /** A dated milestone on the release calendar (e.g. code freeze). Rendered on the

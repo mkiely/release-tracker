@@ -105,6 +105,8 @@ export interface components {
             externalId: string;
             fields: {
                 name: string;
+                /** @description Build/release label this work stream belongs to, when it differs from the release being synced (e.g. "Orion 1.5") — i.e. the stream was carried in from a prior release rather than planned for this one. Null (or omitted) for streams native to the current release. Mirrors the item-level `build` field; lets the app hide carried-in streams. */
+                build?: string | null;
             };
         };
         MappedSprint: {

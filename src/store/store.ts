@@ -158,6 +158,18 @@ export function migrate(p: AppState): AppState | null {
       })),
     };
   }
+  // v11 → v12: work streams gain build (connector-owned provenance; null = native
+  // to this release). Existing streams are treated as native.
+  if (s.version === 11) {
+    s = {
+      ...s,
+      version: 12,
+      releases: s.releases.map((r) => ({
+        ...r,
+        workStreams: r.workStreams.map((ws) => ({ ...ws, build: (ws as any).build ?? null })),
+      })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -316,7 +328,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     createWorkStream: (releaseId, name) => {
       if (!release(releaseId)) return null;
-      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null };
+      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null, build: null };
       commit((d) => {
         d.releases = d.releases.map((r) =>
           r.id === releaseId ? { ...r, workStreams: [...r.workStreams, ws] } : r,

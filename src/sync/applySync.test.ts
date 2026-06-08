@@ -134,6 +134,17 @@ describe('applySync — external wins on re-sync', () => {
     expect(next.releases[0].workStreams[0].engineersRequired).toBe(3); // app-owned enrichment survives
   });
 
+  it('defaults work stream build to null on create, then external wins on re-sync', () => {
+    const first = applySync(baseState(), 'rel_1', mapped());
+    expect(first.next.releases[0].workStreams[0].build).toBeNull(); // native by default
+    first.next.releases[0].workStreams[0].engineersRequired = 2; // user enrichment
+    const { next } = applySync(first.next, 'rel_1', mapped({
+      workStreams: [{ externalId: 'EPIC-A', fields: { name: 'Checkout API', build: 'Orion 1.5' } }],
+    }));
+    expect(next.releases[0].workStreams[0].build).toBe('Orion 1.5'); // connector-owned: external wins
+    expect(next.releases[0].workStreams[0].engineersRequired).toBe(2); // app-owned still survives
+  });
+
   it('matches the same work stream / sprint rather than duplicating', () => {
     const first = applySync(baseState(), 'rel_1', mapped());
     const { next } = applySync(first.next, 'rel_1', mapped());

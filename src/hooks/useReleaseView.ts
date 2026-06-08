@@ -129,15 +129,14 @@ export function useReleaseView(): ReleaseViewProps | null {
   const unassigned = selUnassignedItems(st, r.id);
   const last = r.sprints.length ? r.sprints[r.sprints.length - 1] : null;
 
-  // A stream is "on-build" if it holds any work native to this release (build === null).
-  // Streams whose every item was pulled in from a prior build are clutter; the
-  // build-filter lens hides them so the plan shows only this release's planned work.
+  // A stream is "on-build" when it's native to this release (build === null). Streams
+  // carried in from a prior build (build !== null, set by the connector) are clutter;
+  // the build-filter lens hides them so the plan shows only this release's planned work.
   // The lens is a by-stream concept — it only applies (and is only offered) in the
   // stream-axis views; the sprint axis always shows every stream's lanes.
-  const isOnBuild = (wsId: string) => items.some((i) => i.workStreamId === wsId && i.build === null);
-  const offBuildStreamCount = r.workStreams.filter((ws) => !isOnBuild(ws.id)).length;
+  const offBuildStreamCount = r.workStreams.filter((ws) => ws.build !== null).length;
   const lensActive = buildFilter && axis === 'stream';
-  const streams = lensActive ? r.workStreams.filter((ws) => isOnBuild(ws.id)) : r.workStreams;
+  const streams = lensActive ? r.workStreams.filter((ws) => ws.build === null) : r.workStreams;
 
   const dateRange = last
     ? `${fmtShort(r.startISO)} – ${fmtShort(last.endISO)}, ${dOf(last.endISO).getFullYear()}`

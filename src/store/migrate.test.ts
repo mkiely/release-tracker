@@ -339,6 +339,34 @@ describe('migrate — v10 → current', () => {
   });
 });
 
+describe('migrate — v11 → current', () => {
+  const v11 = {
+    version: 11,
+    teams: [],
+    meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: null }] }],
+    items: [],
+  };
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v11 as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('adds build: null to work streams that lack it (treated as native)', () => {
+    const next = migrate(v11 as any)!;
+    expect(next.releases[0].workStreams[0].build).toBeNull();
+  });
+
+  it('preserves an existing build value', () => {
+    const withBuild = {
+      ...v11,
+      releases: [{ ...v2Release(), workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: null, build: 'Orion 1.5' }] }],
+    };
+    const next = migrate(withBuild as any)!;
+    expect(next.releases[0].workStreams[0].build).toBe('Orion 1.5');
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

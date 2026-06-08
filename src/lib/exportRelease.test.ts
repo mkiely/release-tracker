@@ -22,8 +22,8 @@ const release = (): Release => ({
   startISO: '2026-04-13',
   teamId: 't',
   workStreams: [
-    { id: 'ws1', name: 'Payments', externalId: null, engineersRequired: null },
-    { id: 'ws2', name: 'Auth', externalId: null, engineersRequired: null },
+    { id: 'ws1', name: 'Payments', externalId: null, engineersRequired: null, build: null },
+    { id: 'ws2', name: 'Auth', externalId: null, engineersRequired: null, build: null },
   ],
   events: [],
   sprints: [sprint(1), sprint(2)],
