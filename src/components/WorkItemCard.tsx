@@ -2,6 +2,7 @@ import type { Status, WorkItem } from '../types';
 import { STATUSES } from '../types';
 import { getActions, selRelease, selTeam, useStore } from '../store/store';
 import { Drag, useDrag } from './dnd';
+import { DirtyDot } from './DirtyDot';
 import { Icon } from './Icon';
 import { statusVars } from './statusVars';
 import styles from './WorkItemCard.module.css';
@@ -91,7 +92,7 @@ export function WorkItemCard({
           {it.key}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          {isDirty && <span title="Modified — pending push" className={styles.dirtyDot} />}
+          {isDirty && <DirtyDot />}
           <span className="pts">{it.points} pts</span>
         </div>
       </div>

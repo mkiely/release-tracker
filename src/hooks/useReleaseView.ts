@@ -1,4 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
+import { useAxisMode } from '../store/axisMode';
+import { BuildFilterStore, useBuildFilter } from '../store/buildFilter';
 import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } from '../store/store';
 import { releaseToTSV } from '../lib/exportRelease';
 import { useApp } from '../app-context';
@@ -88,6 +90,12 @@ export interface ReleaseViewProps {
   overAllocated: boolean;
   engineersRequiredTotal: number;
   contributingCount: number;
+  /** "On-build only" lens is active — streams with no work native to this release are hidden. */
+  buildFilter: boolean;
+  /** How many streams carry only carried-in work (no native items) — what the lens would hide.
+   *  Computed over all streams regardless of the lens, so the toggle can show whether it does anything. */
+  offBuildStreamCount: number;
+  onToggleBuildFilter: () => void;
   onBack: () => void;
   onNavigateToSprint: (sprintId: string) => void;
   onNavigateToStream: (wsId: string) => void;
@@ -109,6 +117,8 @@ export function useReleaseView(): ReleaseViewProps | null {
   const navigate = useNavigate();
   const { openModal, onSync, onPush, notify } = useApp();
   const { id = '' } = useParams();
+  const buildFilter = useBuildFilter();
+  const axis = useAxisMode();
 
   const r = selRelease(st, id);
   if (!r) return null;
@@ -119,6 +129,16 @@ export function useReleaseView(): ReleaseViewProps | null {
   const unassigned = selUnassignedItems(st, r.id);
   const last = r.sprints.length ? r.sprints[r.sprints.length - 1] : null;
 
+  // A stream is "on-build" if it holds any work native to this release (build === null).
+  // Streams whose every item was pulled in from a prior build are clutter; the
+  // build-filter lens hides them so the plan shows only this release's planned work.
+  // The lens is a by-stream concept — it only applies (and is only offered) in the
+  // stream-axis views; the sprint axis always shows every stream's lanes.
+  const isOnBuild = (wsId: string) => items.some((i) => i.workStreamId === wsId && i.build === null);
+  const offBuildStreamCount = r.workStreams.filter((ws) => !isOnBuild(ws.id)).length;
+  const lensActive = buildFilter && axis === 'stream';
+  const streams = lensActive ? r.workStreams.filter((ws) => isOnBuild(ws.id)) : r.workStreams;
+
   const dateRange = last
     ? `${fmtShort(r.startISO)} – ${fmtShort(last.endISO)}, ${dOf(last.endISO).getFullYear()}`
     : `${fmtShort(r.startISO)}, ${dOf(r.startISO).getFullYear()}`;
@@ -128,7 +148,7 @@ export function useReleaseView(): ReleaseViewProps | null {
   const seriesFor = (pred: (i: (typeof items)[number]) => boolean): number[] =>
     r.sprints.map((sp) => sumPoints(items.filter((i) => pred(i) && i.sprintId === sp.id)));
   const streamSeries = new Map<string, number[]>(
-    r.workStreams.map((ws) => [ws.id, seriesFor((i) => i.workStreamId === ws.id)]),
+    streams.map((ws) => [ws.id, seriesFor((i) => i.workStreamId === ws.id)]),
   );
   const unassignedIds = new Set(unassigned.map((i) => i.id));
   const unassignedSeries = seriesFor((i) => unassignedIds.has(i.id));
@@ -140,7 +160,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     const isActive = !!active && active.id === sp.id;
     const evts = eventsIn(r, sp);
 
-    const lane: SprintLaneEntry[] = r.workStreams
+    const lane: SprintLaneEntry[] = streams
       .map((ws) => {
         const its = items.filter((i) => i.workStreamId === ws.id && i.sprintId === sp.id);
         return {
@@ -171,7 +191,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     return { sprint: sp, sprintIndex, isActive, vel, planned, itemCount: spItems.length, events: evts, lane };
   });
 
-  const workStreamBadges: WorkStreamBadgeData[] = r.workStreams.map((ws) => {
+  const workStreamBadges: WorkStreamBadgeData[] = streams.map((ws) => {
     const its = selItemsForStream(st, r.id, ws.id);
     return { ws, itemCount: its.length, segs: statusSegs(its) };
   });
@@ -182,7 +202,7 @@ export function useReleaseView(): ReleaseViewProps | null {
   // forward forecast can be computed; second pass builds the rows with the forecast.
   const ctx = releaseCapacity(r, team);
   const streamInputs: Array<{ ws: WorkStream | null; items: WorkItem[]; series: number[]; health: StreamHealth }> = [
-    ...r.workStreams.map((ws) => ({ ws, items: items.filter((i) => i.workStreamId === ws.id), series: streamSeries.get(ws.id) ?? [] })),
+    ...streams.map((ws) => ({ ws, items: items.filter((i) => i.workStreamId === ws.id), series: streamSeries.get(ws.id) ?? [] })),
     ...(unassigned.length > 0 ? [{ ws: null as WorkStream | null, items: unassigned, series: unassignedSeries }] : []),
   ].map((s) => ({ ...s, health: streamHealth(s.items) }));
 
@@ -251,6 +271,9 @@ export function useReleaseView(): ReleaseViewProps | null {
     overAllocated: contention.overAllocated,
     engineersRequiredTotal: contention.totalRequired,
     contributingCount: ctx.contributingCount,
+    buildFilter,
+    offBuildStreamCount,
+    onToggleBuildFilter: () => BuildFilterStore.toggle(),
     onBack: () => navigate('/'),
     onNavigateToSprint: (spId) => navigate(`/releases/${id}/sprints/${spId}`),
     onNavigateToStream: (wsId) => navigate(`/releases/${id}/streams/${wsId}`),

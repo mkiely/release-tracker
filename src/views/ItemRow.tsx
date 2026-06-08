@@ -1,6 +1,7 @@
 import type { Member, WorkItem } from '../types';
 import { Avatar } from '../components/Avatar';
 import { StatusPill } from '../components/badges';
+import { DirtyDot } from '../components/DirtyDot';
 import { Drag, setDragGhost, useDrag } from '../components/dnd';
 import { typeVars } from '../components/statusVars';
 import styles from './SprintTable.module.css';
@@ -25,13 +26,14 @@ export function ItemRow({
   const tv = typeVars(item.itemType?.label);
   const dragging = useDrag();
   const isMe = dragging?.id === item.id;
+  const isDirty = item.dirtyFields.length > 0;
 
   return (
     <div className={styles.itemRow} onClick={onOpen} style={isMe ? { opacity: 0.4 } : undefined}>
       <div
         className={styles.colKey}
         draggable
-        style={{ cursor: 'grab', userSelect: 'none', WebkitUserSelect: 'none' }}
+        style={{ cursor: 'grab', userSelect: 'none', WebkitUserSelect: 'none', display: 'flex', alignItems: 'center', gap: 5 }}
         onDragStart={(e) => {
           e.stopPropagation();
           e.dataTransfer.effectAllowed = 'move';
@@ -41,7 +43,8 @@ export function ItemRow({
         }}
         onDragEnd={() => Drag.end()}
       >
-        {item.key}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.key}</span>
+        {isDirty && <DirtyDot />}
       </div>
       <div className={styles.colType}>
         {item.itemType && (

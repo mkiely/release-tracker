@@ -9,6 +9,7 @@ import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from 
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
 import { conceptWriteable, itemTypeFor, type EditConcept } from '../lib/connectorFields';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
+import { DirtyDot } from '../components/DirtyDot';
 import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
@@ -848,12 +849,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
             </span>
           )}
           {/* <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Work item</span> */}
-          {isDirty && (
-            <span
-              title="Modified — pending push"
-              style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--rt-st-ac-dot)', flexShrink: 0, marginLeft: 2 }}
-            />
-          )}
+          {isDirty && <DirtyDot size={7} />}
         </span>
       }
       footer={

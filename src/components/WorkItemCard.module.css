@@ -91,11 +91,3 @@
   border: 1px solid var(--rt-t3);
   flex-shrink: 0;
 }
-
-.dirtyDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--rt-st-ac-dot);
-  flex-shrink: 0;
-}

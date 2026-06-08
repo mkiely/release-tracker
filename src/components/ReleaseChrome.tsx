@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { ReleaseViewProps, WorkStreamBadgeData } from '../hooks/useReleaseView';
 import type { StatusSeg } from '../types';
 import { PushButton, SyncButton } from './chrome';
+import { FilterChip } from './FilterChip';
 import { ScreenScaffold } from './ScreenScaffold';
 import { Icon } from './Icon';
 import { SegBar } from './badges';
@@ -74,6 +75,9 @@ type ReleaseChromeProps = Pick<
   | 'onOpenTeam'
   | 'onOpenOverbooked'
   | 'overAllocated'
+  | 'buildFilter'
+  | 'offBuildStreamCount'
+  | 'onToggleBuildFilter'
   | 'onExport'
   | 'onNewEvent'
   | 'onNewStream'
@@ -99,6 +103,9 @@ export function ReleaseChrome({
   onOpenTeam,
   onOpenOverbooked,
   overAllocated,
+  buildFilter,
+  offBuildStreamCount,
+  onToggleBuildFilter,
   onExport,
   onNewEvent,
   onNewStream,
@@ -172,6 +179,22 @@ export function ReleaseChrome({
               {Icon.stream}Work streams
             </span>
             <VDivider stretch />
+            {axis === 'stream' && offBuildStreamCount > 0 && (
+              <>
+                <FilterChip
+                  active={buildFilter}
+                  dotShape="square"
+                  onClick={onToggleBuildFilter}
+                  label={buildFilter ? `On-build only · ${offBuildStreamCount} hidden` : 'On-build only'}
+                  title={
+                    buildFilter
+                      ? `Showing only streams with work native to this release; ${offBuildStreamCount} carried-in-only stream${offBuildStreamCount !== 1 ? 's' : ''} hidden`
+                      : `Hide ${offBuildStreamCount} stream${offBuildStreamCount !== 1 ? 's' : ''} carrying only work pulled in from prior builds`
+                  }
+                />
+                <VDivider stretch />
+              </>
+            )}
             {workStreamBadges.length === 0 && !hasUnassigned ? (
               <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
                 No work streams yet — add one with the button above.
