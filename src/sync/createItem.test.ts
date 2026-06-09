@@ -73,7 +73,7 @@ describe('applyCreatedItem', () => {
       releaseId: 'rel1', externalId: 'EXT-900', key: 'ABC-900',
       workStreamId: 'ws1', sprintId: 'sp1', assignedMemberId: 'm1',
       points: 3, status: 'Not Started', dirtyFields: [],
-      syncedValues: { points: 3, sprintId: 'sp1' },
+      syncedValues: { points: 3, sprint: 'sp1' },
     });
     expect(next.items).toHaveLength(1);
   });

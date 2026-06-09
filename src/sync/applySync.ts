@@ -19,7 +19,7 @@
 //    is created or reused by externalId, members are upserted, and release.teamId
 //    is repointed. Velocity is app-owned and never overwritten.
 
-import type { AppState, ItemType, Member, Release, Sprint, Team, WorkItem, WorkStream } from '../types';
+import type { AppState, AttrValue, ItemType, Member, Release, Sprint, Team, WorkItem, WorkStream } from '../types';
 import { uid } from '../lib/dates';
 import type { MappedItem, MappedRelease, SyncResult } from './schema';
 
@@ -85,6 +85,18 @@ export function upsertItem(
 
   const assignedMemberId = m.extAssigneeId != null ? (maps.memberByExt.get(m.extAssigneeId) ?? null) : null;
 
+  // The incoming external values for the writeable fields, keyed by local dirty-field
+  // name — recorded as the baseline a pending push diverges from. Vocabulary keys
+  // appear only when the connector actually sent them for this item.
+  const baseline = (): Record<string, AttrValue> => {
+    const b: Record<string, AttrValue> = { points: m.fields.points, sprint: sprintId };
+    for (const key of writeableItemFields) {
+      if (key === 'points' || key === 'sprint') continue;
+      if (m.attributes && key in m.attributes) b[key] = m.attributes[key];
+    }
+    return b;
+  };
+
   const existing = items.find((i) => i.releaseId === releaseId && i.externalId === m.externalId);
   if (existing) {
     existing.workStreamId = workStreamId;
@@ -96,14 +108,18 @@ export function upsertItem(
     existing.assignedMemberId = assignedMemberId;
     existing.build = m.fields.build ?? null;
     existing.itemType = mapItemType(m.fields.itemType);
-    existing.attributes = m.attributes ?? {}; // connector vocabulary: external wins wholesale
-    // Dirty-aware: preserve local value for writeable fields pending push.
-    const sprintDirty = writeableItemFields.includes('sprint') && existing.dirtyFields.includes('sprint');
-    const pointsDirty = writeableItemFields.includes('points') && existing.dirtyFields.includes('points');
-    if (!sprintDirty) existing.sprintId = sprintId;
-    if (!pointsDirty) existing.points = m.fields.points;
-    // Record the incoming external value as the baseline a pending push diverges from.
-    existing.syncedValues = { points: m.fields.points, sprintId };
+    // Dirty-aware: external wins on every writeable field except those locally
+    // dirty (pending push), which keep their local value.
+    const dirty = new Set(existing.dirtyFields.filter((f) => writeableItemFields.includes(f)));
+    if (!dirty.has('sprint')) existing.sprintId = sprintId;
+    if (!dirty.has('points')) existing.points = m.fields.points;
+    const incoming = { ...(m.attributes ?? {}) };
+    for (const key of dirty) {
+      if (key === 'points' || key === 'sprint') continue;
+      if (existing.attributes && key in existing.attributes) incoming[key] = existing.attributes[key];
+    }
+    existing.attributes = incoming;
+    existing.syncedValues = baseline();
     return { status: 'updated', warning };
   }
 
@@ -123,7 +139,7 @@ export function upsertItem(
     build: m.fields.build ?? null,
     itemType: mapItemType(m.fields.itemType),
     dirtyFields: [],
-    syncedValues: { points: m.fields.points, sprintId },
+    syncedValues: baseline(),
     attributes: m.attributes ?? {},
   });
   return { status: 'created', warning };

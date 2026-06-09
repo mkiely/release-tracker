@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import {
   SCHEMA_VERSION,
   type AppState,
+  type AttrValue,
   type ItemType,
   type Member,
   type Release,
@@ -21,7 +22,7 @@ import { buildSprints, todayISO, uid } from '../lib/dates';
 import { seed } from '../lib/seed';
 import { applyCreatedItem, applySync } from '../sync/applySync';
 import { buildPushChanges } from '../sync/push';
-import { allWriteableLocalFields } from '../lib/connectorFields';
+import { allWriteableLocalFields, writeableLocalFieldsForItem } from '../lib/connectorFields';
 import { syncClient, type CreateItemInput } from '../sync/client';
 import type { PushResult, SyncResult } from '../sync/schema';
 
@@ -182,6 +183,22 @@ export function migrate(p: AppState): AppState | null {
         workStreams: r.workStreams.map((ws) => ({ ...ws, attributes: ws.attributes ?? {} })),
       })),
       items: s.items.map((it) => ({ ...it, attributes: it.attributes ?? {} })),
+    };
+  }
+  // v13 → v14: syncedValues becomes a record keyed by local dirty-field name
+  // ('points', 'sprint', writeable vocabulary keys). The old fixed pair migrates
+  // key-for-key; attribute baselines accrue on the next sync/push.
+  if (s.version === 13) {
+    s = {
+      ...s,
+      version: 14,
+      items: s.items.map((it) => {
+        const sv = it.syncedValues as unknown as { points: number; sprintId: string | null } | null | undefined;
+        return {
+          ...it,
+          syncedValues: sv == null ? (sv ?? null) : 'sprintId' in sv ? { points: sv.points, sprint: sv.sprintId } : sv,
+        };
+      }),
     };
   }
   return s.version === SCHEMA_VERSION ? s : null;
@@ -440,8 +457,8 @@ export const useStore = create<StoreState>((set, get) => {
           const next: WorkItem = { ...i, sprintId };
           // Synced items track the sprint change for push-back, measured against the
           // synced baseline — moving back to the synced sprint clears the dirty flag.
-          if (i.externalId && i.syncedValues) {
-            const sprintDirty = sprintId !== i.syncedValues.sprintId;
+          if (i.externalId && i.syncedValues && 'sprint' in i.syncedValues) {
+            const sprintDirty = sprintId !== i.syncedValues.sprint;
             const has = i.dirtyFields.includes('sprint');
             if (sprintDirty && !has) next.dirtyFields = [...i.dirtyFields, 'sprint'];
             else if (!sprintDirty && has) next.dirtyFields = i.dirtyFields.filter((f) => f !== 'sprint');
@@ -456,8 +473,12 @@ export const useStore = create<StoreState>((set, get) => {
         d.items = d.items.map((i) => {
           if (i.id !== id || !i.syncedValues || i.dirtyFields.length === 0) return i;
           const next: WorkItem = { ...i, dirtyFields: [] };
-          if (i.dirtyFields.includes('points')) next.points = i.syncedValues.points;
-          if (i.dirtyFields.includes('sprint')) next.sprintId = i.syncedValues.sprintId;
+          for (const f of i.dirtyFields) {
+            if (!(f in i.syncedValues)) continue; // no baseline for this field — keep local
+            if (f === 'points') next.points = Number(i.syncedValues.points) || 0;
+            else if (f === 'sprint') next.sprintId = (i.syncedValues.sprint as string | null) ?? null;
+            else next.attributes = { ...next.attributes, [f]: i.syncedValues[f] };
+          }
           return next;
         });
       });
@@ -555,11 +576,15 @@ export const useStore = create<StoreState>((set, get) => {
         // baseline to the just-pushed values (the external system now matches).
         const pushedExternalIds = new Set(changes.map((c) => c.externalId));
         commit((d) => {
-          d.items = d.items.map((i) =>
-            i.releaseId === releaseId && i.externalId && pushedExternalIds.has(i.externalId)
-              ? { ...i, dirtyFields: [], syncedValues: { points: i.points, sprintId: i.sprintId } }
-              : i,
-          );
+          d.items = d.items.map((i) => {
+            if (!(i.releaseId === releaseId && i.externalId && pushedExternalIds.has(i.externalId))) return i;
+            const baseline: Record<string, AttrValue> = { points: i.points, sprint: i.sprintId };
+            for (const key of writeableLocalFieldsForItem(i, meta?.itemTypes)) {
+              if (key === 'points' || key === 'sprint') continue;
+              if (i.attributes && key in i.attributes) baseline[key] = i.attributes[key];
+            }
+            return { ...i, dirtyFields: [], syncedValues: baseline };
+          });
           d.releases = d.releases.map((rel) =>
             rel.id === releaseId
               ? { ...rel, sync: { lastISO: at, state: 'ok' as const, message: `Pushed ${result.pushed} change${result.pushed !== 1 ? 's' : ''}` } }

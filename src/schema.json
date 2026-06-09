@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
-  "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems.",
-  "version": "8.0.0",
+  "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
+  "version": "14.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -98,9 +98,22 @@
         "externalId": {
           "type": ["string", "null"],
           "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-created work streams."
+        },
+        "engineersRequired": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "App-owned enrichment: engineers the stream needs to progress. Drives the capacity-fit health forecast. Survives connector sync. Null when not configured."
+        },
+        "build": {
+          "type": ["string", "null"],
+          "description": "Connector-owned provenance: the build/release this stream was carried in from, when it differs from this release. Null = native to this release. Drives the 'on-build only' lens."
+        },
+        "attributes": {
+          "$ref": "#/definitions/AttributeBag",
+          "description": "Connector vocabulary values for this stream. Optional — absence means none."
         }
       },
-      "required": ["id", "name", "externalId"],
+      "required": ["id", "name", "externalId", "engineersRequired", "build"],
       "additionalProperties": false
     },
     "Sprint": {
@@ -169,8 +182,25 @@
     },
     "Status": {
       "type": "string",
-      "enum": ["Not Started", "Active", "Blocked", "Complete"],
+      "enum": ["Not Started", "In Progress", "Under Review", "Blocked", "Complete"],
       "description": "Work-item status"
+    },
+    "AttributeBag": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "number", "boolean", "null"]
+      },
+      "description": "Connector vocabulary values keyed by the connector catalog's FieldSpec.key — fields the catalog declares that don't map to a canonical concept (e.g. a Bug's severity). Scalars only. Connector-owned; writeable keys (per the catalog) are locally editable and push back."
+    },
+    "ConnectorItemType": {
+      "type": "object",
+      "description": "One work-item type from the connector's catalog (id, label, fields[] of data-only FieldSpecs). The authoritative schema is ConnectorItemType in packages/sync-contract/openapi.yaml; stored here as an opaque snapshot.",
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "fields": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": ["id", "label", "fields"]
     },
     "ReleaseConnector": {
       "type": "object",
@@ -287,16 +317,13 @@
           "oneOf": [
             {
               "type": "object",
-              "properties": {
-                "points": { "type": "integer", "minimum": 0 },
-                "sprintId": { "type": ["string", "null"] }
-              },
-              "required": ["points", "sprintId"],
-              "additionalProperties": false
+              "additionalProperties": {
+                "type": ["string", "number", "boolean", "null"]
+              }
             },
             { "type": "null" }
           ],
-          "description": "Last value seen from the connector for the writeable fields (points, sprint). The baseline a dirty edit diverges from; used to preview a pending push (old → new) and to revert an item to its synced value. Null for locally-created items. Optional — absence implies null."
+          "description": "Last value seen from the connector for this item's writeable fields, keyed by the same local field names used in dirtyFields: 'points' (number), 'sprint' (local sprintId or null), and any writeable vocabulary keys (FieldSpec.key). The baseline a dirty edit diverges from; used to preview a pending push (old → new) and to revert an item to its synced value. Null for locally-created items. Optional — absence implies null."
         },
         "itemType": {
           "oneOf": [
@@ -304,6 +331,10 @@
             { "type": "null" }
           ],
           "description": "Work item type (Bug, Story, Task, etc.) from the connector. Read-only. Null for locally-created items or when the connector does not supply a type."
+        },
+        "attributes": {
+          "$ref": "#/definitions/AttributeBag",
+          "description": "Connector vocabulary values for this item, interpreted via the release's catalog snapshot. Writeable keys (per the catalog) are locally editable and push back; the rest are read-only. Optional — absence means none."
         }
       },
       "required": ["id", "releaseId", "workStreamId", "sprintId", "key", "subject", "description", "status", "points", "externalId", "assignedMemberId", "build", "dirtyFields", "itemType"],
@@ -371,6 +402,13 @@
             { "type": "null" }
           ],
           "description": "Last-known sync state for this release. Null for local releases or before the first sync has run."
+        },
+        "catalog": {
+          "oneOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/ConnectorItemType" } },
+            { "type": "null" }
+          ],
+          "description": "Snapshot of the connector's itemTypes catalog, taken at each sync. Lets the app interpret synced items' attributes (labels, enum options, writeability) offline and keeps already-synced items stable if the live catalog changes. Null/absent = never synced or a local release."
         }
       },
       "required": ["id", "name", "startISO", "teamId", "workStreams", "events", "sprints", "externalId", "connector", "sync"],
@@ -425,7 +463,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 11,
+      "value": 14,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {
@@ -448,7 +486,7 @@
       "items": {
         "$ref": "#/definitions/Status"
       },
-      "value": ["Not Started", "Active", "Blocked", "Complete"],
+      "value": ["Not Started", "In Progress", "Under Review", "Blocked", "Complete"],
       "description": "All valid work-item statuses"
     }
   },
@@ -474,7 +512,8 @@
       "description": "For a set of work items, count items per status for rendering a segmented bar.",
       "output": {
         "Complete": "integer",
-        "Active": "integer",
+        "In Progress": "integer",
+        "Under Review": "integer",
         "Blocked": "integer",
         "Not Started": "integer"
       }
@@ -536,7 +575,10 @@
     "notes": [
       "WorkItem.key is auto-generated (e.g. 'PROJ-100'). If importing from a target system, preserve the original external ID in externalId and decide whether to remap the key.",
       "Local releases default to 8 two-week (14-day) sprints; connector releases may have any sprint count or duration — do not assume a fixed count or length.",
-      "Status enum is fixed ('Not Started', 'Active', 'Blocked', 'Complete'). Map to target system statuses as needed.",
+      "Status enum is fixed ('Not Started', 'In Progress', 'Under Review', 'Blocked', 'Complete'). Map to target system statuses as needed.",
+      "WorkItem.attributes / WorkStream.attributes carry connector vocabulary (catalog-declared fields that map to no canonical concept, e.g. a Bug's severity), keyed by the catalog's FieldSpec.key. The service filters/coerces them at the boundary; writeable keys edit locally and push back via PushItemChange.fields.attributes.",
+      "Release.catalog is the sync-time snapshot of the connector's itemTypes catalog — the authority for interpreting attributes offline. See packages/sync-contract/openapi.yaml for the authoritative FieldSpec shape.",
+      "WorkItem.syncedValues is a record keyed by local dirty-field names ('points', 'sprint', vocabulary keys) holding the last synced value of each writeable field — the baseline for push previews and reverts.",
       "Points are integers with no ceiling; adapt to target system's point scale if different.",
       "Team.velocity is a constant used for capacity planning. May not map directly to target system metrics.",
       "Sprint.daysOff is an integer (aggregate person-days off), not a list of dates. Map to target system's capacity reduction mechanism if present.",

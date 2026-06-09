@@ -323,7 +323,7 @@ describe('migrate — v10 → current', () => {
 
   it('seeds syncedValues from the current value for synced items', () => {
     const next = migrate(v10 as any)!;
-    expect(next.items[0].syncedValues).toEqual({ points: 3, sprintId: 'sp1' });
+    expect(next.items[0].syncedValues).toEqual({ points: 3, sprint: 'sp1' });
   });
 
   it('sets syncedValues null for local items (no externalId)', () => {
@@ -335,7 +335,7 @@ describe('migrate — v10 → current', () => {
   it('preserves an existing syncedValues when already set', () => {
     const withVal = { ...v10, items: [v10Item({ externalId: 'EXT-1', syncedValues: { points: 8, sprintId: null } })] };
     const next = migrate(withVal as any)!;
-    expect(next.items[0].syncedValues).toEqual({ points: 8, sprintId: null });
+    expect(next.items[0].syncedValues).toEqual({ points: 8, sprint: null });
   });
 });
 
@@ -409,6 +409,37 @@ describe('migrate — v12 → current', () => {
     const next = migrate(withAttrs as any)!;
     expect(next.items[0].attributes).toEqual({ severity: 'high' });
     expect(next.releases[0].workStreams[0].attributes).toEqual({ area: 'payments' });
+  });
+});
+
+describe('migrate — v13 → current', () => {
+  const v13Item = (over: Record<string, unknown> = {}) => ({
+    id: 'it1', releaseId: 'r1', workStreamId: 'ws1', sprintId: 'sp1',
+    key: 'K-1', subject: 'S', description: '', status: 'Not Started', points: 3,
+    externalId: 'EXT-1', assignedMemberId: null, build: null, dirtyFields: [],
+    syncedValues: { points: 3, sprintId: 'sp1' }, itemType: null, attributes: {}, ...over,
+  });
+  const v13 = (items: unknown[]) => ({
+    version: 13, teams: [], meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), sprints: [], catalog: null }],
+    items,
+  });
+
+  it('renames the syncedValues sprintId key to sprint', () => {
+    const next = migrate(v13([v13Item()]) as any)!;
+    expect(next.version).toBe(SCHEMA_VERSION);
+    expect(next.items[0].syncedValues).toEqual({ points: 3, sprint: 'sp1' });
+  });
+
+  it('keeps a null baseline null (local items)', () => {
+    const next = migrate(v13([v13Item({ externalId: null, syncedValues: null })]) as any)!;
+    expect(next.items[0].syncedValues).toBeNull();
+  });
+
+  it('passes an already-record-shaped baseline through unchanged', () => {
+    const record = { points: 5, sprint: null, severity: 'high' };
+    const next = migrate(v13([v13Item({ syncedValues: record })]) as any)!;
+    expect(next.items[0].syncedValues).toEqual(record);
   });
 });
 

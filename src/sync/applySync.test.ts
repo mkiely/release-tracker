@@ -461,6 +461,28 @@ describe('applySync — attributes (connector vocabulary)', () => {
     expect(next.items[0].attributes).toEqual({ severity: 'critical' });
   });
 
+  it('preserves a locally-dirty writeable attribute on pull and records the external baseline', () => {
+    // First sync establishes the item with severity 'low'.
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [itemWithAttrs({ severity: 'low' })] }), ['points', 'sprint', 'severity']);
+    // Local edit: severity → 'critical', pending push.
+    first.next.items[0].attributes = { severity: 'critical' };
+    first.next.items[0].dirtyFields = ['severity'];
+    // Re-sync still reports 'low' externally.
+    const { next } = applySync(first.next, 'rel_1', mapped({ items: [itemWithAttrs({ severity: 'low' })] }), ['points', 'sprint', 'severity']);
+    expect(next.items[0].attributes).toEqual({ severity: 'critical' }); // local pending edit survives
+    expect(next.items[0].dirtyFields).toEqual(['severity']);
+    expect(next.items[0].syncedValues).toEqual({ points: 3, sprint: expect.any(String), severity: 'low' });
+  });
+
+  it('overwrites a non-writeable attribute even when locally modified', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [itemWithAttrs({ severity: 'low' })] }));
+    first.next.items[0].attributes = { severity: 'critical' };
+    first.next.items[0].dirtyFields = ['severity'];
+    // severity NOT in writeableItemFields → external wins.
+    const { next } = applySync(first.next, 'rel_1', mapped({ items: [itemWithAttrs({ severity: 'low' })] }), ['points', 'sprint']);
+    expect(next.items[0].attributes).toEqual({ severity: 'low' });
+  });
+
   it('stores work-stream attributes and overwrites them on re-sync', () => {
     const ws = (attributes?: Record<string, string | number | boolean | null>) => ({
       externalId: 'EPIC-A', ...(attributes !== undefined && { attributes }), fields: { name: 'Checkout API' },

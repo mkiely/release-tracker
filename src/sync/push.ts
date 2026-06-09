@@ -1,17 +1,24 @@
 // Pure helper: build the PushRequest changes array from locally-dirty synced items.
 // Maps local sprintId → external sprint id (backlog → null). Only includes
-// dirty writeable fields — read-only fields are never pushed.
+// dirty writeable fields — read-only fields are never pushed. Writeability is
+// derived per item from the connector's itemTypes catalog: 'points'/'sprint' map
+// to their named wire fields, writeable vocabulary keys ride in fields.attributes.
 
-import type { WorkItem, Sprint } from '../types';
-import type { ConnectorItemType, PushItemChange } from './schema';
-import { writeableLocalFieldsForItem } from '../lib/connectorFields';
+import type { AttrValue, WorkItem, Sprint } from '../types';
+import type { ConnectorItemType, FieldSpec, PushItemChange } from './schema';
+import { itemTypeFor, writeableAttributeFields, writeableLocalFieldsForItem } from '../lib/connectorFields';
 
 /** A single writeable field changing in a pending push: its synced (old) and local (new) value. */
 export interface PushFieldDiff {
-  field: 'points' | 'sprint';
-  /** points: number | null; sprint: sprintId (local id) | null (backlog). null `from` means no baseline. */
-  from: number | string | null;
-  to: number | string | null;
+  /** Local dirty-field name: 'points' | 'sprint' | a vocabulary FieldSpec.key. */
+  field: string;
+  /** Display label ('Points', 'Sprint', or the catalog field's label). */
+  label: string;
+  /** The vocabulary field's spec, for display formatting. Absent for points/sprint. */
+  spec?: FieldSpec;
+  /** points: number | null; sprint: sprintId (local id) | null (backlog); attrs: AttrValue. null `from` means no baseline. */
+  from: AttrValue;
+  to: AttrValue;
 }
 
 /** One item's pending push: which writeable fields are changing and by how much. */
@@ -28,7 +35,6 @@ export interface PushItemPreview {
  * writeable fields that are dirty with their synced (old) → local (new) values.
  * Pure. Mirrors buildPushChanges' filtering so the preview matches the payload.
  * Sprint ids are returned raw (local ids); the caller resolves them to names.
- * Writeability is derived per item from the connector's itemTypes catalog.
  */
 export function buildPushPreview(items: WorkItem[], types: ConnectorItemType[] | undefined): PushItemPreview[] {
   const previews: PushItemPreview[] = [];
@@ -37,14 +43,19 @@ export function buildPushPreview(items: WorkItem[], types: ConnectorItemType[] |
     if (!item.externalId || item.dirtyFields.length === 0) continue;
 
     const writeable = writeableLocalFieldsForItem(item, types);
+    const attrSpecs = new Map(writeableAttributeFields(itemTypeFor(item.itemType?.id, types)).map((f) => [f.key, f]));
     const base = item.syncedValues ?? null;
     const diffs: PushFieldDiff[] = [];
 
-    if (writeable.has('points') && item.dirtyFields.includes('points')) {
-      diffs.push({ field: 'points', from: base ? base.points : null, to: item.points });
-    }
-    if (writeable.has('sprint') && item.dirtyFields.includes('sprint')) {
-      diffs.push({ field: 'sprint', from: base ? base.sprintId : null, to: item.sprintId });
+    for (const field of item.dirtyFields) {
+      if (!writeable.has(field)) continue;
+      const from = base && field in base ? base[field] : null;
+      if (field === 'points') diffs.push({ field, label: 'Points', from, to: item.points });
+      else if (field === 'sprint') diffs.push({ field, label: 'Sprint', from, to: item.sprintId });
+      else {
+        const spec = attrSpecs.get(field);
+        diffs.push({ field, label: spec?.label ?? field, spec, from, to: item.attributes?.[field] ?? null });
+      }
     }
 
     if (diffs.length) {
@@ -80,21 +91,22 @@ export function buildPushChanges(
 
     const writeable = writeableLocalFieldsForItem(item, types);
     const fields: PushItemChange['fields'] = {};
-    let hasDirtyWriteable = false;
+    let attributes: Record<string, AttrValue> | undefined;
 
-    if (writeable.has('points') && item.dirtyFields.includes('points')) {
-      fields.points = item.points;
-      hasDirtyWriteable = true;
+    for (const field of item.dirtyFields) {
+      if (!writeable.has(field)) continue;
+      if (field === 'points') {
+        fields.points = item.points;
+      } else if (field === 'sprint') {
+        // Map to external sprint id; null means backlog.
+        fields.extSprintId = item.sprintId != null ? (sprintExtById.get(item.sprintId) ?? null) : null;
+      } else {
+        (attributes ??= {})[field] = item.attributes?.[field] ?? null;
+      }
     }
+    if (attributes) fields.attributes = attributes;
 
-    if (writeable.has('sprint') && item.dirtyFields.includes('sprint')) {
-      // Map to external sprint id; null means backlog.
-      const extSprintId = item.sprintId != null ? (sprintExtById.get(item.sprintId) ?? null) : null;
-      fields.extSprintId = extSprintId;
-      hasDirtyWriteable = true;
-    }
-
-    if (hasDirtyWriteable) {
+    if (Object.keys(fields).length > 0) {
       changes.push({ externalId: item.externalId, fields });
     }
   }

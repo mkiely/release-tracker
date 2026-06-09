@@ -270,6 +270,27 @@ describe('syncRelease', () => {
   });
 });
 
+describe('revertItem', () => {
+  it('restores dirty fields — including attributes — to the synced baseline', () => {
+    const t = A().createTeam({ name: 'T', velocity: 20, members: [] });
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: t.id, connector: { type: 'jira', config: {} } });
+    const it1 = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'S', points: 8 })!;
+    A().updateItem(it1.id, {
+      externalId: 'EXT-1',
+      attributes: { severity: 'critical' },
+      dirtyFields: ['points', 'severity'],
+      syncedValues: { points: 5, sprint: null, severity: 'low' },
+    });
+
+    A().revertItem(it1.id);
+
+    const reverted = getState().items.find((i) => i.id === it1.id)!;
+    expect(reverted.dirtyFields).toEqual([]);
+    expect(reverted.points).toBe(5);
+    expect(reverted.attributes).toEqual({ severity: 'low' });
+  });
+});
+
 describe('pushRelease', () => {
   // Create a connector release with one synced, points-dirty item.
   const setupDirty = (over: { dirtyFields?: string[]; itemType?: { id: string; label: string } } = {}) => {
@@ -278,7 +299,7 @@ describe('pushRelease', () => {
     A().updateItem(it.id, {
       externalId: 'EXT-1',
       dirtyFields: over.dirtyFields ?? ['points'],
-      syncedValues: { points: 5, sprintId: null },
+      syncedValues: { points: 5, sprint: null },
       ...(over.itemType ? { itemType: over.itemType } : {}),
     });
     return { r, itemId: it.id };
@@ -325,7 +346,7 @@ describe('pushRelease', () => {
     expect(client.push).toHaveBeenCalledOnce();
     const pushed = getState().items.find((i) => i.id === itemId)!;
     expect(pushed.dirtyFields).toEqual([]);
-    expect(pushed.syncedValues).toEqual({ points: 13, sprintId: null });
+    expect(pushed.syncedValues).toEqual({ points: 13, sprint: null });
     expect(getState().releases[0].sync?.state).toBe('ok');
   });
 

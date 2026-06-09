@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.9.0
+  version: 0.10.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
@@ -410,6 +410,14 @@ components:
               type: string
               nullable: true
               description: External sprint id, or null for backlog.
+            attributes:
+              allOf:
+                - { $ref: '#/components/schemas/AttributeBag' }
+              description: >-
+                Dirty vocabulary values, keyed by FieldSpec.key. Only fields the
+                item type declares writeable. The service must validate against
+                its catalog (declared key, coercible kind, enum membership)
+                before writing to the backend.
 
     PushRequest:
       type: object

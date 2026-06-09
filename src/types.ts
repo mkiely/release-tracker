@@ -14,7 +14,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 13;
+export const SCHEMA_VERSION = 14;
 
 /** A person on a team. Members supply the per-sprint capacity (person-days). */
 export interface Member {
@@ -150,12 +150,14 @@ export interface WorkItem {
   /** Writeable fields edited locally since last sync/push, awaiting push. Empty for clean items. */
   dirtyFields: string[];
   /**
-   * Last value seen from the connector for the writeable fields (points, sprint).
-   * This is the baseline a dirty edit diverges from — used to preview a pending
-   * push (old → new) and to revert an item back to its synced value. Null for
-   * local (never-synced) items, where no synced baseline exists.
+   * Last value seen from the connector for this item's writeable fields, keyed by
+   * the same local field names used in {@link dirtyFields}: 'points' (number),
+   * 'sprint' (local sprintId | null), and any writeable vocabulary keys
+   * (FieldSpec.key → AttrValue). This is the baseline a dirty edit diverges from —
+   * used to preview a pending push (old → new) and to revert an item back to its
+   * synced value. Null for local (never-synced) items, where no baseline exists.
    */
-  syncedValues?: { points: number; sprintId: string | null } | null;
+  syncedValues?: Record<string, AttrValue> | null;
   /** Work item type (Bug, Story, Task, etc.). Connector-supplied and read-only. Null for local items or when unset. */
   itemType: ItemType | null;
   /**

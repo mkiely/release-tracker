@@ -42,6 +42,17 @@ const sprintOnlyType: ConnectorItemType = {
   ],
 };
 
+// A type with vocabulary fields: severity is writeable, foundIn is read-only.
+const bugType: ConnectorItemType = {
+  id: 'bug',
+  label: 'Bug',
+  fields: [
+    { key: 'points', kind: 'number', role: 'points', writeable: true },
+    { key: 'severity', label: 'Severity', kind: 'enum', writeable: true, options: [{ value: 'low', label: 'Low' }, { value: 'critical', label: 'Critical' }] },
+    { key: 'foundIn', label: 'Found in', kind: 'string', writeable: false },
+  ],
+};
+
 describe('buildPushChanges', () => {
   const sprints = [sprint('sp_1', 'JSPR-1'), sprint('sp_2', 'JSPR-2')];
 
@@ -91,6 +102,27 @@ describe('buildPushChanges', () => {
     expect(buildPushChanges(items, sprints, [sprintOnlyType])).toHaveLength(0);
   });
 
+  it('serializes a dirty writeable vocabulary field into fields.attributes', () => {
+    const items = [item({
+      itemType: { id: 'bug', label: 'Bug' },
+      attributes: { severity: 'critical' },
+      dirtyFields: ['severity', 'points'],
+      points: 8,
+    })];
+    const changes = buildPushChanges(items, sprints, [bugType]);
+    expect(changes).toHaveLength(1);
+    expect(changes[0].fields).toEqual({ points: 8, attributes: { severity: 'critical' } });
+  });
+
+  it('never serializes a non-writeable vocabulary field', () => {
+    const items = [item({
+      itemType: { id: 'bug', label: 'Bug' },
+      attributes: { severity: 'low', foundIn: '5.0' },
+      dirtyFields: ['foundIn'], // read-only per catalog
+    })];
+    expect(buildPushChanges(items, sprints, [bugType])).toHaveLength(0);
+  });
+
   it('handles multiple items, including a mix of dirty and clean', () => {
     const items = [
       item({ id: 'it_1', externalId: 'EXT-1', points: 8, dirtyFields: ['points'] }),
@@ -113,35 +145,48 @@ describe('buildPushPreview', () => {
   });
 
   it('reports points from synced baseline to local value', () => {
-    const items = [item({ points: 13, dirtyFields: ['points'], syncedValues: { points: 5, sprintId: 'sp_1' } })];
+    const items = [item({ points: 13, dirtyFields: ['points'], syncedValues: { points: 5, sprint: 'sp_1' } })];
     const [p] = buildPushPreview(items, undefined);
     expect(p).toMatchObject({ key: 'EXT-1', externalId: 'EXT-1' });
-    expect(p.diffs).toEqual([{ field: 'points', from: 5, to: 13 }]);
+    expect(p.diffs).toEqual([{ field: 'points', label: 'Points', from: 5, to: 13 }]);
   });
 
   it('reports sprint change as local sprint ids (caller resolves names)', () => {
-    const items = [item({ sprintId: 'sp_2', dirtyFields: ['sprint'], syncedValues: { points: 5, sprintId: 'sp_1' } })];
+    const items = [item({ sprintId: 'sp_2', dirtyFields: ['sprint'], syncedValues: { points: 5, sprint: 'sp_1' } })];
     const [p] = buildPushPreview(items, undefined);
-    expect(p.diffs).toEqual([{ field: 'sprint', from: 'sp_1', to: 'sp_2' }]);
+    expect(p.diffs).toEqual([{ field: 'sprint', label: 'Sprint', from: 'sp_1', to: 'sp_2' }]);
   });
 
   it('uses null `from` when there is no synced baseline', () => {
     const items = [item({ points: 8, dirtyFields: ['points'], syncedValues: null })];
     const [p] = buildPushPreview(items, undefined);
-    expect(p.diffs).toEqual([{ field: 'points', from: null, to: 8 }]);
+    expect(p.diffs).toEqual([{ field: 'points', label: 'Points', from: null, to: 8 }]);
   });
 
   it('emits both fields when both are dirty', () => {
-    const items = [item({ points: 8, sprintId: 'sp_2', dirtyFields: ['points', 'sprint'], syncedValues: { points: 3, sprintId: null } })];
+    const items = [item({ points: 8, sprintId: 'sp_2', dirtyFields: ['points', 'sprint'], syncedValues: { points: 3, sprint: null } })];
     const [p] = buildPushPreview(items, undefined);
     expect(p.diffs).toEqual([
-      { field: 'points', from: 3, to: 8 },
-      { field: 'sprint', from: null, to: 'sp_2' },
+      { field: 'points', label: 'Points', from: 3, to: 8 },
+      { field: 'sprint', label: 'Sprint', from: null, to: 'sp_2' },
     ]);
   });
 
   it('omits a dirty field that is not writeable for the item type', () => {
-    const items = [item({ points: 8, dirtyFields: ['points'], syncedValues: { points: 3, sprintId: 'sp_1' }, itemType: { id: 'sprint_only', label: 'X' } })];
+    const items = [item({ points: 8, dirtyFields: ['points'], syncedValues: { points: 3, sprint: 'sp_1' }, itemType: { id: 'sprint_only', label: 'X' } })];
     expect(buildPushPreview(items, [sprintOnlyType])).toHaveLength(0);
+  });
+
+  it('reports a vocabulary diff with its catalog label and spec', () => {
+    const items = [item({
+      itemType: { id: 'bug', label: 'Bug' },
+      attributes: { severity: 'critical' },
+      dirtyFields: ['severity'],
+      syncedValues: { points: 5, sprint: 'sp_1', severity: 'low' },
+    })];
+    const [p] = buildPushPreview(items, [bugType]);
+    expect(p.diffs).toHaveLength(1);
+    expect(p.diffs[0]).toMatchObject({ field: 'severity', label: 'Severity', from: 'low', to: 'critical' });
+    expect(p.diffs[0].spec?.options?.map((o) => o.value)).toContain('critical');
   });
 });

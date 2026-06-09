@@ -126,8 +126,11 @@ Catalog fields that do **not** map to a canonical concept — no `role`, not
 - **Never duplicate canonical data**: subject/status/points/refs travel in
   `fields` and the `ext*Id` refs, never in `attributes`.
 
-The app stores attributes verbatim and renders them read-only (write-back of
-attribute fields is a future contract revision).
+The app stores attributes verbatim. A vocabulary field with `writeable: true`
+is editable in the app and pushes back through `PushItemChange.fields.attributes`
+(same key discipline); the service validates each pushed value against its
+catalog — declared key, coercible kind, enum membership — before writing to the
+backend. Fields without `writeable` render read-only.
 
 ## Regenerating types
 

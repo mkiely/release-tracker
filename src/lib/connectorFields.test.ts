@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allWriteableLocalFields, attributeFields, conceptWriteable, isAttributeField, itemTypeFor, writeableLocalFields } from './connectorFields';
+import { allWriteableLocalFields, attributeFields, conceptWriteable, isAttributeField, itemTypeFor, writeableAttributeFields, writeableLocalFields } from './connectorFields';
 import type { ConnectorItemType } from '../sync/schema';
 
 const story: ConnectorItemType = {
@@ -85,5 +85,29 @@ describe('isAttributeField / attributeFields', () => {
   it('attributeFields keeps catalog order and handles missing type', () => {
     expect(attributeFields(bug).map((f) => f.key)).toEqual(['severity', 'regression', 'foundIn']);
     expect(attributeFields(undefined)).toEqual([]);
+  });
+});
+
+describe('writeable vocabulary fields', () => {
+  const bug: ConnectorItemType = {
+    id: 'bug',
+    label: 'Bug',
+    fields: [
+      { key: 'points', kind: 'number', role: 'points', writeable: true },
+      { key: 'sprint', kind: 'ref', target: 'sprint', writeable: true },
+      { key: 'severity', kind: 'enum', writeable: true, options: [{ value: 'low', label: 'Low' }] },
+      { key: 'foundIn', kind: 'string', writeable: false },
+      // Pathological: a vocabulary key shadowing a reserved local name — must be skipped.
+      { key: 'points', kind: 'string', writeable: true },
+    ],
+  };
+
+  it('writeableLocalFields includes writeable vocabulary keys, guarding reserved names', () => {
+    expect(writeableLocalFields(bug)).toEqual(new Set(['points', 'sprint', 'severity']));
+  });
+
+  it('writeableAttributeFields returns the writeable attribute subset as specs', () => {
+    expect(writeableAttributeFields(bug).map((f) => f.key)).toEqual(['severity']);
+    expect(writeableAttributeFields(undefined)).toEqual([]);
   });
 });

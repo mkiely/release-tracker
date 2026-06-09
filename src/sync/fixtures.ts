@@ -53,9 +53,7 @@ const JIRA_ITEM_TYPES: ConnectorItemType[] = [
         kind: 'enum',
         required: true,
         creatable: true,
-        // Attribute (vocabulary) fields are read-only after creation for now;
-        // Phase 2 of the schema-evolution plan generalizes push to honor this flag.
-        writeable: false,
+        writeable: true,
         options: [
           { value: 'low', label: 'Low' },
           { value: 'medium', label: 'Medium' },

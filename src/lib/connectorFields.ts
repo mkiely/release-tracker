@@ -19,17 +19,31 @@ export function itemTypeFor(
   return types.find((t) => t.id === typeId);
 }
 
-/** The local writeable fields ('points'/'sprint') a type permits, by scanning its
- *  catalog fields for writeable role=points / ref→sprint. Unknown type → legacy. */
+/** The local writeable field names a type permits: 'points' (role=points),
+ *  'sprint' (ref→sprint), and any writeable vocabulary field's key. Vocabulary
+ *  keys that would collide with the reserved canonical names are skipped — a
+ *  connector field literally keyed 'points'/'sprint' without a role/target is
+ *  ambiguous, so it stays read-only. Unknown type → legacy {points, sprint}. */
 export function writeableLocalFields(type: ConnectorItemType | undefined): Set<string> {
   if (!type) return new Set(LEGACY_WRITEABLE);
   const out = new Set<string>();
   for (const f of type.fields) {
     if (!f.writeable) continue;
     if (f.role === 'points') out.add('points');
-    if (f.kind === 'ref' && f.target === 'sprint') out.add('sprint');
+    else if (f.kind === 'ref' && f.target === 'sprint') out.add('sprint');
+    else if (isAttributeField(f) && !(LEGACY_WRITEABLE as readonly string[]).includes(f.key)) out.add(f.key);
   }
   return out;
+}
+
+/** The writeable vocabulary fields of a type — the attribute subset of
+ *  {@link writeableLocalFields}, as full specs for rendering/serializing.
+ *  Applies the same reserved-name guard (a vocabulary key shadowing
+ *  'points'/'sprint' stays read-only). */
+export function writeableAttributeFields(type: ConnectorItemType | undefined): FieldSpec[] {
+  return attributeFields(type).filter(
+    (f) => f.writeable === true && !(LEGACY_WRITEABLE as readonly string[]).includes(f.key),
+  );
 }
 
 /** Writeable local fields for a specific item (resolves its type, then derives). */

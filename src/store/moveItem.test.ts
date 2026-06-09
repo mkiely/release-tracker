@@ -6,7 +6,7 @@ const item = (over: Partial<WorkItem>): WorkItem => ({
   id: 'it_1', releaseId: 'rel_1', workStreamId: 'ws_1', sprintId: 'sp_1',
   key: 'EXT-1', subject: 'S', description: '', status: 'Not Started', points: 5,
   externalId: 'EXT-1', assignedMemberId: null, build: null, dirtyFields: [],
-  syncedValues: { points: 5, sprintId: 'sp_1' }, itemType: null,
+  syncedValues: { points: 5, sprint: 'sp_1' }, itemType: null,
   ...over,
 });
 
@@ -31,28 +31,28 @@ describe('moveItemToSprint', () => {
   });
 
   it('marks a synced item sprint-dirty when moved away from the baseline', () => {
-    setItems(item({ sprintId: 'sp_1', syncedValues: { points: 5, sprintId: 'sp_1' } }));
+    setItems(item({ sprintId: 'sp_1', syncedValues: { points: 5, sprint: 'sp_1' } }));
     getActions().moveItemToSprint('it_1', 'sp_2');
     expect(got().sprintId).toBe('sp_2');
     expect(got().dirtyFields).toContain('sprint');
   });
 
   it('clears the sprint dirty flag when moved back to the synced sprint', () => {
-    setItems(item({ sprintId: 'sp_2', dirtyFields: ['sprint'], syncedValues: { points: 5, sprintId: 'sp_1' } }));
+    setItems(item({ sprintId: 'sp_2', dirtyFields: ['sprint'], syncedValues: { points: 5, sprint: 'sp_1' } }));
     getActions().moveItemToSprint('it_1', 'sp_1');
     expect(got().sprintId).toBe('sp_1');
     expect(got().dirtyFields).not.toContain('sprint');
   });
 
   it('treats backlog (null) as a sprint value relative to the baseline', () => {
-    setItems(item({ sprintId: 'sp_1', syncedValues: { points: 5, sprintId: null } }));
+    setItems(item({ sprintId: 'sp_1', syncedValues: { points: 5, sprint: null } }));
     getActions().moveItemToSprint('it_1', null);
     expect(got().sprintId).toBeNull();
     expect(got().dirtyFields).not.toContain('sprint');
   });
 
   it('preserves an existing points dirty flag when toggling sprint', () => {
-    setItems(item({ sprintId: 'sp_1', dirtyFields: ['points'], syncedValues: { points: 8, sprintId: 'sp_1' } }));
+    setItems(item({ sprintId: 'sp_1', dirtyFields: ['points'], syncedValues: { points: 8, sprint: 'sp_1' } }));
     getActions().moveItemToSprint('it_1', 'sp_2');
     expect(got().dirtyFields).toEqual(['points', 'sprint']);
     getActions().moveItemToSprint('it_1', 'sp_1');

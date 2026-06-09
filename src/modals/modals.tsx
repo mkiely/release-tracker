@@ -2,13 +2,13 @@
 
 import { useState, type ReactNode } from 'react';
 import DOMPurify from 'dompurify';
-import { LOCAL_ITEM_TYPES, STATUSES, type Member, type Status } from '../types';
+import { LOCAL_ITEM_TYPES, STATUSES, type AttrValue, type Member, type Status } from '../types';
 import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
 import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
-import { attributeFields, conceptWriteable, itemTypeFor, type EditConcept } from '../lib/connectorFields';
-import { displayValue } from '../components/fields/registry';
+import { attributeFields, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type EditConcept } from '../lib/connectorFields';
+import { displayValue, FieldControl } from '../components/fields/registry';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import { DirtyDot } from '../components/DirtyDot';
 import { useApp } from '../app-context';
@@ -761,6 +761,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const [points, setPoints] = useState(it ? it.points : 3);
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(it?.assignedMemberId ?? null);
   const [typeLabel, setTypeLabel] = useState<string>(it?.itemType?.label ?? '');
+  const [attrs, setAttrs] = useState<Record<string, AttrValue>>(it?.attributes ?? {});
 
   if (!it || !r) {
     return (
@@ -782,15 +783,26 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const canWrite = (c: EditConcept) => !synced || conceptWriteable(itype, c);
   const isDirty = it.dirtyFields.length > 0;
   // Connector vocabulary (e.g. a Bug's severity): declared by the catalog, stored
-  // in it.attributes, rendered read-only — write-back arrives with Phase 2.
+  // in it.attributes. Writeable fields edit + push back; the rest render read-only.
   const attrFields = synced ? attributeFields(itype) : [];
+  const writeableLocal = writeableLocalFields(itype);
+  const editableAttrKeys = new Set(writeableAttributeFields(itype).map((f) => f.key));
+  const attrEditable = (key: string) => editableAttrKeys.has(key);
 
   const save = () => {
     let nextDirty = [...it.dirtyFields];
+    const nextAttrs = { ...it.attributes };
     if (synced) {
       // Accumulate dirty flags only for writeable fields that changed.
       if (points !== it.points && !nextDirty.includes('points')) nextDirty.push('points');
       if (sprintId !== it.sprintId && !nextDirty.includes('sprint')) nextDirty.push('sprint');
+      for (const f of attrFields) {
+        if (!attrEditable(f.key)) continue;
+        const v = attrs[f.key] ?? null;
+        if (v === (it.attributes?.[f.key] ?? null)) continue;
+        nextAttrs[f.key] = v;
+        if (!nextDirty.includes(f.key)) nextDirty.push(f.key);
+      }
     }
     getActions().updateItem(itemId, {
       subject: subject.trim() || it.subject,
@@ -800,6 +812,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       status,
       points,
       assignedMemberId,
+      attributes: nextAttrs,
       dirtyFields: nextDirty,
       ...(!connectorRelease && { itemType: typeLabel ? { id: null, label: typeLabel } : null }),
     });
@@ -814,10 +827,18 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
     background: 'var(--rt-fill)', border: '1.5px solid var(--rt-line)', borderRadius: 7,
     flex: '0 1 auto', minWidth: 0,
   } as const;
+  // The writeable field names for the banner, derived from the catalog (legacy
+  // fallback: points + sprint). Vocabulary keys show their catalog label.
+  const writeableLabels = [...writeableLocal].map((key) =>
+    key === 'points' ? 'Points' : key === 'sprint' ? 'Sprint' : (attrFields.find((f) => f.key === key)?.label ?? key),
+  );
   const syncBanner = synced ? (
     <div style={bannerStyle}>
       {Icon.sync}
-      <span>Synced — most fields refresh on sync. <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>Points</strong> and <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>sprint</strong> are writeable.</span>
+      <span>
+        Synced — most fields refresh on sync. Writeable:{' '}
+        <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>{writeableLabels.join(', ')}</strong>.
+      </span>
     </div>
   ) : connectorRelease ? (
     <div style={bannerStyle}>
@@ -962,11 +983,22 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       </PField>
       {attrFields.length > 0 && (
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          {attrFields.map((f) => (
-            <PField key={f.key} label={f.label ?? f.key} style={{ flex: 1, minWidth: 140 }}>
-              <PInput value={displayValue(f, it.attributes?.[f.key])} disabled title="Connector field (read-only)" />
-            </PField>
-          ))}
+          {attrFields.map((f) =>
+            attrEditable(f.key) ? (
+              <PField key={f.key} label={f.label ?? f.key} style={{ flex: 1, minWidth: 140 }}>
+                <FieldControl
+                  field={f}
+                  value={attrs[f.key] ?? null}
+                  onChange={(v) => setAttrs((a) => ({ ...a, [f.key]: (v === '' ? null : v) as AttrValue }))}
+                  ctx={{ workStreams: [], sprints: [], members: [] }}
+                />
+              </PField>
+            ) : (
+              <PField key={f.key} label={f.label ?? f.key} style={{ flex: 1, minWidth: 140 }}>
+                <PInput value={displayValue(f, it.attributes?.[f.key])} disabled title="Connector field (read-only)" />
+              </PField>
+            ),
+          )}
         </div>
       )}
     </Modal>
@@ -1003,10 +1035,10 @@ export function PushReviewModal({
 
   const sprintName = (id: string | null): string =>
     id == null ? 'Backlog' : (r.sprints.find((s) => s.id === id)?.name ?? 'Unknown sprint');
-  const fieldLabel = (f: 'points' | 'sprint') => (f === 'points' ? 'Points' : 'Sprint');
-  const valueText = (p: PushItemPreview['diffs'][number], v: number | string | null): string => {
-    if (v == null && p.field === 'points') return '—';
-    return p.field === 'sprint' ? sprintName(v as string | null) : String(v);
+  const valueText = (d: PushItemPreview['diffs'][number], v: AttrValue): string => {
+    if (d.field === 'sprint') return sprintName(v as string | null);
+    if (d.spec) return displayValue(d.spec, v); // vocabulary: enum labels, Yes/No, em-dash
+    return v == null ? '—' : String(v);
   };
 
   const previews = buildPushPreview(items, meta?.itemTypes);
@@ -1087,7 +1119,7 @@ export function PushReviewModal({
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {p.diffs.map((d) => (
                       <div key={d.field} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--rt-fs-sm)' }}>
-                        <span style={{ color: 'var(--rt-t3)', minWidth: 52 }}>{fieldLabel(d.field)}</span>
+                        <span style={{ color: 'var(--rt-t3)', minWidth: 52 }}>{d.label}</span>
                         <span style={{ color: 'var(--rt-t3)', textDecoration: 'line-through' }}>{valueText(d, d.from)}</span>
                         {arrow}
                         <span style={{ color: 'var(--rt-t1)', fontWeight: 'var(--rt-fw-semibold)' }}>{valueText(d, d.to)}</span>
