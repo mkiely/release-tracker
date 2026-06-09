@@ -1,7 +1,12 @@
 // Domain types for Release Tracker. Mirrors the schema in proto-store.jsx.
 
+import type { ConnectorItemType } from './sync/schema';
+
 export const STATUSES = ['Not Started', 'In Progress', 'Under Review', 'Blocked', 'Complete'] as const;
 export type Status = (typeof STATUSES)[number];
+
+/** A connector-vocabulary attribute value (scalars only; mirrors the wire AttributeBag). */
+export type AttrValue = string | number | boolean | null;
 
 // Reference value: working days in a standard 2-week sprint. No longer used in
 // derivations — capacity now uses workdaysInRange() over a sprint's actual range
@@ -9,7 +14,7 @@ export type Status = (typeof STATUSES)[number];
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 
 /** A person on a team. Members supply the per-sprint capacity (person-days). */
 export interface Member {
@@ -56,6 +61,9 @@ export interface WorkStream {
    *  "on-build only" lens (hide carried-in streams). Mirrors WorkItem.build; set by
    *  sync (external wins), null for locally-created streams. */
   build: string | null;
+  /** Connector vocabulary values keyed by FieldSpec.key (see WorkItem.attributes).
+   *  Absence means none. Connector-owned: external wins on sync. */
+  attributes?: Record<string, AttrValue>;
 }
 
 /** A dated milestone on the release calendar (e.g. code freeze). Rendered on the
@@ -113,6 +121,11 @@ export interface Release {
   externalId: string | null;
   connector: ReleaseConnector | null;
   sync: SyncStatus | null;
+  /** Snapshot of the connector's itemTypes catalog, taken at each sync. Lets the
+   *  app interpret synced items' attributes (labels, enum options, lock state)
+   *  offline and keeps already-synced items stable if the connector's live catalog
+   *  changes between syncs. null/absent = never synced or Local release. */
+  catalog?: ConnectorItemType[] | null;
 }
 
 /** A single piece of work. Belongs to one release, optionally assigned to a work
@@ -145,6 +158,13 @@ export interface WorkItem {
   syncedValues?: { points: number; sprintId: string | null } | null;
   /** Work item type (Bug, Story, Task, etc.). Connector-supplied and read-only. Null for local items or when unset. */
   itemType: ItemType | null;
+  /**
+   * Connector vocabulary values keyed by FieldSpec.key — fields the connector's
+   * catalog declares but that don't map to a canonical concept (e.g. a Bug's
+   * severity). Interpreted via the release's catalog snapshot; rendered read-only.
+   * Absence means none. Connector-owned: external wins on sync.
+   */
+  attributes?: Record<string, AttrValue>;
 }
 
 /** The entire persisted application state — the single object the store holds

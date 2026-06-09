@@ -7,7 +7,8 @@ import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
 import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
-import { conceptWriteable, itemTypeFor, type EditConcept } from '../lib/connectorFields';
+import { attributeFields, conceptWriteable, itemTypeFor, type EditConcept } from '../lib/connectorFields';
+import { displayValue } from '../components/fields/registry';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import { DirtyDot } from '../components/DirtyDot';
 import { useApp } from '../app-context';
@@ -775,9 +776,14 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   // editable only where its type marks it writeable. Unknown/local items fall back —
   // local (never-synced) items are fully editable; unknown synced types allow
   // points + sprint (see conceptWriteable). One declared source, no hand-coded rules.
-  const itype = itemTypeFor(it.itemType?.id, meta?.itemTypes);
+  // Live meta when the service is reachable; the release's sync-time catalog
+  // snapshot otherwise, so synced items stay interpretable offline.
+  const itype = itemTypeFor(it.itemType?.id, meta?.itemTypes ?? r.catalog ?? undefined);
   const canWrite = (c: EditConcept) => !synced || conceptWriteable(itype, c);
   const isDirty = it.dirtyFields.length > 0;
+  // Connector vocabulary (e.g. a Bug's severity): declared by the catalog, stored
+  // in it.attributes, rendered read-only — write-back arrives with Phase 2.
+  const attrFields = synced ? attributeFields(itype) : [];
 
   const save = () => {
     let nextDirty = [...it.dirtyFields];
@@ -954,6 +960,15 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       <PField label="Points">
         <PointSeg value={points} onChange={setPoints} disabled={!canWrite('points')} />
       </PField>
+      {attrFields.length > 0 && (
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          {attrFields.map((f) => (
+            <PField key={f.key} label={f.label ?? f.key} style={{ flex: 1, minWidth: 140 }}>
+              <PInput value={displayValue(f, it.attributes?.[f.key])} disabled title="Connector field (read-only)" />
+            </PField>
+          ))}
+        </div>
+      )}
     </Modal>
   );
 }

@@ -170,6 +170,20 @@ export function migrate(p: AppState): AppState | null {
       })),
     };
   }
+  // v12 → v13: items and work streams gain attributes (connector vocabulary,
+  // default {}); releases gain catalog (itemTypes snapshot, default null).
+  if (s.version === 12) {
+    s = {
+      ...s,
+      version: 13,
+      releases: s.releases.map((r) => ({
+        ...r,
+        catalog: r.catalog ?? null,
+        workStreams: r.workStreams.map((ws) => ({ ...ws, attributes: ws.attributes ?? {} })),
+      })),
+      items: s.items.map((it) => ({ ...it, attributes: it.attributes ?? {} })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -314,6 +328,7 @@ export const useStore = create<StoreState>((set, get) => {
         externalId: null,
         connector: connector ?? null,
         sync: null,
+        catalog: null,
       };
       commit((d) => { d.releases = [...d.releases, r]; });
       return r;
@@ -328,7 +343,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     createWorkStream: (releaseId, name) => {
       if (!release(releaseId)) return null;
-      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null, build: null };
+      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null, build: null, attributes: {} };
       commit((d) => {
         d.releases = d.releases.map((r) =>
           r.id === releaseId ? { ...r, workStreams: [...r.workStreams, ws] } : r,
@@ -406,6 +421,7 @@ export const useStore = create<StoreState>((set, get) => {
         dirtyFields: [],
         syncedValues: null,
         itemType: itemType ?? null,
+        attributes: {},
       };
       commit((d) => { d.items = [...d.items, it]; });
       return it;
@@ -487,7 +503,13 @@ export const useStore = create<StoreState>((set, get) => {
         next.meta = { ...next.meta, lastSyncISO: at };
         next.releases = next.releases.map((rel) =>
           rel.id === releaseId
-            ? { ...rel, sync: { lastISO: at, state: 'ok' as const, message: `${result.created} new, ${result.updated} updated` } }
+            ? {
+                ...rel,
+                sync: { lastISO: at, state: 'ok' as const, message: `${result.created} new, ${result.updated} updated` },
+                // Snapshot the catalog the items were just interpreted under, so
+                // attributes stay renderable offline and across catalog changes.
+                catalog: meta?.itemTypes ?? null,
+              }
             : rel,
         );
         persist(next);

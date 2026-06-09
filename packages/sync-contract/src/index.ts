@@ -28,6 +28,9 @@ export type ValidateResult = Schemas['ValidateResult'];
 export type FieldSpec = Schemas['FieldSpec'];
 export type ConnectorItemType = Schemas['ConnectorItemType'];
 
+/** Connector vocabulary values keyed by FieldSpec.key (non-canonical fields only). */
+export type AttributeBag = Schemas['AttributeBag'];
+
 /** Request bodies (primarily for the service side). */
 export type ReleaseConnectorPayload = Schemas['ReleaseConnector'];
 export type SyncRequest = Schemas['SyncRequest'];
@@ -45,4 +48,4 @@ export type { paths, components, operations } from './generated';
  * app's localStorage SCHEMA_VERSION — this versions the wire contract between the
  * app and the sync service.
  */
-export const SYNC_CONTRACT_VERSION = '0.8.0';
+export const SYNC_CONTRACT_VERSION = '0.9.0';

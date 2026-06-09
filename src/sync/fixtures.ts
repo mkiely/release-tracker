@@ -8,6 +8,7 @@
 import type { ConnectorMeta, CreateItemInput } from './client';
 import type { ContractStatus, ConnectorItemType, MappedItem, MappedRelease } from './schema';
 import type { ReleaseConnector } from '../types';
+import { attributeFields, itemTypeFor } from '../lib/connectorFields';
 
 // The Jira fixture's item-type catalog, declared as DATA (kind/role/target +
 // access). Each field is listed once; `creatable` shows it on the create form,
@@ -52,7 +53,9 @@ const JIRA_ITEM_TYPES: ConnectorItemType[] = [
         kind: 'enum',
         required: true,
         creatable: true,
-        writeable: true,
+        // Attribute (vocabulary) fields are read-only after creation for now;
+        // Phase 2 of the schema-evolution plan generalizes push to honor this flag.
+        writeable: false,
         options: [
           { value: 'low', label: 'Low' },
           { value: 'medium', label: 'Medium' },
@@ -91,13 +94,23 @@ export function fixtureCreatedItem(connector: ReleaseConnector, req: CreateItemI
   const n = 900 + createSeq++;
   const prefix = (connector.config.projectKey || 'NEW').toUpperCase();
   const fields = (req.fields ?? {}) as Record<string, unknown>;
-  const typeLabel = JIRA_ITEM_TYPES.find((t) => t.id === req.type)?.label ?? 'Task';
+  const itype = itemTypeFor(req.type, JIRA_ITEM_TYPES);
+  const typeLabel = itype?.label ?? 'Task';
   const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  // Echo catalog-declared vocabulary values back as attributes (what the real
+  // service does at its boundary): declared keys only, scalars only.
+  const attributes: Record<string, string | number | boolean | null> = {};
+  for (const f of attributeFields(itype)) {
+    const v = fields[f.key];
+    if (v == null || v === '') continue;
+    attributes[f.key] = typeof v === 'number' || typeof v === 'boolean' ? v : String(v);
+  }
   return {
     externalId: `EXT-${n}`,
     extWorkStreamId: req.extWorkStreamId ?? null,
     extSprintId: req.extSprintId ?? null,
     extAssigneeId: req.extAssigneeId ?? null,
+    attributes,
     fields: {
       key: `${prefix}-${n}`,
       subject: String(fields.subject ?? 'Untitled item'),
@@ -142,6 +155,8 @@ export function fixtureMappedRelease(): MappedRelease {
       { externalId: 'EXT-103', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-102', extAssigneeId: 'JIRA-USR-WEI', fields: { key: 'EXT-103', subject: '3-D Secure handshake', description: '', status: 'Under Review', points: 8, itemType: { id: 'jira_story', label: 'Story' } } },
       { externalId: 'EXT-110', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-101', extAssigneeId: 'JIRA-USR-DEVI', fields: { key: 'EXT-110', subject: 'Typeahead suggestions', description: '', status: 'Complete', points: 3, itemType: { id: 'jira_story', label: 'Story' } } },
       { externalId: 'EXT-111', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-102', extAssigneeId: 'JIRA-USR-TOM', fields: { key: 'EXT-111', subject: 'Relevance ranking model', description: '', status: 'Blocked', points: 5, itemType: { id: 'jira_task', label: 'Task' } } },
+      // A Bug with a vocabulary field — exercises the attribute round-trip + read-only display.
+      { externalId: 'EXT-112', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-103', extAssigneeId: 'JIRA-USR-DEVI', attributes: { severity: 'high' }, fields: { key: 'EXT-112', subject: 'Stale results after reindex', description: 'Cache not invalidated on reindex completion.', status: 'Not Started', points: 2, itemType: { id: 'jira_bug', label: 'Bug' } } },
       { externalId: 'EXT-120', extWorkStreamId: 'EPIC-BILL', extSprintId: 'JSPR-102', extAssigneeId: 'JIRA-USR-ADA', fields: { key: 'EXT-120', subject: 'Dual-write ledger', description: '', status: 'In Progress', points: 8, itemType: { id: 'jira_story', label: 'Story' } } },
       { externalId: 'EXT-121', extWorkStreamId: 'EPIC-BILL', extSprintId: 'JSPR-103', extAssigneeId: 'JIRA-USR-MARCO', fields: { key: 'EXT-121', subject: 'Proration engine', description: '', status: 'Not Started', points: 5, itemType: { id: 'jira_story', label: 'Story' } } },
       // Unscheduled (no external sprint) → lands in the backlog.

@@ -96,6 +96,7 @@ export function upsertItem(
     existing.assignedMemberId = assignedMemberId;
     existing.build = m.fields.build ?? null;
     existing.itemType = mapItemType(m.fields.itemType);
+    existing.attributes = m.attributes ?? {}; // connector vocabulary: external wins wholesale
     // Dirty-aware: preserve local value for writeable fields pending push.
     const sprintDirty = writeableItemFields.includes('sprint') && existing.dirtyFields.includes('sprint');
     const pointsDirty = writeableItemFields.includes('points') && existing.dirtyFields.includes('points');
@@ -123,6 +124,7 @@ export function upsertItem(
     itemType: mapItemType(m.fields.itemType),
     dirtyFields: [],
     syncedValues: { points: m.fields.points, sprintId },
+    attributes: m.attributes ?? {},
   });
   return { status: 'created', warning };
 }
@@ -222,12 +224,13 @@ export function applySync(
   for (const m of mapped.workStreams) {
     const existing = workStreams.find((ws) => ws.externalId === m.externalId);
     if (existing) {
-      existing.name = m.fields.name; // external wins on name + build; engineersRequired stays app-owned
+      existing.name = m.fields.name; // external wins on name + build + attributes; engineersRequired stays app-owned
       existing.build = m.fields.build ?? null;
+      existing.attributes = m.attributes ?? {};
       wsByExt.set(m.externalId, existing.id);
       result.updated++;
     } else {
-      const ws: WorkStream = { id: uid('ws'), name: m.fields.name, externalId: m.externalId, engineersRequired: null, build: m.fields.build ?? null };
+      const ws: WorkStream = { id: uid('ws'), name: m.fields.name, externalId: m.externalId, engineersRequired: null, build: m.fields.build ?? null, attributes: m.attributes ?? {} };
       workStreams.push(ws);
       wsByExt.set(m.externalId, ws.id);
       result.created++;

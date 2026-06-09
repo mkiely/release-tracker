@@ -32,6 +32,16 @@ describe('fixtureCreatedItem', () => {
     expect(m.fields.itemType).toMatchObject({ id: 'jira_story', label: 'Story' });
     expect(m).toMatchObject({ extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: 'U1' });
   });
+
+  it('echoes catalog-declared vocabulary values back as attributes', () => {
+    const m = fixtureCreatedItem(
+      { type: 'jira', config: { projectKey: 'abc' } },
+      { type: 'jira_bug', extWorkStreamId: 'EPIC-A', extSprintId: null, extAssigneeId: null, fields: { subject: 'Crash', severity: 'critical' } },
+    );
+    expect(m.attributes).toEqual({ severity: 'critical' });
+    // Canonical fields never leak into the bag.
+    expect(m.attributes).not.toHaveProperty('subject');
+  });
 });
 
 // State with one connector release whose stream/sprint/member already carry external ids.
@@ -66,6 +76,11 @@ describe('applyCreatedItem', () => {
       syncedValues: { points: 3, sprintId: 'sp1' },
     });
     expect(next.items).toHaveLength(1);
+  });
+
+  it('stores the created item attributes for read-only display', () => {
+    const { item } = applyCreatedItem(state(), 'rel1', createdItem({ attributes: { severity: 'high' } }), []);
+    expect(item?.attributes).toEqual({ severity: 'high' });
   });
 
   it('places an item with an unmapped sprint into the backlog', () => {

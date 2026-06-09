@@ -112,6 +112,23 @@ the backend, assign its key/id, and return a fully-normalized **`MappedItem`** (
 same shape sync returns). The app reconciles it as a synced item — no follow-up
 sync required.
 
+### Attributes (connector vocabulary)
+
+Catalog fields that do **not** map to a canonical concept — no `role`, not
+`kind: ref`, not an app-canonical enum — are *vocabulary* fields (e.g. a Bug's
+`severity`). Their values round-trip in `attributes` on `MappedItem` /
+`MappedWorkStream`, keyed by `FieldSpec.key`. Rules for the service:
+
+- **Filter at the boundary**: emit only keys declared in the catalog; never
+  leak raw backend fields the catalog doesn't describe.
+- **Coerce to the declared `kind`**: scalars only — strings stay strings,
+  numbers parse or are dropped, enum values must be one of `options[]`.
+- **Never duplicate canonical data**: subject/status/points/refs travel in
+  `fields` and the `ext*Id` refs, never in `attributes`.
+
+The app stores attributes verbatim and renders them read-only (write-back of
+attribute fields is a future contract revision).
+
 ## Regenerating types
 
 After editing `openapi.yaml`, regenerate the TypeScript bindings from the repo root:

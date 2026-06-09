@@ -437,6 +437,41 @@ describe('applySync — build field', () => {
   });
 });
 
+describe('applySync — attributes (connector vocabulary)', () => {
+  const itemWithAttrs = (attributes?: Record<string, string | number | boolean | null>) => ({
+    externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null,
+    ...(attributes !== undefined && { attributes }),
+    fields: { key: 'EXT-1', subject: 's', description: '', status: 'In Progress' as const, points: 3 },
+  });
+
+  it('stores item attributes on create', () => {
+    const m = mapped({ items: [itemWithAttrs({ severity: 'high', regression: true })] });
+    const { next } = applySync(baseState(), 'rel_1', m);
+    expect(next.items[0].attributes).toEqual({ severity: 'high', regression: true });
+  });
+
+  it('defaults to {} when the connector omits the bag', () => {
+    const { next } = applySync(baseState(), 'rel_1', mapped({ items: [itemWithAttrs()] }));
+    expect(next.items[0].attributes).toEqual({});
+  });
+
+  it('external wins wholesale on re-sync (updated + removed keys)', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [itemWithAttrs({ severity: 'low', flaky: true })] }));
+    const { next } = applySync(first.next, 'rel_1', mapped({ items: [itemWithAttrs({ severity: 'critical' })] }));
+    expect(next.items[0].attributes).toEqual({ severity: 'critical' });
+  });
+
+  it('stores work-stream attributes and overwrites them on re-sync', () => {
+    const ws = (attributes?: Record<string, string | number | boolean | null>) => ({
+      externalId: 'EPIC-A', ...(attributes !== undefined && { attributes }), fields: { name: 'Checkout API' },
+    });
+    const first = applySync(baseState(), 'rel_1', mapped({ workStreams: [ws({ area: 'payments' })] }));
+    expect(first.next.releases[0].workStreams[0].attributes).toEqual({ area: 'payments' });
+    const { next } = applySync(first.next, 'rel_1', mapped({ workStreams: [ws()] }));
+    expect(next.releases[0].workStreams[0].attributes).toEqual({});
+  });
+});
+
 describe('applySync — descriptionFormat field', () => {
   const itemWithFormat = (descriptionFormat?: 'text' | 'html') => ({
     externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null,

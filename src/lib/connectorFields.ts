@@ -46,6 +46,18 @@ export function allWriteableLocalFields(types: ConnectorItemType[] | undefined):
   return out;
 }
 
+/** Whether a catalog field is connector *vocabulary* (an attribute) rather than a
+ *  canonical concept: no semantic role, not a ref, not an app-canonical enum. Its
+ *  values travel in the attributes bag, keyed by FieldSpec.key. */
+export function isAttributeField(f: FieldSpec): boolean {
+  return f.role == null && f.kind !== 'ref' && f.enumRef == null;
+}
+
+/** The vocabulary (attribute) fields a type declares, in catalog order. */
+export function attributeFields(type: ConnectorItemType | undefined): FieldSpec[] {
+  return (type?.fields ?? []).filter(isAttributeField);
+}
+
 /** Whether a well-known editable concept is writeable for an item's type, with the
  *  legacy fallback (points/sprint) for unknown types. Drives detail-modal locks. */
 export type EditConcept = 'subject' | 'description' | 'workStream' | 'sprint' | 'assignee' | 'status' | 'points';

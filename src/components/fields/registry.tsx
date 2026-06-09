@@ -41,6 +41,20 @@ export function resolveControl(field: FieldSpec): ControlKind {
   }
 }
 
+/** Pure: format a field's stored value for read-only display. Owns the same
+ *  data→presentation decision as resolveControl, for the display direction:
+ *  enum values render their option label, booleans render Yes/No, and an
+ *  absent/empty value renders an em dash. */
+export function displayValue(field: FieldSpec, value: unknown): string {
+  if (value == null || value === '') return '—';
+  if (field.kind === 'boolean') return value === true || value === 'true' ? 'Yes' : 'No';
+  if (field.kind === 'enum') {
+    const opt = (field.options ?? []).find((o) => o.value === String(value));
+    return opt?.label ?? String(value);
+  }
+  return String(value);
+}
+
 export interface FieldControlCtx {
   workStreams: { id: string; name: string }[];
   sprints: { id: string; name: string }[];

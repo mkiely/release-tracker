@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allWriteableLocalFields, conceptWriteable, itemTypeFor, writeableLocalFields } from './connectorFields';
+import { allWriteableLocalFields, attributeFields, conceptWriteable, isAttributeField, itemTypeFor, writeableLocalFields } from './connectorFields';
 import type { ConnectorItemType } from '../sync/schema';
 
 const story: ConnectorItemType = {
@@ -57,5 +57,33 @@ describe('conceptWriteable', () => {
     expect(conceptWriteable(undefined, 'points')).toBe(true);
     expect(conceptWriteable(undefined, 'sprint')).toBe(true);
     expect(conceptWriteable(undefined, 'subject')).toBe(false);
+  });
+});
+
+describe('isAttributeField / attributeFields', () => {
+  const bug: ConnectorItemType = {
+    id: 'jira_bug',
+    label: 'Bug',
+    fields: [
+      { key: 'subject', kind: 'string', role: 'subject', creatable: true },
+      { key: 'sprint', kind: 'ref', target: 'sprint', creatable: true, writeable: true },
+      { key: 'status', kind: 'enum', enumRef: 'status', writeable: true },
+      { key: 'severity', kind: 'enum', creatable: true, options: [{ value: 'low', label: 'Low' }] },
+      { key: 'regression', kind: 'boolean', creatable: true },
+      { key: 'foundIn', kind: 'string', creatable: true },
+    ],
+  };
+
+  it('vocabulary = no role, not a ref, not an app-canonical enum', () => {
+    const keys = bug.fields.map((f) => [f.key, isAttributeField(f)]);
+    expect(Object.fromEntries(keys)).toEqual({
+      subject: false, sprint: false, status: false,
+      severity: true, regression: true, foundIn: true,
+    });
+  });
+
+  it('attributeFields keeps catalog order and handles missing type', () => {
+    expect(attributeFields(bug).map((f) => f.key)).toEqual(['severity', 'regression', 'foundIn']);
+    expect(attributeFields(undefined)).toEqual([]);
   });
 });

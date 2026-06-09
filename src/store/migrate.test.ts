@@ -367,6 +367,51 @@ describe('migrate — v11 → current', () => {
   });
 });
 
+describe('migrate — v12 → current', () => {
+  const v12Ws = (over: Record<string, unknown> = {}) => ({
+    id: 'ws1', name: 'API', externalId: null, engineersRequired: null, build: null, ...over,
+  });
+  const v12Item = (over: Record<string, unknown> = {}) => ({
+    id: 'it1', releaseId: 'r1', workStreamId: 'ws1', sprintId: null,
+    key: 'K-1', subject: 'S', description: '', status: 'Not Started', points: 3,
+    externalId: null, assignedMemberId: null, build: null, dirtyFields: [],
+    syncedValues: null, itemType: null, ...over,
+  });
+  const v12 = {
+    version: 12,
+    teams: [],
+    meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), sprints: [], workStreams: [v12Ws()] }],
+    items: [v12Item()],
+  };
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v12 as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('adds attributes: {} to items and work streams that lack it', () => {
+    const next = migrate(v12 as any)!;
+    expect(next.items[0].attributes).toEqual({});
+    expect(next.releases[0].workStreams[0].attributes).toEqual({});
+  });
+
+  it('adds catalog: null to releases', () => {
+    const next = migrate(v12 as any)!;
+    expect(next.releases[0].catalog).toBeNull();
+  });
+
+  it('preserves existing attributes when already set', () => {
+    const withAttrs = {
+      ...v12,
+      items: [v12Item({ attributes: { severity: 'high' } })],
+      releases: [{ ...v2Release(), sprints: [], workStreams: [v12Ws({ attributes: { area: 'payments' } })] }],
+    };
+    const next = migrate(withAttrs as any)!;
+    expect(next.items[0].attributes).toEqual({ severity: 'high' });
+    expect(next.releases[0].workStreams[0].attributes).toEqual({ area: 'payments' });
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };
