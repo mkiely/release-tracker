@@ -284,6 +284,8 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
   const n1 = (x: number) => (Math.round(x * 10) / 10).toString();
   const shortfall = forecast.shortfallPts;
   const configured = ws.engineersRequired != null;
+  // A capacity-fit forecast needs both an engineer count and estimated work.
+  const canForecast = configured && health.totalPts > 0;
 
   const editStream = () => openModal({ type: 'stream', releaseId, wsId });
 
@@ -323,7 +325,7 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
       )}
 
       {/* The chart */}
-      {configured ? (
+      {canForecast ? (
         <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 14px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span className="tag">Remaining work burndown vs capacity</span>
           <StreamBurnChart
@@ -341,12 +343,16 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
         </div>
       ) : (
         <div className="card dash" style={{ padding: '18px 16px', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-sm)', lineHeight: 1.5 }}>
-          Set <strong style={{ color: 'var(--rt-t2)' }}>engineers required</strong> for this stream to compute a capacity-fit forecast.
+          {!configured ? (
+            <>Set <strong style={{ color: 'var(--rt-t2)' }}>engineers required</strong> for this stream to compute a capacity-fit forecast.</>
+          ) : (
+            <>Add <strong style={{ color: 'var(--rt-t2)' }}>points</strong> to this stream’s items to compute a capacity-fit forecast.</>
+          )}
         </div>
       )}
 
       {/* The calculation */}
-      {configured && (
+      {canForecast && (
         <div className="card" style={{ background: 'var(--rt-bg)', padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
           <span className="tag" style={{ marginBottom: 2 }}>The calculation</span>
           <Row k="Remaining points" v={`${health.remainingPts} pts`} />
@@ -537,7 +543,7 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
 function Row({ k, v, big }: { k: ReactNode; v: ReactNode; big?: boolean }) {
   return (
     <div className="calc" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, fontSize: big ? 15 : 13 }}>
-      <span style={{ color: big ? 'var(--rt-ink)' : 'var(--rt-t2)', fontWeight: big ? 700 : 400, whiteSpace: 'nowrap' }}>{k}</span>
+      <span title={typeof k === 'string' ? k : undefined} style={{ color: big ? 'var(--rt-ink)' : 'var(--rt-t2)', fontWeight: big ? 700 : 400, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k}</span>
       <span className="mono" style={{ fontWeight: 'var(--rt-fw-semibold)', color: big ? statusVars('In Progress').text : 'var(--rt-ink)', whiteSpace: 'nowrap', fontSize: big ? 15 : 13 }}>
         {v}
       </span>
@@ -557,7 +563,9 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
   const full = fullCap(team, sp);
   const pct = Math.round(capPct(team, sp, off) * 100);
   const vel = sprintVel(team, sp, off);
-  const memberCount = team ? team.members.length : 0;
+  // Capacity counts only contributing members — must match fullCap()'s filter so
+  // the displayed "members × workdays = full" equation is internally consistent.
+  const memberCount = team ? team.members.filter((m) => !m.nonContributing).length : 0;
   const save = () => {
     getActions().updateSprint(releaseId, sprintId, { name: name.trim() || sp.name, daysOff: off });
     onClose();

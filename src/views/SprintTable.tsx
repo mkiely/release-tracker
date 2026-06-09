@@ -53,6 +53,7 @@ function ColHeaders({ groupBy }: { groupBy: GroupBy }) {
         <div className={`${styles.colPts} ${styles.colHeaderLabel}`}>Pts</div>
         <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`}></div>
         <div className={`${styles.colStatus} ${styles.colHeaderLabel}`}>Status</div>
+        <div className={`${styles.colBuild} ${styles.colHeaderLabel}`}>Build</div>
         {groupBy === 'status' && (
           <div className={`${styles.colWorkStream} ${styles.colHeaderLabel}`}>Work Stream</div>
         )}
@@ -359,6 +360,8 @@ export function SprintTable({
             <span>{fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}</span>
             <span className={styles.identityDot}>·</span>
             <span>{vel} pts capacity{pct < 100 ? ` (${pct}%)` : ''}</span>
+            <span className={styles.identityDot}>·</span>
+            <span>{sp.daysOff} person-day{sp.daysOff === 1 ? '' : 's'} off</span>
             <span className={styles.identityDot}>·</span>
             <span style={totalPts > vel ? { color: 'var(--rt-st-bl-text)', fontWeight: 'var(--rt-fw-bold)' } : undefined}>
               {sprintItemCount} items · {totalPts} pts planned

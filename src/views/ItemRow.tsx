@@ -58,6 +58,12 @@ export function ItemRow({
       <div className={styles.colStatus}>
         <StatusPill status={item.status} sm />
       </div>
+      <div
+        className={`${styles.colBuild}${item.build ? '' : ` ${styles.colBuildEmpty}`}`}
+        title={item.build ?? undefined}
+      >
+        {item.build ?? '—'}
+      </div>
       {workStreamName !== undefined && <div className={styles.colWorkStream}>{workStreamName}</div>}
       <div className={styles.colTitle}>{item.subject}</div>
     </div>

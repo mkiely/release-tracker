@@ -357,6 +357,21 @@
   text-overflow: ellipsis;
 }
 
+.colBuild {
+  width: 120px;
+  flex-shrink: 0;
+  padding: 0 10px 0 8px;
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-t2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.colBuildEmpty {
+  color: var(--rt-t3);
+}
+
 /* col header labels — only sets vertical padding so column-specific horizontal padding is preserved */
 .colHeaderLabel {
   font-size: var(--rt-fs-micro);

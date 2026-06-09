@@ -36,6 +36,9 @@ export const sumPoints = (items: { points: number }[]): number =>
   items.reduce((a, i) => a + i.points, 0);
 
 export interface StreamHealth {
+  /** Number of work items in the stream (regardless of points). Lets the forecast
+   *  tell "no items" apart from "items exist but none are estimated yet". */
+  itemCount: number;
   totalPts: number;
   donePts: number;
   remainingPts: number;
@@ -61,7 +64,7 @@ export function streamHealth(items: WorkItem[]): StreamHealth {
   const remainingPts = Math.max(0, totalPts - donePts);
   const pct = totalPts > 0 ? Math.round((donePts / totalPts) * 100) : 0;
   const pointsByStatus = STATUSES.map((k) => ({ k, v: pts((i) => i.status === k) })).filter((s) => s.v > 0);
-  return { totalPts, donePts, remainingPts, blockedPts, pct, pointsByStatus };
+  return { itemCount: items.length, totalPts, donePts, remainingPts, blockedPts, pct, pointsByStatus };
 }
 
 // ── Forward capacity-fit health ─────────────────────────────────────────────
@@ -70,7 +73,7 @@ export function streamHealth(items: WorkItem[]): StreamHealth {
 // items roll forward), so there is no past slippage to detect — see
 // docs/work-stream-health.md. Assumptions are spelled out at each step.
 
-export type HealthVerdict = 'on-track' | 'at-risk' | 'complete' | 'unconfigured';
+export type HealthVerdict = 'on-track' | 'at-risk' | 'complete' | 'unconfigured' | 'unestimated';
 
 /** Sprints whose range hasn't fully elapsed (endISO >= today). The active sprint is
  *  included; fully-past sprints are excluded — encoding the "past sprints are
@@ -158,11 +161,20 @@ export function streamForecast(
     perEngineerCap: ctx.perEngineerCap,
   };
 
+  const inert = { nominalCap: 0, effectiveEngineers: 0, effectiveCap: 0, shortfallPts: 0, runwaySprints: 0, sprintsShort: 0, contended: false };
+
+  // Items exist but none carry points yet — there's nothing to measure, so this is
+  // emphatically not "complete". Checked before the other gates because no amount of
+  // engineer config makes an unestimated stream assessable.
+  if (health.totalPts === 0 && health.itemCount > 0) {
+    const n = health.itemCount;
+    return { ...base, ...inert, verdict: 'unestimated', summary: `${n} item${n === 1 ? '' : 's'} not yet estimated — add points to assess capacity fit` };
+  }
   if (engineersRequired == null) {
-    return { ...base, verdict: 'unconfigured', nominalCap: 0, effectiveEngineers: 0, effectiveCap: 0, shortfallPts: 0, runwaySprints: 0, sprintsShort: 0, contended: false, summary: 'Set engineers required to assess capacity fit' };
+    return { ...base, ...inert, verdict: 'unconfigured', summary: 'Set engineers required to assess capacity fit' };
   }
   if (remainingPts === 0) {
-    return { ...base, verdict: 'complete', nominalCap: 0, effectiveEngineers: engineersRequired, effectiveCap: 0, shortfallPts: 0, runwaySprints: 0, sprintsShort: 0, contended: false, summary: 'All work complete' };
+    return { ...base, ...inert, verdict: 'complete', effectiveEngineers: engineersRequired, summary: 'All work complete' };
   }
 
   const contended = contention.overAllocated;

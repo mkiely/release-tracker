@@ -43,7 +43,13 @@ export function VerdictLine({
         e.stopPropagation();
         onOpen();
       }}
-      title={forecast.verdict === 'unconfigured' ? 'Set engineers required' : 'View capacity-fit details'}
+      title={
+        forecast.verdict === 'unconfigured'
+          ? 'Set engineers required'
+          : forecast.verdict === 'unestimated'
+            ? 'Add points to this stream’s items to assess'
+            : 'View capacity-fit details'
+      }
     >
       <VerdictBadge verdict={forecast.verdict} />
       {summary && <span className={styles.verdictSummary}>{forecast.summary}</span>}

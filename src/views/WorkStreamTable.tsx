@@ -200,6 +200,7 @@ function ColHeaders() {
         <div className={`${styles.colPts} ${styles.colHeaderLabel}`}>Pts</div>
         <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`}>Assignee</div>
         <div className={`${styles.colStatus} ${styles.colHeaderLabel}`}>Status</div>
+        <div className={`${styles.colBuild} ${styles.colHeaderLabel}`}>Build</div>
         <div className={`${styles.colTitle} ${styles.colHeaderLabel}`}>Title</div>
       </div>
     </div>

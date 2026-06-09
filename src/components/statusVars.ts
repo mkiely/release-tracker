@@ -39,6 +39,7 @@ export function verdictVars(v: HealthVerdict): { label: string; tone: 'ok' | 'ri
     'at-risk':      { label: 'At risk',       tone: 'risk' as const,  status: 'Blocked' as const },
     'complete':     { label: 'Complete',      tone: 'ok' as const,    status: 'Complete' as const },
     'unconfigured': { label: 'Not assessed',  tone: 'muted' as const, status: 'Not Started' as const },
+    'unestimated':  { label: 'Unestimated',   tone: 'muted' as const, status: 'Not Started' as const },
   }[v];
   return { label: map.label, tone: map.tone, ...statusVars(map.status) };
 }

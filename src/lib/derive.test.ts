@@ -336,7 +336,7 @@ describe('forward capacity-fit health', () => {
     return { id: 'r', name: 'R', startISO: past.startISO, teamId: 't', workStreams: [], events: [], sprints: [past, active, f1, f2], externalId: null, connector: null, sync: null };
   };
 
-  const hp = (remainingPts: number): StreamHealth => ({ totalPts: remainingPts, donePts: 0, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
+  const hp = (remainingPts: number, itemCount = 1): StreamHealth => ({ itemCount, totalPts: remainingPts, donePts: 0, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
 
   describe('remainingSprints', () => {
     it('excludes fully-past sprints and includes the active + future ones', () => {
@@ -385,8 +385,28 @@ describe('forward capacity-fit health', () => {
       expect(f.verdict).toBe('unconfigured');
     });
 
-    it('is complete when no work remains', () => {
-      const f = streamForecast(hp(0), 2, ctx(), noContention);
+    it('is complete when estimated work is all done', () => {
+      const done: StreamHealth = { itemCount: 3, totalPts: 30, donePts: 30, remainingPts: 0, blockedPts: 0, pct: 100, pointsByStatus: [] };
+      const f = streamForecast(done, 2, ctx(), noContention);
+      expect(f.verdict).toBe('complete');
+    });
+
+    it('is unestimated when items exist but none carry points', () => {
+      const noPoints: StreamHealth = { itemCount: 4, totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [] };
+      const f = streamForecast(noPoints, 2, ctx(), noContention);
+      expect(f.verdict).toBe('unestimated');
+      expect(f.summary).toContain('4 items');
+    });
+
+    it('reports unestimated before engineers are even configured', () => {
+      const noPoints: StreamHealth = { itemCount: 1, totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [] };
+      const f = streamForecast(noPoints, null, ctx(), noContention);
+      expect(f.verdict).toBe('unestimated');
+      expect(f.summary).toContain('1 item');
+    });
+
+    it('is complete (not unestimated) for an empty stream', () => {
+      const f = streamForecast(hp(0, 0), 2, ctx(), noContention);
       expect(f.verdict).toBe('complete');
     });
 
