@@ -31,6 +31,11 @@ export type ConnectorItemType = Schemas['ConnectorItemType'];
 /** Connector vocabulary values keyed by FieldSpec.key (non-canonical fields only). */
 export type AttributeBag = Schemas['AttributeBag'];
 
+/** One native workflow state mapped to a canonical category (see ConnectorMeta.statuses). */
+export type StatusDef = Schemas['StatusDef'];
+/** An item's native workflow state (denormalized id + label, mirrors itemType). */
+export type StatusRef = Schemas['StatusRef'];
+
 /** Request bodies (primarily for the service side). */
 export type ReleaseConnectorPayload = Schemas['ReleaseConnector'];
 export type SyncRequest = Schemas['SyncRequest'];
@@ -48,4 +53,4 @@ export type { paths, components, operations } from './generated';
  * app's localStorage SCHEMA_VERSION — this versions the wire contract between the
  * app and the sync service.
  */
-export const SYNC_CONTRACT_VERSION = '0.10.0';
+export const SYNC_CONTRACT_VERSION = '0.11.0';

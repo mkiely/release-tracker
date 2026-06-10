@@ -56,7 +56,7 @@ export function ItemRow({
       <div className={styles.colPts}>{item.points > 0 ? item.points : ''}</div>
       <div className={styles.colAssignee}>{assignee && <Avatar member={assignee} />}</div>
       <div className={styles.colStatus}>
-        <StatusPill status={item.status} sm />
+        <StatusPill status={item.status} sm label={item.statusNative?.label} />
       </div>
       <div
         className={`${styles.colBuild}${item.build ? '' : ` ${styles.colBuildEmpty}`}`}

@@ -112,6 +112,23 @@ the backend, assign its key/id, and return a fully-normalized **`MappedItem`** (
 same shape sync returns). The app reconciles it as a synced item — no follow-up
 sync required.
 
+### Status vocabulary
+
+The five canonical statuses are **categories** — the buckets the app's
+derivations (capacity, health, segments) compute over. A backend with a richer
+workflow declares its native states in `ConnectorMeta.statuses`
+(`[{ id, label, category }]`; several states may share a category) and tags each
+item with `fields.statusNative: { id, label }` alongside the coerced
+`fields.status` category. The app displays the native label everywhere while
+computing on the category.
+
+When an item type declares a writeable status field (`enumRef: status` or
+`role: status` with `writeable: true`), the app offers the vocabulary as edit
+options and pushes transitions as `PushItemChange.fields.statusId` — a
+`StatusDef.id` the service must validate against its vocabulary before writing.
+No vocabulary declared ⇒ items carry no `statusNative` and status stays
+read-only in the app.
+
 ### Attributes (connector vocabulary)
 
 Catalog fields that do **not** map to a canonical concept — no `role`, not

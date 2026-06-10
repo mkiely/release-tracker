@@ -7,14 +7,15 @@ import { Icon } from './Icon';
 import { statusVars } from './statusVars';
 import styles from './WorkItemCard.module.css';
 
-// inline status chip that doubles as a select
-export function StatusSelect({ value, onChange, disabled }: { value: Status; onChange: (v: Status) => void; disabled?: boolean }) {
+// inline status chip that doubles as a select. `label` overrides the displayed
+// text (an item's native workflow state); colors stay keyed to the category.
+export function StatusSelect({ value, onChange, disabled, label }: { value: Status; onChange: (v: Status) => void; disabled?: boolean; label?: string }) {
   const { soft, text, dot } = statusVars(value);
   return (
     <div style={{ position: 'relative', alignSelf: 'center' }} onClick={(e) => e.stopPropagation()}>
       <span className="chip" style={{ background: soft, color: text, paddingRight: disabled ? 9 : 22 }}>
         <span className="dot" style={{ background: dot }} />
-        {value}
+        {label ?? value}
         {!disabled && <span style={{ position: 'absolute', right: 7, color: text, display: 'flex' }}>{Icon.chevDown}</span>}
       </span>
       {!disabled && (
@@ -111,7 +112,7 @@ export function WorkItemCard({
         {it.subject}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-        <StatusSelect value={it.status} disabled={statusReadOnly} onChange={(v) => getActions().updateItem(it.id, { status: v })} />
+        <StatusSelect value={it.status} label={it.statusNative?.label} disabled={statusReadOnly} onChange={(v) => getActions().updateItem(it.id, { status: v })} />
         {assignedMember ? (
           <MemberAvatar name={assignedMember.name} size={32} />
         ) : (

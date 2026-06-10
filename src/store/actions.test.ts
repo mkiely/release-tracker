@@ -289,6 +289,34 @@ describe('revertItem', () => {
     expect(reverted.points).toBe(5);
     expect(reverted.attributes).toEqual({ severity: 'low' });
   });
+
+  it('restores a dirty status through the release status vocabulary', () => {
+    const t = A().createTeam({ name: 'T', velocity: 20, members: [] });
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: t.id, connector: { type: 'jira', config: {} } });
+    // Seed the release's vocabulary snapshot (normally written by syncRelease).
+    useStore.setState({
+      releases: getState().releases.map((rel) =>
+        rel.id === r.id
+          ? { ...rel, catalog: { itemTypes: [], statuses: [{ id: 'in_progress', label: 'Doing', category: 'In Progress' as const }] } }
+          : rel,
+      ),
+    });
+    const it1 = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'S' })!;
+    A().updateItem(it1.id, {
+      externalId: 'EXT-1',
+      status: 'Under Review',
+      statusNative: { id: 'qa', label: 'QA Verify' },
+      dirtyFields: ['status'],
+      syncedValues: { status: 'in_progress' },
+    });
+
+    A().revertItem(it1.id);
+
+    const reverted = getState().items.find((i) => i.id === it1.id)!;
+    expect(reverted.dirtyFields).toEqual([]);
+    expect(reverted.status).toBe('In Progress');
+    expect(reverted.statusNative).toEqual({ id: 'in_progress', label: 'Doing' });
+  });
 });
 
 describe('pushRelease', () => {

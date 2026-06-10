@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.10.0
+  version: 0.11.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
@@ -108,8 +108,37 @@ components:
   schemas:
     Status:
       type: string
-      description: The app's five canonical work-item statuses. The service must coerce to one of these.
+      description: >-
+        The app's five canonical work-item statuses — the CATEGORIES the app's
+        derivations (capacity, health, segments) compute over. The service must
+        coerce every native state to one of these. Connectors with richer
+        workflows additionally declare their native states via
+        ConnectorMeta.statuses and tag items with statusNative.
       enum: [Not Started, In Progress, Under Review, Blocked, Complete]
+
+    StatusDef:
+      type: object
+      description: >-
+        One native workflow state of the connector's backend, mapped onto a
+        canonical category. The full list (ConnectorMeta.statuses) is the status
+        vocabulary: it supplies the app's edit options and validates pushed
+        statusId values. Two or more native states may share a category.
+      required: [id, label, category]
+      properties:
+        id: { type: string, description: 'Connector-native state id, e.g. in_review.' }
+        label: { type: string, description: 'Display label, e.g. "In Review".' }
+        category: { $ref: '#/components/schemas/Status' }
+
+    StatusRef:
+      type: object
+      description: >-
+        An item's native workflow state (denormalized id + label, mirroring
+        itemType). The item's `status` field still carries the canonical
+        category; this adds the real state for display.
+      required: [id, label]
+      properties:
+        id: { type: string }
+        label: { type: string }
 
     AttributeBag:
       type: object
@@ -218,6 +247,15 @@ components:
             subject: { type: string }
             description: { type: string }
             status: { $ref: '#/components/schemas/Status' }
+            statusNative:
+              nullable: true
+              allOf:
+                - { $ref: '#/components/schemas/StatusRef' }
+              description: >-
+                The item's native workflow state, when the connector declares a
+                status vocabulary. Must be one of ConnectorMeta.statuses (its
+                category must equal this item's `status`). Omit/null when the
+                backend has no richer workflow than the canonical five.
             points: { type: number }
             build:
               type: string
@@ -363,6 +401,16 @@ components:
             types are exposed: nothing is creatable (the app hides "New work item")
             and nothing is writeable.
           items: { $ref: '#/components/schemas/ConnectorItemType' }
+        statuses:
+          type: array
+          description: >-
+            The connector's status vocabulary: every native workflow state it can
+            emit, each mapped to a canonical category. Drives the app's status
+            edit options (when an item type declares a writeable status field)
+            and validates pushed statusId values. Absent or empty means the
+            backend uses the canonical five directly and items carry no
+            statusNative.
+          items: { $ref: '#/components/schemas/StatusDef' }
 
     ReleaseConnector:
       type: object
@@ -410,6 +458,13 @@ components:
               type: string
               nullable: true
               description: External sprint id, or null for backlog.
+            statusId:
+              type: string
+              description: >-
+                Native status id (a StatusDef.id from the connector's vocabulary)
+                to transition the item to. Only sent when the item's type declares
+                a writeable status field; the service must validate the id against
+                its vocabulary before writing.
             attributes:
               allOf:
                 - { $ref: '#/components/schemas/AttributeBag' }

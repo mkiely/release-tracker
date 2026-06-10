@@ -111,3 +111,27 @@ describe('writeable vocabulary fields', () => {
     expect(writeableAttributeFields(undefined)).toEqual([]);
   });
 });
+
+describe('status writeability', () => {
+  const flow: ConnectorItemType = {
+    id: 'flow',
+    label: 'Flow',
+    fields: [
+      { key: 'state', kind: 'enum', enumRef: 'status', writeable: true },
+      // Vocabulary key shadowing the reserved 'status' local name — stays read-only.
+      { key: 'status', kind: 'string', writeable: true },
+    ],
+  };
+
+  it("maps a writeable enumRef:'status' field to the 'status' local name", () => {
+    expect(writeableLocalFields(flow).has('status')).toBe(true);
+  });
+
+  it('guards a vocabulary key shadowing the reserved status name', () => {
+    expect(writeableAttributeFields(flow).map((f) => f.key)).toEqual([]);
+  });
+
+  it('legacy fallback (unknown type) still excludes status', () => {
+    expect(writeableLocalFields(undefined).has('status')).toBe(false);
+  });
+});

@@ -10,6 +10,8 @@ import {
   type ItemType,
   type Member,
   type Release,
+  STATUSES,
+  type ReleaseCatalog,
   type ReleaseConnector,
   type ReleaseEvent,
   type Sprint,
@@ -199,6 +201,24 @@ export function migrate(p: AppState): AppState | null {
           syncedValues: sv == null ? (sv ?? null) : 'sprintId' in sv ? { points: sv.points, sprint: sv.sprintId } : sv,
         };
       }),
+    };
+  }
+  // v14 → v15: status vocabulary. Items gain statusNative (default null); the
+  // release catalog snapshot grows from a bare itemTypes array to
+  // { itemTypes, statuses } (existing snapshots wrap with an empty vocabulary —
+  // refreshed on the next sync).
+  if (s.version === 14) {
+    s = {
+      ...s,
+      version: 15,
+      releases: s.releases.map((r) => {
+        const cat = r.catalog as unknown;
+        return {
+          ...r,
+          catalog: cat == null ? null : Array.isArray(cat) ? { itemTypes: cat, statuses: [] } : (cat as ReleaseCatalog),
+        };
+      }),
+      items: s.items.map((it) => ({ ...it, statusNative: it.statusNative ?? null })),
     };
   }
   return s.version === SCHEMA_VERSION ? s : null;
@@ -438,6 +458,7 @@ export const useStore = create<StoreState>((set, get) => {
         dirtyFields: [],
         syncedValues: null,
         itemType: itemType ?? null,
+        statusNative: null,
         attributes: {},
       };
       commit((d) => { d.items = [...d.items, it]; });
@@ -477,7 +498,21 @@ export const useStore = create<StoreState>((set, get) => {
             if (!(f in i.syncedValues)) continue; // no baseline for this field — keep local
             if (f === 'points') next.points = Number(i.syncedValues.points) || 0;
             else if (f === 'sprint') next.sprintId = (i.syncedValues.sprint as string | null) ?? null;
-            else next.attributes = { ...next.attributes, [f]: i.syncedValues[f] };
+            else if (f === 'status') {
+              // Baseline holds the native status id (or a bare category when the
+              // connector has no vocabulary). Resolve through the release's
+              // vocabulary snapshot to restore both the category and the label.
+              const v = i.syncedValues.status;
+              const vocab = d.releases.find((r) => r.id === i.releaseId)?.catalog?.statuses ?? [];
+              const def = vocab.find((sd) => sd.id === v);
+              if (def) {
+                next.status = def.category;
+                next.statusNative = { id: def.id, label: def.label };
+              } else if (typeof v === 'string' && (STATUSES as readonly string[]).includes(v)) {
+                next.status = v as Status;
+                next.statusNative = null;
+              }
+            } else next.attributes = { ...next.attributes, [f]: i.syncedValues[f] };
           }
           return next;
         });
@@ -527,9 +562,10 @@ export const useStore = create<StoreState>((set, get) => {
             ? {
                 ...rel,
                 sync: { lastISO: at, state: 'ok' as const, message: `${result.created} new, ${result.updated} updated` },
-                // Snapshot the catalog the items were just interpreted under, so
-                // attributes stay renderable offline and across catalog changes.
-                catalog: meta?.itemTypes ?? null,
+                // Snapshot the vocabulary the items were just interpreted under, so
+                // attributes + native statuses stay renderable offline and across
+                // catalog changes.
+                catalog: meta ? { itemTypes: meta.itemTypes ?? [], statuses: meta.statuses ?? [] } : null,
               }
             : rel,
         );
@@ -581,7 +617,8 @@ export const useStore = create<StoreState>((set, get) => {
             const baseline: Record<string, AttrValue> = { points: i.points, sprint: i.sprintId };
             for (const key of writeableLocalFieldsForItem(i, meta?.itemTypes)) {
               if (key === 'points' || key === 'sprint') continue;
-              if (i.attributes && key in i.attributes) baseline[key] = i.attributes[key];
+              if (key === 'status') baseline.status = i.statusNative?.id ?? i.status;
+              else if (i.attributes && key in i.attributes) baseline[key] = i.attributes[key];
             }
             return { ...i, dirtyFields: [], syncedValues: baseline };
           });

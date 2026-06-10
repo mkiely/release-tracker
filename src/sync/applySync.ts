@@ -88,11 +88,16 @@ export function upsertItem(
   // The incoming external values for the writeable fields, keyed by local dirty-field
   // name — recorded as the baseline a pending push diverges from. Vocabulary keys
   // appear only when the connector actually sent them for this item.
+  const statusNative = m.fields.statusNative ? { id: m.fields.statusNative.id, label: m.fields.statusNative.label } : null;
+
   const baseline = (): Record<string, AttrValue> => {
     const b: Record<string, AttrValue> = { points: m.fields.points, sprint: sprintId };
     for (const key of writeableItemFields) {
       if (key === 'points' || key === 'sprint') continue;
-      if (m.attributes && key in m.attributes) b[key] = m.attributes[key];
+      // Status baselines as the native id (the pushable value); bare category
+      // when the connector declares no vocabulary.
+      if (key === 'status') b.status = statusNative?.id ?? m.fields.status;
+      else if (m.attributes && key in m.attributes) b[key] = m.attributes[key];
     }
     return b;
   };
@@ -104,7 +109,6 @@ export function upsertItem(
     existing.subject = m.fields.subject;
     existing.description = m.fields.description;
     existing.descriptionFormat = m.fields.descriptionFormat ?? 'text';
-    existing.status = m.fields.status;
     existing.assignedMemberId = assignedMemberId;
     existing.build = m.fields.build ?? null;
     existing.itemType = mapItemType(m.fields.itemType);
@@ -113,9 +117,13 @@ export function upsertItem(
     const dirty = new Set(existing.dirtyFields.filter((f) => writeableItemFields.includes(f)));
     if (!dirty.has('sprint')) existing.sprintId = sprintId;
     if (!dirty.has('points')) existing.points = m.fields.points;
+    if (!dirty.has('status')) {
+      existing.status = m.fields.status;
+      existing.statusNative = statusNative;
+    }
     const incoming = { ...(m.attributes ?? {}) };
     for (const key of dirty) {
-      if (key === 'points' || key === 'sprint') continue;
+      if (key === 'points' || key === 'sprint' || key === 'status') continue;
       if (existing.attributes && key in existing.attributes) incoming[key] = existing.attributes[key];
     }
     existing.attributes = incoming;
@@ -138,6 +146,7 @@ export function upsertItem(
     assignedMemberId,
     build: m.fields.build ?? null,
     itemType: mapItemType(m.fields.itemType),
+    statusNative,
     dirtyFields: [],
     syncedValues: baseline(),
     attributes: m.attributes ?? {},

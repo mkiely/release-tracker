@@ -443,6 +443,38 @@ describe('migrate — v13 → current', () => {
   });
 });
 
+describe('migrate — v14 → current', () => {
+  const v14Item = (over: Record<string, unknown> = {}) => ({
+    id: 'it1', releaseId: 'r1', workStreamId: 'ws1', sprintId: 'sp1',
+    key: 'K-1', subject: 'S', description: '', status: 'Not Started', points: 3,
+    externalId: 'EXT-1', assignedMemberId: null, build: null, dirtyFields: [],
+    syncedValues: { points: 3, sprint: 'sp1' }, itemType: null, attributes: {}, ...over,
+  });
+  const itemTypes = [{ id: 't1', label: 'Story', fields: [] }];
+  const v14 = (catalog: unknown) => ({
+    version: 14, teams: [], meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), sprints: [], catalog }],
+    items: [v14Item()],
+  });
+
+  it('adds statusNative: null to items', () => {
+    const next = migrate(v14(null) as any)!;
+    expect(next.version).toBe(SCHEMA_VERSION);
+    expect(next.items[0].statusNative).toBeNull();
+  });
+
+  it('wraps a bare itemTypes-array catalog into { itemTypes, statuses: [] }', () => {
+    const next = migrate(v14(itemTypes) as any)!;
+    expect(next.releases[0].catalog).toEqual({ itemTypes, statuses: [] });
+  });
+
+  it('keeps a null catalog null and preserves an already-wrapped one', () => {
+    expect(migrate(v14(null) as any)!.releases[0].catalog).toBeNull();
+    const wrapped = { itemTypes, statuses: [{ id: 'qa', label: 'QA', category: 'Under Review' }] };
+    expect(migrate(v14(wrapped) as any)!.releases[0].catalog).toEqual(wrapped);
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

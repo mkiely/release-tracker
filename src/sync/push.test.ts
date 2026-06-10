@@ -53,6 +53,15 @@ const bugType: ConnectorItemType = {
   ],
 };
 
+// A type whose status is writeable (enumRef: 'status' → local field 'status').
+const statusType: ConnectorItemType = {
+  id: 'flow',
+  label: 'Flow',
+  fields: [
+    { key: 'status', kind: 'enum', enumRef: 'status', writeable: true },
+  ],
+};
+
 describe('buildPushChanges', () => {
   const sprints = [sprint('sp_1', 'JSPR-1'), sprint('sp_2', 'JSPR-2')];
 
@@ -123,6 +132,28 @@ describe('buildPushChanges', () => {
     expect(buildPushChanges(items, sprints, [bugType])).toHaveLength(0);
   });
 
+  it('serializes a dirty status as the native vocabulary id', () => {
+    const items = [item({
+      itemType: { id: 'flow', label: 'Flow' },
+      status: 'Under Review',
+      statusNative: { id: 'qa', label: 'QA Verify' },
+      dirtyFields: ['status'],
+    })];
+    const changes = buildPushChanges(items, sprints, [statusType]);
+    expect(changes).toHaveLength(1);
+    expect(changes[0].fields).toEqual({ statusId: 'qa' });
+  });
+
+  it('skips a dirty status that has no native id to express', () => {
+    const items = [item({
+      itemType: { id: 'flow', label: 'Flow' },
+      status: 'Blocked',
+      statusNative: null,
+      dirtyFields: ['status'],
+    })];
+    expect(buildPushChanges(items, sprints, [statusType])).toHaveLength(0);
+  });
+
   it('handles multiple items, including a mix of dirty and clean', () => {
     const items = [
       item({ id: 'it_1', externalId: 'EXT-1', points: 8, dirtyFields: ['points'] }),
@@ -175,6 +206,18 @@ describe('buildPushPreview', () => {
   it('omits a dirty field that is not writeable for the item type', () => {
     const items = [item({ points: 8, dirtyFields: ['points'], syncedValues: { points: 3, sprint: 'sp_1' }, itemType: { id: 'sprint_only', label: 'X' } })];
     expect(buildPushPreview(items, [sprintOnlyType])).toHaveLength(0);
+  });
+
+  it('reports a status diff as native ids with the Status label', () => {
+    const items = [item({
+      itemType: { id: 'flow', label: 'Flow' },
+      status: 'Under Review',
+      statusNative: { id: 'qa', label: 'QA Verify' },
+      dirtyFields: ['status'],
+      syncedValues: { status: 'in_progress' },
+    })];
+    const [p] = buildPushPreview(items, [statusType]);
+    expect(p.diffs).toEqual([{ field: 'status', label: 'Status', from: 'in_progress', to: 'qa' }]);
   });
 
   it('reports a vocabulary diff with its catalog label and spec', () => {

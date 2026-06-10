@@ -494,6 +494,46 @@ describe('applySync — attributes (connector vocabulary)', () => {
   });
 });
 
+describe('applySync — status vocabulary', () => {
+  const itemWithStatus = (status: 'Not Started' | 'In Progress' | 'Under Review' | 'Blocked' | 'Complete', statusNative?: { id: string; label: string } | null) => ({
+    externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null,
+    fields: { key: 'EXT-1', subject: 's', description: '', status, ...(statusNative !== undefined && { statusNative }), points: 3 },
+  });
+
+  it('stores the native state on create and refreshes it on re-sync (external wins)', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [itemWithStatus('Under Review', { id: 'qa', label: 'QA Verify' })] }));
+    expect(first.next.items[0].status).toBe('Under Review');
+    expect(first.next.items[0].statusNative).toEqual({ id: 'qa', label: 'QA Verify' });
+    const { next } = applySync(first.next, 'rel_1', mapped({ items: [itemWithStatus('Complete', { id: 'done', label: 'Done' })] }));
+    expect(next.items[0].status).toBe('Complete');
+    expect(next.items[0].statusNative).toEqual({ id: 'done', label: 'Done' });
+  });
+
+  it('leaves statusNative null when the connector sends none', () => {
+    const { next } = applySync(baseState(), 'rel_1', mapped({ items: [itemWithStatus('In Progress')] }));
+    expect(next.items[0].statusNative).toBeNull();
+  });
+
+  it('preserves a locally-dirty status on pull and baselines the external native id', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [itemWithStatus('In Progress', { id: 'in_progress', label: 'Doing' })] }), ['points', 'sprint', 'status']);
+    // Local edit: move to QA, pending push.
+    first.next.items[0].status = 'Under Review';
+    first.next.items[0].statusNative = { id: 'qa', label: 'QA Verify' };
+    first.next.items[0].dirtyFields = ['status'];
+    // External still reports Doing.
+    const { next } = applySync(first.next, 'rel_1', mapped({ items: [itemWithStatus('In Progress', { id: 'in_progress', label: 'Doing' })] }), ['points', 'sprint', 'status']);
+    expect(next.items[0].status).toBe('Under Review');
+    expect(next.items[0].statusNative).toEqual({ id: 'qa', label: 'QA Verify' });
+    expect(next.items[0].dirtyFields).toEqual(['status']);
+    expect(next.items[0].syncedValues?.status).toBe('in_progress');
+  });
+
+  it('baselines the bare category when status is writeable but no vocabulary exists', () => {
+    const { next } = applySync(baseState(), 'rel_1', mapped({ items: [itemWithStatus('Blocked')] }), ['points', 'sprint', 'status']);
+    expect(next.items[0].syncedValues?.status).toBe('Blocked');
+  });
+});
+
 describe('applySync — descriptionFormat field', () => {
   const itemWithFormat = (descriptionFormat?: 'text' | 'html') => ({
     externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null,

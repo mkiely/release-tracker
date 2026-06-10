@@ -47,8 +47,10 @@ export function StatusChip({ status, count }: { status: Status; count?: number }
  * A soft-tinted status pill (dot + label). `sm` is the compact form used in
  * dense table rows; the default is the slightly larger form used as a column
  * heading. Distinct from {@link StatusChip}, which uses the global `.chip` class.
+ * `label` overrides the displayed text (e.g. an item's native workflow state)
+ * while colors stay keyed to the canonical category.
  */
-export function StatusPill({ status, sm }: { status: Status; sm?: boolean }) {
+export function StatusPill({ status, sm, label }: { status: Status; sm?: boolean; label?: string }) {
   const { soft, text, dot } = statusVars(status);
   const d = sm ? 5 : 6;
   return (
@@ -67,7 +69,7 @@ export function StatusPill({ status, sm }: { status: Status; sm?: boolean }) {
       }}
     >
       <span style={{ width: d, height: d, borderRadius: '50%', background: dot, flexShrink: 0 }} />
-      {status}
+      {label ?? status}
     </span>
   );
 }

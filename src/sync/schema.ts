@@ -18,6 +18,8 @@ export type {
   PushResult,
   FieldSpec,
   ConnectorItemType,
+  StatusDef,
+  StatusRef,
   CreateItemRequest,
 } from '@release-tracker/sync-contract';
 

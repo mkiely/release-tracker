@@ -1,6 +1,6 @@
 // Domain types for Release Tracker. Mirrors the schema in proto-store.jsx.
 
-import type { ConnectorItemType } from './sync/schema';
+import type { ConnectorItemType, StatusDef } from './sync/schema';
 
 export const STATUSES = ['Not Started', 'In Progress', 'Under Review', 'Blocked', 'Complete'] as const;
 export type Status = (typeof STATUSES)[number];
@@ -14,7 +14,15 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 15;
+
+/** Sync-time snapshot of a connector's vocabulary: its item-type catalog and its
+ *  status vocabulary (native workflow states mapped to canonical categories).
+ *  Stored on the release so synced data stays interpretable offline. */
+export interface ReleaseCatalog {
+  itemTypes: ConnectorItemType[];
+  statuses: StatusDef[];
+}
 
 /** A person on a team. Members supply the per-sprint capacity (person-days). */
 export interface Member {
@@ -121,11 +129,12 @@ export interface Release {
   externalId: string | null;
   connector: ReleaseConnector | null;
   sync: SyncStatus | null;
-  /** Snapshot of the connector's itemTypes catalog, taken at each sync. Lets the
-   *  app interpret synced items' attributes (labels, enum options, lock state)
-   *  offline and keeps already-synced items stable if the connector's live catalog
+  /** Snapshot of the connector's vocabulary (item-type catalog + status
+   *  vocabulary), taken at each sync. Lets the app interpret synced items'
+   *  attributes and native statuses (labels, enum options, lock state) offline,
+   *  and keeps already-synced items stable if the connector's live catalog
    *  changes between syncs. null/absent = never synced or Local release. */
-  catalog?: ConnectorItemType[] | null;
+  catalog?: ReleaseCatalog | null;
 }
 
 /** A single piece of work. Belongs to one release, optionally assigned to a work
@@ -160,6 +169,14 @@ export interface WorkItem {
   syncedValues?: Record<string, AttrValue> | null;
   /** Work item type (Bug, Story, Task, etc.). Connector-supplied and read-only. Null for local items or when unset. */
   itemType: ItemType | null;
+  /**
+   * The item's native workflow state — the connector's real status (e.g. "QA
+   * Verify"), denormalized as {id, label} like itemType. `status` carries this
+   * state's canonical *category*, which is what every derivation computes over;
+   * this adds the true state for display/edit. Null for local items or when the
+   * backend has no richer workflow than the canonical five.
+   */
+  statusNative?: { id: string; label: string } | null;
   /**
    * Connector vocabulary values keyed by FieldSpec.key — fields the connector's
    * catalog declares but that don't map to a canonical concept (e.g. a Bug's

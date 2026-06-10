@@ -758,6 +758,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const [wsId, setWsId] = useState<string | null>(it ? it.workStreamId : null);
   const [sprintId, setSprintId] = useState<string | null>(it?.sprintId ?? null);
   const [status, setStatus] = useState<Status>(it ? it.status : 'Not Started');
+  const [statusNativeId, setStatusNativeId] = useState<string>(it?.statusNative?.id ?? '');
   const [points, setPoints] = useState(it ? it.points : 3);
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(it?.assignedMemberId ?? null);
   const [typeLabel, setTypeLabel] = useState<string>(it?.itemType?.label ?? '');
@@ -779,7 +780,11 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   // points + sprint (see conceptWriteable). One declared source, no hand-coded rules.
   // Live meta when the service is reachable; the release's sync-time catalog
   // snapshot otherwise, so synced items stay interpretable offline.
-  const itype = itemTypeFor(it.itemType?.id, meta?.itemTypes ?? r.catalog ?? undefined);
+  const itype = itemTypeFor(it.itemType?.id, meta?.itemTypes ?? r.catalog?.itemTypes);
+  // The connector's status vocabulary (native workflow states). Empty = the
+  // backend uses the canonical five directly.
+  const statusVocab = meta?.statuses?.length ? meta.statuses : (r.catalog?.statuses ?? []);
+  const vocabStatus = synced && statusVocab.length > 0;
   const canWrite = (c: EditConcept) => !synced || conceptWriteable(itype, c);
   const isDirty = it.dirtyFields.length > 0;
   // Connector vocabulary (e.g. a Bug's severity): declared by the catalog, stored
@@ -789,6 +794,13 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const editableAttrKeys = new Set(writeableAttributeFields(itype).map((f) => f.key));
   const attrEditable = (key: string) => editableAttrKeys.has(key);
 
+  // Resolve the chosen status: in vocabulary mode the select carries a native id
+  // whose category becomes the canonical status; otherwise the canonical select
+  // value is used directly.
+  const chosenDef = vocabStatus ? statusVocab.find((sd) => sd.id === statusNativeId) : undefined;
+  const nextStatus: Status = chosenDef ? chosenDef.category : status;
+  const nextStatusNative = chosenDef ? { id: chosenDef.id, label: chosenDef.label } : (it.statusNative ?? null);
+
   const save = () => {
     let nextDirty = [...it.dirtyFields];
     const nextAttrs = { ...it.attributes };
@@ -796,6 +808,8 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       // Accumulate dirty flags only for writeable fields that changed.
       if (points !== it.points && !nextDirty.includes('points')) nextDirty.push('points');
       if (sprintId !== it.sprintId && !nextDirty.includes('sprint')) nextDirty.push('sprint');
+      const statusChanged = nextStatus !== it.status || (nextStatusNative?.id ?? null) !== (it.statusNative?.id ?? null);
+      if (statusChanged && !nextDirty.includes('status')) nextDirty.push('status');
       for (const f of attrFields) {
         if (!attrEditable(f.key)) continue;
         const v = attrs[f.key] ?? null;
@@ -809,7 +823,8 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       description: desc,
       workStreamId: wsId,
       sprintId,
-      status,
+      status: nextStatus,
+      statusNative: nextStatusNative,
       points,
       assignedMemberId,
       attributes: nextAttrs,
@@ -830,7 +845,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   // The writeable field names for the banner, derived from the catalog (legacy
   // fallback: points + sprint). Vocabulary keys show their catalog label.
   const writeableLabels = [...writeableLocal].map((key) =>
-    key === 'points' ? 'Points' : key === 'sprint' ? 'Sprint' : (attrFields.find((f) => f.key === key)?.label ?? key),
+    key === 'points' ? 'Points' : key === 'sprint' ? 'Sprint' : key === 'status' ? 'Status' : (attrFields.find((f) => f.key === key)?.label ?? key),
   );
   const syncBanner = synced ? (
     <div style={bannerStyle}>
@@ -959,13 +974,25 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           </PSelect>
         </PField>
         <PField label="Status" style={{ flex: 1 }}>
-          <PSelect value={status} disabled={!canWrite('status')} onChange={(e) => setStatus(e.target.value as Status)}>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </PSelect>
+          {vocabStatus ? (
+            <PSelect value={statusNativeId} disabled={!canWrite('status')} onChange={(e) => setStatusNativeId(e.target.value)}>
+              {/* Pre-vocabulary item: show its bare category until a native state is chosen. */}
+              {!statusNativeId && <option value="">{it.status}</option>}
+              {statusVocab.map((sd) => (
+                <option key={sd.id} value={sd.id}>
+                  {sd.label}
+                </option>
+              ))}
+            </PSelect>
+          ) : (
+            <PSelect value={status} disabled={!canWrite('status')} onChange={(e) => setStatus(e.target.value as Status)}>
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </PSelect>
+          )}
         </PField>
       </div>
       {!connectorRelease && (
@@ -1035,8 +1062,10 @@ export function PushReviewModal({
 
   const sprintName = (id: string | null): string =>
     id == null ? 'Backlog' : (r.sprints.find((s) => s.id === id)?.name ?? 'Unknown sprint');
+  const statusVocab = meta?.statuses?.length ? meta.statuses : (r.catalog?.statuses ?? []);
   const valueText = (d: PushItemPreview['diffs'][number], v: AttrValue): string => {
     if (d.field === 'sprint') return sprintName(v as string | null);
+    if (d.field === 'status') return statusVocab.find((sd) => sd.id === v)?.label ?? (v == null ? '—' : String(v));
     if (d.spec) return displayValue(d.spec, v); // vocabulary: enum labels, Yes/No, em-dash
     return v == null ? '—' : String(v);
   };

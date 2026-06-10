@@ -52,7 +52,11 @@ export function buildPushPreview(items: WorkItem[], types: ConnectorItemType[] |
       const from = base && field in base ? base[field] : null;
       if (field === 'points') diffs.push({ field, label: 'Points', from, to: item.points });
       else if (field === 'sprint') diffs.push({ field, label: 'Sprint', from, to: item.sprintId });
-      else {
+      else if (field === 'status') {
+        // Values are native status ids (or bare categories without a vocabulary);
+        // the caller resolves them to display labels.
+        diffs.push({ field, label: 'Status', from, to: item.statusNative?.id ?? item.status });
+      } else {
         const spec = attrSpecs.get(field);
         diffs.push({ field, label: spec?.label ?? field, spec, from, to: item.attributes?.[field] ?? null });
       }
@@ -100,6 +104,10 @@ export function buildPushChanges(
       } else if (field === 'sprint') {
         // Map to external sprint id; null means backlog.
         fields.extSprintId = item.sprintId != null ? (sprintExtById.get(item.sprintId) ?? null) : null;
+      } else if (field === 'status') {
+        // Only expressible as a native vocabulary id; without one (no vocabulary
+        // declared) the status change cannot be pushed and is skipped.
+        if (item.statusNative?.id) fields.statusId = item.statusNative.id;
       } else {
         (attributes ??= {})[field] = item.attributes?.[field] ?? null;
       }
