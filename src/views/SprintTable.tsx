@@ -13,6 +13,7 @@ import { IconButton } from '../components/primitives';
 import { TeamLink } from '../components/TeamLink';
 import { statusVars, typeVars } from '../components/statusVars';
 import { STATUSES, type Member, type Status } from '../types';
+import { attributeColumns, type AttrColumn } from '../components/fields/columns';
 import { ItemRow } from './ItemRow';
 import styles from './SprintTable.module.css';
 
@@ -39,7 +40,7 @@ function GroupToggle({ value, onChange }: { value: GroupBy; onChange: (v: GroupB
   );
 }
 
-function ColHeaders({ groupBy }: { groupBy: GroupBy }) {
+function ColHeaders({ groupBy, attrColumns }: { groupBy: GroupBy; attrColumns: AttrColumn[] }) {
   return (
     <div className={styles.colHeaders}>
       <div className={styles.colHeaderLeft}>
@@ -54,6 +55,9 @@ function ColHeaders({ groupBy }: { groupBy: GroupBy }) {
         <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`}></div>
         <div className={`${styles.colStatus} ${styles.colHeaderLabel}`}>Status</div>
         <div className={`${styles.colBuild} ${styles.colHeaderLabel}`}>Build</div>
+        {attrColumns.map((c) => (
+          <div key={c.key} className={`${styles.colAttr} ${styles.colHeaderLabel}`}>{c.label}</div>
+        ))}
         {groupBy === 'status' && (
           <div className={`${styles.colWorkStream} ${styles.colHeaderLabel}`}>Work Stream</div>
         )}
@@ -66,11 +70,13 @@ function ColHeaders({ groupBy }: { groupBy: GroupBy }) {
 function StreamSection({
   col,
   members,
+  attrColumns,
   onOpenItem,
   onNavigateToStream,
 }: {
   col: StreamColumn;
   members: Member[];
+  attrColumns: AttrColumn[];
   onOpenItem: (id: string) => void;
   onNavigateToStream: (wsId: string) => void;
 }) {
@@ -96,6 +102,7 @@ function StreamSection({
             key={it.id}
             item={it}
             members={members}
+            attrColumns={attrColumns}
             onOpen={() => onOpenItem(it.id)}
           />
         ))}
@@ -108,11 +115,13 @@ function StatusSection({
   col,
   workStreams,
   members,
+  attrColumns,
   onOpenItem,
 }: {
   col: StatusColumn;
   workStreams: SprintViewProps['release']['workStreams'];
   members: Member[];
+  attrColumns: AttrColumn[];
   onOpenItem: (id: string) => void;
 }) {
   const sv = statusVars(col.status);
@@ -142,6 +151,7 @@ function StatusSection({
               item={it}
               workStreamName={ws?.name ?? 'Unassigned'}
               members={members}
+              attrColumns={attrColumns}
               onOpen={() => onOpenItem(it.id)}
             />
           );
@@ -313,6 +323,8 @@ export function SprintTable({
   notify,
 }: SprintViewProps) {
   const members = team?.members ?? [];
+  // Vocabulary columns declared by the connector's catalog snapshot (none for local releases).
+  const attrCols = attributeColumns(r.catalog);
 
   // status cols reordered for table view
   const orderedStatusCols = TABLE_STATUS_ORDER
@@ -400,7 +412,7 @@ export function SprintTable({
       />
 
       <div className={styles.body}>
-        <ColHeaders groupBy={groupBy} />
+        <ColHeaders groupBy={groupBy} attrColumns={attrCols} />
 
         {filteredItems.length === 0 ? (
           <EmptyState>
@@ -412,6 +424,7 @@ export function SprintTable({
               key={col.ws.id}
               col={col}
               members={members}
+              attrColumns={attrCols}
               onOpenItem={onOpenItem}
               onNavigateToStream={onNavigateToStream}
             />
@@ -423,6 +436,7 @@ export function SprintTable({
               col={col}
               workStreams={r.workStreams}
               members={members}
+              attrColumns={attrCols}
               onOpenItem={onOpenItem}
             />
           ))

@@ -14,6 +14,7 @@ import { IconButton } from '../components/primitives';
 import { TeamLink } from '../components/TeamLink';
 import { statusVars, typeVars } from '../components/statusVars';
 import { getActions } from '../store/store';
+import { attributeColumns, type AttrColumn } from '../components/fields/columns';
 import { ItemRow } from './ItemRow';
 import styles from './SprintTable.module.css';
 
@@ -24,6 +25,7 @@ function SprintSection({
   isActive,
   items,
   members,
+  attrColumns,
   notify,
   onOpenItem,
 }: {
@@ -31,6 +33,7 @@ function SprintSection({
   isActive: boolean;
   items: WorkItem[];
   members: Member[];
+  attrColumns: AttrColumn[];
   notify: (msg: string) => void;
   onOpenItem: (id: string) => void;
 }) {
@@ -116,7 +119,7 @@ function SprintSection({
       </div>
       <div className={styles.sectionRight}>
         {items.map((it) => (
-          <ItemRow key={it.id} item={it} members={members} onOpen={() => onOpenItem(it.id)} />
+          <ItemRow key={it.id} item={it} members={members} attrColumns={attrColumns} onOpen={() => onOpenItem(it.id)} />
         ))}
       </div>
     </div>
@@ -188,7 +191,7 @@ function FilterBar({
 
 // ── Column headers ────────────────────────────────────────────────────────
 
-function ColHeaders() {
+function ColHeaders({ attrColumns }: { attrColumns: AttrColumn[] }) {
   return (
     <div className={styles.colHeaders}>
       <div className={styles.colHeaderLeft}>
@@ -201,6 +204,9 @@ function ColHeaders() {
         <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`}>Assignee</div>
         <div className={`${styles.colStatus} ${styles.colHeaderLabel}`}>Status</div>
         <div className={`${styles.colBuild} ${styles.colHeaderLabel}`}>Build</div>
+        {attrColumns.map((c) => (
+          <div key={c.key} className={`${styles.colAttr} ${styles.colHeaderLabel}`}>{c.label}</div>
+        ))}
         <div className={`${styles.colTitle} ${styles.colHeaderLabel}`}>Title</div>
       </div>
     </div>
@@ -234,6 +240,8 @@ export function WorkStreamTable({
   notify,
 }: WorkStreamViewProps) {
   const members = team?.members ?? [];
+  // Vocabulary columns declared by the connector's catalog snapshot (none for local releases).
+  const attrCols = attributeColumns(r.catalog);
 
   const sprintSections = r.sprints
     .map((sp) => ({ sp, items: filteredItems.filter((i) => i.sprintId === sp.id) }))
@@ -278,7 +286,7 @@ export function WorkStreamTable({
       />
 
       <div className={styles.body}>
-        <ColHeaders />
+        <ColHeaders attrColumns={attrCols} />
 
         {filteredItems.length === 0 ? (
           <EmptyState>
@@ -293,6 +301,7 @@ export function WorkStreamTable({
                 isActive={sp.id === activeSprintId}
                 items={items}
                 members={members}
+                attrColumns={attrCols}
                 notify={notify}
                 onOpenItem={onOpenItem}
               />
@@ -305,7 +314,7 @@ export function WorkStreamTable({
                 </div>
                 <div className={styles.sectionRight}>
                   {backlogItems.map((it) => (
-                    <ItemRow key={it.id} item={it} members={members} onOpen={() => onOpenItem(it.id)} />
+                    <ItemRow key={it.id} item={it} members={members} attrColumns={attrCols} onOpen={() => onOpenItem(it.id)} />
                   ))}
                 </div>
               </div>
