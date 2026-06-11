@@ -98,3 +98,54 @@ export function conceptWriteable(type: ConnectorItemType | undefined, concept: E
   const match = CONCEPT_MATCH[concept];
   return type.fields.some((f) => f.writeable === true && match(f));
 }
+
+// ── Capability handshake ──────────────────────────────────────────────────
+// The bind-time check that a connector's catalog actually covers the semantic
+// concepts the app's derivations depend on. Computed app-side from the catalog
+// (the same one the service serves and the release snapshots) rather than over
+// the wire — the data is already in hand and the check works offline.
+
+/** A semantic concept the catalog fails to cover, with its user-facing impact. */
+export interface MissingCapability {
+  concept: 'points' | 'sprint' | 'assignee' | 'status';
+  /** Short user-facing consequence, e.g. "capacity math shows 0". */
+  impact: string;
+}
+
+const CAPABILITY_PROBES: { concept: MissingCapability['concept']; match: (f: FieldSpec) => boolean; impact: string }[] = [
+  { concept: 'points', match: (f) => f.role === 'points', impact: 'no story points — capacity and velocity show 0' },
+  { concept: 'sprint', match: (f) => f.kind === 'ref' && f.target === 'sprint', impact: 'no sprint field — items cannot be scheduled or moved' },
+  { concept: 'assignee', match: (f) => f.kind === 'ref' && f.target === 'member', impact: 'no assignee field — workload by member unavailable' },
+  { concept: 'status', match: (f) => f.role === 'status' || f.enumRef === 'status', impact: 'status is read-only — workflow changes happen in the backend' },
+];
+
+/** Concepts no item type covers. Empty for an absent/empty catalog (capability
+ *  unknown — legacy connectors that declare nothing get no warnings). */
+export function missingCapabilities(types: ConnectorItemType[] | undefined): MissingCapability[] {
+  if (!types || types.length === 0) return [];
+  const fields = types.flatMap((t) => t.fields);
+  return CAPABILITY_PROBES
+    .filter((p) => !fields.some(p.match))
+    .map(({ concept, impact }) => ({ concept, impact }));
+}
+
+/** One-line positive capability summary for the bind-time form ("what you get"):
+ *  creatable types, pushable fields, workflow-state count. Null when the
+ *  connector declares no catalog. */
+export function capabilitySummary(meta: { itemTypes?: ConnectorItemType[]; statuses?: unknown[] } | undefined): string | null {
+  const types = meta?.itemTypes;
+  if (!types || types.length === 0) return null;
+  const parts: string[] = [];
+  const creatable = types.filter((t) => t.fields.some((f) => f.creatable === true));
+  if (creatable.length > 0) parts.push(`creates ${creatable.map((t) => t.label).join(', ')}`);
+  const pushable = new Set<string>();
+  for (const t of types) {
+    for (const key of writeableLocalFields(t)) {
+      pushable.add(key === 'points' || key === 'sprint' || key === 'status' ? key : (attributeFields(t).find((f) => f.key === key)?.label ?? key));
+    }
+  }
+  if (pushable.size > 0) parts.push(`pushes ${[...pushable].join(', ')}`);
+  const states = meta?.statuses?.length ?? 0;
+  if (states > 0) parts.push(`${states} workflow states`);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}

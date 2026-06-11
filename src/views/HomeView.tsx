@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon';
 import { Meter } from '../components/badges';
 import { EmptyState } from '../components/EmptyState';
 import { IconButton, PButton, PField, PInput, PSelect } from '../components/primitives';
+import { capabilitySummary, missingCapabilities } from '../lib/connectorFields';
 import { fmtShort } from '../lib/dates';
 import styles from '../routes/Home.module.css';
 
@@ -195,6 +196,19 @@ export function HomeView({
                   marginLeft: 2,
                 }}
               >
+                {/* Bind-time capability handshake: what this connector supports,
+                    and which app features will degrade if its catalog misses a
+                    semantic concept. */}
+                {(capabilitySummary(meta) || missingCapabilities(meta.itemTypes).length > 0) && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 'var(--rt-fs-xs)', lineHeight: 'var(--rt-lh-normal)' }}>
+                    {capabilitySummary(meta) && <span style={{ color: 'var(--rt-t3)' }}>{capabilitySummary(meta)}</span>}
+                    {missingCapabilities(meta.itemTypes).map((m) => (
+                      <span key={m.concept} style={{ color: 'var(--rt-st-bl-text)' }}>
+                        {m.impact}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {meta.configFields.map((f) => (
                   <PField key={f.key} label={f.label} hint={f.required ? undefined : 'optional'}>
                     <PInput

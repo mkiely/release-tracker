@@ -25,7 +25,7 @@ import { seed } from '../lib/seed';
 import { applyCreatedItem, applySync } from '../sync/applySync';
 import { buildPushChanges } from '../sync/push';
 import { allWriteableLocalFields, writeableLocalFieldsForItem } from '../lib/connectorFields';
-import { syncClient, type CreateItemInput } from '../sync/client';
+import { syncClient, SyncValidationError, type CreateItemInput } from '../sync/client';
 import type { PushResult, SyncResult } from '../sync/schema';
 
 /** Result of a sync attempt, shaped so the UI can craft a precise toast. */
@@ -38,10 +38,11 @@ export type PushOutcome =
   | { ok: true; result: PushResult }
   | { ok: false; reason: 'no-connector' | 'nothing-to-push' | 'error'; message: string };
 
-/** Result of creating an item on a connector release. */
+/** Result of creating an item on a connector release. `validation` failures carry
+ *  the service's field-keyed errors so the form can mark the offending inputs. */
 export type CreateItemOutcome =
   | { ok: true; item: WorkItem }
-  | { ok: false; reason: 'no-connector' | 'error'; message: string };
+  | { ok: false; reason: 'no-connector' | 'validation' | 'error'; message: string; fieldErrors?: { field: string; message: string }[] };
 
 export const LS_KEY = 'release-tracker:v1';
 
@@ -537,6 +538,9 @@ export const useStore = create<StoreState>((set, get) => {
         set({ ...next });
         return { ok: true, item };
       } catch (e) {
+        if (e instanceof SyncValidationError) {
+          return { ok: false, reason: 'validation', message: e.message, fieldErrors: e.fieldErrors };
+        }
         return { ok: false, reason: 'error', message: e instanceof Error ? e.message : String(e) };
       }
     },

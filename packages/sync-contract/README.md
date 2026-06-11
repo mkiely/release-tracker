@@ -129,6 +129,17 @@ options and pushes transitions as `PushItemChange.fields.statusId` — a
 No vocabulary declared ⇒ items carry no `statusNative` and status stays
 read-only in the app.
 
+### Validation (the service is the authority)
+
+The app validates client-side from `FieldSpec` constraints (`required`,
+`options`, `min`/`max`, …) as a best effort, but the **service owns
+validation**: it re-checks the catalog's declared constraints and applies its
+backend's conditional/cross-field rules, which no declared schema can express
+(e.g. "a critical bug requires reproduction steps"). On failure, `createItem`
+and `push` return **422** with a `ValidationProblem` — a summary `error` plus
+optional `fieldErrors: [{ field, message }]` keyed by `FieldSpec.key` so the
+app's form marks the offending inputs inline.
+
 ### Attributes (connector vocabulary)
 
 Catalog fields that do **not** map to a canonical concept — no `role`, not

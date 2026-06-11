@@ -66,6 +66,9 @@ export function ConnectorItemModal({
   const [showErrors, setShowErrors] = useState(false);
   const [busy, setBusy] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  // Field-keyed 422 errors from the service — the validation authority. Rendered
+  // inline under the offending inputs, like client-side validation.
+  const [serverFieldErrors, setServerFieldErrors] = useState<Record<string, string>>({});
 
   if (!r) {
     return (
@@ -105,6 +108,7 @@ export function ConnectorItemModal({
     }
     setBusy(true);
     setServerError(null);
+    setServerFieldErrors({});
 
     let extWorkStreamId: string | null = null;
     let extSprintId: string | null = null;
@@ -131,7 +135,10 @@ export function ConnectorItemModal({
       notify(`Created ${outcome.item.key}`);
       onClose();
     } else {
-      setServerError(outcome.message);
+      const byField = Object.fromEntries((outcome.fieldErrors ?? []).map((fe) => [fe.field, fe.message]));
+      setServerFieldErrors(byField);
+      // Keep the footer summary only when there's nothing to pin to a field.
+      setServerError(Object.keys(byField).length > 0 ? null : outcome.message);
     }
   };
 
@@ -171,14 +178,26 @@ export function ConnectorItemModal({
         </PField>
       )}
 
-      {createFields.map((f) => (
-        <PField key={f.key} label={f.label ?? f.key} hint={f.required ? undefined : 'optional'}>
-          <FieldControl field={f} value={values[f.key]} onChange={(v) => set(f.key, v)} ctx={ctx} />
-          {showErrors && errors[f.key] && (
-            <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-st-bl-text)', marginTop: 2 }}>{errors[f.key]}</span>
-          )}
-        </PField>
-      ))}
+      {createFields.map((f) => {
+        const fieldError = (showErrors && errors[f.key]) || serverFieldErrors[f.key];
+        return (
+          <PField key={f.key} label={f.label ?? f.key} hint={f.required ? undefined : 'optional'}>
+            <FieldControl
+              field={f}
+              value={values[f.key]}
+              onChange={(v) => {
+                set(f.key, v);
+                // Editing a field clears its server verdict (it'll be re-checked on submit).
+                if (serverFieldErrors[f.key]) setServerFieldErrors(({ [f.key]: _, ...rest }) => rest);
+              }}
+              ctx={ctx}
+            />
+            {fieldError && (
+              <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-st-bl-text)', marginTop: 2 }}>{fieldError}</span>
+            )}
+          </PField>
+        );
+      })}
     </Modal>
   );
 }

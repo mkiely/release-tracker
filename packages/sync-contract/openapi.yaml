@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.11.0
+  version: 0.12.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
@@ -80,6 +80,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PushResult' }
+        '422':
+          description: One or more changes failed the service's validation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationProblem' }
 
   /releases/{id}/items:
     post:
@@ -103,6 +108,15 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MappedItem' }
+        '422':
+          description: >-
+            The request failed validation. The service is the validation
+            authority — it checks the catalog's declared constraints AND its
+            backend's conditional/cross-field rules, which the app cannot know.
+            fieldErrors lets the form mark the offending inputs.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationProblem' }
 
 components:
   schemas:
@@ -429,6 +443,31 @@ components:
         config:
           type: object
           additionalProperties: { type: string }
+
+    FieldError:
+      type: object
+      description: One field-level validation failure.
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          description: >-
+            The offending input: a FieldSpec.key for scalar/enum fields, or the
+            ref field's key for unresolved/missing refs.
+        message: { type: string, description: 'Human-readable, form-displayable.' }
+
+    ValidationProblem:
+      type: object
+      description: >-
+        Body of a 422 response. `error` summarizes; `fieldErrors` (when present)
+        pins failures to specific inputs so the app's form can mark them inline
+        instead of showing one opaque toast.
+      required: [error]
+      properties:
+        error: { type: string }
+        fieldErrors:
+          type: array
+          items: { $ref: '#/components/schemas/FieldError' }
 
     ValidateResult:
       type: object

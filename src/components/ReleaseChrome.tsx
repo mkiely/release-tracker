@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { ReleaseViewProps, WorkStreamBadgeData } from '../hooks/useReleaseView';
 import type { StatusSeg } from '../types';
+import { missingCapabilities } from '../lib/connectorFields';
 import { PushButton, SyncButton } from './chrome';
 import { FilterChip } from './FilterChip';
 import { ScreenScaffold } from './ScreenScaffold';
@@ -114,6 +115,9 @@ export function ReleaseChrome({
   children,
 }: ReleaseChromeProps) {
   const axis = useAxisMode();
+  // Capability handshake verdict, from the release's catalog snapshot: which
+  // semantic concepts this connector can't express (degraded app features).
+  const degraded = missingCapabilities(r.catalog?.itemTypes);
   return (
     <ScreenScaffold
       left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
@@ -149,6 +153,16 @@ export function ReleaseChrome({
                 {connLabel}
               </span>
             </>
+          )}
+          {degraded.length > 0 && (
+            <span
+              className="tag"
+              style={{ flex: '0 0 auto', color: 'var(--rt-st-bl-text)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              title={`This connector's catalog limits some features:\n${degraded.map((m) => `· ${m.impact}`).join('\n')}`}
+            >
+              {Icon.alert}
+              Connector limits
+            </span>
           )}
         </>
       }

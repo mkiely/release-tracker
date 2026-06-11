@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allWriteableLocalFields, attributeFields, conceptWriteable, isAttributeField, itemTypeFor, writeableAttributeFields, writeableLocalFields } from './connectorFields';
+import { allWriteableLocalFields, attributeFields, capabilitySummary, conceptWriteable, isAttributeField, itemTypeFor, missingCapabilities, writeableAttributeFields, writeableLocalFields } from './connectorFields';
 import type { ConnectorItemType } from '../sync/schema';
 
 const story: ConnectorItemType = {
@@ -109,6 +109,58 @@ describe('writeable vocabulary fields', () => {
   it('writeableAttributeFields returns the writeable attribute subset as specs', () => {
     expect(writeableAttributeFields(bug).map((f) => f.key)).toEqual(['severity']);
     expect(writeableAttributeFields(undefined)).toEqual([]);
+  });
+});
+
+describe('capability handshake', () => {
+  const fullCoverage: ConnectorItemType = {
+    id: 'full',
+    label: 'Full',
+    fields: [
+      { key: 'points', kind: 'number', role: 'points', writeable: true },
+      { key: 'sprint', kind: 'ref', target: 'sprint', writeable: true },
+      { key: 'assignee', kind: 'ref', target: 'member' },
+      { key: 'status', kind: 'enum', enumRef: 'status', writeable: true },
+    ],
+  };
+  const bare: ConnectorItemType = {
+    id: 'bare',
+    label: 'Bare',
+    fields: [{ key: 'subject', kind: 'string', role: 'subject', creatable: true }],
+  };
+
+  it('reports nothing for full coverage and for an absent catalog (unknown ≠ degraded)', () => {
+    expect(missingCapabilities([fullCoverage])).toEqual([]);
+    expect(missingCapabilities(undefined)).toEqual([]);
+    expect(missingCapabilities([])).toEqual([]);
+  });
+
+  it('reports every uncovered concept with a user-facing impact', () => {
+    const missing = missingCapabilities([bare]);
+    expect(missing.map((m) => m.concept)).toEqual(['points', 'sprint', 'assignee', 'status']);
+    expect(missing[0].impact).toMatch(/capacity/);
+  });
+
+  it('coverage anywhere in the catalog counts (union across types)', () => {
+    const pointsOnly: ConnectorItemType = {
+      id: 'p', label: 'P', fields: [{ key: 'est', kind: 'number', role: 'points' }],
+    };
+    expect(missingCapabilities([bare, pointsOnly]).map((m) => m.concept)).toEqual(['sprint', 'assignee', 'status']);
+  });
+
+  it('capabilitySummary lists creatable types, pushable fields, and workflow states', () => {
+    const meta = {
+      itemTypes: [
+        { ...fullCoverage, fields: [...fullCoverage.fields, { key: 'severity', label: 'Severity', kind: 'enum' as const, creatable: true, writeable: true, options: [{ value: 'low', label: 'Low' }] }] },
+      ],
+      statuses: [{ id: 'a' }, { id: 'b' }],
+    };
+    const s = capabilitySummary(meta)!;
+    expect(s).toContain('creates Full');
+    expect(s).toContain('pushes points, sprint, status, Severity');
+    expect(s).toContain('2 workflow states');
+    expect(capabilitySummary(undefined)).toBeNull();
+    expect(capabilitySummary({ itemTypes: [] })).toBeNull();
   });
 });
 

@@ -9,7 +9,18 @@ import { FIXTURE_CONNECTORS, fixtureCreatedItem, fixtureMappedRelease } from './
 
 // Wire types come from the app-owned Sync Contract; re-export so app code can keep
 // importing them from the client module.
-export type { ConnectorMeta, ValidateResult, PushItemChange, PushResult, ConnectorItemType, FieldSpec } from '@release-tracker/sync-contract';
+export type { ConnectorMeta, ValidateResult, PushItemChange, PushResult, ConnectorItemType, FieldSpec, FieldError } from '@release-tracker/sync-contract';
+
+/** A 422 from the sync service: the request failed the connector's validation.
+ *  Carries field-keyed errors so forms can mark the offending inputs inline. */
+export class SyncValidationError extends Error {
+  readonly fieldErrors: { field: string; message: string }[];
+  constructor(message: string, fieldErrors: { field: string; message: string }[] = []) {
+    super(message);
+    this.name = 'SyncValidationError';
+    this.fieldErrors = fieldErrors;
+  }
+}
 
 /** Create-item request body minus `connector` (the client supplies that). */
 export type CreateItemInput = Omit<CreateItemRequest, 'connector'>;
@@ -70,6 +81,11 @@ export class HttpSyncClient implements SyncClient {
       headers: { 'content-type': 'application/json' },
       ...init,
     });
+    if (res.status === 422) {
+      // Contract ValidationProblem: a summary + optional field-keyed errors.
+      const body = (await res.json().catch(() => null)) as { error?: string; fieldErrors?: { field: string; message: string }[] } | null;
+      throw new SyncValidationError(body?.error ?? 'Validation failed', body?.fieldErrors ?? []);
+    }
     if (!res.ok) throw new Error(`Sync service ${res.status}: ${await res.text()}`);
     return res.json() as Promise<T>;
   }
