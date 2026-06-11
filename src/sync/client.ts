@@ -30,11 +30,11 @@ export interface SyncClient {
   listConnectors(): Promise<ConnectorMeta[]>;
   /** POST /connectors/{type}/validate — check config/creds before saving. */
   validate(type: ConnectorType, config: Record<string, string>): Promise<ValidateResult>;
-  /** POST /releases/{id}/sync — fetch + map external data for this release. */
+  /** POST /releases/sync — fetch + map external data for this release. */
   sync(connector: ReleaseConnector): Promise<MappedRelease>;
-  /** POST /releases/{id}/push — write locally-dirty writeable fields back to the external system. */
+  /** POST /releases/push — write locally-dirty writeable fields back to the external system. */
   push(connector: ReleaseConnector, changes: PushItemChange[]): Promise<PushResult>;
-  /** POST /releases/{id}/items — create a work item; returns it mapped for reconciliation. */
+  /** POST /releases/items — create a work item; returns it mapped for reconciliation. */
   createItem(connector: ReleaseConnector, req: CreateItemInput): Promise<MappedItem>;
 }
 

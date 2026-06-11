@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.12.0
+  version: 0.13.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
@@ -45,12 +45,10 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ValidateResult' }
 
-  /releases/{id}/sync:
+  /releases/sync:
     post:
       operationId: syncRelease
       summary: Fetch + map external data for a release into the app's schema.
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
       requestBody:
         required: true
         content:
@@ -63,12 +61,10 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/MappedRelease' }
 
-  /releases/{id}/push:
+  /releases/push:
     post:
       operationId: pushRelease
       summary: Push locally-modified writeable fields back to the external system.
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
       requestBody:
         required: true
         content:
@@ -86,7 +82,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ValidationProblem' }
 
-  /releases/{id}/items:
+  /releases/items:
     post:
       operationId: createItem
       summary: Create a new work item in the external system and return it mapped.
@@ -95,8 +91,6 @@ paths:
         The service creates the item in the backend, assigns its key/id, and
         returns the fully-normalized MappedItem so the app can reconcile it as a
         synced item (no follow-up sync required).
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
       requestBody:
         required: true
         content:

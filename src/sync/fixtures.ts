@@ -3,7 +3,7 @@
 // consumes them (SyncClient → applySync) is the code we keep.
 //
 // `FIXTURE_CONNECTORS` mirrors `GET /connectors`; `fixtureMappedRelease()` mirrors
-// `POST /releases/{id}/sync` for the Jira connector with representative sample data.
+// `POST /releases/sync` for the Jira connector with representative sample data.
 
 import type { ConnectorMeta, CreateItemInput } from './client';
 import type { ContractStatus, ConnectorItemType, MappedItem, MappedRelease, StatusDef } from './schema';
@@ -108,7 +108,7 @@ export const FIXTURE_CONNECTORS: ConnectorMeta[] = [
 let createSeq = 0;
 
 /**
- * Stand-in for `POST /releases/{id}/items`: synthesizes the MappedItem the real
+ * Stand-in for `POST /releases/items`: synthesizes the MappedItem the real
  * service would return after creating the item in the backend (key + externalId
  * assigned, fields normalized), so the app can reconcile it as a synced item.
  */

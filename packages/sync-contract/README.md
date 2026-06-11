@@ -14,9 +14,9 @@ A single sync service can expose multiple connectors (one per backend type). The
 |---|---|---|---|
 | `GET` | `/connectors` | List available connectors and the config fields each requires | |
 | `POST` | `/connectors/{type}/validate` | Validate a connector's config/credentials before saving | |
-| `POST` | `/releases/{id}/sync` | Fetch and map external data for a release | |
-| `POST` | `/releases/{id}/push` | Push locally-modified writeable fields back to the external system | `422 ValidationProblem` |
-| `POST` | `/releases/{id}/items` | Create a work item; returns it mapped for reconciliation | `422 ValidationProblem` |
+| `POST` | `/releases/sync` | Fetch and map external data for a release | |
+| `POST` | `/releases/push` | Push locally-modified writeable fields back to the external system | `422 ValidationProblem` |
+| `POST` | `/releases/items` | Create a work item; returns it mapped for reconciliation | `422 ValidationProblem` |
 
 Full schema: [`openapi.yaml`](./openapi.yaml). **Reference implementation:** the
 `acme` connector in the sibling `work-truck` repo (`src/connectors/acme/`) — a
@@ -42,7 +42,7 @@ import type {
   StatusDef,           // One native workflow state mapped to a canonical category
   StatusRef,           // An item's native state, denormalized {id, label}
   AttributeBag,        // Vocabulary values keyed by FieldSpec.key (non-canonical fields)
-  CreateItemRequest,   // POST /releases/{id}/items body
+  CreateItemRequest,   // POST /releases/items body
   PushItemChange,      // One item's dirty writeable fields: points / extSprintId / statusId / attributes
   PushResult,          // { pushed, failed, errors }
   FieldError,          // { field, message } — one 422 field verdict
@@ -98,8 +98,14 @@ Config values (project keys, board IDs, etc.) are stored on the release and pass
 5. Only declare what you implement — the app gates "New work item", edit locks,
    and push on the declarations, and surfaces missing concepts (no `role:
    points` field ⇒ "capacity math unavailable") at bind time.
+6. **Run the conformance suite**: in work-truck, call
+   `describeConnectorContract('<type>', YourConnector, { reset })` from
+   `src/connectors/conformance.ts` in a `<type>/conformance.test.ts`. It checks
+   the invariants above generically (canonical statuses, status-vocabulary
+   membership, attribute-catalog membership, push/createItem round-trips and
+   the 422 path) so you don't have to hand-write them per connector.
 
-When `POST /releases/{id}/sync` is called, the service should:
+When `POST /releases/sync` is called, the service should:
 
 1. Read the connector `type` and `config` from the request body.
 2. Fetch work streams (epics), sprints, and items from the backend — and optionally the team + member roster.
@@ -153,7 +159,7 @@ well-known app concept, so the app recognizes it regardless of `key` (e.g. Jira'
 and edit-lock derivation. Validation hints: `required`, `options`, `min`/`max`/`step`,
 `maxLength`/`pattern`. The app validates client-side before calling the service.
 
-When `POST /releases/{id}/items` is called, the service should create the item in
+When `POST /releases/items` is called, the service should create the item in
 the backend, assign its key/id, and return a fully-normalized **`MappedItem`** (the
 same shape sync returns). The app reconciles it as a synced item — no follow-up
 sync required.
