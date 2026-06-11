@@ -2,7 +2,7 @@ import type { ReleaseViewProps, SprintRowData } from '../hooks/useReleaseView';
 import { STATUSES } from '../types';
 import { fmtShort } from '../lib/dates';
 import { Icon } from '../components/Icon';
-import { SegBar } from '../components/badges';
+import { SegBar, StatusPill } from '../components/badges';
 import { CapBarInline } from '../components/CapBarInline';
 import { EmptyState } from '../components/EmptyState';
 import { EventStrip } from '../components/EventStrip';
@@ -41,7 +41,7 @@ function SprintRow({
   onNavigateToStream: (wsId: string) => void;
   onOpenEvent: (eventId: string) => void;
 }) {
-  const { sprint: sp, isActive, vel, planned, itemCount, events, lane } = row;
+  const { sprint: sp, isActive, isPast, vel, planned, donePts, itemCount, events, lane } = row;
   return (
     <div
       ref={rowRef}
@@ -84,6 +84,14 @@ function SprintRow({
         </span>
         <VDivider stretch />
         <CapBarInline planned={planned} cap={vel} />
+        {isPast && (
+          <StatusPill
+            status="Complete"
+            sm
+            label={`${donePts}/${vel} pts done`}
+            title="Points completed vs. this sprint's planned velocity"
+          />
+        )}
         <EventStrip events={events} align="flex-end" onEventClick={onOpenEvent} />
       </div>
       <div style={{ padding: '10px 13px' }}>

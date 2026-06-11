@@ -380,7 +380,7 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
 }
 
 // ── Team over-allocation explainer (read-only) ──────────────────────────
-export function OverbookedModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
+export function TeamAllocationsModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId));
   const team = useStore((s) => (r ? selTeam(s, r.teamId) : undefined));
   const allItems = useStore((s) => s.items);
@@ -397,8 +397,8 @@ export function OverbookedModal({ releaseId, onClose }: { releaseId: string; onC
   const items = allItems.filter((i) => i.releaseId === releaseId);
   const ctx = releaseCapacity(r, team);
 
-  // Streams with remaining work and a declared engineer need — the ones that
-  // collectively claim more of the team than exists.
+  // Streams with remaining work and a declared engineer need — the ones whose
+  // demand is checked against the team's contributing headcount below.
   const active = r.workStreams
     .map((ws) => ({ ws, remainingPts: streamHealth(items.filter((i) => i.workStreamId === ws.id)).remainingPts }))
     .filter((s) => s.ws.engineersRequired != null && s.remainingPts > 0)
@@ -406,6 +406,9 @@ export function OverbookedModal({ releaseId, onClose }: { releaseId: string; onC
 
   const contention = streamContention(active.map((s) => s.ws.engineersRequired!), ctx.contributingCount);
   const over = contention.totalRequired - ctx.contributingCount;
+  const isOver = contention.overAllocated;
+  const headroom = ctx.contributingCount - contention.totalRequired;
+  const sv = isOver ? statusVars('Blocked') : statusVars('Complete');
 
   return (
     <Modal
@@ -413,8 +416,10 @@ export function OverbookedModal({ releaseId, onClose }: { releaseId: string; onC
       width={560}
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span style={{ display: 'inline-flex', color: statusVars('Blocked').text }}>{Icon.alert}</span>
-          <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Team over-allocated</span>
+          <span style={{ display: 'inline-flex', color: sv.text }}>{isOver ? Icon.alert : Icon.check}</span>
+          <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>
+            {isOver ? 'Team over-allocated' : 'Team allocations'}
+          </span>
         </span>
       }
       footer={
@@ -424,18 +429,34 @@ export function OverbookedModal({ releaseId, onClose }: { releaseId: string; onC
       }
     >
       <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
-        The active work streams collectively ask for <strong style={{ color: 'var(--rt-ink)' }}>{contention.totalRequired} engineers</strong>, but{' '}
-        {team ? team.name : 'the team'} has only <strong style={{ color: 'var(--rt-ink)' }}>{ctx.contributingCount} contributing</strong>
-        {over > 0 ? <> — over by <strong style={{ color: 'var(--rt-ink)' }}>{over}</strong>.</> : '.'} Everyone can't be on everything at once, so
-        each stream's <em>effective</em> staffing is scaled down and its forecast below reflects that contention.
+        {isOver ? (
+          <>
+            The active work streams collectively ask for <strong style={{ color: 'var(--rt-ink)' }}>{contention.totalRequired} engineers</strong>, but{' '}
+            {team ? team.name : 'the team'} has only <strong style={{ color: 'var(--rt-ink)' }}>{ctx.contributingCount} contributing</strong>
+            {over > 0 ? <> — over by <strong style={{ color: 'var(--rt-ink)' }}>{over}</strong>.</> : '.'} Everyone can't be on everything at once, so
+            each stream's <em>effective</em> staffing is scaled down and its forecast below reflects that contention.
+          </>
+        ) : (
+          <>
+            The active work streams collectively ask for{' '}
+            <strong style={{ color: 'var(--rt-ink)' }}>{contention.totalRequired} engineer{contention.totalRequired === 1 ? '' : 's'}</strong>, and{' '}
+            {team ? team.name : 'the team'} has <strong style={{ color: 'var(--rt-ink)' }}>{ctx.contributingCount} contributing</strong>
+            {headroom > 0 ? <> — <strong style={{ color: 'var(--rt-ink)' }}>{headroom}</strong> to spare.</> : ' — fully allocated, with no contention.'} Each
+            stream can be staffed at its full request.
+          </>
+        )}
       </div>
 
       {/* Per-stream demand */}
       <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
         <span className="tag" style={{ marginBottom: 2 }}>Engineers requested · active streams</span>
-        {active.map((s) => (
-          <Row key={s.ws.id} k={s.ws.name} v={`${s.ws.engineersRequired} eng · ${s.remainingPts} pts left`} />
-        ))}
+        {active.length === 0 ? (
+          <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>No active streams have a configured engineer requirement.</span>
+        ) : (
+          active.map((s) => (
+            <Row key={s.ws.id} k={s.ws.name} v={`${s.ws.engineersRequired} eng · ${s.remainingPts} pts left`} />
+          ))
+        )}
         <hr className="divider" style={{ margin: '3px 0' }} />
         <Row k="Total requested" v={`${contention.totalRequired} eng`} />
       </div>
@@ -445,14 +466,29 @@ export function OverbookedModal({ releaseId, onClose }: { releaseId: string; onC
         <span className="tag" style={{ marginBottom: 2 }}>The math</span>
         <Row k="Engineers available" v={`${ctx.contributingCount} contributing`} />
         <Row k="Engineers requested" v={`${contention.totalRequired}`} />
-        <Row k="Allocation factor" v={`${ctx.contributingCount} ÷ ${contention.totalRequired} = ×${contention.scale.toFixed(2)}`} />
-        <hr className="divider" style={{ margin: '3px 0' }} />
-        <Row k="Effect" v={`each stream runs at ${Math.round(contention.scale * 100)}% staffing`} big />
+        {isOver ? (
+          <>
+            <Row k="Allocation factor" v={`${ctx.contributingCount} ÷ ${contention.totalRequired} = ×${contention.scale.toFixed(2)}`} />
+            <hr className="divider" style={{ margin: '3px 0' }} />
+            <Row k="Effect" v={`each stream runs at ${Math.round(contention.scale * 100)}% staffing`} big />
+          </>
+        ) : (
+          <>
+            <hr className="divider" style={{ margin: '3px 0' }} />
+            <Row k="Headroom" v={headroom > 0 ? `${headroom} eng` : 'none'} big />
+          </>
+        )}
       </div>
 
       <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.5 }}>
-        To clear the over-allocation, lower some streams' <strong style={{ color: 'var(--rt-t2)' }}>engineers required</strong>, add contributing
-        team members, or move work out of the release. Open any stream's verdict to see its individual capacity-fit detail.
+        {isOver ? (
+          <>
+            To clear the over-allocation, lower some streams' <strong style={{ color: 'var(--rt-t2)' }}>engineers required</strong>, add contributing
+            team members, or move work out of the release. Open any stream's verdict to see its individual capacity-fit detail.
+          </>
+        ) : (
+          <>Open any stream's verdict to see its individual capacity-fit detail.</>
+        )}
       </div>
 
       {team && (

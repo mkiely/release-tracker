@@ -74,7 +74,7 @@ type ReleaseChromeProps = Pick<
   | 'onBack'
   | 'onNavigateToStream'
   | 'onOpenTeam'
-  | 'onOpenOverbooked'
+  | 'onOpenTeamAllocations'
   | 'overAllocated'
   | 'buildFilter'
   | 'offBuildStreamCount'
@@ -102,7 +102,7 @@ export function ReleaseChrome({
   onBack,
   onNavigateToStream,
   onOpenTeam,
-  onOpenOverbooked,
+  onOpenTeamAllocations,
   overAllocated,
   buildFilter,
   offBuildStreamCount,
@@ -133,16 +133,28 @@ export function ReleaseChrome({
               <span>—</span>
             </>
           )}
-          {overAllocated && (
+          {overAllocated ? (
             <button
               type="button"
               className={`tag ${styles.overTag}`}
-              onClick={onOpenOverbooked}
+              onClick={onOpenTeamAllocations}
               title="Team over-allocated — view details"
             >
               {Icon.alert}
               Overbooked
             </button>
+          ) : (
+            team && (
+              <button
+                type="button"
+                className={`tag ${styles.allocTag}`}
+                onClick={onOpenTeamAllocations}
+                title="View team allocation breakdown"
+              >
+                {Icon.users}
+                Allocations
+              </button>
+            )
           )}
           <span style={{ opacity: 0.5 }}>·</span>
           <span>{dateRange}</span>

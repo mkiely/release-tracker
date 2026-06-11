@@ -50,11 +50,12 @@ export function StatusChip({ status, count }: { status: Status; count?: number }
  * `label` overrides the displayed text (e.g. an item's native workflow state)
  * while colors stay keyed to the canonical category.
  */
-export function StatusPill({ status, sm, label }: { status: Status; sm?: boolean; label?: string }) {
+export function StatusPill({ status, sm, label, title }: { status: Status; sm?: boolean; label?: string; title?: string }) {
   const { soft, text, dot } = statusVars(status);
   const d = sm ? 5 : 6;
   return (
     <span
+      title={title}
       style={{
         display: 'inline-flex',
         alignItems: 'center',

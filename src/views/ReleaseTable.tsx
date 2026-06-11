@@ -1,6 +1,6 @@
 import type { ReleaseViewProps } from '../hooks/useReleaseView';
-import { fmtShort, todayISO } from '../lib/dates';
-import { SegBar, EventBadge } from '../components/badges';
+import { fmtShort } from '../lib/dates';
+import { SegBar, EventBadge, StatusPill } from '../components/badges';
 import { EmptyState } from '../components/EmptyState';
 import { ReleaseChrome } from '../components/ReleaseChrome';
 import { Sparkline, CompletionRing } from '../components/trend';
@@ -22,7 +22,7 @@ function F3SprintRow({
   onNavigateToStream: (wsId: string) => void;
   onOpenEvent: (eventId: string) => void;
 }) {
-  const { sprint: sp, sprintIndex, isActive, vel, itemCount, events, lane } = row;
+  const { sprint: sp, sprintIndex, isActive, vel, donePts, itemCount, events, lane } = row;
 
   return (
     <div
@@ -41,6 +41,17 @@ function F3SprintRow({
           <span>{vel} pts cap</span>
           <span className={styles.metaDot}>·</span>
           <span>{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
+          {isPast && (
+            <>
+              <span className={styles.metaDot}>·</span>
+              <StatusPill
+                status="Complete"
+                sm
+                label={`${donePts}/${vel} pts done`}
+                title="Points completed vs. this sprint's planned velocity"
+              />
+            </>
+          )}
           {events.map((e) => (
             <EventBadge key={e.id} date={fmtShort(e.dateISO)} onClick={() => onOpenEvent(e.id)}>
               {e.label}
@@ -96,7 +107,6 @@ function F3SprintRow({
 
 export function ReleaseTable(props: ReleaseViewProps) {
   const { release: r, sprintRows, onNavigateToSprint, onNavigateToStream, onOpenEvent } = props;
-  const today = todayISO();
   const activeRowRef = useScrollActiveIntoView<HTMLDivElement>();
 
   return (
@@ -112,7 +122,7 @@ export function ReleaseTable(props: ReleaseViewProps) {
               key={row.sprint.id}
               row={row}
               rowRef={row.isActive ? activeRowRef : undefined}
-              isPast={row.sprint.endISO < today && !row.isActive}
+              isPast={row.isPast}
               onNavigate={() => onNavigateToSprint(row.sprint.id)}
               onNavigateToStream={onNavigateToStream}
               onOpenEvent={onOpenEvent}

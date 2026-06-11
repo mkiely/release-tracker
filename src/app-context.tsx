@@ -11,7 +11,7 @@ export type ModalSpec =
   | { type: 'team'; teamId?: string }
   | { type: 'stream'; releaseId: string; wsId?: string }
   | { type: 'streamHealth'; releaseId: string; wsId: string }
-  | { type: 'overbooked'; releaseId: string }
+  | { type: 'teamAllocations'; releaseId: string }
   | { type: 'event'; releaseId: string; eventId?: string }
   | { type: 'sprint'; releaseId: string; sprintId: string }
   | { type: 'item'; releaseId: string; presetStreamId?: string; presetSprintId?: string }

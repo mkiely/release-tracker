@@ -4,7 +4,7 @@ import { BuildFilterStore, useBuildFilter } from '../store/buildFilter';
 import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } from '../store/store';
 import { releaseToTSV } from '../lib/exportRelease';
 import { useApp } from '../app-context';
-import { dOf, fmtShort } from '../lib/dates';
+import { dOf, fmtShort, todayISO } from '../lib/dates';
 import { activeSprint, eventsIn, releaseCapacity, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, sumPoints, type StreamForecast, type StreamHealth } from '../lib/derive';
 import { connectorLabel } from '../sync/client';
 import type { RowData, RowMetrics } from '../lib/rowData';
@@ -34,8 +34,12 @@ interface SprintHeader {
   /** This sprint's index within the release (sparkline highlight position). */
   sprintIndex: number;
   isActive: boolean;
+  /** Sprint has fully elapsed (endISO before today) and isn't the active sprint. */
+  isPast: boolean;
   vel: number;
   planned: number;
+  /** Points actually completed in this sprint — meaningful once the sprint is past. */
+  donePts: number;
   itemCount: number;
   events: ReleaseEvent[];
 }
@@ -102,8 +106,8 @@ export interface ReleaseViewProps {
   onOpenStreamHealth: (wsId: string) => void;
   onEditStream: (wsId: string) => void;
   onOpenTeam: () => void;
-  /** Opens the explainer for the release-level over-allocation. */
-  onOpenOverbooked: () => void;
+  /** Opens the team-allocations breakdown (over-allocation explainer when contended). */
+  onOpenTeamAllocations: () => void;
   onExport: () => void;
   onNewEvent: () => void;
   onNewStream: () => void;
@@ -152,11 +156,14 @@ export function useReleaseView(): ReleaseViewProps | null {
   const unassignedIds = new Set(unassigned.map((i) => i.id));
   const unassignedSeries = seriesFor((i) => unassignedIds.has(i.id));
 
+  const today = todayISO();
   const sprintRows: SprintRowData[] = r.sprints.map((sp, sprintIndex) => {
     const vel = sprintVel(team, sp, sp.daysOff);
     const spItems = items.filter((i) => i.sprintId === sp.id);
     const planned = sumPoints(spItems);
+    const donePts = sumPoints(spItems.filter((i) => i.status === 'Complete'));
     const isActive = !!active && active.id === sp.id;
+    const isPast = sp.endISO < today && !isActive;
     const evts = eventsIn(r, sp);
 
     const lane: SprintLaneEntry[] = streams
@@ -187,7 +194,7 @@ export function useReleaseView(): ReleaseViewProps | null {
       });
     }
 
-    return { sprint: sp, sprintIndex, isActive, vel, planned, itemCount: spItems.length, events: evts, lane };
+    return { sprint: sp, sprintIndex, isActive, isPast, vel, planned, donePts, itemCount: spItems.length, events: evts, lane };
   });
 
   const workStreamBadges: WorkStreamBadgeData[] = streams.map((ws) => {
@@ -279,7 +286,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     onOpenStreamHealth: (wsId) => openModal({ type: 'streamHealth', releaseId: id, wsId }),
     onEditStream: (wsId) => openModal({ type: 'stream', releaseId: id, wsId }),
     onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
-    onOpenOverbooked: () => openModal({ type: 'overbooked', releaseId: id }),
+    onOpenTeamAllocations: () => openModal({ type: 'teamAllocations', releaseId: id }),
     onExport,
     onNewEvent: () => openModal({ type: 'event', releaseId: id }),
     onNewStream: () => openModal({ type: 'stream', releaseId: id }),
