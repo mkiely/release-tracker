@@ -18,7 +18,10 @@ Release Tracker helps engineering teams organize sprint-based releases. You defi
 - Sprint view — group by work stream or status; filter by member, status, type, build; drag work items between sprints
 - Work stream view — columns by sprint for a single stream
 - Work-stream health — forward capacity-fit forecast (on-track / at-risk) with a burndown-vs-capacity detail modal
-- Connector sync — pull work items, sprints, and streams from an external system via the [sync contract](./packages/sync-contract/README.md), review pending local edits, and push them back
+- Connector sync — pull teams, sprints, streams, and work items from an external system via the [sync contract](./packages/sync-contract/README.md); edit writeable fields (points, sprint, status, connector-declared custom fields), review pending changes as old → new diffs, and push them back
+- Connector vocabulary — custom fields a connector declares (e.g. a Bug's severity) round-trip, edit in the detail modal, and surface as table columns automatically; native workflow states (e.g. "QA Verify") display everywhere while capacity/health math computes on the five canonical status categories
+- Item creation on connector releases through a catalog-driven form, with the service's field-level validation verdicts (422) shown inline under the offending inputs
+- Capability handshake — when binding a connector the app summarizes what it supports, and releases flag "Connector limits" when a backend can't express a concept the app computes with (e.g. no story-points field)
 - TSV export for pasting a release plan into a spreadsheet
 - Multiple color themes (light + dark variants) and a presentation mode, persisted across sessions
 - All data persists in `localStorage`
@@ -52,6 +55,8 @@ VITE_SYNC_BASE_URL=http://localhost:8787 npm run dev
 ```
 
 When no `VITE_SYNC_BASE_URL` is set the app runs in local mode — all data is created and managed within the app. If the sync service returns no connectors, the app stays in local mode automatically and no connector UI is shown.
+
+The reference sync service is **work-truck** (sibling repo): its `acme` connector is a self-contained dev backend exercising every contract capability, and the template for implementing new connectors.
 
 ## Project structure
 

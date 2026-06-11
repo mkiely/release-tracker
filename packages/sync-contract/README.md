@@ -10,15 +10,18 @@ A single sync service can expose multiple connectors (one per backend type). The
 
 ## API surface
 
-| Method | Path | Purpose |
-|---|---|---|
-| `GET` | `/connectors` | List available connectors and the config fields each requires |
-| `POST` | `/connectors/{type}/validate` | Validate a connector's config/credentials before saving |
-| `POST` | `/releases/{id}/sync` | Fetch and map external data for a release |
-| `POST` | `/releases/{id}/push` | Push locally-modified writeable fields back to the external system |
-| `POST` | `/releases/{id}/items` | Create a work item; returns it mapped for reconciliation |
+| Method | Path | Purpose | Errors |
+|---|---|---|---|
+| `GET` | `/connectors` | List available connectors and the config fields each requires | |
+| `POST` | `/connectors/{type}/validate` | Validate a connector's config/credentials before saving | |
+| `POST` | `/releases/{id}/sync` | Fetch and map external data for a release | |
+| `POST` | `/releases/{id}/push` | Push locally-modified writeable fields back to the external system | `422 ValidationProblem` |
+| `POST` | `/releases/{id}/items` | Create a work item; returns it mapped for reconciliation | `422 ValidationProblem` |
 
-Full schema: [`openapi.yaml`](./openapi.yaml).
+Full schema: [`openapi.yaml`](./openapi.yaml). **Reference implementation:** the
+`acme` connector in the sibling `work-truck` repo (`src/connectors/acme/`) — a
+self-contained dev backend exercising every capability below; build new
+connectors against it.
 
 ## TypeScript types
 
@@ -26,32 +29,75 @@ Types are generated from the OpenAPI spec and re-exported from `src/index.ts` wi
 
 ```ts
 import type {
-  ConnectorMeta,       // A connector's id, label, and required config fields
+  ConnectorMeta,       // A connector's id, label, config fields, item-type catalog + status vocabulary
   MappedRelease,       // Sync response: optional team + workStreams + sprints + items
   MappedTeam,          // Normalised team with its member roster (optional)
   MappedMember,        // Normalised team member
-  MappedWorkStream,    // Normalised epic / track of work
+  MappedWorkStream,    // Normalised epic / track of work (+ optional attributes)
   MappedSprint,        // Normalised sprint with ISO date range
-  MappedItem,          // Normalised work item; status coerced to ContractStatus
+  MappedItem,          // Normalised work item; status coerced to ContractStatus (+ statusNative, attributes)
   ContractStatus,      // 'Not Started' | 'In Progress' | 'Under Review' | 'Blocked' | 'Complete'
   ConnectorItemType,   // A work-item type + its field catalog (FieldSpec[])
   FieldSpec,           // One field as DATA: kind/role/target + constraints + access flags
+  StatusDef,           // One native workflow state mapped to a canonical category
+  StatusRef,           // An item's native state, denormalized {id, label}
+  AttributeBag,        // Vocabulary values keyed by FieldSpec.key (non-canonical fields)
   CreateItemRequest,   // POST /releases/{id}/items body
+  PushItemChange,      // One item's dirty writeable fields: points / extSprintId / statusId / attributes
+  PushResult,          // { pushed, failed, errors }
+  FieldError,          // { field, message } — one 422 field verdict
+  ValidationProblem,   // 422 body: { error, fieldErrors? }
   ValidateResult,      // { ok: boolean; error?: string }
 } from '@release-tracker/sync-contract';
 ```
 
 ## Implementing a connector
 
-Each `ConnectorMeta` describes one backend integration:
+Each `ConnectorMeta` describes one backend integration — both its routing config
+and its **capability declaration** (the app derives create forms, edit locks,
+push capability, table columns, and the bind-time capability summary from it):
 
 ```yaml
-type: string          # unique id shown in the URL and stored on the release, e.g. "jira"
-label: string         # display name shown in the UI, e.g. "Jira"
+type: string          # unique id stored on the release, e.g. "acme"
+label: string         # display name shown in the UI, e.g. "Acme (Dev)"
 configFields: [...]   # fields the user fills in when creating a release
+itemTypes:            # the work-item type catalog — every type the backend emits
+  - id: acme_bug
+    label: Bug
+    fields:           # each field declared once, as DATA (see "Item types & fields")
+      - { key: subject,  kind: string, role: subject, required: true, creatable: true }
+      - { key: sprint,   kind: ref,    target: sprint, creatable: true, writeable: true }
+      - { key: points,   kind: number, role: points,   creatable: true, writeable: true }
+      - { key: status,   kind: enum,   enumRef: status, writeable: true }
+      - { key: severity, kind: enum,   required: true, creatable: true, writeable: true,
+          options: [{value: low, label: Low}, {value: critical, label: Critical}] }
+statuses:             # the status vocabulary — native workflow states → categories
+  - { id: todo,        label: To Do,     category: Not Started }
+  - { id: in_review,   label: In Review, category: Under Review }
+  - { id: qa,          label: QA Verify, category: Under Review }
 ```
 
 Config values (project keys, board IDs, etc.) are stored on the release and passed back on every sync call. **Secrets such as API tokens should be managed by the sync service itself**, not stored in the release config.
+
+### Checklist for a new connector
+
+1. **Declare** `ConnectorMeta`: `type`, `label`, `configFields`, the `itemTypes`
+   catalog (every type, every field, honest `creatable`/`writeable` flags), and
+   the `statuses` vocabulary.
+2. **Sync**: fetch + map to `MappedRelease`. Every item carries the coerced
+   `status` category, `statusNative` when a vocabulary exists, refs as
+   `ext*Id`s, and vocabulary values in `attributes` (filtered + coerced at the
+   boundary).
+3. **Push** (optional): apply `PushItemChange.fields` — `points`,
+   `extSprintId` (null = backlog), `statusId` (validate against the
+   vocabulary), `attributes` (validate against the catalog). Drop invalid
+   values; report per-item failures in `PushResult.errors`.
+4. **Create** (optional): validate (catalog constraints + your backend's own
+   rules), persist, return the fully-mapped `MappedItem`. Reject with
+   `422 ValidationProblem` carrying field-keyed errors.
+5. Only declare what you implement — the app gates "New work item", edit locks,
+   and push on the declarations, and surfaces missing concepts (no `role:
+   points` field ⇒ "capacity math unavailable") at bind time.
 
 When `POST /releases/{id}/sync` is called, the service should:
 
