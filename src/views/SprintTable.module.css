@@ -339,8 +339,10 @@
 }
 
 .colStatus {
-  width: 120px;
+  width: 200px;
   flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
   padding: 0 10px 0 8px;
   display: flex;
   align-items: center;

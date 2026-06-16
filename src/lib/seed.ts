@@ -2,7 +2,7 @@
 // release plus two lighter releases so the home list feels real.
 
 import { SCHEMA_VERSION, type AppState, type ItemType, type Release, type Sprint, type Status, type WorkItem, type WorkStream } from '../types';
-import { buildSprints, uid } from './dates';
+import { addDays, buildSprints, todayISO, uid } from './dates';
 
 // curated subjects per work stream so generated items read believably
 const SUBJECTS: Record<string, string[]> = {
@@ -50,6 +50,19 @@ const CONNECTOR_MATRIX: Record<number, Record<string, [Status, number][]>> = {
   8: { 'Data Ingestion': M(0,0,0,0,1), 'API Gateway': M(0,0,0,0,2), 'Auth & SSO': M(0,0,0,0,2), 'Reporting & Analytics': M(0,0,0,0,1), 'Webhooks': M(0,0,0,0,1), 'SDK & Developer Tools': M(0,0,0,0,2) },
 };
 
+// Nexus sprint shape: variable lengths (10, 14, 14, 14, 14, 21, 14, 14 days) to show
+// the connector-style scheduling model. Dates are computed relative to today (see seed()).
+const NEXUS_SPRINT_DEFS: { name: string; len: number; daysOff: number; externalId: string }[] = [
+  { name: 'Kickoff', len: 10, daysOff: 0, externalId: 'JSPR-2241' },
+  { name: 'Foundation', len: 14, daysOff: 0, externalId: 'JSPR-2242' },
+  { name: 'Core Build', len: 14, daysOff: 2, externalId: 'JSPR-2243' },
+  { name: 'Integration Prep', len: 14, daysOff: 0, externalId: 'JSPR-2244' },
+  { name: 'Integration & Testing', len: 14, daysOff: 0, externalId: 'JSPR-2245' },
+  { name: 'Load Testing & Hardening', len: 21, daysOff: 0, externalId: 'JSPR-2246' },
+  { name: 'Pre-release Stabilization', len: 14, daysOff: 2, externalId: 'JSPR-2247' },
+  { name: 'GA Readiness', len: 14, daysOff: 0, externalId: 'JSPR-2248' },
+];
+
 const PT_POOL = [2, 3, 5, 1, 8, 3, 2, 5];
 const NEXUS_TYPE_POOL: ItemType[] = [
   { id: 'jira_story', label: 'Story' },
@@ -88,17 +101,21 @@ export function seed(): AppState {
     'Billing Migration': 2, 'Notifications': 1, 'Admin Console': 2,
   };
   const demoStreams = streamNames.map((n) => ({ id: uid('ws'), name: n, externalId: null, engineersRequired: demoEngineers[n] ?? null, build: null }));
-  const demoStart = '2026-04-13';
+  // Anchor the release to today so the demo always shows a mix of past, active, and
+  // future sprints. Sprint 4 (the one with mixed in-progress/not-started work in
+  // RELEASE_MATRIX) is the "active" sprint — land today on its 8th day (of 14).
+  const today = todayISO();
+  const demoStart = addDays(today, -(3 * 14 + 7));
   const demo: Release = {
     id: 'rel_demo', name: 'Orion 2.0', startISO: demoStart, teamId: 'team_core',
     workStreams: demoStreams,
     events: [
-      { id: uid('ev'), label: 'Kickoff', dateISO: '2026-04-13', externalId: null },
-      { id: uid('ev'), label: 'Design review', dateISO: '2026-05-15', externalId: null },
-      { id: uid('ev'), label: 'Code freeze', dateISO: '2026-06-05', externalId: null },
-      { id: uid('ev'), label: 'Demo', dateISO: '2026-06-19', externalId: null },
-      { id: uid('ev'), label: 'Beta cut', dateISO: '2026-07-03', externalId: null },
-      { id: uid('ev'), label: 'GA', dateISO: '2026-08-01', externalId: null },
+      { id: uid('ev'), label: 'Kickoff', dateISO: addDays(demoStart, 0), externalId: null },
+      { id: uid('ev'), label: 'Design review', dateISO: addDays(demoStart, 32), externalId: null },
+      { id: uid('ev'), label: 'Code freeze', dateISO: addDays(demoStart, 53), externalId: null },
+      { id: uid('ev'), label: 'Demo', dateISO: addDays(demoStart, 67), externalId: null },
+      { id: uid('ev'), label: 'Beta cut', dateISO: addDays(demoStart, 81), externalId: null },
+      { id: uid('ev'), label: 'GA', dateISO: addDays(demoStart, 110), externalId: null },
     ],
     sprints: buildSprints(demoStart, { 3: 5, 5: 10, 7: 5 }),
     externalId: null,
@@ -228,9 +245,11 @@ export function seed(): AppState {
   });
 
   // Connector release: Nexus 1.0 — Jira-linked, 6 streams, custom sprint names.
-  // Sprint 6 "Load Testing & Hardening" (2026-05-21 → 2026-06-10) is the active sprint
-  // (today 2026-06-04 falls inside it). Sprint lengths deliberately vary: 10, 14, 14,
-  // 14, 14, 21, 14, 14 days to show the connector-style scheduling model.
+  // Sprint lengths deliberately vary: 10, 14, 14, 14, 14, 21, 14, 14 days to show the
+  // connector-style scheduling model. Anchored to today (like Orion above) so sprint 6
+  // "Load Testing & Hardening" — the sprint with mixed in-progress work in
+  // CONNECTOR_MATRIX — is the active sprint, landing today on its 11th day (of 21).
+  const nexusStart = addDays(today, -(10 + 14 + 14 + 14 + 14 + 10));
   const nexusStreamNames = ['Data Ingestion', 'API Gateway', 'Auth & SSO', 'Reporting & Analytics', 'Webhooks', 'SDK & Developer Tools'];
   const nexusEngineers = [2, 3, 2, 2, 1, 1]; // app-owned enrichment; survives connector sync
   const nexusStreams: WorkStream[] = nexusStreamNames.map((n, i) => ({
@@ -243,32 +262,29 @@ export function seed(): AppState {
     id: uid('ws'), name: 'Beta 2 Carryover', externalId: 'EPIC-NXS-B2', engineersRequired: null, build: 'Nexus Beta 2',
   };
   nexusStreams.push(nexusCarriedStream);
-  const nexusSprints: Sprint[] = [
-    { id: uid('sp'), name: 'Kickoff',                   startISO: '2026-03-16', endISO: '2026-03-25', daysOff: 0, externalId: 'JSPR-2241' },
-    { id: uid('sp'), name: 'Foundation',                startISO: '2026-03-26', endISO: '2026-04-08', daysOff: 0, externalId: 'JSPR-2242' },
-    { id: uid('sp'), name: 'Core Build',                startISO: '2026-04-09', endISO: '2026-04-22', daysOff: 2, externalId: 'JSPR-2243' },
-    { id: uid('sp'), name: 'Integration Prep',          startISO: '2026-04-23', endISO: '2026-05-06', daysOff: 0, externalId: 'JSPR-2244' },
-    { id: uid('sp'), name: 'Integration & Testing',     startISO: '2026-05-07', endISO: '2026-05-20', daysOff: 0, externalId: 'JSPR-2245' },
-    { id: uid('sp'), name: 'Load Testing & Hardening',  startISO: '2026-05-21', endISO: '2026-06-10', daysOff: 0, externalId: 'JSPR-2246' },
-    { id: uid('sp'), name: 'Pre-release Stabilization', startISO: '2026-06-11', endISO: '2026-06-24', daysOff: 2, externalId: 'JSPR-2247' },
-    { id: uid('sp'), name: 'GA Readiness',              startISO: '2026-06-25', endISO: '2026-07-08', daysOff: 0, externalId: 'JSPR-2248' },
-  ];
+  let nexusCursor = nexusStart;
+  const nexusSprints: Sprint[] = NEXUS_SPRINT_DEFS.map((def) => {
+    const startISO = nexusCursor;
+    const endISO = addDays(startISO, def.len - 1);
+    nexusCursor = addDays(endISO, 1);
+    return { id: uid('sp'), name: def.name, startISO, endISO, daysOff: def.daysOff, externalId: def.externalId };
+  });
   const nexus: Release = {
-    id: 'rel_nexus', name: 'Nexus 1.0', startISO: '2026-03-16', teamId: 'team_integrations',
+    id: 'rel_nexus', name: 'Nexus 1.0', startISO: nexusStart, teamId: 'team_integrations',
     workStreams: nexusStreams,
     events: [
-      { id: uid('ev'), label: 'Kick',               dateISO: '2026-03-16', externalId: 'NXS-EV-1' },
-      { id: uid('ev'), label: 'Alpha',              dateISO: '2026-04-22', externalId: 'NXS-EV-2' },
-      { id: uid('ev'), label: 'Integration lock',   dateISO: '2026-05-20', externalId: 'NXS-EV-3' },
-      { id: uid('ev'), label: 'Load test complete', dateISO: '2026-06-10', externalId: 'NXS-EV-4' },
-      { id: uid('ev'), label: 'Code freeze',        dateISO: '2026-06-20', externalId: 'NXS-EV-5' },
-      { id: uid('ev'), label: 'RC cut',             dateISO: '2026-06-28', externalId: 'NXS-EV-6' },
-      { id: uid('ev'), label: 'GA',                 dateISO: '2026-07-08', externalId: 'NXS-EV-7' },
+      { id: uid('ev'), label: 'Kick',               dateISO: addDays(nexusStart, 0),   externalId: 'NXS-EV-1' },
+      { id: uid('ev'), label: 'Alpha',              dateISO: addDays(nexusStart, 37),  externalId: 'NXS-EV-2' },
+      { id: uid('ev'), label: 'Integration lock',   dateISO: addDays(nexusStart, 65),  externalId: 'NXS-EV-3' },
+      { id: uid('ev'), label: 'Load test complete', dateISO: addDays(nexusStart, 86),  externalId: 'NXS-EV-4' },
+      { id: uid('ev'), label: 'Code freeze',        dateISO: addDays(nexusStart, 96),  externalId: 'NXS-EV-5' },
+      { id: uid('ev'), label: 'RC cut',             dateISO: addDays(nexusStart, 104), externalId: 'NXS-EV-6' },
+      { id: uid('ev'), label: 'GA',                 dateISO: addDays(nexusStart, 114), externalId: 'NXS-EV-7' },
     ],
     sprints: nexusSprints,
     externalId: 'NEXUS',
     connector: { type: 'jira', config: { projectKey: 'NXS', boardId: '88', fixVersion: '1.0', siteUrl: 'acme.atlassian.net' } },
-    sync: { lastISO: '2026-06-04T09:30:00.000Z', state: 'ok', message: null },
+    sync: { lastISO: `${addDays(today, -1)}T09:30:00.000Z`, state: 'ok', message: null },
   };
   const nxsWsId = (name: string) => nexusStreams.find((w) => w.name === name)!.id;
   const nxsMembers = teams[1].members;

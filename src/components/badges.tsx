@@ -53,9 +53,10 @@ export function StatusChip({ status, count }: { status: Status; count?: number }
 export function StatusPill({ status, sm, label, title }: { status: Status; sm?: boolean; label?: string; title?: string }) {
   const { soft, text, dot } = statusVars(status);
   const d = sm ? 5 : 6;
+  const display = label ?? status;
   return (
     <span
-      title={title}
+      title={title ?? display}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -67,10 +68,12 @@ export function StatusPill({ status, sm, label, title }: { status: Status; sm?: 
         fontSize: 'var(--rt-fs-xs)',
         fontWeight: sm ? 'var(--rt-fw-semibold)' : 'var(--rt-fw-bold)',
         whiteSpace: 'nowrap',
+        minWidth: 0,
+        maxWidth: '100%',
       }}
     >
       <span style={{ width: d, height: d, borderRadius: '50%', background: dot, flexShrink: 0 }} />
-      {label ?? status}
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{display}</span>
     </span>
   );
 }
