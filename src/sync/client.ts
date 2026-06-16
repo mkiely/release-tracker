@@ -129,10 +129,14 @@ export function connectorLabel(type: string): string {
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
-/** Pick the client by environment: real service if configured, else fixtures. */
+/** Always the real service. The base URL defaults to '' (relative / same-origin) so a
+ *  bundled build talks to whatever host serves it; set VITE_SYNC_BASE_URL for the
+ *  cross-origin dev path (e.g. vite :5173 → work-truck :8787). When the service is
+ *  absent, calls reject and the UI degrades to local mode (no fixtures): the store
+ *  surfaces the error and `/connectors` failures hide connector controls. */
 export function createSyncClient(): SyncClient {
-  const base = import.meta.env?.VITE_SYNC_BASE_URL as string | undefined;
-  return base ? new HttpSyncClient(base) : new FixtureSyncClient();
+  const base = (import.meta.env?.VITE_SYNC_BASE_URL as string | undefined) ?? '';
+  return new HttpSyncClient(base);
 }
 
 /** App-wide singleton. */
