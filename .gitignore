@@ -16,6 +16,10 @@ dist/
 build/
 *.tsbuildinfo
 
+# Flattened contract staged for the release tarball (prepack); anchored to root
+# so it never matches the real source at packages/sync-contract/.
+/sync-contract/
+
 # Environment variables
 .env
 .env.local

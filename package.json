@@ -1,8 +1,12 @@
 {
   "name": "release-tracker",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
+  "files": [
+    "dist",
+    "sync-contract"
+  ],
   "scripts": {
     "dev": "vite",
     "lint": "eslint .",
@@ -13,7 +17,8 @@
     "pretest": "npm run lint:type",
     "test": "vitest run",
     "test:watch": "vitest",
-    "gen:contract": "openapi-typescript packages/sync-contract/openapi.yaml -o packages/sync-contract/src/generated.ts"
+    "gen:contract": "openapi-typescript packages/sync-contract/openapi.yaml -o packages/sync-contract/src/generated.ts",
+    "prepack": "node scripts/stage-tarball.mjs"
   },
   "dependencies": {
     "@tiptap/pm": "^3.27.0",

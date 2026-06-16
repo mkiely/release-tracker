@@ -1,0 +1,52 @@
+# Publish a prebuilt release tarball on a version tag.
+#
+# Ships release-tracker-<version>.tgz containing the env-neutral `dist/` (the SPA,
+# built with NO VITE_SYNC_BASE_URL so it uses a relative/same-origin base) plus the
+# flattened `sync-contract/openapi.yaml`. work-truck consumes this tarball by URL as
+# a single pinned dependency. See work-truck/docs/BUNDLING.md.
+#
+# This is the prebuilt artifact (not GitHub's auto-generated source tarball), so the
+# consumer never builds on install.
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Guard tag matches package.json version
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME (=$TAG_VERSION) != package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      # Env-neutral build: no VITE_SYNC_BASE_URL in the environment, so the bundle
+      # uses a relative base and the artifact works on any host/port.
+      - run: npm run build
+
+      # prepack stages sync-contract/openapi.yaml; pack collects dist + sync-contract.
+      - run: npm pack
+
+      - name: Create GitHub release with the tarball
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$GITHUB_REF_NAME" ./*.tgz --title "$GITHUB_REF_NAME" --generate-notes
