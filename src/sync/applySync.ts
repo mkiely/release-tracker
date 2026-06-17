@@ -19,8 +19,9 @@
 //    is created or reused by externalId, members are upserted, and release.teamId
 //    is repointed. Velocity is app-owned and never overwritten.
 
-import type { AppState, AttrValue, ItemType, Member, Release, Sprint, Team, WorkItem, WorkStream } from '../types';
+import type { AppState, ItemType, Member, Release, Sprint, Team, WorkItem, WorkStream } from '../types';
 import { uid } from '../lib/dates';
+import { CANONICAL_BY_FIELD, CANONICAL_FIELDS, canonicalBaseline, type CanonicalView } from '../lib/connectorFields';
 import type { MappedItem, MappedRelease, SyncResult } from './schema';
 
 /** External-id → local-id lookups for resolving a MappedItem's refs. */
@@ -84,49 +85,45 @@ export function upsertItem(
   }
 
   const assignedMemberId = m.extAssigneeId != null ? (maps.memberByExt.get(m.extAssigneeId) ?? null) : null;
-
-  // The incoming external values for the writeable fields, keyed by local dirty-field
-  // name — recorded as the baseline a pending push diverges from. Vocabulary keys
-  // appear only when the connector actually sent them for this item.
   const statusNative = m.fields.statusNative ? { id: m.fields.statusNative.id, label: m.fields.statusNative.label } : null;
 
-  const baseline = (): Record<string, AttrValue> => {
-    const b: Record<string, AttrValue> = { points: m.fields.points, sprint: sprintId };
-    for (const key of writeableItemFields) {
-      if (key === 'points' || key === 'sprint') continue;
-      // Status baselines as the native id (the pushable value); bare category
-      // when the connector declares no vocabulary.
-      if (key === 'status') b.status = statusNative?.id ?? m.fields.status;
-      else if (m.attributes && key in m.attributes) b[key] = m.attributes[key];
-    }
-    return b;
+  // The incoming external values, in the canonical view shape — the single source
+  // for both the dirty-aware overwrite and the synced baseline below.
+  const incoming: CanonicalView = {
+    points: m.fields.points,
+    sprintId,
+    workStreamId,
+    assignedMemberId,
+    status: m.fields.status,
+    statusNative,
+    subject: m.fields.subject,
+    description: m.fields.description,
   };
+  const writeable = new Set(writeableItemFields);
+  // The baseline a pending push diverges from: every writeable canonical field's
+  // incoming value plus any writeable vocabulary value the connector sent.
+  const baseline = () => canonicalBaseline(incoming, writeable, m.attributes);
 
   const existing = items.find((i) => i.releaseId === releaseId && i.externalId === m.externalId);
   if (existing) {
-    existing.workStreamId = workStreamId;
+    // Connector-owned fields (never writeable) — external always wins.
     existing.key = m.fields.key;
-    existing.subject = m.fields.subject;
-    existing.description = m.fields.description;
     existing.descriptionFormat = m.fields.descriptionFormat ?? 'text';
-    existing.assignedMemberId = assignedMemberId;
     existing.build = m.fields.build ?? null;
     existing.itemType = mapItemType(m.fields.itemType);
-    // Dirty-aware: external wins on every writeable field except those locally
+    // Dirty-aware: external wins on every canonical field except those locally
     // dirty (pending push), which keep their local value.
-    const dirty = new Set(existing.dirtyFields.filter((f) => writeableItemFields.includes(f)));
-    if (!dirty.has('sprint')) existing.sprintId = sprintId;
-    if (!dirty.has('points')) existing.points = m.fields.points;
-    if (!dirty.has('status')) {
-      existing.status = m.fields.status;
-      existing.statusNative = statusNative;
+    const dirty = new Set(existing.dirtyFields.filter((f) => writeable.has(f)));
+    for (const c of CANONICAL_FIELDS) {
+      if (!dirty.has(c.field)) c.apply(existing, incoming);
     }
-    const incoming = { ...(m.attributes ?? {}) };
+    // Vocabulary values: external wins except for dirty (non-canonical) keys.
+    const nextAttributes = { ...(m.attributes ?? {}) };
     for (const key of dirty) {
-      if (key === 'points' || key === 'sprint' || key === 'status') continue;
-      if (existing.attributes && key in existing.attributes) incoming[key] = existing.attributes[key];
+      if (CANONICAL_BY_FIELD.has(key)) continue;
+      if (existing.attributes && key in existing.attributes) nextAttributes[key] = existing.attributes[key];
     }
-    existing.attributes = incoming;
+    existing.attributes = nextAttributes;
     existing.syncedValues = baseline();
     return { status: 'updated', warning };
   }
@@ -158,7 +155,7 @@ export function upsertItem(
  * Apply a single connector-created item (the MappedItem returned by the create
  * endpoint) onto local state, reconciling it as a synced item. Refs are resolved
  * against the release's existing entities. Returns the inserted item (or null on
- * an unresolved/​missing release).
+ * an unresolved/missing release).
  */
 export function applyCreatedItem(
   state: AppState,
@@ -193,7 +190,7 @@ export function applySync(
   const isConnector = release.connector !== null;
 
   // --- 0. Team & members (connector releases only, when team is provided) ---
-  let teams: Team[] = state.teams.map((t) => ({ ...t }));
+  const teams: Team[] = state.teams.map((t) => ({ ...t }));
   let releaseTeamId = release.teamId;
   const memberByExt = new Map<string, string>(); // external member id -> local member id
 

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "lint": "eslint .",
     "lint:type": "node scripts/check-typography.mjs",
     "prebuild": "npm run lint:type",
     "build": "tsc -b && vite build",
@@ -15,21 +16,28 @@
     "gen:contract": "openapi-typescript packages/sync-contract/openapi.yaml -o packages/sync-contract/src/generated.ts"
   },
   "dependencies": {
-    "@types/dompurify": "^3.0.5",
-    "dompurify": "^3.4.8",
+    "@tiptap/pm": "^3.27.0",
+    "@tiptap/react": "^3.27.0",
+    "@tiptap/starter-kit": "^3.27.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "globals": "^15.15.0",
     "jsdom": "^29.1.1",
     "openapi-typescript": "^7.13.0",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.61.1",
     "vite": "^6.0.0",
     "vitest": "^4.1.0"
   }

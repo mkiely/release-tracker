@@ -43,7 +43,7 @@ import type {
   StatusRef,           // An item's native state, denormalized {id, label}
   AttributeBag,        // Vocabulary values keyed by FieldSpec.key (non-canonical fields)
   CreateItemRequest,   // POST /releases/items body
-  PushItemChange,      // One item's dirty writeable fields: points / extSprintId / statusId / attributes
+  PushItemChange,      // One item's dirty writeable fields: subject / description / points / extSprintId / extWorkStreamId / extAssigneeId / statusId / attributes
   PushResult,          // { pushed, failed, errors }
   FieldError,          // { field, message } — one 422 field verdict
   ValidationProblem,   // 422 body: { error, fieldErrors? }
@@ -88,10 +88,12 @@ Config values (project keys, board IDs, etc.) are stored on the release and pass
    `status` category, `statusNative` when a vocabulary exists, refs as
    `ext*Id`s, and vocabulary values in `attributes` (filtered + coerced at the
    boundary).
-3. **Push** (optional): apply `PushItemChange.fields` — `points`,
-   `extSprintId` (null = backlog), `statusId` (validate against the
-   vocabulary), `attributes` (validate against the catalog). Drop invalid
-   values; report per-item failures in `PushResult.errors`.
+3. **Push** (optional): apply `PushItemChange.fields` — `subject`,
+   `description`, `points`, `extSprintId` (null = backlog), `extWorkStreamId`,
+   `extAssigneeId` (null = unassigned), `statusId` (validate against the
+   vocabulary), `attributes` (validate against the catalog). The app only sends
+   a field when the item's type declares it `writeable`. Drop invalid values;
+   report per-item failures in `PushResult.errors`.
 4. **Create** (optional): validate (catalog constraints + your backend's own
    rules), persist, return the fully-mapped `MappedItem`. Reject with
    `422 ValidationProblem` carrying field-keyed errors.

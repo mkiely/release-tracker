@@ -6,7 +6,6 @@ import { create } from 'zustand';
 import {
   SCHEMA_VERSION,
   type AppState,
-  type AttrValue,
   type ItemType,
   type Member,
   type Release,
@@ -24,7 +23,7 @@ import { buildSprints, todayISO, uid } from '../lib/dates';
 import { seed } from '../lib/seed';
 import { applyCreatedItem, applySync } from '../sync/applySync';
 import { buildPushChanges } from '../sync/push';
-import { allWriteableLocalFields, writeableLocalFieldsForItem } from '../lib/connectorFields';
+import { allWriteableLocalFields, canonicalBaseline, writeableLocalFieldsForItem } from '../lib/connectorFields';
 import { syncClient, SyncValidationError, type CreateItemInput } from '../sync/client';
 import type { PushResult, SyncResult } from '../sync/schema';
 
@@ -603,8 +602,8 @@ export const useStore = create<StoreState>((set, get) => {
           return { ok: false, reason: 'nothing-to-push', message: 'No pending changes to push' };
         }
 
-        const releaseSprints = r.sprints;
-        const changes = buildPushChanges(releaseItems, releaseSprints, meta?.itemTypes);
+        const members = get().teams.find((t) => t.id === r.teamId)?.members ?? [];
+        const changes = buildPushChanges(releaseItems, { sprints: r.sprints, workStreams: r.workStreams, members }, meta?.itemTypes);
         if (changes.length === 0) {
           return { ok: false, reason: 'nothing-to-push', message: 'No writeable changes to push' };
         }
@@ -618,12 +617,7 @@ export const useStore = create<StoreState>((set, get) => {
         commit((d) => {
           d.items = d.items.map((i) => {
             if (!(i.releaseId === releaseId && i.externalId && pushedExternalIds.has(i.externalId))) return i;
-            const baseline: Record<string, AttrValue> = { points: i.points, sprint: i.sprintId };
-            for (const key of writeableLocalFieldsForItem(i, meta?.itemTypes)) {
-              if (key === 'points' || key === 'sprint') continue;
-              if (key === 'status') baseline.status = i.statusNative?.id ?? i.status;
-              else if (i.attributes && key in i.attributes) baseline[key] = i.attributes[key];
-            }
+            const baseline = canonicalBaseline(i, writeableLocalFieldsForItem(i, meta?.itemTypes), i.attributes);
             return { ...i, dirtyFields: [], syncedValues: baseline };
           });
           d.releases = d.releases.map((rel) =>

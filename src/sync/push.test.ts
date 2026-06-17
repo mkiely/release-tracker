@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildPushChanges, buildPushPreview } from './push';
-import type { Sprint, WorkItem } from '../types';
+import { buildPushChanges, buildPushPreview, type PushRefs } from './push';
+import type { Member, Sprint, WorkItem, WorkStream } from '../types';
 import type { ConnectorItemType } from './schema';
 
 const sprint = (id: string, externalId: string | null): Sprint => ({
@@ -11,6 +11,12 @@ const sprint = (id: string, externalId: string | null): Sprint => ({
   daysOff: 0,
   externalId,
 });
+
+const stream = (id: string, externalId: string | null): WorkStream => ({ id, name: 'WS', externalId, engineersRequired: null, build: null });
+const member = (id: string, externalId: string | null): Member => ({ id, name: 'M', externalId, nonContributing: false });
+
+/** Wrap loose ref arrays in the PushRefs shape buildPushChanges expects. */
+const pushRefs = (sprints: Sprint[] = [], workStreams: WorkStream[] = [], members: Member[] = []): PushRefs => ({ sprints, workStreams, members });
 
 const item = (over: Partial<WorkItem>): WorkItem => ({
   id: 'it_1',
@@ -62,45 +68,59 @@ const statusType: ConnectorItemType = {
   ],
 };
 
+// A type that declares the remaining canonical fields writeable: subject,
+// description (roles), and the workStream/member refs. Exercises that any field a
+// connector marks writeable round-trips to its named wire slot.
+const richType: ConnectorItemType = {
+  id: 'rich',
+  label: 'Rich',
+  fields: [
+    { key: 'summary', kind: 'string', role: 'subject', writeable: true },
+    { key: 'body', kind: 'string', role: 'description', writeable: true },
+    { key: 'epic', kind: 'ref', target: 'workStream', writeable: true },
+    { key: 'assignee', kind: 'ref', target: 'member', writeable: true },
+  ],
+};
+
 describe('buildPushChanges', () => {
   const sprints = [sprint('sp_1', 'JSPR-1'), sprint('sp_2', 'JSPR-2')];
 
   // `undefined` catalog → legacy fallback (points + sprint writeable).
   it('returns empty when no items are dirty', () => {
-    expect(buildPushChanges([item({ dirtyFields: [] })], sprints, undefined)).toHaveLength(0);
+    expect(buildPushChanges([item({ dirtyFields: [] })], pushRefs(sprints), undefined)).toHaveLength(0);
   });
 
   it('returns empty for local items (externalId === null)', () => {
-    expect(buildPushChanges([item({ externalId: null, dirtyFields: ['points'] })], sprints, undefined)).toHaveLength(0);
+    expect(buildPushChanges([item({ externalId: null, dirtyFields: ['points'] })], pushRefs(sprints), undefined)).toHaveLength(0);
   });
 
   it('emits a change with points when dirty and writeable', () => {
-    const changes = buildPushChanges([item({ points: 13, dirtyFields: ['points'] })], sprints, undefined);
+    const changes = buildPushChanges([item({ points: 13, dirtyFields: ['points'] })], pushRefs(sprints), undefined);
     expect(changes).toHaveLength(1);
     expect(changes[0]).toMatchObject({ externalId: 'EXT-1', fields: { points: 13 } });
     expect(changes[0].fields.extSprintId).toBeUndefined();
   });
 
   it('emits a change with extSprintId when sprint is dirty and writeable', () => {
-    const changes = buildPushChanges([item({ sprintId: 'sp_2', dirtyFields: ['sprint'] })], sprints, undefined);
+    const changes = buildPushChanges([item({ sprintId: 'sp_2', dirtyFields: ['sprint'] })], pushRefs(sprints), undefined);
     expect(changes).toHaveLength(1);
     expect(changes[0].fields.extSprintId).toBe('JSPR-2');
     expect(changes[0].fields.points).toBeUndefined();
   });
 
   it('maps backlog (sprintId null) to extSprintId null', () => {
-    const changes = buildPushChanges([item({ sprintId: null, dirtyFields: ['sprint'] })], sprints, undefined);
+    const changes = buildPushChanges([item({ sprintId: null, dirtyFields: ['sprint'] })], pushRefs(sprints), undefined);
     expect(changes[0].fields.extSprintId).toBeNull();
   });
 
   it('maps sprintId with no externalId (local sprint) to extSprintId null', () => {
     const localSprints = [sprint('sp_local', null)];
-    const changes = buildPushChanges([item({ sprintId: 'sp_local', dirtyFields: ['sprint'] })], localSprints, undefined);
+    const changes = buildPushChanges([item({ sprintId: 'sp_local', dirtyFields: ['sprint'] })], pushRefs(localSprints), undefined);
     expect(changes[0].fields.extSprintId).toBeNull();
   });
 
   it('emits both points and sprint when both are dirty', () => {
-    const changes = buildPushChanges([item({ points: 8, sprintId: 'sp_1', dirtyFields: ['points', 'sprint'] })], sprints, undefined);
+    const changes = buildPushChanges([item({ points: 8, sprintId: 'sp_1', dirtyFields: ['points', 'sprint'] })], pushRefs(sprints), undefined);
     expect(changes[0].fields.points).toBe(8);
     expect(changes[0].fields.extSprintId).toBe('JSPR-1');
   });
@@ -108,7 +128,7 @@ describe('buildPushChanges', () => {
   it('skips a dirty field that is not writeable for the item type', () => {
     // sprint_only type makes points create-once; the item resolves to it by itemType.id.
     const items = [item({ points: 13, dirtyFields: ['points'], itemType: { id: 'sprint_only', label: 'X' } })];
-    expect(buildPushChanges(items, sprints, [sprintOnlyType])).toHaveLength(0);
+    expect(buildPushChanges(items, pushRefs(sprints), [sprintOnlyType])).toHaveLength(0);
   });
 
   it('serializes a dirty writeable vocabulary field into fields.attributes', () => {
@@ -118,7 +138,7 @@ describe('buildPushChanges', () => {
       dirtyFields: ['severity', 'points'],
       points: 8,
     })];
-    const changes = buildPushChanges(items, sprints, [bugType]);
+    const changes = buildPushChanges(items, pushRefs(sprints), [bugType]);
     expect(changes).toHaveLength(1);
     expect(changes[0].fields).toEqual({ points: 8, attributes: { severity: 'critical' } });
   });
@@ -129,7 +149,7 @@ describe('buildPushChanges', () => {
       attributes: { severity: 'low', foundIn: '5.0' },
       dirtyFields: ['foundIn'], // read-only per catalog
     })];
-    expect(buildPushChanges(items, sprints, [bugType])).toHaveLength(0);
+    expect(buildPushChanges(items, pushRefs(sprints), [bugType])).toHaveLength(0);
   });
 
   it('serializes a dirty status as the native vocabulary id', () => {
@@ -139,7 +159,7 @@ describe('buildPushChanges', () => {
       statusNative: { id: 'qa', label: 'QA Verify' },
       dirtyFields: ['status'],
     })];
-    const changes = buildPushChanges(items, sprints, [statusType]);
+    const changes = buildPushChanges(items, pushRefs(sprints), [statusType]);
     expect(changes).toHaveLength(1);
     expect(changes[0].fields).toEqual({ statusId: 'qa' });
   });
@@ -151,7 +171,42 @@ describe('buildPushChanges', () => {
       statusNative: null,
       dirtyFields: ['status'],
     })];
-    expect(buildPushChanges(items, sprints, [statusType])).toHaveLength(0);
+    expect(buildPushChanges(items, pushRefs(sprints), [statusType])).toHaveLength(0);
+  });
+
+  it('serializes dirty subject and description into their named wire slots', () => {
+    const items = [item({
+      itemType: { id: 'rich', label: 'Rich' },
+      subject: 'New title',
+      description: '<p>Edited body</p>',
+      dirtyFields: ['subject', 'description'],
+    })];
+    const changes = buildPushChanges(items, pushRefs(sprints), [richType]);
+    expect(changes).toHaveLength(1);
+    expect(changes[0].fields).toEqual({ subject: 'New title', description: '<p>Edited body</p>' });
+  });
+
+  it('maps a dirty assignee to extAssigneeId (null when unassigned)', () => {
+    const members = [member('mem_1', 'EXT-MEM-1')];
+    const assigned = buildPushChanges(
+      [item({ itemType: { id: 'rich', label: 'Rich' }, assignedMemberId: 'mem_1', dirtyFields: ['assignee'] })],
+      pushRefs(sprints, [], members), [richType],
+    );
+    expect(assigned[0].fields.extAssigneeId).toBe('EXT-MEM-1');
+    const unassigned = buildPushChanges(
+      [item({ itemType: { id: 'rich', label: 'Rich' }, assignedMemberId: null, dirtyFields: ['assignee'] })],
+      pushRefs(sprints, [], members), [richType],
+    );
+    expect(unassigned[0].fields.extAssigneeId).toBeNull();
+  });
+
+  it('maps a dirty workStream to extWorkStreamId', () => {
+    const streams = [stream('ws_9', 'EXT-EPIC-9')];
+    const changes = buildPushChanges(
+      [item({ itemType: { id: 'rich', label: 'Rich' }, workStreamId: 'ws_9', dirtyFields: ['workStream'] })],
+      pushRefs(sprints, streams), [richType],
+    );
+    expect(changes[0].fields.extWorkStreamId).toBe('EXT-EPIC-9');
   });
 
   it('handles multiple items, including a mix of dirty and clean', () => {
@@ -160,7 +215,7 @@ describe('buildPushChanges', () => {
       item({ id: 'it_2', externalId: 'EXT-2', dirtyFields: [] }),
       item({ id: 'it_3', externalId: 'EXT-3', sprintId: 'sp_2', dirtyFields: ['sprint'] }),
     ];
-    const changes = buildPushChanges(items, sprints, undefined);
+    const changes = buildPushChanges(items, pushRefs(sprints), undefined);
     expect(changes).toHaveLength(2);
     expect(changes.map((c) => c.externalId)).toEqual(['EXT-1', 'EXT-3']);
   });
@@ -218,6 +273,17 @@ describe('buildPushPreview', () => {
     })];
     const [p] = buildPushPreview(items, [statusType]);
     expect(p.diffs).toEqual([{ field: 'status', label: 'Status', from: 'in_progress', to: 'qa' }]);
+  });
+
+  it('reports a dirty description diff with the Description label', () => {
+    const items = [item({
+      itemType: { id: 'rich', label: 'Rich' },
+      description: '<p>After</p>',
+      dirtyFields: ['description'],
+      syncedValues: { description: '<p>Before</p>' },
+    })];
+    const [p] = buildPushPreview(items, [richType]);
+    expect(p.diffs).toEqual([{ field: 'description', label: 'Description', from: '<p>Before</p>', to: '<p>After</p>' }]);
   });
 
   it('reports a vocabulary diff with its catalog label and spec', () => {

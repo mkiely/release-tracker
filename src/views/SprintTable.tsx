@@ -1,4 +1,7 @@
+import { useRef } from 'react';
 import type { GroupBy, SprintViewProps, StreamColumn, StatusColumn } from '../hooks/useSprintView';
+import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
+import { usePresentationMode } from '../store/presentationMode';
 import { fmtShort } from '../lib/dates';
 import { sumPoints } from '../lib/derive';
 import { SprintTopActions, TopBar } from '../components/chrome';
@@ -326,6 +329,12 @@ export function SprintTable({
   // Vocabulary columns declared by the connector's catalog snapshot (none for local releases).
   const attrCols = attributeColumns(r.catalog);
 
+  // Fit the Key/Status columns to their content (re-measured when the item set
+  // or the presentation-mode type scale changes).
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const presentation = usePresentationMode();
+  useFitColumns(bodyRef, itemTableColumns(filteredItems), [itemColumnsDep(filteredItems), presentation]);
+
   // status cols reordered for table view
   const orderedStatusCols = TABLE_STATUS_ORDER
     .map((s) => statusCols.find((c) => c.status === s)!)
@@ -411,7 +420,7 @@ export function SprintTable({
         onClearFilters={onClearFilters}
       />
 
-      <div className={styles.body}>
+      <div className={styles.body} ref={bodyRef}>
         <ColHeaders groupBy={groupBy} attrColumns={attrCols} />
 
         {filteredItems.length === 0 ? (

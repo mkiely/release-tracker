@@ -308,9 +308,17 @@ export interface components {
             externalId: string;
             /** @description Only writeable fields that are locally dirty. */
             fields: {
+                /** @description New subject. Only sent when the item's type declares a writeable field with role=subject. */
+                subject?: string;
+                /** @description New description (plain text or HTML per the item's descriptionFormat). Only sent when the item's type declares a writeable field with role=description. */
+                description?: string;
                 points?: number;
                 /** @description External sprint id, or null for backlog. */
                 extSprintId?: string | null;
+                /** @description External work-stream (epic) id, or null. Only sent when the item's type declares a writeable ref field targeting workStream. */
+                extWorkStreamId?: string | null;
+                /** @description External assignee (member) id, or null for unassigned. Only sent when the item's type declares a writeable ref field targeting member. */
+                extAssigneeId?: string | null;
                 /** @description Native status id (a StatusDef.id from the connector's vocabulary) to transition the item to. Only sent when the item's type declares a writeable status field; the service must validate the id against its vocabulary before writing. */
                 statusId?: string;
                 /** @description Dirty vocabulary values, keyed by FieldSpec.key. Only fields the item type declares writeable. The service must validate against its catalog (declared key, coercible kind, enum membership) before writing to the backend. */

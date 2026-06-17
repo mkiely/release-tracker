@@ -272,7 +272,8 @@
 
 /* ── Column cells (shared by header + item rows) ─────────────────────────── */
 .colKey {
-  width: 98px;
+  /* Width is fit-to-content via useFitColumns (full key, never truncated). */
+  width: var(--rt-col-key, 98px);
   flex-shrink: 0;
   padding: 0 10px 0 14px;
   font-family: var(--rt-mono);
@@ -339,7 +340,8 @@
 }
 
 .colStatus {
-  width: 200px;
+  /* Fit-to-content via useFitColumns, capped at 200px (the `max`). */
+  width: var(--rt-col-status, 200px);
   flex-shrink: 0;
   min-width: 0;
   overflow: hidden;

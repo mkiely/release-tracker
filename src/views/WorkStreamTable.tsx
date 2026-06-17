@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { WorkStreamViewProps } from '../hooks/useWorkStreamView';
+import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
+import { usePresentationMode } from '../store/presentationMode';
 import type { Member, Sprint, WorkItem } from '../types';
 import { STATUSES } from '../types';
 import { fmtShort } from '../lib/dates';
@@ -243,6 +245,12 @@ export function WorkStreamTable({
   // Vocabulary columns declared by the connector's catalog snapshot (none for local releases).
   const attrCols = attributeColumns(r.catalog);
 
+  // Fit the Key/Status columns to their content (re-measured when the item set
+  // or the presentation-mode type scale changes).
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const presentation = usePresentationMode();
+  useFitColumns(bodyRef, itemTableColumns(filteredItems), [itemColumnsDep(filteredItems), presentation]);
+
   const sprintSections = r.sprints
     .map((sp) => ({ sp, items: filteredItems.filter((i) => i.sprintId === sp.id) }))
     .filter((s) => s.items.length > 0);
@@ -285,7 +293,7 @@ export function WorkStreamTable({
         onClearFilters={onClearFilters}
       />
 
-      <div className={styles.body}>
+      <div className={styles.body} ref={bodyRef}>
         <ColHeaders attrColumns={attrCols} />
 
         {filteredItems.length === 0 ? (

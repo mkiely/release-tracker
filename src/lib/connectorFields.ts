@@ -3,16 +3,85 @@
 // ('points' | 'sprint'); this module bridges those to the catalog by role/target,
 // so push capability is derived from the catalog — not hardcoded field names.
 
-import type { WorkItem } from '../types';
+import type { AttrValue, Status, WorkItem } from '../types';
 import type { ConnectorItemType, FieldSpec } from '../sync/schema';
 
 // Fields the app can locally edit on a synced item. When an item's type isn't in
 // the catalog (legacy/unknown), we fall back to this set so editing still works.
 const LEGACY_WRITEABLE = ['points', 'sprint'] as const;
 
+// ── Canonical-field registry ───────────────────────────────────────────────
+// The single source of truth for the app's well-known (non-vocabulary) fields:
+// how to recognize each one in a connector's catalog, read its pushable value off
+// an item, and copy an incoming value back onto an item. Every stage that used to
+// hand-enumerate 'points'/'sprint'/'status' (writeability, dirty-tracking, the
+// synced baseline, sync's dirty-preservation, and the push preview/payload) now
+// derives from this list, so a field a connector marks writeable round-trips
+// without being re-encoded at each stage. Vocabulary (attribute) fields keep
+// flowing generically through the attributes bag, keyed by FieldSpec.key.
+
+/** A value-bearing view of a work item's canonical fields. Both a local
+ *  {@link WorkItem} and an incoming (mapped) snapshot satisfy this shape, so the
+ *  registry's `read`/`apply` work uniformly over either. */
+export interface CanonicalView {
+  points: number;
+  sprintId: string | null;
+  workStreamId: string | null;
+  assignedMemberId: string | null;
+  status: Status;
+  statusNative?: { id: string; label: string } | null;
+  subject: string;
+  description: string;
+}
+
+interface CanonicalField {
+  /** Local dirty-field name (also the key under WorkItem.syncedValues). */
+  field: string;
+  /** Display label for the push preview. */
+  label: string;
+  /** Recognize the catalog field that backs this concept. */
+  match: (f: FieldSpec) => boolean;
+  /** The comparable + pushable value (refs read as local ids; status as native id). */
+  read: (v: CanonicalView) => AttrValue;
+  /** Copy an incoming value from `v` onto `item` (status writes both columns). */
+  apply: (item: WorkItem, v: CanonicalView) => void;
+}
+
+/** The canonical fields, in push-preview display order. */
+export const CANONICAL_FIELDS: readonly CanonicalField[] = [
+  { field: 'subject', label: 'Subject', match: (f) => f.role === 'subject', read: (v) => v.subject, apply: (it, v) => { it.subject = v.subject; } },
+  { field: 'description', label: 'Description', match: (f) => f.role === 'description', read: (v) => v.description, apply: (it, v) => { it.description = v.description; } },
+  { field: 'points', label: 'Points', match: (f) => f.role === 'points', read: (v) => v.points, apply: (it, v) => { it.points = v.points; } },
+  { field: 'sprint', label: 'Sprint', match: (f) => f.kind === 'ref' && f.target === 'sprint', read: (v) => v.sprintId, apply: (it, v) => { it.sprintId = v.sprintId; } },
+  { field: 'workStream', label: 'Work stream', match: (f) => f.kind === 'ref' && f.target === 'workStream', read: (v) => v.workStreamId, apply: (it, v) => { it.workStreamId = v.workStreamId; } },
+  { field: 'assignee', label: 'Assignee', match: (f) => f.kind === 'ref' && f.target === 'member', read: (v) => v.assignedMemberId, apply: (it, v) => { it.assignedMemberId = v.assignedMemberId; } },
+  { field: 'status', label: 'Status', match: (f) => f.role === 'status' || f.enumRef === 'status', read: (v) => v.statusNative?.id ?? v.status, apply: (it, v) => { it.status = v.status; it.statusNative = v.statusNative; } },
+] as const;
+
+/** Local field name → registry entry, for O(1) lookup by dirty-field name. */
+export const CANONICAL_BY_FIELD: ReadonlyMap<string, CanonicalField> = new Map(CANONICAL_FIELDS.map((c) => [c.field, c]));
+
 // Local field names with canonical meaning — a vocabulary (attribute) field whose
 // key shadows one of these is ambiguous and stays read-only.
-const RESERVED_LOCAL = ['points', 'sprint', 'status'] as const;
+const RESERVED_LOCAL: readonly string[] = CANONICAL_FIELDS.map((c) => c.field);
+
+/** The synced baseline (WorkItem.syncedValues) for a view, given the item's
+ *  writeable set: each writeable canonical field's value plus any writeable
+ *  vocabulary value present in `attributes`. Centralizes baseline construction
+ *  for sync (incoming snapshot) and the post-push baseline advance (local item). */
+export function canonicalBaseline(
+  view: CanonicalView,
+  writeable: Set<string>,
+  attributes: Record<string, AttrValue> | null | undefined,
+): Record<string, AttrValue> {
+  const b: Record<string, AttrValue> = {};
+  for (const c of CANONICAL_FIELDS) if (writeable.has(c.field)) b[c.field] = c.read(view);
+  for (const key of writeable) {
+    if (CANONICAL_BY_FIELD.has(key)) continue;
+    if (attributes && key in attributes) b[key] = attributes[key];
+  }
+  return b;
+}
 
 /** Resolve an item's catalog type by its connector type id. */
 export function itemTypeFor(
@@ -23,21 +92,21 @@ export function itemTypeFor(
   return types.find((t) => t.id === typeId);
 }
 
-/** The local writeable field names a type permits: 'points' (role=points),
- *  'sprint' (ref→sprint), 'status' (role=status / enumRef=status), and any
- *  writeable vocabulary field's key. Vocabulary keys that would collide with the
- *  reserved canonical names are skipped — a connector field literally keyed
- *  'points'/'sprint'/'status' without a role/target is ambiguous, so it stays
- *  read-only. Unknown type → legacy {points, sprint}. */
+/** The local writeable field names a type permits: each {@link CANONICAL_FIELDS}
+ *  entry whose backing catalog field is writeable (e.g. 'points', 'sprint',
+ *  'status', 'subject', 'description', 'assignee', 'workStream'), plus any
+ *  writeable vocabulary field's key. Vocabulary keys that collide with a reserved
+ *  canonical name are skipped — a connector field literally keyed e.g.
+ *  'description' without a role is ambiguous, so it stays read-only. Unknown type
+ *  → legacy {points, sprint}. */
 export function writeableLocalFields(type: ConnectorItemType | undefined): Set<string> {
   if (!type) return new Set(LEGACY_WRITEABLE);
   const out = new Set<string>();
   for (const f of type.fields) {
     if (!f.writeable) continue;
-    if (f.role === 'points') out.add('points');
-    else if (f.kind === 'ref' && f.target === 'sprint') out.add('sprint');
-    else if (f.role === 'status' || f.enumRef === 'status') out.add('status');
-    else if (isAttributeField(f) && !(RESERVED_LOCAL as readonly string[]).includes(f.key)) out.add(f.key);
+    const canon = CANONICAL_FIELDS.find((c) => c.match(f));
+    if (canon) out.add(canon.field);
+    else if (isAttributeField(f) && !RESERVED_LOCAL.includes(f.key)) out.add(f.key);
   }
   return out;
 }
@@ -48,7 +117,7 @@ export function writeableLocalFields(type: ConnectorItemType | undefined): Set<s
  *  local name stays read-only). */
 export function writeableAttributeFields(type: ConnectorItemType | undefined): FieldSpec[] {
   return attributeFields(type).filter(
-    (f) => f.writeable === true && !(RESERVED_LOCAL as readonly string[]).includes(f.key),
+    (f) => f.writeable === true && !RESERVED_LOCAL.includes(f.key),
   );
 }
 
@@ -79,24 +148,14 @@ export function attributeFields(type: ConnectorItemType | undefined): FieldSpec[
 }
 
 /** Whether a well-known editable concept is writeable for an item's type, with the
- *  legacy fallback (points/sprint) for unknown types. Drives detail-modal locks. */
+ *  legacy fallback (points/sprint) for unknown types. Drives detail-modal locks.
+ *  The concept names are exactly the {@link CANONICAL_FIELDS} field names. */
 export type EditConcept = 'subject' | 'description' | 'workStream' | 'sprint' | 'assignee' | 'status' | 'points';
-
-// Maps each editable concept to the catalog field that represents it.
-const CONCEPT_MATCH: Record<EditConcept, (f: FieldSpec) => boolean> = {
-  points: (f) => f.role === 'points',
-  subject: (f) => f.role === 'subject',
-  description: (f) => f.role === 'description',
-  status: (f) => f.role === 'status' || f.enumRef === 'status',
-  workStream: (f) => f.kind === 'ref' && f.target === 'workStream',
-  sprint: (f) => f.kind === 'ref' && f.target === 'sprint',
-  assignee: (f) => f.kind === 'ref' && f.target === 'member',
-};
 
 export function conceptWriteable(type: ConnectorItemType | undefined, concept: EditConcept): boolean {
   if (!type) return concept === 'points' || concept === 'sprint';
-  const match = CONCEPT_MATCH[concept];
-  return type.fields.some((f) => f.writeable === true && match(f));
+  const canon = CANONICAL_BY_FIELD.get(concept);
+  return canon != null && type.fields.some((f) => f.writeable === true && canon.match(f));
 }
 
 // ── Capability handshake ──────────────────────────────────────────────────
@@ -141,7 +200,8 @@ export function capabilitySummary(meta: { itemTypes?: ConnectorItemType[]; statu
   const pushable = new Set<string>();
   for (const t of types) {
     for (const key of writeableLocalFields(t)) {
-      pushable.add(key === 'points' || key === 'sprint' || key === 'status' ? key : (attributeFields(t).find((f) => f.key === key)?.label ?? key));
+      const canon = CANONICAL_BY_FIELD.get(key);
+      pushable.add(canon ? canon.label.toLowerCase() : (attributeFields(t).find((f) => f.key === key)?.label ?? key));
     }
   }
   if (pushable.size > 0) parts.push(`pushes ${[...pushable].join(', ')}`);

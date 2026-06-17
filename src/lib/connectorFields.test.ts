@@ -36,6 +36,21 @@ describe('writeableLocalFields', () => {
   it('falls back to legacy points+sprint for an unknown type', () => {
     expect([...writeableLocalFields(undefined)].sort()).toEqual(['points', 'sprint']);
   });
+  it('includes every canonical field a connector marks writeable (description, subject, assignee, workStream)', () => {
+    const rich: ConnectorItemType = {
+      id: 'rich',
+      label: 'Rich',
+      fields: [
+        { key: 'summary', kind: 'string', role: 'subject', writeable: true },
+        { key: 'body', kind: 'string', role: 'description', writeable: true },
+        { key: 'epic', kind: 'ref', target: 'workStream', writeable: true },
+        { key: 'assignee', kind: 'ref', target: 'member', writeable: true },
+      ],
+    };
+    expect([...writeableLocalFields(rich)].sort()).toEqual(['assignee', 'description', 'subject', 'workStream']);
+    expect(conceptWriteable(rich, 'description')).toBe(true);
+    expect(conceptWriteable(rich, 'assignee')).toBe(true);
+  });
 });
 
 describe('allWriteableLocalFields', () => {

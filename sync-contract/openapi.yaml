@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.14.0
+  version: 0.13.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
@@ -486,34 +486,11 @@ components:
           type: object
           description: Only writeable fields that are locally dirty.
           properties:
-            subject:
-              type: string
-              description: >-
-                New subject. Only sent when the item's type declares a writeable
-                field with role=subject.
-            description:
-              type: string
-              description: >-
-                New description (plain text or HTML per the item's
-                descriptionFormat). Only sent when the item's type declares a
-                writeable field with role=description.
             points: { type: number }
             extSprintId:
               type: string
               nullable: true
               description: External sprint id, or null for backlog.
-            extWorkStreamId:
-              type: string
-              nullable: true
-              description: >-
-                External work-stream (epic) id, or null. Only sent when the
-                item's type declares a writeable ref field targeting workStream.
-            extAssigneeId:
-              type: string
-              nullable: true
-              description: >-
-                External assignee (member) id, or null for unassigned. Only sent
-                when the item's type declares a writeable ref field targeting member.
             statusId:
               type: string
               description: >-

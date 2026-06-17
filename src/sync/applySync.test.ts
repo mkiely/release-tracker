@@ -100,6 +100,31 @@ describe('applySync — external wins on re-sync', () => {
     expect(result).toMatchObject({ created: 0, updated: 2 }); // ws + item re-matched
   });
 
+  it('preserves a locally-dirty writeable description across re-sync (external wins on the rest)', () => {
+    const first = applySync(baseState(), 'rel_1', mapped());
+    // Locally edit the description and mark it dirty (as the detail modal would).
+    const dirtied = {
+      ...first.next,
+      items: first.next.items.map((i) =>
+        i.externalId === 'EXT-1' ? { ...i, description: '<p>Local edit</p>', dirtyFields: ['description'] } : i,
+      ),
+    };
+
+    const changed = mapped({
+      items: [
+        { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null, fields: { key: 'EXT-1', subject: 'Renamed', description: '<p>External body</p>', status: 'Complete', points: 8 } },
+      ],
+    });
+    // description is writeable for this connector, so a pending push must survive.
+    const { next } = applySync(dirtied, 'rel_1', changed, ['description']);
+    const item = next.items.find((i) => i.externalId === 'EXT-1')!;
+
+    expect(item.description).toBe('<p>Local edit</p>'); // dirty local value preserved
+    expect(item.dirtyFields).toContain('description');
+    expect(item.subject).toBe('Renamed'); // non-dirty field still takes external
+    expect(item.syncedValues?.description).toBe('<p>External body</p>'); // baseline advances to incoming
+  });
+
   it('updates the dates of an already-linked sprint on the next sync', () => {
     const first = applySync(baseState(), 'rel_1', mapped());
     const sprintId = first.next.releases[0].sprints[0].id;

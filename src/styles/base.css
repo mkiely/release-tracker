@@ -1,7 +1,4 @@
-/* base.css — global utility classes and app shell resets.
-   prose.css is intentionally kept as a plain global stylesheet (not a CSS
-   Module) because it styles dangerouslySetInnerHTML output that module-scoped
-   class names cannot reach. */
+/* base.css — global utility classes and app shell resets. */
 
 /* backdrop/shadow tokens not covered by theme variants in tokens.css */
 :root {

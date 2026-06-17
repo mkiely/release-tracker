@@ -1,16 +1,16 @@
 // Interactive modals wired to the store — ported from proto-modals.jsx.
 
 import { useState, type ReactNode } from 'react';
-import DOMPurify from 'dompurify';
 import { LOCAL_ITEM_TYPES, STATUSES, type AttrValue, type Member, type Status } from '../types';
 import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
 import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
-import { attributeFields, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type EditConcept } from '../lib/connectorFields';
+import { attributeFields, CANONICAL_FIELDS, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type CanonicalView, type EditConcept } from '../lib/connectorFields';
 import { displayValue, FieldControl } from '../components/fields/registry';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import { DirtyDot } from '../components/DirtyDot';
+import { RichTextEditor } from '../components/RichTextEditor';
 import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
@@ -838,14 +838,27 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const nextStatusNative = chosenDef ? { id: chosenDef.id, label: chosenDef.label } : (it.statusNative ?? null);
 
   const save = () => {
-    let nextDirty = [...it.dirtyFields];
+    const nextDirty = [...it.dirtyFields];
     const nextAttrs = { ...it.attributes };
     if (synced) {
-      // Accumulate dirty flags only for writeable fields that changed.
-      if (points !== it.points && !nextDirty.includes('points')) nextDirty.push('points');
-      if (sprintId !== it.sprintId && !nextDirty.includes('sprint')) nextDirty.push('sprint');
-      const statusChanged = nextStatus !== it.status || (nextStatusNative?.id ?? null) !== (it.statusNative?.id ?? null);
-      if (statusChanged && !nextDirty.includes('status')) nextDirty.push('status');
+      // Accumulate dirty flags for any writeable canonical field whose value
+      // changed — derived from the registry, so every connector-writeable field
+      // (description, subject, assignee, … not just points/sprint/status) is
+      // tracked and will be pushed.
+      const nextView: CanonicalView = {
+        points,
+        sprintId,
+        workStreamId: wsId,
+        assignedMemberId,
+        status: nextStatus,
+        statusNative: nextStatusNative,
+        subject: subject.trim() || it.subject,
+        description: desc,
+      };
+      for (const c of CANONICAL_FIELDS) {
+        if (!writeableLocal.has(c.field)) continue;
+        if (c.read(nextView) !== c.read(it) && !nextDirty.includes(c.field)) nextDirty.push(c.field);
+      }
       for (const f of attrFields) {
         if (!attrEditable(f.key)) continue;
         const v = attrs[f.key] ?? null;
@@ -953,19 +966,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       </PField>
       <PField label="Description">
         {it.descriptionFormat === 'html' ? (
-          <div
-            className="prose"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(desc) }}
-            style={{
-              border: '1.5px solid var(--rt-line-strong)',
-              background: 'var(--rt-paper)',
-              borderRadius: 9,
-              padding: '11px 13px',
-              minHeight: 140,
-              maxHeight: '38vh',
-              overflowY: 'auto',
-            }}
-          />
+          <RichTextEditor value={desc} editable={canWrite('description')} onChange={setDesc} />
         ) : (
           <PTextarea
             value={desc}
