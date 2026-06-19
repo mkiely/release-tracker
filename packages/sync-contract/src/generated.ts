@@ -226,7 +226,7 @@ export interface components {
              */
             enumRef?: "status";
             /**
-             * @description Optional semantic tag for fields that map to well-known app concepts. Lets the app recognize a field regardless of `key` (e.g. Jira's customfield_10016 with role=points) — used for serialization + control choice.
+             * @description Optional semantic tag for fields that map to well-known app concepts. Lets the app recognize a field regardless of `key` (e.g. Acme's customfield_10016 with role=points) — used for serialization + control choice.
              * @enum {string}
              */
             role?: "subject" | "description" | "points" | "status";
@@ -234,6 +234,11 @@ export interface components {
             hint?: string;
             /** @description kind=string: long-form text (data hint; registry → textarea). */
             multiline?: boolean;
+            /**
+             * @description For role=description: the body format of items of this type, mirroring the per-item WorkItem.descriptionFormat. Gives create-time an authoritative source (no item exists yet) so the registry can pick a rich-text control for html. Default text.
+             * @enum {string}
+             */
+            format?: "text" | "html";
             /** @description kind=string: secret value (data hint; registry → masked input). */
             sensitive?: boolean;
             /** @description Choices for kind=enum (connector-defined). */
@@ -255,16 +260,16 @@ export interface components {
         };
         /** @description One work-item type the connector emits, with its full field catalog. Lists every field (creatable and/or writeable), each declared once. The app derives the create form (creatable fields), push capability (writeable fields), and edit lock-state from this single source. */
         ConnectorItemType: {
-            /** @description Connector-native type id, e.g. jira_story. */
+            /** @description Connector-native type id, e.g. acme_story. */
             id: string;
             /** @description Display label, e.g. Story. */
             label: string;
             fields: components["schemas"]["FieldSpec"][];
         };
         ConnectorMeta: {
-            /** @description e.g. 'jira' */
+            /** @description e.g. 'acme' */
             type: string;
-            /** @description e.g. 'Jira' */
+            /** @description e.g. 'Acme' */
             label: string;
             configFields: components["schemas"]["ConnectorConfigField"][];
             /** @description The connector's work-item type catalog. Absent or empty means no item types are exposed: nothing is creatable (the app hides "New work item") and nothing is writeable. */

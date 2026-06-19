@@ -123,7 +123,7 @@ export class HttpSyncClient implements SyncClient {
   }
 }
 
-/** Display label for a connector type id (e.g. 'jira' → 'Jira'); '' → 'Local'. */
+/** Display label for a connector type id (e.g. 'acme' → 'Acme'); '' → 'Local'. */
 export function connectorLabel(type: string): string {
   if (!type) return 'Local';
   return type.charAt(0).toUpperCase() + type.slice(1);

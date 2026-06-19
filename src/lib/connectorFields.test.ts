@@ -3,7 +3,7 @@ import { allWriteableLocalFields, attributeFields, capabilitySummary, conceptWri
 import type { ConnectorItemType } from '../sync/schema';
 
 const story: ConnectorItemType = {
-  id: 'jira_story',
+  id: 'acme_story',
   label: 'Story',
   fields: [
     { key: 'subject', kind: 'string', role: 'subject', creatable: true, writeable: false },
@@ -12,17 +12,17 @@ const story: ConnectorItemType = {
   ],
 };
 const readonlyType: ConnectorItemType = {
-  id: 'jira_ro',
+  id: 'acme_ro',
   label: 'RO',
   fields: [{ key: 'subject', kind: 'string', role: 'subject', creatable: true, writeable: false }],
 };
 
 describe('itemTypeFor', () => {
   it('resolves by id; undefined for null/unknown/no catalog', () => {
-    expect(itemTypeFor('jira_story', [story])?.label).toBe('Story');
+    expect(itemTypeFor('acme_story', [story])?.label).toBe('Story');
     expect(itemTypeFor('nope', [story])).toBeUndefined();
     expect(itemTypeFor(null, [story])).toBeUndefined();
-    expect(itemTypeFor('jira_story', undefined)).toBeUndefined();
+    expect(itemTypeFor('acme_story', undefined)).toBeUndefined();
   });
 });
 
@@ -77,7 +77,7 @@ describe('conceptWriteable', () => {
 
 describe('isAttributeField / attributeFields', () => {
   const bug: ConnectorItemType = {
-    id: 'jira_bug',
+    id: 'acme_bug',
     label: 'Bug',
     fields: [
       { key: 'subject', kind: 'string', role: 'subject', creatable: true },

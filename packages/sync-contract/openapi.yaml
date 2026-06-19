@@ -355,10 +355,18 @@ components:
           enum: [subject, description, points, status]
           description: >-
             Optional semantic tag for fields that map to well-known app concepts.
-            Lets the app recognize a field regardless of `key` (e.g. Jira's
+            Lets the app recognize a field regardless of `key` (e.g. Acme's
             customfield_10016 with role=points) — used for serialization + control choice.
         hint: { type: string, description: 'Placeholder / helper text for the input.' }
         multiline: { type: boolean, description: 'kind=string: long-form text (data hint; registry → textarea).' }
+        format:
+          type: string
+          enum: [text, html]
+          description: >-
+            For role=description: the body format of items of this type, mirroring the
+            per-item WorkItem.descriptionFormat. Gives create-time an authoritative source
+            (no item exists yet) so the registry can pick a rich-text control for html.
+            Default text.
         sensitive: { type: boolean, description: 'kind=string: secret value (data hint; registry → masked input).' }
         options:
           type: array
@@ -387,7 +395,7 @@ components:
         fields), and edit lock-state from this single source.
       required: [id, label, fields]
       properties:
-        id: { type: string, description: 'Connector-native type id, e.g. jira_story.' }
+        id: { type: string, description: 'Connector-native type id, e.g. acme_story.' }
         label: { type: string, description: 'Display label, e.g. Story.' }
         fields:
           type: array
@@ -397,8 +405,8 @@ components:
       type: object
       required: [type, label, configFields]
       properties:
-        type: { type: string, description: "e.g. 'jira'" }
-        label: { type: string, description: "e.g. 'Jira'" }
+        type: { type: string, description: "e.g. 'acme'" }
+        label: { type: string, description: "e.g. 'Acme'" }
         configFields:
           type: array
           items: { $ref: '#/components/schemas/ConnectorConfigField' }

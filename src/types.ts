@@ -94,7 +94,7 @@ export interface Sprint {
   externalId: string | null;
 }
 
-/** Connector type id, e.g. 'jira'. The set is defined by the local sync service. */
+/** Connector type id, e.g. 'acme'. The set is defined by the local sync service. */
 export type ConnectorType = string;
 
 /**

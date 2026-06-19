@@ -27,6 +27,13 @@ describe('resolveControl', () => {
     expect(resolveControl(f({ key: 'a', kind: 'string', sensitive: true }))).toBe('password');
   });
 
+  it('maps an html-format description to the rich-text control', () => {
+    expect(resolveControl(f({ key: 'description', kind: 'string', role: 'description', format: 'html' }))).toBe('richtext');
+    // text/absent format stays a plain textarea even with role=description
+    expect(resolveControl(f({ key: 'description', kind: 'string', role: 'description', multiline: true }))).toBe('textarea');
+    expect(resolveControl(f({ key: 'description', kind: 'string', role: 'description', format: 'text' }))).toBe('text');
+  });
+
   it('maps boolean and date', () => {
     expect(resolveControl(f({ key: 'a', kind: 'boolean' }))).toBe('checkbox');
     expect(resolveControl(f({ key: 'a', kind: 'date' }))).toBe('date');

@@ -156,7 +156,7 @@ create form) and `writeable` (pushable on an existing item). A field with
 | `ref` + `target: member` | an assignee | `extAssigneeId` |
 
 `role` (`subject | description | points | status`) tags a field that maps to a
-well-known app concept, so the app recognizes it regardless of `key` (e.g. Jira's
+well-known app concept, so the app recognizes it regardless of `key` (e.g. Acme's
 `customfield_10016` with `role: points`) — used for serialization, control choice,
 and edit-lock derivation. Validation hints: `required`, `options`, `min`/`max`/`step`,
 `maxLength`/`pattern`. The app validates client-side before calling the service.

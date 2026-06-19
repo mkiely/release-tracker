@@ -58,6 +58,9 @@
   --rt-lh-tight: 1.15;
   --rt-lh-snug: 1.3;
   --rt-lh-normal: 1.5;
+
+  /* layout — shared max width for the work-item modals (single source of truth) */
+  --rt-modal-w-work-item: min(960px, 94vw);
 }
 
 :root[data-theme="dark"] {

@@ -704,7 +704,7 @@ export function WorkItemModal({
       title="New work item"
       icon={Icon.item}
       onClose={onClose}
-      width="min(960px, 94vw)"
+      width="var(--rt-modal-w-work-item)"
       footer={
         <>
           <PButton variant="subtle" onClick={onClose}>
@@ -914,7 +914,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   return (
     <Modal
       onClose={onClose}
-      width="min(960px, 94vw)"
+      width="var(--rt-modal-w-work-item)"
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <span className="mono" style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', background: 'var(--rt-fill)', padding: '3px 7px', borderRadius: 5 }}>

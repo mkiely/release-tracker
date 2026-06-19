@@ -7,11 +7,13 @@ import type { ReactNode } from 'react';
 import type { FieldSpec } from '../../sync/schema';
 import { STATUSES } from '../../types';
 import { PInput, PSelect, PTextarea, PointSeg } from '../primitives';
+import { RichTextEditor } from '../RichTextEditor';
 import type { FieldValue } from '../../lib/createFields';
 
 export type ControlKind =
   | 'text'
   | 'textarea'
+  | 'richtext'
   | 'password'
   | 'number'
   | 'points'
@@ -37,6 +39,7 @@ export function resolveControl(field: FieldSpec): ControlKind {
     case 'date':
       return 'date';
     default: // string
+      if (field.role === 'description' && field.format === 'html') return 'richtext';
       return field.sensitive ? 'password' : field.multiline ? 'textarea' : 'text';
   }
 }
@@ -79,6 +82,8 @@ export function FieldControl({
   switch (control) {
     case 'textarea':
       return <PTextarea value={str} placeholder={field.hint} onChange={(e) => onChange(e.target.value)} />;
+    case 'richtext':
+      return <RichTextEditor value={str} onChange={(html) => onChange(html)} />;
     case 'password':
       return <PInput type="password" value={str} placeholder={field.hint} onChange={(e) => onChange(e.target.value)} />;
     case 'number':

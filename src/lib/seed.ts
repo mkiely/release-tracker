@@ -65,11 +65,11 @@ const NEXUS_SPRINT_DEFS: { name: string; len: number; daysOff: number; externalI
 
 const PT_POOL = [2, 3, 5, 1, 8, 3, 2, 5];
 const NEXUS_TYPE_POOL: ItemType[] = [
-  { id: 'jira_story', label: 'Story' },
-  { id: 'jira_story', label: 'Story' },
-  { id: 'jira_story', label: 'Story' },
-  { id: 'jira_task', label: 'Task' },
-  { id: 'jira_bug', label: 'Bug' },
+  { id: 'acme_story', label: 'Story' },
+  { id: 'acme_story', label: 'Story' },
+  { id: 'acme_story', label: 'Story' },
+  { id: 'acme_task', label: 'Task' },
+  { id: 'acme_bug', label: 'Bug' },
 ];
 
 export function seed(): AppState {
@@ -80,13 +80,13 @@ export function seed(): AppState {
       members: ['Ada L.', 'Marco P.', 'Wei C.', 'Devi R.', 'Tom B.'].map((n) => mkMember(n)),
     },
     {
-      id: 'team_integrations', name: 'Platform Integrations', velocity: 32, externalId: 'JIRA-TEAM-NXS',
+      id: 'team_integrations', name: 'Platform Integrations', velocity: 32, externalId: 'ACME-TEAM-NXS',
       members: [
         mkMember('Cass L.'),
         mkMember('Jin S.'),
         mkMember('Obi T.'),
         mkMember('Meg R.'),
-        // EM and PM pulled in from Jira — excluded from capacity calculations
+        // EM and PM pulled in from Acme — excluded from capacity calculations
         mkMember('Yara F.', true),  // Engineering Manager
         mkMember('Dev A.', true),   // Product Manager
       ],
@@ -244,7 +244,7 @@ export function seed(): AppState {
     assignedMemberId: coreMembers[1].id, build: null, dirtyFields: [], itemType: null,
   });
 
-  // Connector release: Nexus 1.0 — Jira-linked, 6 streams, custom sprint names.
+  // Connector release: Nexus 1.0 — Acme-linked, 6 streams, custom sprint names.
   // Sprint lengths deliberately vary: 10, 14, 14, 14, 14, 21, 14, 14 days to show the
   // connector-style scheduling model. Anchored to today (like Orion above) so sprint 6
   // "Load Testing & Hardening" — the sprint with mixed in-progress work in
@@ -283,7 +283,7 @@ export function seed(): AppState {
     ],
     sprints: nexusSprints,
     externalId: 'NEXUS',
-    connector: { type: 'jira', config: { projectKey: 'NXS', boardId: '88', fixVersion: '1.0', siteUrl: 'acme.atlassian.net' } },
+    connector: { type: 'acme', config: { projectKey: 'NXS', boardId: '88', fixVersion: '1.0', siteUrl: 'acme.atlassian.net' } },
     sync: { lastISO: `${addDays(today, -1)}T09:30:00.000Z`, state: 'ok', message: null },
   };
   const nxsWsId = (name: string) => nexusStreams.find((w) => w.name === name)!.id;
@@ -331,7 +331,7 @@ export function seed(): AppState {
       points: pts, externalId: `NXS-${nxsKeyN++}`,
       assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
       build: 'Nexus Beta 2', dirtyFields: [],
-      itemType: { id: 'jira_bug', label: 'Bug' },
+      itemType: { id: 'acme_bug', label: 'Bug' },
     });
   });
 
@@ -349,7 +349,7 @@ export function seed(): AppState {
       points: pts, externalId: `NXS-${nxsKeyN++}`,
       assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
       build: 'Nexus Beta 2', dirtyFields: [],
-      itemType: { id: 'jira_task', label: 'Task' },
+      itemType: { id: 'acme_task', label: 'Task' },
     });
   });
 

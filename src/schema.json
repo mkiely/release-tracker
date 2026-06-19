@@ -20,7 +20,7 @@
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-created members."
+          "description": "ID from external ticketing system (Acme, Linear, etc.). Null for locally-created members."
         },
         "nonContributing": {
           "type": "boolean",
@@ -75,7 +75,7 @@
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-created teams."
+          "description": "ID from external ticketing system (Acme, Linear, etc.). Null for locally-created teams."
         }
       },
       "required": ["id", "name", "velocity", "members", "externalId"],
@@ -97,7 +97,7 @@
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-created work streams."
+          "description": "ID from external ticketing system (Acme, Linear, etc.). Null for locally-created work streams."
         },
         "engineersRequired": {
           "type": ["integer", "null"],
@@ -147,7 +147,7 @@
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-managed sprints."
+          "description": "ID from external ticketing system (Acme, Linear, etc.). Null for locally-managed sprints."
         }
       },
       "required": ["id", "name", "startISO", "endISO", "daysOff", "externalId"],
@@ -174,7 +174,7 @@
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-created events."
+          "description": "ID from external ticketing system (Acme, Linear, etc.). Null for locally-created events."
         }
       },
       "required": ["id", "label", "dateISO", "externalId"],
@@ -227,7 +227,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "description": "Connector type identifier (e.g. 'jira'). The set of valid values is defined by the local sync service."
+          "description": "Connector type identifier (e.g. 'acme'). The set of valid values is defined by the local sync service."
         },
         "config": {
           "type": "object",
@@ -315,7 +315,7 @@
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-created items."
+          "description": "ID from external ticketing system (Acme, Linear, etc.). Null for locally-created items."
         },
         "assignedMemberId": {
           "type": ["string", "null"],
@@ -421,7 +421,7 @@
         },
         "externalId": {
           "type": ["string", "null"],
-          "description": "ID from external ticketing system (Jira, Linear, etc.). Null for locally-created releases."
+          "description": "ID from external ticketing system (Acme, Linear, etc.). Null for locally-created releases."
         },
         "connector": {
           "oneOf": [
@@ -599,7 +599,7 @@
     }
   },
   "adaptationGuide": {
-    "overview": "This schema describes the Release Tracker data model. Use it to build adapters that translate between Release Tracker and other backend ticketing systems (Jira, Linear, Azure DevOps, etc.).",
+    "overview": "This schema describes the Release Tracker data model. Use it to build adapters that translate between Release Tracker and other backend ticketing systems (Acme, Linear, Azure DevOps, etc.).",
     "keyMapping": {
       "Release Tracker Release": "Maps to a project, epic, or initiative in target system",
       "Release Tracker WorkStream": "Maps to a component, team, or feature area in target system",

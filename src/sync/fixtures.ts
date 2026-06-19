@@ -3,7 +3,7 @@
 // consumes them (SyncClient → applySync) is the code we keep.
 //
 // `FIXTURE_CONNECTORS` mirrors `GET /connectors`; `fixtureMappedRelease()` mirrors
-// `POST /releases/sync` for the Jira connector with representative sample data.
+// `POST /releases/sync` for the Acme connector with representative sample data.
 
 import type { ConnectorMeta, CreateItemInput } from './client';
 import type { ContractStatus, ConnectorItemType, MappedItem, MappedRelease, StatusDef } from './schema';
@@ -13,7 +13,7 @@ import { attributeFields, itemTypeFor } from '../lib/connectorFields';
 // The fixture backend's status vocabulary: its native workflow states, each
 // mapped onto a canonical category. Two states share Under Review to exercise
 // the many-to-one mapping the categories exist for.
-const JIRA_STATUSES: StatusDef[] = [
+const ACME_STATUSES: StatusDef[] = [
   { id: 'backlog', label: 'Backlog', category: 'Not Started' },
   { id: 'dev', label: 'In Dev', category: 'In Progress' },
   { id: 'review', label: 'In Review', category: 'Under Review' },
@@ -26,21 +26,21 @@ const JIRA_STATUSES: StatusDef[] = [
  *  supplies a canonical status (e.g. item creation) and the fixture needs a
  *  native id, the way a real service would pick its default workflow state. */
 function nativeForCategory(status: ContractStatus): { id: string; label: string } | null {
-  const def = JIRA_STATUSES.find((s) => s.category === status);
+  const def = ACME_STATUSES.find((s) => s.category === status);
   return def ? { id: def.id, label: def.label } : null;
 }
 
-// The Jira fixture's item-type catalog, declared as DATA (kind/role/target +
+// The Acme fixture's item-type catalog, declared as DATA (kind/role/target +
 // access). Each field is listed once; `creatable` shows it on the create form,
 // `writeable` makes it pushable. Story/Task/Bug keep points + sprint writeable to
 // match current push behavior; identity fields are create-once (writeable:false).
-const JIRA_ITEM_TYPES: ConnectorItemType[] = [
+const ACME_ITEM_TYPES: ConnectorItemType[] = [
   {
-    id: 'jira_story',
+    id: 'acme_story',
     label: 'Story',
     fields: [
       { key: 'subject', label: 'Summary', kind: 'string', role: 'subject', required: true, creatable: true, writeable: false },
-      { key: 'description', label: 'Description', kind: 'string', role: 'description', multiline: true, creatable: true, writeable: false },
+      { key: 'description', label: 'Description', kind: 'string', role: 'description', multiline: true, format: 'html', creatable: true, writeable: false },
       { key: 'workStream', label: 'Epic', kind: 'ref', target: 'workStream', required: true, creatable: true, writeable: false },
       { key: 'sprint', label: 'Sprint', kind: 'ref', target: 'sprint', creatable: true, writeable: true },
       { key: 'assignee', label: 'Assignee', kind: 'ref', target: 'member', creatable: true, writeable: false },
@@ -49,7 +49,7 @@ const JIRA_ITEM_TYPES: ConnectorItemType[] = [
     ],
   },
   {
-    id: 'jira_task',
+    id: 'acme_task',
     label: 'Task',
     fields: [
       { key: 'subject', label: 'Summary', kind: 'string', role: 'subject', required: true, creatable: true, writeable: false },
@@ -60,7 +60,7 @@ const JIRA_ITEM_TYPES: ConnectorItemType[] = [
     ],
   },
   {
-    id: 'jira_bug',
+    id: 'acme_bug',
     label: 'Bug',
     fields: [
       { key: 'subject', label: 'Summary', kind: 'string', role: 'subject', required: true, creatable: true, writeable: false },
@@ -90,8 +90,8 @@ const JIRA_ITEM_TYPES: ConnectorItemType[] = [
 
 export const FIXTURE_CONNECTORS: ConnectorMeta[] = [
   {
-    type: 'jira',
-    label: 'Jira',
+    type: 'acme',
+    label: 'Acme',
     configFields: [
       { key: 'projectKey', label: 'Project key', required: true, hint: 'e.g. PROJ' },
       { key: 'boardId', label: 'Board ID', required: true, hint: 'numeric; sprints come from this board' },
@@ -99,8 +99,8 @@ export const FIXTURE_CONNECTORS: ConnectorMeta[] = [
       { key: 'siteUrl', label: 'Site URL', required: true, hint: 'e.g. your-org.atlassian.net' },
       { key: 'storyPointsField', label: 'Story-points field id', required: false, hint: 'defaults to customfield_10016' },
     ],
-    itemTypes: JIRA_ITEM_TYPES,
-    statuses: JIRA_STATUSES,
+    itemTypes: ACME_ITEM_TYPES,
+    statuses: ACME_STATUSES,
   },
 ];
 
@@ -116,8 +116,11 @@ export function fixtureCreatedItem(connector: ReleaseConnector, req: CreateItemI
   const n = 900 + createSeq++;
   const prefix = (connector.config.projectKey || 'NEW').toUpperCase();
   const fields = (req.fields ?? {}) as Record<string, unknown>;
-  const itype = itemTypeFor(req.type, JIRA_ITEM_TYPES);
+  const itype = itemTypeFor(req.type, ACME_ITEM_TYPES);
   const typeLabel = itype?.label ?? 'Task';
+  // The body format is a property of the type's description field (the same facet
+  // a real service would stamp onto the created item), defaulting to text.
+  const descriptionFormat = itype?.fields.find((f) => f.role === 'description')?.format ?? 'text';
   const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
   // Echo catalog-declared vocabulary values back as attributes (what the real
   // service does at its boundary): declared keys only, scalars only.
@@ -137,6 +140,7 @@ export function fixtureCreatedItem(connector: ReleaseConnector, req: CreateItemI
       key: `${prefix}-${n}`,
       subject: String(fields.subject ?? 'Untitled item'),
       description: String(fields.description ?? ''),
+      descriptionFormat,
       status: ((fields.status as ContractStatus) ?? 'Not Started'),
       statusNative: nativeForCategory((fields.status as ContractStatus) ?? 'Not Started'),
       points: num(fields.points),
@@ -150,16 +154,16 @@ export function fixtureCreatedItem(connector: ReleaseConnector, req: CreateItemI
 export function fixtureMappedRelease(): MappedRelease {
   return {
     team: {
-      externalId: 'JIRA-TEAM-PLAT',
+      externalId: 'ACME-TEAM-PLAT',
       fields: { name: 'Platform Core' },
       members: [
-        { externalId: 'JIRA-USR-ADA', fields: { name: 'Ada L.' } },
-        { externalId: 'JIRA-USR-MARCO', fields: { name: 'Marco P.' } },
-        { externalId: 'JIRA-USR-WEI', fields: { name: 'Wei C.' } },
-        { externalId: 'JIRA-USR-DEVI', fields: { name: 'Devi R.' } },
-        { externalId: 'JIRA-USR-TOM', fields: { name: 'Tom B.' } },
-        // EM pulled in by Jira; flagged as non-contributing so they don't dilute capacity
-        { externalId: 'JIRA-USR-PETE', fields: { name: 'Pete O.', nonContributing: true } },
+        { externalId: 'ACME-USR-ADA', fields: { name: 'Ada L.' } },
+        { externalId: 'ACME-USR-MARCO', fields: { name: 'Marco P.' } },
+        { externalId: 'ACME-USR-WEI', fields: { name: 'Wei C.' } },
+        { externalId: 'ACME-USR-DEVI', fields: { name: 'Devi R.' } },
+        { externalId: 'ACME-USR-TOM', fields: { name: 'Tom B.' } },
+        // EM pulled in by Acme; flagged as non-contributing so they don't dilute capacity
+        { externalId: 'ACME-USR-PETE', fields: { name: 'Pete O.', nonContributing: true } },
       ],
     },
     workStreams: [
@@ -173,17 +177,17 @@ export function fixtureMappedRelease(): MappedRelease {
       { externalId: 'JSPR-103', fields: { name: 'Sprint 3', startISO: '2026-05-11', endISO: '2026-05-24' } },
     ],
     items: [
-      { externalId: 'EXT-101', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-101', extAssigneeId: 'JIRA-USR-ADA', fields: { key: 'EXT-101', subject: 'Tokenize card vault', description: 'PCI-scoped vault for card tokens.', status: 'Complete', statusNative: { id: 'done', label: 'Done' }, points: 5, itemType: { id: 'jira_story', label: 'Story' } } },
-      { externalId: 'EXT-102', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-101', extAssigneeId: 'JIRA-USR-MARCO', fields: { key: 'EXT-102', subject: 'Idempotent charge endpoint', description: '', status: 'In Progress', statusNative: { id: 'dev', label: 'In Dev' }, points: 3, itemType: { id: 'jira_story', label: 'Story' } } },
-      { externalId: 'EXT-103', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-102', extAssigneeId: 'JIRA-USR-WEI', fields: { key: 'EXT-103', subject: '3-D Secure handshake', description: '', status: 'Under Review', statusNative: { id: 'qa', label: 'In QA' }, points: 8, itemType: { id: 'jira_story', label: 'Story' } } },
-      { externalId: 'EXT-110', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-101', extAssigneeId: 'JIRA-USR-DEVI', fields: { key: 'EXT-110', subject: 'Typeahead suggestions', description: '', status: 'Complete', statusNative: { id: 'done', label: 'Done' }, points: 3, itemType: { id: 'jira_story', label: 'Story' } } },
-      { externalId: 'EXT-111', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-102', extAssigneeId: 'JIRA-USR-TOM', fields: { key: 'EXT-111', subject: 'Relevance ranking model', description: '', status: 'Blocked', statusNative: { id: 'blocked', label: 'Blocked' }, points: 5, itemType: { id: 'jira_task', label: 'Task' } } },
+      { externalId: 'EXT-101', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-101', extAssigneeId: 'ACME-USR-ADA', fields: { key: 'EXT-101', subject: 'Tokenize card vault', description: 'PCI-scoped vault for card tokens.', status: 'Complete', statusNative: { id: 'done', label: 'Done' }, points: 5, itemType: { id: 'acme_story', label: 'Story' } } },
+      { externalId: 'EXT-102', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-101', extAssigneeId: 'ACME-USR-MARCO', fields: { key: 'EXT-102', subject: 'Idempotent charge endpoint', description: '', status: 'In Progress', statusNative: { id: 'dev', label: 'In Dev' }, points: 3, itemType: { id: 'acme_story', label: 'Story' } } },
+      { externalId: 'EXT-103', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-102', extAssigneeId: 'ACME-USR-WEI', fields: { key: 'EXT-103', subject: '3-D Secure handshake', description: '', status: 'Under Review', statusNative: { id: 'qa', label: 'In QA' }, points: 8, itemType: { id: 'acme_story', label: 'Story' } } },
+      { externalId: 'EXT-110', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-101', extAssigneeId: 'ACME-USR-DEVI', fields: { key: 'EXT-110', subject: 'Typeahead suggestions', description: '', status: 'Complete', statusNative: { id: 'done', label: 'Done' }, points: 3, itemType: { id: 'acme_story', label: 'Story' } } },
+      { externalId: 'EXT-111', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-102', extAssigneeId: 'ACME-USR-TOM', fields: { key: 'EXT-111', subject: 'Relevance ranking model', description: '', status: 'Blocked', statusNative: { id: 'blocked', label: 'Blocked' }, points: 5, itemType: { id: 'acme_task', label: 'Task' } } },
       // A Bug with a vocabulary field — exercises the attribute round-trip + read-only display.
-      { externalId: 'EXT-112', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-103', extAssigneeId: 'JIRA-USR-DEVI', attributes: { severity: 'high' }, fields: { key: 'EXT-112', subject: 'Stale results after reindex', description: 'Cache not invalidated on reindex completion.', status: 'Not Started', statusNative: { id: 'backlog', label: 'Backlog' }, points: 2, itemType: { id: 'jira_bug', label: 'Bug' } } },
-      { externalId: 'EXT-120', extWorkStreamId: 'EPIC-BILL', extSprintId: 'JSPR-102', extAssigneeId: 'JIRA-USR-ADA', fields: { key: 'EXT-120', subject: 'Dual-write ledger', description: '', status: 'In Progress', statusNative: { id: 'dev', label: 'In Dev' }, points: 8, itemType: { id: 'jira_story', label: 'Story' } } },
-      { externalId: 'EXT-121', extWorkStreamId: 'EPIC-BILL', extSprintId: 'JSPR-103', extAssigneeId: 'JIRA-USR-MARCO', fields: { key: 'EXT-121', subject: 'Proration engine', description: '', status: 'Not Started', statusNative: { id: 'backlog', label: 'Backlog' }, points: 5, itemType: { id: 'jira_story', label: 'Story' } } },
+      { externalId: 'EXT-112', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-103', extAssigneeId: 'ACME-USR-DEVI', attributes: { severity: 'high' }, fields: { key: 'EXT-112', subject: 'Stale results after reindex', description: 'Cache not invalidated on reindex completion.', status: 'Not Started', statusNative: { id: 'backlog', label: 'Backlog' }, points: 2, itemType: { id: 'acme_bug', label: 'Bug' } } },
+      { externalId: 'EXT-120', extWorkStreamId: 'EPIC-BILL', extSprintId: 'JSPR-102', extAssigneeId: 'ACME-USR-ADA', fields: { key: 'EXT-120', subject: 'Dual-write ledger', description: '', status: 'In Progress', statusNative: { id: 'dev', label: 'In Dev' }, points: 8, itemType: { id: 'acme_story', label: 'Story' } } },
+      { externalId: 'EXT-121', extWorkStreamId: 'EPIC-BILL', extSprintId: 'JSPR-103', extAssigneeId: 'ACME-USR-MARCO', fields: { key: 'EXT-121', subject: 'Proration engine', description: '', status: 'Not Started', statusNative: { id: 'backlog', label: 'Backlog' }, points: 5, itemType: { id: 'acme_story', label: 'Story' } } },
       // Unscheduled (no external sprint) → lands in the backlog.
-      { externalId: 'EXT-122', extWorkStreamId: 'EPIC-BILL', extSprintId: null, extAssigneeId: null, fields: { key: 'EXT-122', subject: 'Legacy data backfill', description: '', status: 'Not Started', statusNative: { id: 'backlog', label: 'Backlog' }, points: 3, itemType: { id: 'jira_task', label: 'Task' } } },
+      { externalId: 'EXT-122', extWorkStreamId: 'EPIC-BILL', extSprintId: null, extAssigneeId: null, fields: { key: 'EXT-122', subject: 'Legacy data backfill', description: '', status: 'Not Started', statusNative: { id: 'backlog', label: 'Backlog' }, points: 3, itemType: { id: 'acme_task', label: 'Task' } } },
     ],
   };
 }

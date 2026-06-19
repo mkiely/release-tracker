@@ -38,7 +38,7 @@ const A = getActions; // shorthand: A() → the live actions object
 
 // Default item type: points + sprint are writeable (matches legacy behavior).
 const STORY_TYPE: ConnectorItemType = {
-  id: 'jira_story',
+  id: 'acme_story',
   label: 'Story',
   fields: [
     { key: 'points', kind: 'number', role: 'points', writeable: true },
@@ -47,9 +47,9 @@ const STORY_TYPE: ConnectorItemType = {
 };
 
 // A connector meta whose item catalog makes points + sprint writeable.
-const jiraMeta = (over: Record<string, unknown> = {}) => ({
-  type: 'jira',
-  label: 'Jira',
+const acmeMeta = (over: Record<string, unknown> = {}) => ({
+  type: 'acme',
+  label: 'Acme',
   configFields: [],
   itemTypes: [STORY_TYPE],
   ...over,
@@ -133,9 +133,9 @@ describe('createRelease (local)', () => {
 
 describe('createRelease (connector)', () => {
   it('creates a release with no sprints (external system supplies them on sync)', () => {
-    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'jira', config: {} } });
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'acme', config: {} } });
     expect(r.sprints).toEqual([]);
-    expect(r.connector).toEqual({ type: 'jira', config: {} });
+    expect(r.connector).toEqual({ type: 'acme', config: {} });
     expect(r.sync).toBeNull();
   });
 });
@@ -242,9 +242,9 @@ describe('syncRelease', () => {
   });
 
   it('applies the mapped payload and marks the release synced on success', async () => {
-    client.listConnectors.mockResolvedValue([jiraMeta()]);
+    client.listConnectors.mockResolvedValue([acmeMeta()]);
     client.sync.mockResolvedValue(mappedRelease());
-    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'jira', config: {} } });
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'acme', config: {} } });
 
     const out = await A().syncRelease(r.id);
 
@@ -259,9 +259,9 @@ describe('syncRelease', () => {
   });
 
   it("returns { ok: false, reason: 'error' } and records the error when sync throws", async () => {
-    client.listConnectors.mockResolvedValue([jiraMeta()]);
+    client.listConnectors.mockResolvedValue([acmeMeta()]);
     client.sync.mockRejectedValue(new Error('boom'));
-    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'jira', config: {} } });
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'acme', config: {} } });
 
     const out = await A().syncRelease(r.id);
 
@@ -273,7 +273,7 @@ describe('syncRelease', () => {
 describe('revertItem', () => {
   it('restores dirty fields — including attributes — to the synced baseline', () => {
     const t = A().createTeam({ name: 'T', velocity: 20, members: [] });
-    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: t.id, connector: { type: 'jira', config: {} } });
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: t.id, connector: { type: 'acme', config: {} } });
     const it1 = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'S', points: 8 })!;
     A().updateItem(it1.id, {
       externalId: 'EXT-1',
@@ -292,7 +292,7 @@ describe('revertItem', () => {
 
   it('restores a dirty status through the release status vocabulary', () => {
     const t = A().createTeam({ name: 'T', velocity: 20, members: [] });
-    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: t.id, connector: { type: 'jira', config: {} } });
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: t.id, connector: { type: 'acme', config: {} } });
     // Seed the release's vocabulary snapshot (normally written by syncRelease).
     useStore.setState({
       releases: getState().releases.map((rel) =>
@@ -322,7 +322,7 @@ describe('revertItem', () => {
 describe('pushRelease', () => {
   // Create a connector release with one synced, points-dirty item.
   const setupDirty = (over: { dirtyFields?: string[]; itemType?: { id: string; label: string } } = {}) => {
-    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'jira', config: {} } });
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'acme', config: {} } });
     const it = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'S', points: 13 })!;
     A().updateItem(it.id, {
       externalId: 'EXT-1',
@@ -340,8 +340,8 @@ describe('pushRelease', () => {
   });
 
   it("returns 'nothing-to-push' when no synced dirty items exist", async () => {
-    client.listConnectors.mockResolvedValue([jiraMeta()]);
-    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'jira', config: {} } });
+    client.listConnectors.mockResolvedValue([acmeMeta()]);
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'acme', config: {} } });
     A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'clean' });
     expect(await A().pushRelease(r.id)).toMatchObject({ ok: false, reason: 'nothing-to-push' });
     expect(client.push).not.toHaveBeenCalled();
@@ -350,21 +350,21 @@ describe('pushRelease', () => {
   it("returns 'nothing-to-push' when a dirty field is not writeable for the item's type", async () => {
     // A type where points is create-once (writeable:false); the item resolves to it.
     const sprintOnly: ConnectorItemType = {
-      id: 'jira_story',
+      id: 'acme_story',
       label: 'Story',
       fields: [
         { key: 'sprint', kind: 'ref', target: 'sprint', writeable: true },
         { key: 'points', kind: 'number', role: 'points', writeable: false },
       ],
     };
-    client.listConnectors.mockResolvedValue([jiraMeta({ itemTypes: [sprintOnly] })]);
-    setupDirty({ dirtyFields: ['points'], itemType: { id: 'jira_story', label: 'Story' } });
+    client.listConnectors.mockResolvedValue([acmeMeta({ itemTypes: [sprintOnly] })]);
+    setupDirty({ dirtyFields: ['points'], itemType: { id: 'acme_story', label: 'Story' } });
     expect(await A().pushRelease(getState().releases[0].id)).toMatchObject({ ok: false, reason: 'nothing-to-push' });
     expect(client.push).not.toHaveBeenCalled();
   });
 
   it('pushes changes, clears dirtyFields, and advances the synced baseline on success', async () => {
-    client.listConnectors.mockResolvedValue([jiraMeta()]);
+    client.listConnectors.mockResolvedValue([acmeMeta()]);
     client.push.mockResolvedValue({ pushed: 1, failed: 0, errors: [] });
     const { itemId } = setupDirty();
 
@@ -379,7 +379,7 @@ describe('pushRelease', () => {
   });
 
   it("returns { ok: false, reason: 'error' } and records the error when push throws", async () => {
-    client.listConnectors.mockResolvedValue([jiraMeta()]);
+    client.listConnectors.mockResolvedValue([acmeMeta()]);
     client.push.mockRejectedValue(new Error('network down'));
     const { itemId } = setupDirty();
 

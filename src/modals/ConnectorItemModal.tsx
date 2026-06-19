@@ -149,7 +149,7 @@ export function ConnectorItemModal({
       title="New work item"
       icon={Icon.item}
       onClose={onClose}
-      width={520}
+      width="var(--rt-modal-w-work-item)"
       footer={
         <>
           {serverError && (

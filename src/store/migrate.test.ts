@@ -50,10 +50,10 @@ describe('migrate — v1 → current', () => {
   it('preserves existing connector value when already set', () => {
     const withConn = {
       ...v1,
-      releases: [{ ...v1Release(), connector: { type: 'jira', config: {} } }],
+      releases: [{ ...v1Release(), connector: { type: 'acme', config: {} } }],
     };
     const next = migrate(withConn as any)!;
-    expect(next.releases[0].connector).toEqual({ type: 'jira', config: {} });
+    expect(next.releases[0].connector).toEqual({ type: 'acme', config: {} });
   });
 });
 

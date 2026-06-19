@@ -15,7 +15,7 @@ const baseRelease = (): Release => ({
   events: [],
   sprints: [],
   externalId: null,
-  connector: { type: 'jira', config: {} },
+  connector: { type: 'acme', config: {} },
   sync: null,
 });
 
@@ -280,7 +280,7 @@ describe('applySync — team sync', () => {
   it('creates a new team from the mapped payload and repoints release.teamId', () => {
     const m = mapped({
       team: {
-        externalId: 'JIRA-TEAM-1',
+        externalId: 'ACME-TEAM-1',
         fields: { name: 'Platform Core' },
         members: [
           { externalId: 'USR-ADA', fields: { name: 'Ada L.' } },
@@ -289,7 +289,7 @@ describe('applySync — team sync', () => {
       },
     });
     const { next } = applySync(baseState(), 'rel_1', m);
-    const newTeam = next.teams.find((t) => t.externalId === 'JIRA-TEAM-1');
+    const newTeam = next.teams.find((t) => t.externalId === 'ACME-TEAM-1');
     expect(newTeam).toBeDefined();
     expect(newTeam!.name).toBe('Platform Core');
     expect(newTeam!.members).toHaveLength(2);
@@ -298,13 +298,13 @@ describe('applySync — team sync', () => {
   });
 
   it('reuses an existing team by externalId and updates its name', () => {
-    const existingTeam = { id: 'team_x', name: 'Old Name', velocity: 30, externalId: 'JIRA-TEAM-1', members: [] };
+    const existingTeam = { id: 'team_x', name: 'Old Name', velocity: 30, externalId: 'ACME-TEAM-1', members: [] };
     const state = { ...baseState(), teams: [existingTeam], releases: [{ ...baseRelease(), teamId: 'team_x' }] };
     const m = mapped({
-      team: { externalId: 'JIRA-TEAM-1', fields: { name: 'New Name' }, members: [] },
+      team: { externalId: 'ACME-TEAM-1', fields: { name: 'New Name' }, members: [] },
     });
     const { next } = applySync(state, 'rel_1', m);
-    const team = next.teams.find((t) => t.externalId === 'JIRA-TEAM-1')!;
+    const team = next.teams.find((t) => t.externalId === 'ACME-TEAM-1')!;
     expect(team.name).toBe('New Name');
     expect(team.velocity).toBe(30); // app-owned, never overwritten
     expect(next.releases[0].teamId).toBe('team_x');
@@ -313,11 +313,11 @@ describe('applySync — team sync', () => {
   it('upserts members by externalId and preserves local members', () => {
     const localMember = { id: 'm_local', name: 'Local User', externalId: null, nonContributing: false };
     const syncedMember = { id: 'm_synced', name: 'Ada L.', externalId: 'USR-ADA', nonContributing: false };
-    const existingTeam = { id: 'team_x', name: 'T', velocity: 20, externalId: 'JIRA-TEAM-1', members: [localMember, syncedMember] };
+    const existingTeam = { id: 'team_x', name: 'T', velocity: 20, externalId: 'ACME-TEAM-1', members: [localMember, syncedMember] };
     const state = { ...baseState(), teams: [existingTeam], releases: [{ ...baseRelease(), teamId: 'team_x' }] };
     const m = mapped({
       team: {
-        externalId: 'JIRA-TEAM-1',
+        externalId: 'ACME-TEAM-1',
         fields: { name: 'T' },
         members: [
           { externalId: 'USR-ADA', fields: { name: 'Ada L. (updated)' } },
@@ -326,7 +326,7 @@ describe('applySync — team sync', () => {
       },
     });
     const { next } = applySync(state, 'rel_1', m);
-    const team = next.teams.find((t) => t.externalId === 'JIRA-TEAM-1')!;
+    const team = next.teams.find((t) => t.externalId === 'ACME-TEAM-1')!;
     // Ada updated, Marco added, local member preserved
     expect(team.members).toHaveLength(3);
     expect(team.members.find((m) => m.externalId === 'USR-ADA')!.name).toBe('Ada L. (updated)');
@@ -335,7 +335,7 @@ describe('applySync — team sync', () => {
 
   it('does not sync team for local releases even if payload has one', () => {
     const m = mapped({
-      team: { externalId: 'JIRA-TEAM-1', fields: { name: 'Platform Core' }, members: [] },
+      team: { externalId: 'ACME-TEAM-1', fields: { name: 'Platform Core' }, members: [] },
     });
     const { next } = applySync(baseState({ releases: [localRelease()] }), 'rel_1', m);
     expect(next.teams).toHaveLength(0); // no team created
@@ -347,7 +347,7 @@ describe('applySync — assignee resolution', () => {
   it('resolves extAssigneeId to a local member id on item create', () => {
     const m = mapped({
       team: {
-        externalId: 'JIRA-TEAM-1',
+        externalId: 'ACME-TEAM-1',
         fields: { name: 'T' },
         members: [{ externalId: 'USR-ADA', fields: { name: 'Ada L.' } }],
       },

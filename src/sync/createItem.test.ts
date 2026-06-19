@@ -6,11 +6,11 @@ import { SCHEMA_VERSION, type AppState, type Release, type Team } from '../types
 import type { ConnectorMeta } from './client';
 import type { MappedItem } from './schema';
 
-const jira = FIXTURE_CONNECTORS[0];
+const acme = FIXTURE_CONNECTORS[0];
 
 describe('connectorCreateTypes', () => {
   it('returns the advertised creatable item types', () => {
-    expect(connectorCreateTypes(jira).map((t) => t.id)).toContain('jira_story');
+    expect(connectorCreateTypes(acme).map((t) => t.id)).toContain('acme_story');
   });
   it('is empty when meta is missing or declares no creatable capability', () => {
     expect(connectorCreateTypes(undefined)).toEqual([]);
@@ -21,22 +21,37 @@ describe('connectorCreateTypes', () => {
 describe('fixtureCreatedItem', () => {
   it('synthesizes a normalized MappedItem with key/externalId and passed refs', () => {
     const m = fixtureCreatedItem(
-      { type: 'jira', config: { projectKey: 'abc' } },
-      { type: 'jira_story', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: 'U1', fields: { subject: 'New thing', points: 5 } },
+      { type: 'acme', config: { projectKey: 'abc' } },
+      { type: 'acme_story', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: 'U1', fields: { subject: 'New thing', points: 5 } },
     );
     expect(m.externalId).toMatch(/^EXT-/);
     expect(m.fields.key).toMatch(/^ABC-/);
     expect(m.fields.subject).toBe('New thing');
     expect(m.fields.points).toBe(5);
     expect(m.fields.status).toBe('Not Started');
-    expect(m.fields.itemType).toMatchObject({ id: 'jira_story', label: 'Story' });
+    expect(m.fields.itemType).toMatchObject({ id: 'acme_story', label: 'Story' });
     expect(m).toMatchObject({ extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: 'U1' });
+  });
+
+  it('stamps descriptionFormat from the item type’s description field', () => {
+    // acme_story declares its description as format: 'html'
+    const story = fixtureCreatedItem(
+      { type: 'acme', config: { projectKey: 'abc' } },
+      { type: 'acme_story', extWorkStreamId: 'EPIC-A', extSprintId: null, extAssigneeId: null, fields: { subject: 'S', description: '<p>hi</p>' } },
+    );
+    expect(story.fields.descriptionFormat).toBe('html');
+    // acme_bug's description has no format → defaults to text
+    const bug = fixtureCreatedItem(
+      { type: 'acme', config: { projectKey: 'abc' } },
+      { type: 'acme_bug', extWorkStreamId: 'EPIC-A', extSprintId: null, extAssigneeId: null, fields: { subject: 'B', description: 'plain' } },
+    );
+    expect(bug.fields.descriptionFormat).toBe('text');
   });
 
   it('echoes catalog-declared vocabulary values back as attributes', () => {
     const m = fixtureCreatedItem(
-      { type: 'jira', config: { projectKey: 'abc' } },
-      { type: 'jira_bug', extWorkStreamId: 'EPIC-A', extSprintId: null, extAssigneeId: null, fields: { subject: 'Crash', severity: 'critical' } },
+      { type: 'acme', config: { projectKey: 'abc' } },
+      { type: 'acme_bug', extWorkStreamId: 'EPIC-A', extSprintId: null, extAssigneeId: null, fields: { subject: 'Crash', severity: 'critical' } },
     );
     expect(m.attributes).toEqual({ severity: 'critical' });
     // Canonical fields never leak into the bag.
@@ -54,14 +69,14 @@ const release = (): Release => ({
   workStreams: [{ id: 'ws1', name: 'Checkout', externalId: 'EPIC-A', engineersRequired: null, build: null }],
   events: [],
   sprints: [{ id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 0, externalId: 'JSPR-1' }],
-  externalId: null, connector: { type: 'jira', config: {} }, sync: null,
+  externalId: null, connector: { type: 'acme', config: {} }, sync: null,
 });
 const state = (): AppState => ({
   version: SCHEMA_VERSION, teams: [team()], releases: [release()], items: [], meta: { lastSyncISO: null },
 });
 const createdItem = (over: Partial<MappedItem> = {}): MappedItem => ({
   externalId: 'EXT-900', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: 'U1',
-  fields: { key: 'ABC-900', subject: 'Fresh', description: '', status: 'Not Started', points: 3, itemType: { id: 'jira_story', label: 'Story' } },
+  fields: { key: 'ABC-900', subject: 'Fresh', description: '', status: 'Not Started', points: 3, itemType: { id: 'acme_story', label: 'Story' } },
   ...over,
 });
 
