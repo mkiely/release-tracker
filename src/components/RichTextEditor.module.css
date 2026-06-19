@@ -156,9 +156,17 @@
   margin: 1em 0;
 }
 
-/* <p><br></p> blank-line paragraphs from connector HTML: collapse to just the
-   paragraph margin so they read as a line break, not a full blank line. */
-.content p:has(> :global(.ProseMirror-trailingBreak):only-child) {
+/* Collapse blank paragraphs from connector HTML. The :only-child guard is
+   intentionally strict: it only matches <p><br.trailingBreak></p> (the truly
+   empty paragraph shape TipTap produces). Connector <p><br></p> arrives as
+   <p><br><br.trailingBreak></p> (two elements), which would require
+   :not(:has(>:not(br))) — but that selector is text-node-blind and would also
+   collapse paragraphs like <p>Hello<br><br.trailingBreak></p>. normalizeBlanks()
+   in RichTextEditor.tsx strips the <br> from blank-only paragraphs before
+   TipTap parses them, ensuring only-child always applies safely.
+   font-size:0 kills the font strut; line-height:0 kills the multiplier. */
+.content :global(p:has(> .ProseMirror-trailingBreak:only-child)) {
+  font-size: 0;
   line-height: 0;
 }
 

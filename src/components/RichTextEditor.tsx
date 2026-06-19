@@ -5,6 +5,15 @@ import { DOMParser as PMDOMParser } from '@tiptap/pm/model';
 import { markdownToHtml, looksLikeMarkdown } from '../lib/markdown';
 import styles from './RichTextEditor.module.css';
 
+// Connector HTML often uses <p><br></p> as a blank-line separator. TipTap
+// parses the <br> as a hard break node, which then gets a second ProseMirror
+// trailing placeholder appended — producing <p><br><br.ProseMirror-trailingBreak></p>
+// and defeating the :only-child CSS collapse rule. Stripping the <br> first
+// lets TipTap treat the paragraph as truly empty so only the placeholder remains.
+function normalizeBlanks(html: string): string {
+  return html.replace(/<p>(\s*<br[^>]*>)+\s*<\/p>/gi, '<p></p>');
+}
+
 /** A deliberately minimal rich-text editor for work-item HTML descriptions.
  *  Tiptap + StarterKit only — no toolbar. Formatting is via markdown-style input
  *  rules (`## `, `- `, `> `, `**bold**`) and keyboard shortcuts (Cmd/Ctrl+B/I).
@@ -23,7 +32,7 @@ export function RichTextEditor({
 }) {
   const editor = useEditor({
     extensions: [StarterKit],
-    content: value,
+    content: normalizeBlanks(value),
     editable,
     // Avoid the strict-mode double-mount hydration warning; render in an effect.
     immediatelyRender: false,
@@ -53,9 +62,12 @@ export function RichTextEditor({
 
   // Reflect external resets (e.g. a different item) when the value diverges from
   // the editor's own serialized HTML. The equality guard prevents an onUpdate loop.
+  // Normalize both sides so that connector blank-line paragraphs (<p><br></p>)
+  // and their TipTap-serialized equivalents compare equal after normalization.
   useEffect(() => {
-    if (editor && value !== editor.getHTML()) {
-      editor.commands.setContent(value, { emitUpdate: false });
+    const normalized = normalizeBlanks(value);
+    if (editor && normalized !== normalizeBlanks(editor.getHTML())) {
+      editor.commands.setContent(normalized, { emitUpdate: false });
     }
   }, [editor, value]);
 
