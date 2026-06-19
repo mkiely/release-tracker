@@ -173,7 +173,7 @@ export function SyncButton({ release, onSync }: { release: Release; onSync: () =
   const label = busy
     ? 'Syncing…'
     : ok
-      ? `Synced ${new Date(sync!.lastISO!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+      ? `Synced ${new Date(sync!.lastISO!).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
       : err
         ? 'Sync failed'
         : 'Sync';

@@ -450,6 +450,7 @@ export const useStore = create<StoreState>((set, get) => {
         key: `${prefix}-${100 + count}`,
         subject: subject || 'Untitled item',
         description: description || '',
+        descriptionFormat: 'html', // new local items use the rich-text editor
         status: status || 'Not Started',
         points: Number(points) || 0,
         externalId: null,

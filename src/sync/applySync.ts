@@ -50,6 +50,18 @@ function mapItemType(it: MappedItem['fields']['itemType']): ItemType | null {
   return it ? { id: it.id ?? null, label: it.label } : null;
 }
 
+/** A stable fingerprint of the connector-derived content of an item. Used to tell
+ *  a genuine update from a no-op re-sync (every matched item used to count as
+ *  "updated" even when nothing changed). `syncedValues`/`dirtyFields` are derived
+ *  bookkeeping, not item content, so they're excluded. */
+function itemFingerprint(i: WorkItem): string {
+  return JSON.stringify([
+    i.key, i.descriptionFormat, i.build, i.itemType,
+    i.points, i.sprintId, i.workStreamId, i.assignedMemberId,
+    i.status, i.statusNative, i.subject, i.description, i.attributes,
+  ]);
+}
+
 /**
  * Resolve one MappedItem's refs and insert or update it in `items` (mutated in
  * place). Returns the outcome so callers can tally results. Read-only fields are
@@ -61,7 +73,7 @@ export function upsertItem(
   releaseId: string,
   maps: ExtMaps,
   writeableItemFields: string[],
-): { status: 'created' | 'updated' | 'skipped'; warning?: string } {
+): { status: 'created' | 'updated' | 'unchanged' | 'skipped'; warning?: string } {
   let workStreamId: string | null;
   if (m.extWorkStreamId == null) {
     workStreamId = null;
@@ -106,6 +118,7 @@ export function upsertItem(
 
   const existing = items.find((i) => i.releaseId === releaseId && i.externalId === m.externalId);
   if (existing) {
+    const before = itemFingerprint(existing);
     // Connector-owned fields (never writeable) — external always wins.
     existing.key = m.fields.key;
     existing.descriptionFormat = m.fields.descriptionFormat ?? 'text';
@@ -125,7 +138,8 @@ export function upsertItem(
     }
     existing.attributes = nextAttributes;
     existing.syncedValues = baseline();
-    return { status: 'updated', warning };
+    const changed = itemFingerprint(existing) !== before;
+    return { status: changed ? 'updated' : 'unchanged', warning };
   }
 
   items.push({
@@ -179,7 +193,7 @@ export function applySync(
   mapped: MappedRelease,
   writeableItemFields: string[] = [],
 ): { next: AppState; result: SyncResult } {
-  const result: SyncResult = { created: 0, updated: 0, skipped: 0, warnings: [] };
+  const result: SyncResult = { created: 0, updated: 0, unchanged: 0, skipped: 0, warnings: [] };
 
   const release = state.releases.find((r) => r.id === releaseId);
   if (!release) {
@@ -210,8 +224,10 @@ export function applySync(
       teams.push(team);
       result.created++;
     } else {
+      const changed = team.name !== mt.fields.name;
       team.name = mt.fields.name; // external wins on name; velocity stays app-owned
-      result.updated++;
+      if (changed) result.updated++;
+      else result.unchanged++;
     }
     releaseTeamId = team.id;
 
@@ -220,11 +236,13 @@ export function applySync(
     for (const mm of mt.members) {
       const existing = members.find((m) => m.externalId === mm.externalId);
       if (existing) {
+        const changed = existing.name !== mm.fields.name;
         existing.name = mm.fields.name;
         // nonContributing is app-owned after creation; the connector's value is only
         // used as a seed hint when the member is first added (see else branch below).
         memberByExt.set(mm.externalId, existing.id);
-        result.updated++;
+        if (changed) result.updated++;
+        else result.unchanged++;
       } else {
         const m: Member = {
           id: uid('m'),
@@ -246,11 +264,16 @@ export function applySync(
   for (const m of mapped.workStreams) {
     const existing = workStreams.find((ws) => ws.externalId === m.externalId);
     if (existing) {
+      const changed =
+        existing.name !== m.fields.name ||
+        existing.build !== (m.fields.build ?? null) ||
+        JSON.stringify(existing.attributes ?? {}) !== JSON.stringify(m.attributes ?? {});
       existing.name = m.fields.name; // external wins on name + build + attributes; engineersRequired stays app-owned
       existing.build = m.fields.build ?? null;
       existing.attributes = m.attributes ?? {};
       wsByExt.set(m.externalId, existing.id);
-      result.updated++;
+      if (changed) result.updated++;
+      else result.unchanged++;
     } else {
       const ws: WorkStream = { id: uid('ws'), name: m.fields.name, externalId: m.externalId, engineersRequired: null, build: m.fields.build ?? null, attributes: m.attributes ?? {} };
       workStreams.push(ws);
@@ -319,6 +342,7 @@ export function applySync(
     const { status, warning } = upsertItem(items, m, releaseId, maps, writeableItemFields);
     if (status === 'created') result.created++;
     else if (status === 'updated') result.updated++;
+    else if (status === 'unchanged') result.unchanged++;
     else result.skipped++;
     if (warning) result.warnings.push(warning);
   }

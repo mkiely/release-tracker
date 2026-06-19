@@ -27,6 +27,7 @@ export type {
 export interface SyncResult {
   created: number;
   updated: number;
+  unchanged: number; // matched but content identical — a no-op re-sync
   skipped: number; // unresolved refs; overflow sprints (local releases only)
   warnings: string[];
 }

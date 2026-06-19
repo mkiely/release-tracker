@@ -704,7 +704,7 @@ export function WorkItemModal({
       title="New work item"
       icon={Icon.item}
       onClose={onClose}
-      width={520}
+      width="min(960px, 94vw)"
       footer={
         <>
           <PButton variant="subtle" onClick={onClose}>
@@ -719,8 +719,8 @@ export function WorkItemModal({
       <PField label="Subject">
         <PInput autoFocus value={subject} placeholder="Short summary of the work" onChange={(e) => setSubject(e.target.value)} />
       </PField>
-      <PField label="Description">
-        <PTextarea value={desc} placeholder="Add detail, acceptance criteria, links…" onChange={(e) => setDesc(e.target.value)} />
+      <PField label="Description" hint="paste Markdown to format">
+        <RichTextEditor value={desc} onChange={setDesc} />
       </PField>
       <div style={{ display: 'flex', gap: 12 }}>
         <PField label="Work stream" style={{ flex: 1 }}>
@@ -914,7 +914,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   return (
     <Modal
       onClose={onClose}
-      width={640}
+      width="min(960px, 94vw)"
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <span className="mono" style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', background: 'var(--rt-fill)', padding: '3px 7px', borderRadius: 5 }}>

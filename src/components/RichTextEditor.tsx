@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { DOMParser as PMDOMParser } from '@tiptap/pm/model';
+import { markdownToHtml, looksLikeMarkdown } from '../lib/markdown';
 import styles from './RichTextEditor.module.css';
 
 /** A deliberately minimal rich-text editor for work-item HTML descriptions.
@@ -25,7 +27,22 @@ export function RichTextEditor({
     editable,
     // Avoid the strict-mode double-mount hydration warning; render in an effect.
     immediatelyRender: false,
-    editorProps: { attributes: { class: styles.content } },
+    editorProps: {
+      attributes: { class: styles.content },
+      // Format pasted Markdown. We key off the plain-text flavor: if it looks like
+      // Markdown we convert it, even when the clipboard also carries an HTML flavor
+      // (most apps attach one for plain-text copies, which is just the literal
+      // Markdown re-styled). Anything that isn't Markdown falls through so genuine
+      // rich-HTML and plain-text pastes keep tiptap's default handling.
+      handlePaste: (view, event) => {
+        const text = event.clipboardData?.getData('text/plain');
+        if (!text || !looksLikeMarkdown(text)) return false;
+        const doc = new DOMParser().parseFromString(markdownToHtml(text), 'text/html');
+        const slice = PMDOMParser.fromSchema(view.state.schema).parseSlice(doc.body);
+        view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+        return true;
+      },
+    },
     onUpdate: ({ editor }) => onChange?.(editor.getHTML()),
   });
 

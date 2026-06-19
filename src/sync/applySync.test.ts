@@ -97,7 +97,7 @@ describe('applySync — external wins on re-sync', () => {
     expect(next.items).toHaveLength(1);
     expect(next.items[0].id).toBe(localId); // stable local id
     expect(next.items[0]).toMatchObject({ subject: 'Renamed', status: 'Complete', points: 8 });
-    expect(result).toMatchObject({ created: 0, updated: 2 }); // ws + item re-matched
+    expect(result).toMatchObject({ created: 0, updated: 1, unchanged: 1 }); // item changed; ws re-matched but identical
   });
 
   it('preserves a locally-dirty writeable description across re-sync (external wins on the rest)', () => {

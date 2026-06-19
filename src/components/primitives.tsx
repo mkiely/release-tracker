@@ -127,7 +127,7 @@ export function Modal({
   icon?: ReactNode;
   onClose: () => void;
   footer?: ReactNode;
-  width?: number;
+  width?: number | string;
   children: ReactNode;
 }) {
   useEffect(() => {

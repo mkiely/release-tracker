@@ -56,8 +56,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
       return;
     }
-    const { created, updated, skipped } = outcome.result;
-    notify(`Synced \xb7 ${created} new, ${updated} updated${skipped ? `, ${skipped} skipped` : ''}`);
+    const { created, updated, unchanged, skipped } = outcome.result;
+    notify(
+      `Synced \xb7 ${created} new, ${updated} updated${unchanged ? `, ${unchanged} unchanged` : ''}${skipped ? `, ${skipped} skipped` : ''}`,
+    );
   };
 
   const onPush = async (releaseId: string) => {
