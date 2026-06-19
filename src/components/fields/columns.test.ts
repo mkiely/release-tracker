@@ -5,7 +5,7 @@ import type { ReleaseCatalog, WorkItem } from '../../types';
 const item = (over: Partial<WorkItem>): WorkItem => ({
   id: 'it_1', releaseId: 'rel_1', workStreamId: 'ws_1', sprintId: null,
   key: 'X-1', subject: 'S', description: '', status: 'Not Started', points: 0,
-  externalId: 'X-1', assignedMemberId: null, build: null, dirtyFields: [],
+  externalId: 'X-1', assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [],
   itemType: null, ...over,
 });
 

@@ -14,7 +14,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog and its
  *  status vocabulary (native workflow states mapped to canonical categories).
@@ -69,6 +69,10 @@ export interface WorkStream {
    *  "on-build only" lens (hide carried-in streams). Mirrors WorkItem.build; set by
    *  sync (external wins), null for locally-created streams. */
   build: string | null;
+  /** Connector-owned deep link: absolute URL to this work stream (epic) in the
+   *  external system, opened in a new tab. Set by sync (external wins), null for
+   *  locally-created streams or when the backend exposes no addressable page. */
+  externalUrl: string | null;
   /** Connector vocabulary values keyed by FieldSpec.key (see WorkItem.attributes).
    *  Absence means none. Connector-owned: external wins on sync. */
   attributes?: Record<string, AttrValue>;
@@ -154,6 +158,10 @@ export interface WorkItem {
   assignedMemberId: string | null;
   /** The build/release label this item originated from, if it was pulled from a prior release. Set by the connector. */
   build: string | null;
+  /** Connector-owned deep link: absolute URL to this item in the external system
+   *  (e.g. its issue page), opened in a new tab. Set by sync (external wins), null
+   *  for local items or when the backend exposes no addressable page. */
+  externalUrl: string | null;
   /** Format of the description field. Absence or 'text' means plain text; 'html' means sanitized HTML from a connector. */
   descriptionFormat?: 'text' | 'html';
   /** Writeable fields edited locally since last sync/push, awaiting push. Empty for clean items. */

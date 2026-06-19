@@ -690,7 +690,7 @@ export function WorkItemModal({
   const [wsId, setWsId] = useState<string | null>(presetStreamId || (r.workStreams[0] && r.workStreams[0].id) || null);
   const [sprintId, setSprintId] = useState<string | null>(presetSprintId ?? defaultSprintId);
   const [status, setStatus] = useState<Status>('Not Started');
-  const [points, setPoints] = useState(3);
+  const [points, setPoints] = useState(0);
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(null);
   const [typeLabel, setTypeLabel] = useState<string>('');
   const canSave = !!subject.trim();
@@ -719,7 +719,7 @@ export function WorkItemModal({
       <PField label="Subject">
         <PInput autoFocus value={subject} placeholder="Short summary of the work" onChange={(e) => setSubject(e.target.value)} />
       </PField>
-      <PField label="Description" hint="paste Markdown to format">
+      <PField label="Description" hint="supports markdown pasted content">
         <RichTextEditor value={desc} onChange={setDesc} />
       </PField>
       <div style={{ display: 'flex', gap: 12 }}>
@@ -795,7 +795,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const [sprintId, setSprintId] = useState<string | null>(it?.sprintId ?? null);
   const [status, setStatus] = useState<Status>(it ? it.status : 'Not Started');
   const [statusNativeId, setStatusNativeId] = useState<string>(it?.statusNative?.id ?? '');
-  const [points, setPoints] = useState(it ? it.points : 3);
+  const [points, setPoints] = useState(it ? it.points : 0);
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(it?.assignedMemberId ?? null);
   const [typeLabel, setTypeLabel] = useState<string>(it?.itemType?.label ?? '');
   const [attrs, setAttrs] = useState<Record<string, AttrValue>>(it?.attributes ?? {});
@@ -949,6 +949,23 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           )}
           {/* <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Work item</span> */}
           {isDirty && <DirtyDot size={7} />}
+          {it.externalUrl && (
+            <a
+              href={it.externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Open ${it.key} in ${meta?.label ?? 'the external system'} (new tab)`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-accent)',
+                background: 'var(--rt-fill)', border: '1.5px solid var(--rt-line)',
+                borderRadius: 5, padding: '2px 8px', textDecoration: 'none',
+              }}
+            >
+              {Icon.external}
+              Open in {meta?.label ?? 'external'}
+            </a>
+          )}
         </span>
       }
       footer={

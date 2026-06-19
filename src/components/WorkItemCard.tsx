@@ -94,7 +94,7 @@ export function WorkItemCard({
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           {isDirty && <DirtyDot />}
-          <span className="pts">{it.points} pts</span>
+          {it.points > 0 && <span className="pts">{it.points} pts</span>}
         </div>
       </div>
       <div

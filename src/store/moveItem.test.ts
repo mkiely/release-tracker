@@ -5,7 +5,7 @@ import type { WorkItem } from '../types';
 const item = (over: Partial<WorkItem>): WorkItem => ({
   id: 'it_1', releaseId: 'rel_1', workStreamId: 'ws_1', sprintId: 'sp_1',
   key: 'EXT-1', subject: 'S', description: '', status: 'Not Started', points: 5,
-  externalId: 'EXT-1', assignedMemberId: null, build: null, dirtyFields: [],
+  externalId: 'EXT-1', assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [],
   syncedValues: { points: 5, sprint: 'sp_1' }, itemType: null,
   ...over,
 });

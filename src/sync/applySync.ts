@@ -56,7 +56,7 @@ function mapItemType(it: MappedItem['fields']['itemType']): ItemType | null {
  *  bookkeeping, not item content, so they're excluded. */
 function itemFingerprint(i: WorkItem): string {
   return JSON.stringify([
-    i.key, i.descriptionFormat, i.build, i.itemType,
+    i.key, i.descriptionFormat, i.build, i.externalUrl, i.itemType,
     i.points, i.sprintId, i.workStreamId, i.assignedMemberId,
     i.status, i.statusNative, i.subject, i.description, i.attributes,
   ]);
@@ -102,7 +102,7 @@ export function upsertItem(
   // The incoming external values, in the canonical view shape — the single source
   // for both the dirty-aware overwrite and the synced baseline below.
   const incoming: CanonicalView = {
-    points: m.fields.points,
+    points: m.fields.points ?? 0,
     sprintId,
     workStreamId,
     assignedMemberId,
@@ -123,6 +123,7 @@ export function upsertItem(
     existing.key = m.fields.key;
     existing.descriptionFormat = m.fields.descriptionFormat ?? 'text';
     existing.build = m.fields.build ?? null;
+    existing.externalUrl = m.fields.url ?? null;
     existing.itemType = mapItemType(m.fields.itemType);
     // Dirty-aware: external wins on every canonical field except those locally
     // dirty (pending push), which keep their local value.
@@ -152,10 +153,11 @@ export function upsertItem(
     description: m.fields.description,
     descriptionFormat: m.fields.descriptionFormat ?? 'text',
     status: m.fields.status,
-    points: m.fields.points,
+    points: m.fields.points ?? 0,
     externalId: m.externalId,
     assignedMemberId,
     build: m.fields.build ?? null,
+    externalUrl: m.fields.url ?? null,
     itemType: mapItemType(m.fields.itemType),
     statusNative,
     dirtyFields: [],
@@ -267,15 +269,17 @@ export function applySync(
       const changed =
         existing.name !== m.fields.name ||
         existing.build !== (m.fields.build ?? null) ||
+        existing.externalUrl !== (m.fields.url ?? null) ||
         JSON.stringify(existing.attributes ?? {}) !== JSON.stringify(m.attributes ?? {});
-      existing.name = m.fields.name; // external wins on name + build + attributes; engineersRequired stays app-owned
+      existing.name = m.fields.name; // external wins on name + build + url + attributes; engineersRequired stays app-owned
       existing.build = m.fields.build ?? null;
+      existing.externalUrl = m.fields.url ?? null;
       existing.attributes = m.attributes ?? {};
       wsByExt.set(m.externalId, existing.id);
       if (changed) result.updated++;
       else result.unchanged++;
     } else {
-      const ws: WorkStream = { id: uid('ws'), name: m.fields.name, externalId: m.externalId, engineersRequired: null, build: m.fields.build ?? null, attributes: m.attributes ?? {} };
+      const ws: WorkStream = { id: uid('ws'), name: m.fields.name, externalId: m.externalId, engineersRequired: null, build: m.fields.build ?? null, externalUrl: m.fields.url ?? null, attributes: m.attributes ?? {} };
       workStreams.push(ws);
       wsByExt.set(m.externalId, ws.id);
       result.created++;

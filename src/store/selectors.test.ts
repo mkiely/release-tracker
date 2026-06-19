@@ -10,14 +10,14 @@ const team = (id: string): Team => ({
 
 const release = (id: string): Release => ({
   id, name: `Release ${id}`, startISO: '2026-04-13', teamId: 't1',
-  workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: null, build: null }],
+  workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: null, build: null, externalUrl: null }],
   events: [], sprints: [], externalId: null, connector: null, sync: null,
 });
 
 const item = (id: string, releaseId: string, wsId = 'ws1', dirty: string[] = []): WorkItem => ({
   id, releaseId, workStreamId: wsId, sprintId: null,
   key: `K-${id}`, subject: 'S', description: '', status: 'Not Started',
-  points: 1, externalId: null, assignedMemberId: null, build: null, dirtyFields: dirty, itemType: null,
+  points: 1, externalId: null, assignedMemberId: null, build: null, externalUrl: null, dirtyFields: dirty, itemType: null,
 });
 
 const state = (...overrides: Partial<AppState>[]): AppState =>

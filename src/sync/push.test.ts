@@ -12,7 +12,7 @@ const sprint = (id: string, externalId: string | null): Sprint => ({
   externalId,
 });
 
-const stream = (id: string, externalId: string | null): WorkStream => ({ id, name: 'WS', externalId, engineersRequired: null, build: null });
+const stream = (id: string, externalId: string | null): WorkStream => ({ id, name: 'WS', externalId, engineersRequired: null, build: null, externalUrl: null });
 const member = (id: string, externalId: string | null): Member => ({ id, name: 'M', externalId, nonContributing: false });
 
 /** Wrap loose ref arrays in the PushRefs shape buildPushChanges expects. */
@@ -30,7 +30,7 @@ const item = (over: Partial<WorkItem>): WorkItem => ({
   points: 5,
   externalId: 'EXT-1',
   assignedMemberId: null,
-  build: null,
+  build: null, externalUrl: null,
   dirtyFields: [],
   itemType: null,
   ...over,

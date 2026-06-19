@@ -221,6 +221,19 @@ export function migrate(p: AppState): AppState | null {
       items: s.items.map((it) => ({ ...it, statusNative: it.statusNative ?? null })),
     };
   }
+  // v15 → v16: connector-provided deep links. Work items and work streams gain
+  // externalUrl (default null); populated on the next sync (external wins).
+  if (s.version === 15) {
+    s = {
+      ...s,
+      version: 16,
+      releases: s.releases.map((r) => ({
+        ...r,
+        workStreams: r.workStreams.map((ws) => ({ ...ws, externalUrl: (ws as any).externalUrl ?? null })),
+      })),
+      items: s.items.map((it) => ({ ...it, externalUrl: (it as any).externalUrl ?? null })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -380,7 +393,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     createWorkStream: (releaseId, name) => {
       if (!release(releaseId)) return null;
-      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null, build: null, attributes: {} };
+      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null, build: null, externalUrl: null, attributes: {} };
       commit((d) => {
         d.releases = d.releases.map((r) =>
           r.id === releaseId ? { ...r, workStreams: [...r.workStreams, ws] } : r,
@@ -456,6 +469,7 @@ export const useStore = create<StoreState>((set, get) => {
         externalId: null,
         assignedMemberId: assignedMemberId ?? null,
         build: null,
+        externalUrl: null,
         dirtyFields: [],
         syncedValues: null,
         itemType: itemType ?? null,

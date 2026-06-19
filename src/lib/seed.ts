@@ -100,7 +100,7 @@ export function seed(): AppState {
     'Checkout API': 3, 'Search Revamp': 2, 'Mobile Onboarding': 2,
     'Billing Migration': 2, 'Notifications': 1, 'Admin Console': 2,
   };
-  const demoStreams = streamNames.map((n) => ({ id: uid('ws'), name: n, externalId: null, engineersRequired: demoEngineers[n] ?? null, build: null }));
+  const demoStreams = streamNames.map((n) => ({ id: uid('ws'), name: n, externalId: null, engineersRequired: demoEngineers[n] ?? null, build: null, externalUrl: null }));
   // Anchor the release to today so the demo always shows a mix of past, active, and
   // future sprints. Sprint 4 (the one with mixed in-progress/not-started work in
   // RELEASE_MATRIX) is the "active" sprint — land today on its 8th day (of 14).
@@ -144,7 +144,7 @@ export function seed(): AppState {
             id: uid('it'), releaseId: 'rel_demo', workStreamId: wsId(streamName), sprintId,
             key: `ORN-${keyN++}`, subject, description: '', status, points: PT_POOL[ptI++ % PT_POOL.length], externalId: null,
             assignedMemberId: coreMembers[memberIdx++ % coreMembers.length].id,
-            build: null, dirtyFields: [], itemType: null,
+            build: null, externalUrl: null, dirtyFields: [], itemType: null,
           });
         }
       });
@@ -166,7 +166,7 @@ export function seed(): AppState {
       key: `ORN-${keyN++}`, subject, description: '', status,
       points: pts, externalId: null,
       assignedMemberId: coreMembers[memberIdx++ % coreMembers.length].id,
-      build: 'Orion 1.5', dirtyFields: [], itemType: null,
+      build: 'Orion 1.5', externalUrl: null, dirtyFields: [], itemType: null,
     });
   });
 
@@ -178,7 +178,7 @@ export function seed(): AppState {
       key: `ORN-${keyN++}`, subject: 'Define third-party cookie deprecation plan',
       description: 'Cross-cutting concern; stream TBD once owner is identified.',
       status: 'Not Started', points: 3, externalId: null,
-      assignedMemberId: null, build: null, dirtyFields: [], itemType: null,
+      assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], itemType: null,
     },
     {
       id: uid('it'), releaseId: 'rel_demo', workStreamId: null,
@@ -186,7 +186,7 @@ export function seed(): AppState {
       key: `ORN-${keyN++}`, subject: 'Security audit findings — triage and assign',
       description: 'Raw findings from pentest; stream assignment pending review.',
       status: 'In Progress', points: 5, externalId: null,
-      assignedMemberId: coreMembers[0].id, build: null, dirtyFields: [], itemType: null,
+      assignedMemberId: coreMembers[0].id, build: null, externalUrl: null, dirtyFields: [], itemType: null,
     },
     {
       id: uid('it'), releaseId: 'rel_demo', workStreamId: null,
@@ -194,7 +194,7 @@ export function seed(): AppState {
       key: `ORN-${keyN++}`, subject: 'Migrate internal tooling to new auth provider',
       description: 'Backlog item; not yet assigned to a stream or sprint.',
       status: 'Not Started', points: 2, externalId: null,
-      assignedMemberId: null, build: null, dirtyFields: [], itemType: null,
+      assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], itemType: null,
     },
   );
 
@@ -241,7 +241,7 @@ export function seed(): AppState {
 </table>`,
     descriptionFormat: 'html',
     status: 'Not Started', points: 5, externalId: 'EXT-SSO-001',
-    assignedMemberId: coreMembers[1].id, build: null, dirtyFields: [], itemType: null,
+    assignedMemberId: coreMembers[1].id, build: null, externalUrl: null, dirtyFields: [], itemType: null,
   });
 
   // Connector release: Nexus 1.0 — Acme-linked, 6 streams, custom sprint names.
@@ -252,14 +252,19 @@ export function seed(): AppState {
   const nexusStart = addDays(today, -(10 + 14 + 14 + 14 + 14 + 10));
   const nexusStreamNames = ['Data Ingestion', 'API Gateway', 'Auth & SSO', 'Reporting & Analytics', 'Webhooks', 'SDK & Developer Tools'];
   const nexusEngineers = [2, 3, 2, 2, 1, 1]; // app-owned enrichment; survives connector sync
+  // Acme-style deep link to an issue/epic, as a real connector would construct it.
+  const nexusSite = 'acme.atlassian.net';
+  const acmeUrl = (extId: string) => `https://${nexusSite}/browse/${extId}`;
   const nexusStreams: WorkStream[] = nexusStreamNames.map((n, i) => ({
     id: uid('ws'), name: n, externalId: `EPIC-NXS-${i + 1}`, engineersRequired: nexusEngineers[i] ?? null, build: null,
+    externalUrl: acmeUrl(`EPIC-NXS-${i + 1}`),
   }));
   // A carried-in stream: an epic from the prior build whose items overlap this
   // release's sprint window. build !== null marks it off-build; the "on-build only"
   // lens hides it. Exercises the build-filter feature in the demo data.
   const nexusCarriedStream: WorkStream = {
     id: uid('ws'), name: 'Beta 2 Carryover', externalId: 'EPIC-NXS-B2', engineersRequired: null, build: 'Nexus Beta 2',
+    externalUrl: acmeUrl('EPIC-NXS-B2'),
   };
   nexusStreams.push(nexusCarriedStream);
   let nexusCursor = nexusStart;
@@ -305,7 +310,8 @@ export function seed(): AppState {
             id: uid('it'), releaseId: 'rel_nexus', workStreamId: nxsWsId(streamName), sprintId,
             key: `NXS-${nxsKeyN}`, subject, description: '', status,
             points: PT_POOL[nxsPtI++ % PT_POOL.length],
-            externalId: `NXS-${nxsKeyN++}`,
+            externalId: `NXS-${nxsKeyN}`,
+            externalUrl: acmeUrl(`NXS-${nxsKeyN++}`),
             assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
             build: null, dirtyFields: [],
             itemType: NEXUS_TYPE_POOL[nxsTypeI++ % NEXUS_TYPE_POOL.length],
@@ -328,7 +334,7 @@ export function seed(): AppState {
       id: uid('it'), releaseId: 'rel_nexus', workStreamId: nxsWsId(stream),
       sprintId: nexusActiveSprint.id,
       key: `NXS-${nxsKeyN}`, subject, description: '', status,
-      points: pts, externalId: `NXS-${nxsKeyN++}`,
+      points: pts, externalId: `NXS-${nxsKeyN}`, externalUrl: acmeUrl(`NXS-${nxsKeyN++}`),
       assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
       build: 'Nexus Beta 2', dirtyFields: [],
       itemType: { id: 'acme_bug', label: 'Bug' },
@@ -346,7 +352,7 @@ export function seed(): AppState {
       id: uid('it'), releaseId: 'rel_nexus', workStreamId: nexusCarriedStream.id,
       sprintId: nexusSprints[sprintIdx].id,
       key: `NXS-${nxsKeyN}`, subject, description: '', status,
-      points: pts, externalId: `NXS-${nxsKeyN++}`,
+      points: pts, externalId: `NXS-${nxsKeyN}`, externalUrl: acmeUrl(`NXS-${nxsKeyN++}`),
       assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
       build: 'Nexus Beta 2', dirtyFields: [],
       itemType: { id: 'acme_task', label: 'Task' },

@@ -118,6 +118,7 @@ export function fixtureCreatedItem(connector: ReleaseConnector, req: CreateItemI
   const fields = (req.fields ?? {}) as Record<string, unknown>;
   const itype = itemTypeFor(req.type, ACME_ITEM_TYPES);
   const typeLabel = itype?.label ?? 'Task';
+  const site = connector.config.siteUrl || 'acme.atlassian.net';
   // The body format is a property of the type's description field (the same facet
   // a real service would stamp onto the created item), defaulting to text.
   const descriptionFormat = itype?.fields.find((f) => f.role === 'description')?.format ?? 'text';
@@ -140,6 +141,7 @@ export function fixtureCreatedItem(connector: ReleaseConnector, req: CreateItemI
       key: `${prefix}-${n}`,
       subject: String(fields.subject ?? 'Untitled item'),
       description: String(fields.description ?? ''),
+      url: `https://${site}/browse/${prefix}-${n}`,
       descriptionFormat,
       status: ((fields.status as ContractStatus) ?? 'Not Started'),
       statusNative: nativeForCategory((fields.status as ContractStatus) ?? 'Not Started'),
@@ -152,7 +154,8 @@ export function fixtureCreatedItem(connector: ReleaseConnector, req: CreateItemI
 // External sprint dates are intentionally near the typical demo release start; the engine
 // links them onto the fixed grid by chronological order regardless of exact dates.
 export function fixtureMappedRelease(): MappedRelease {
-  return {
+  const browse = (id: string) => `https://acme.atlassian.net/browse/${id}`;
+  const r: MappedRelease = {
     team: {
       externalId: 'ACME-TEAM-PLAT',
       fields: { name: 'Platform Core' },
@@ -190,4 +193,9 @@ export function fixtureMappedRelease(): MappedRelease {
       { externalId: 'EXT-122', extWorkStreamId: 'EPIC-BILL', extSprintId: null, extAssigneeId: null, fields: { key: 'EXT-122', subject: 'Legacy data backfill', description: '', status: 'Not Started', statusNative: { id: 'backlog', label: 'Backlog' }, points: 3, itemType: { id: 'acme_task', label: 'Task' } } },
     ],
   };
+  // Stamp the connector-built deep links the way the real service would: epics by
+  // their external id, items by their issue key.
+  for (const ws of r.workStreams) ws.fields.url = browse(ws.externalId);
+  for (const it of r.items) it.fields.url = browse(it.fields.key);
+  return r;
 }

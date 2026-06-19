@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "15.0.0",
+  "version": "16.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -108,12 +108,16 @@
           "type": ["string", "null"],
           "description": "Connector-owned provenance: the build/release this stream was carried in from, when it differs from this release. Null = native to this release. Drives the 'on-build only' lens."
         },
+        "externalUrl": {
+          "type": ["string", "null"],
+          "description": "Connector-owned deep link: absolute URL to this work stream (epic) in the external system, opened in a new tab. Null for locally-created streams or when the backend exposes no addressable page."
+        },
         "attributes": {
           "$ref": "#/definitions/AttributeBag",
           "description": "Connector vocabulary values for this stream. Optional — absence means none."
         }
       },
-      "required": ["id", "name", "externalId", "engineersRequired", "build"],
+      "required": ["id", "name", "externalId", "engineersRequired", "build", "externalUrl"],
       "additionalProperties": false
     },
     "Sprint": {
@@ -325,6 +329,10 @@
           "type": ["string", "null"],
           "description": "Build/release label this item originated from, if it was pulled from a prior release by the connector. Null for locally-created items. Read-only."
         },
+        "externalUrl": {
+          "type": ["string", "null"],
+          "description": "Connector-owned deep link: absolute URL to this item in the external system (e.g. its issue page), opened in a new tab. Null for locally-created items or when the backend exposes no addressable page. Read-only."
+        },
         "dirtyFields": {
           "type": "array",
           "items": {
@@ -371,7 +379,7 @@
           "description": "The item's native workflow state (denormalized id + label, mirrors itemType). `status` carries this state's canonical category — what all derivations compute over; this adds the backend's real state for display/edit. Pushable (as statusId) when the item type declares a writeable status field. Null/absent for local items or backends without a richer workflow."
         }
       },
-      "required": ["id", "releaseId", "workStreamId", "sprintId", "key", "subject", "description", "status", "points", "externalId", "assignedMemberId", "build", "dirtyFields", "itemType"],
+      "required": ["id", "releaseId", "workStreamId", "sprintId", "key", "subject", "description", "status", "points", "externalId", "assignedMemberId", "build", "externalUrl", "dirtyFields", "itemType"],
       "additionalProperties": false
     },
     "Release": {
@@ -497,7 +505,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 15,
+      "value": 16,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {

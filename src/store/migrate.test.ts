@@ -475,6 +475,39 @@ describe('migrate — v14 → current', () => {
   });
 });
 
+describe('migrate — v15 → current', () => {
+  const v15Item = (over: Record<string, unknown> = {}) => ({
+    id: 'it1', releaseId: 'r1', workStreamId: 'ws1', sprintId: 'sp1',
+    key: 'K-1', subject: 'S', description: '', status: 'Not Started', points: 3,
+    externalId: 'EXT-1', assignedMemberId: null, build: null, dirtyFields: [],
+    syncedValues: { points: 3, sprint: 'sp1' }, itemType: null, attributes: {}, statusNative: null, ...over,
+  });
+  const v15Ws = (over: Record<string, unknown> = {}) => ({
+    id: 'ws1', name: 'API', externalId: null, engineersRequired: null, build: null, attributes: {}, ...over,
+  });
+  const v15 = (over: { item?: Record<string, unknown>; ws?: Record<string, unknown> } = {}) => ({
+    version: 15, teams: [], meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), sprints: [], catalog: null, workStreams: [v15Ws(over.ws)] }],
+    items: [v15Item(over.item)],
+  });
+
+  it('adds externalUrl: null to items and work streams that lack it', () => {
+    const next = migrate(v15() as any)!;
+    expect(next.version).toBe(SCHEMA_VERSION);
+    expect(next.items[0].externalUrl).toBeNull();
+    expect(next.releases[0].workStreams[0].externalUrl).toBeNull();
+  });
+
+  it('preserves an existing externalUrl value', () => {
+    const next = migrate(v15({
+      item: { externalUrl: 'https://acme.test/browse/EXT-1' },
+      ws: { externalUrl: 'https://acme.test/browse/EPIC-A' },
+    }) as any)!;
+    expect(next.items[0].externalUrl).toBe('https://acme.test/browse/EXT-1');
+    expect(next.releases[0].workStreams[0].externalUrl).toBe('https://acme.test/browse/EPIC-A');
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

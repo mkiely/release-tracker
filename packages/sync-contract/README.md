@@ -214,6 +214,20 @@ is editable in the app and pushes back through `PushItemChange.fields.attributes
 catalog — declared key, coercible kind, enum membership — before writing to the
 backend. Fields without `writeable` render read-only.
 
+### Deep links (jump to the backend)
+
+A connector release points at a real system, so the service can hand the app an
+absolute link back to the source of truth. Both `MappedItem.fields.url` and
+`MappedWorkStream.fields.url` are optional, nullable absolute URLs:
+
+- The **service owns URL construction** (e.g. `https://acme.atlassian.net/browse/PROJ-123`
+  for an item, the epic page for a stream). The app never assembles links itself.
+- The app renders them as an "open in a new tab" affordance — on the work-item
+  detail modal and the work-stream header — and stores them read-only
+  (connector-owned: external wins on every sync, like `key`/`build`).
+- Omit or send `null` when the backend exposes no addressable page; the app
+  simply hides the link.
+
 ## Regenerating types
 
 After editing `openapi.yaml`, regenerate the TypeScript bindings from the repo root:

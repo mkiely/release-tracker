@@ -123,6 +123,8 @@ export interface components {
             attributes?: components["schemas"]["AttributeBag"];
             fields: {
                 name: string;
+                /** @description Absolute URL to this work stream (epic) in the external system, opened in a new tab so users can jump from the app to the source of truth. The connector owns URL construction. Null or omitted when the backend exposes no addressable page for the stream. Mirrors the item-level `url`. */
+                url?: string | null;
                 /** @description Build/release label this work stream belongs to, when it differs from the release being synced (e.g. "Orion 1.5") — i.e. the stream was carried in from a prior release rather than planned for this one. Null (or omitted) for streams native to the current release. Mirrors the item-level `build` field; lets the app hide carried-in streams. */
                 build?: string | null;
             };
@@ -166,10 +168,13 @@ export interface components {
                 key: string;
                 subject: string;
                 description: string;
+                /** @description Absolute URL to this work item in the external system (e.g. the issue page), opened in a new tab so users can jump from the app to the source of truth. The connector owns URL construction. Null or omitted when the backend exposes no addressable page for the item. */
+                url?: string | null;
                 status: components["schemas"]["Status"];
                 /** @description The item's native workflow state, when the connector declares a status vocabulary. Must be one of ConnectorMeta.statuses (its category must equal this item's `status`). Omit/null when the backend has no richer workflow than the canonical five. */
                 statusNative?: components["schemas"]["StatusRef"] | null;
-                points: number;
+                /** @description Story-point estimate. Null or omitted when the item has not yet been estimated; the app treats null the same as 0 for capacity math. */
+                points?: number | null;
                 /** @description Optional build/release label for patch items originating from a prior release (e.g. "Orion 1.5"). Set by the connector when the item's fix version differs from the current release. Null for native items. */
                 build?: string | null;
                 /**
@@ -317,7 +322,8 @@ export interface components {
                 subject?: string;
                 /** @description New description (plain text or HTML per the item's descriptionFormat). Only sent when the item's type declares a writeable field with role=description. */
                 description?: string;
-                points?: number;
+                /** @description New point estimate, or null to clear the estimate. */
+                points?: number | null;
                 /** @description External sprint id, or null for backlog. */
                 extSprintId?: string | null;
                 /** @description External work-stream (epic) id, or null. Only sent when the item's type declares a writeable ref field targeting workStream. */

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.14.0
+  version: 0.16.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
@@ -175,6 +175,14 @@ components:
           required: [name]
           properties:
             name: { type: string }
+            url:
+              type: string
+              nullable: true
+              description: >-
+                Absolute URL to this work stream (epic) in the external system, opened
+                in a new tab so users can jump from the app to the source of truth.
+                The connector owns URL construction. Null or omitted when the backend
+                exposes no addressable page for the stream. Mirrors the item-level `url`.
             build:
               type: string
               nullable: true
@@ -249,11 +257,19 @@ components:
         attributes: { $ref: '#/components/schemas/AttributeBag' }
         fields:
           type: object
-          required: [key, subject, description, status, points]
+          required: [key, subject, description, status]
           properties:
             key: { type: string, description: 'External-provided, e.g. PROJ-123' }
             subject: { type: string }
             description: { type: string }
+            url:
+              type: string
+              nullable: true
+              description: >-
+                Absolute URL to this work item in the external system (e.g. the issue
+                page), opened in a new tab so users can jump from the app to the source
+                of truth. The connector owns URL construction. Null or omitted when the
+                backend exposes no addressable page for the item.
             status: { $ref: '#/components/schemas/Status' }
             statusNative:
               nullable: true
@@ -264,7 +280,12 @@ components:
                 status vocabulary. Must be one of ConnectorMeta.statuses (its
                 category must equal this item's `status`). Omit/null when the
                 backend has no richer workflow than the canonical five.
-            points: { type: number }
+            points:
+              type: number
+              nullable: true
+              description: >-
+                Story-point estimate. Null or omitted when the item has not yet
+                been estimated; the app treats null the same as 0 for capacity math.
             build:
               type: string
               nullable: true
@@ -505,7 +526,10 @@ components:
                 New description (plain text or HTML per the item's
                 descriptionFormat). Only sent when the item's type declares a
                 writeable field with role=description.
-            points: { type: number }
+            points:
+              type: number
+              nullable: true
+              description: New point estimate, or null to clear the estimate.
             extSprintId:
               type: string
               nullable: true

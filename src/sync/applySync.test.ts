@@ -100,6 +100,16 @@ describe('applySync — external wins on re-sync', () => {
     expect(result).toMatchObject({ created: 0, updated: 1, unchanged: 1 }); // item changed; ws re-matched but identical
   });
 
+  it('treats null points from the connector as 0 (unestimated)', () => {
+    const nullPoints = mapped({
+      items: [
+        { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null, fields: { key: 'EXT-1', subject: 'Tokenize vault', description: 'd', status: 'In Progress', points: null } },
+      ],
+    });
+    const { next } = applySync(baseState(), 'rel_1', nullPoints);
+    expect(next.items[0].points).toBe(0);
+  });
+
   it('preserves a locally-dirty writeable description across re-sync (external wins on the rest)', () => {
     const first = applySync(baseState(), 'rel_1', mapped());
     // Locally edit the description and mark it dirty (as the detail modal would).
@@ -183,7 +193,7 @@ describe('applySync — local-only entities are untouched', () => {
     const local: WorkItem = {
       id: 'it_local', releaseId: 'rel_1', workStreamId: 'ws_x', sprintId: 'sp_x',
       key: 'LOCAL-1', subject: 'Hand-entered', description: '', status: 'Not Started', points: 1, externalId: null,
-      assignedMemberId: null, build: null, dirtyFields: [], itemType: null,
+      assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], itemType: null,
     };
     const { next } = applySync(baseState({ items: [local] }), 'rel_1', mapped());
     const stillThere = next.items.find((i) => i.id === 'it_local');
@@ -459,6 +469,40 @@ describe('applySync — build field', () => {
     const first = applySync(baseState(), 'rel_1', mapped({ items: [itemWithBuild('Orion 1.5')] }));
     const { next } = applySync(first.next, 'rel_1', mapped({ items: [itemWithBuild(null)] }));
     expect(next.items[0].build).toBeNull();
+  });
+});
+
+describe('applySync — externalUrl (connector deep link)', () => {
+  const itemWithUrl = (url: string | null) => ({
+    externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null,
+    fields: { key: 'EXT-1', subject: 's', description: '', status: 'In Progress' as const, points: 3, url },
+  });
+  const wsWithUrl = (url: string | null) => ({
+    externalId: 'EPIC-A', fields: { name: 'Checkout API', url },
+  });
+
+  it('sets item externalUrl from the mapped field on create', () => {
+    const { next } = applySync(baseState(), 'rel_1', mapped({ items: [itemWithUrl('https://acme.test/browse/EXT-1')] }));
+    expect(next.items[0].externalUrl).toBe('https://acme.test/browse/EXT-1');
+  });
+
+  it('sets item externalUrl: null when the connector omits the field', () => {
+    const { next } = applySync(baseState(), 'rel_1', mapped());
+    expect(next.items[0].externalUrl).toBeNull();
+  });
+
+  it('external wins on item externalUrl across re-sync (set then clear)', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [itemWithUrl('https://acme.test/browse/EXT-1')] }));
+    expect(first.next.items[0].externalUrl).toBe('https://acme.test/browse/EXT-1');
+    const { next } = applySync(first.next, 'rel_1', mapped({ items: [itemWithUrl(null)] }));
+    expect(next.items[0].externalUrl).toBeNull();
+  });
+
+  it('sets and updates work-stream externalUrl (external wins)', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ workStreams: [wsWithUrl('https://acme.test/browse/EPIC-A')] }));
+    expect(first.next.releases[0].workStreams[0].externalUrl).toBe('https://acme.test/browse/EPIC-A');
+    const { next } = applySync(first.next, 'rel_1', mapped({ workStreams: [wsWithUrl(null)] }));
+    expect(next.releases[0].workStreams[0].externalUrl).toBeNull();
   });
 });
 

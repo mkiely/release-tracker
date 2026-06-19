@@ -64,6 +64,22 @@ export function WorkStreamView({
               >
                 {ws.name}
               </span>
+              {ws.externalUrl && (
+                <a
+                  href={ws.externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open this work stream in the external system (new tab)"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 28, height: 28, flexShrink: 0,
+                    color: 'var(--rt-accent)', borderRadius: 6,
+                    border: '1.5px solid var(--rt-line)', background: 'var(--rt-fill)',
+                  }}
+                >
+                  {Icon.external}
+                </a>
+              )}
             </div>
           </>
         }

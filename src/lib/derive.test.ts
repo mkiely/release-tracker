@@ -185,7 +185,7 @@ describe('statusSegs', () => {
     points: 1,
     externalId: null,
     assignedMemberId: null,
-    build: null,
+    build: null, externalUrl: null,
     dirtyFields: [],
     itemType: null,
   });
@@ -215,7 +215,7 @@ describe('groupItemsByStream', () => {
   const item = (id: string, workStreamId: string | null): WorkItem => ({
     id, releaseId: 'r', workStreamId, sprintId: null,
     key: `K-${id}`, subject: 'S', description: '', status: 'Not Started',
-    points: 1, externalId: null, assignedMemberId: null, build: null, dirtyFields: [], itemType: null,
+    points: 1, externalId: null, assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], itemType: null,
   });
 
   it('groups items under their stream in the order streams are declared', () => {
@@ -286,7 +286,7 @@ describe('streamHealth', () => {
   const it_ = (status: WorkItem['status'], points: number): WorkItem => ({
     id: Math.random().toString(), releaseId: 'r', workStreamId: 'w', sprintId: 'sp1',
     key: 'K', subject: 's', description: '', status, points,
-    externalId: null, assignedMemberId: null, build: null, dirtyFields: [], itemType: null,
+    externalId: null, assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], itemType: null,
   });
 
   it('computes points-based completion, not count-based', () => {
