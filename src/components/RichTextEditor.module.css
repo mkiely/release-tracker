@@ -156,6 +156,12 @@
   margin: 1em 0;
 }
 
+/* <p><br></p> blank-line paragraphs from connector HTML: collapse to just the
+   paragraph margin so they read as a line break, not a full blank line. */
+.content p:has(> :global(.ProseMirror-trailingBreak):only-child) {
+  line-height: 0;
+}
+
 .content :global(.ProseMirror-selectednode) {
   outline: 2px solid var(--rt-accent);
 }

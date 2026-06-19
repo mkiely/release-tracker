@@ -234,6 +234,14 @@ export function migrate(p: AppState): AppState | null {
       items: s.items.map((it) => ({ ...it, externalUrl: (it as any).externalUrl ?? null })),
     };
   }
+  // v16 → v17: points becomes number | null; 0 was the "unset" sentinel, now null.
+  if (s.version === 16) {
+    s = {
+      ...s,
+      version: 17,
+      items: s.items.map((it) => ({ ...it, points: (it as any).points === 0 ? null : (it as any).points })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -281,7 +289,7 @@ interface Actions {
   updateSprint: (releaseId: string, sprintId: string, patch: Partial<Sprint>) => void;
   createItem: (
     releaseId: string,
-    input: { workStreamId: string | null; sprintId: string | null; subject: string; description?: string; status?: Status; points?: number; assignedMemberId?: string | null; itemType?: ItemType | null },
+    input: { workStreamId: string | null; sprintId: string | null; subject: string; description?: string; status?: Status; points?: number | null; assignedMemberId?: string | null; itemType?: ItemType | null },
   ) => WorkItem | null;
   updateItem: (id: string, patch: Partial<WorkItem>) => void;
   /** Move an item to another sprint (e.g. via drag-and-drop). For synced items, marks or clears the 'sprint' dirty flag relative to the synced baseline so the move is pushable. */
@@ -465,7 +473,7 @@ export const useStore = create<StoreState>((set, get) => {
         description: description || '',
         descriptionFormat: 'html', // new local items use the rich-text editor
         status: status || 'Not Started',
-        points: Number(points) || 0,
+        points: points ?? null,
         externalId: null,
         assignedMemberId: assignedMemberId ?? null,
         build: null,
@@ -511,7 +519,7 @@ export const useStore = create<StoreState>((set, get) => {
           const next: WorkItem = { ...i, dirtyFields: [] };
           for (const f of i.dirtyFields) {
             if (!(f in i.syncedValues)) continue; // no baseline for this field — keep local
-            if (f === 'points') next.points = Number(i.syncedValues.points) || 0;
+            if (f === 'points') next.points = (i.syncedValues.points as number | null) ?? null;
             else if (f === 'sprint') next.sprintId = (i.syncedValues.sprint as string | null) ?? null;
             else if (f === 'status') {
               // Baseline holds the native status id (or a bare category when the

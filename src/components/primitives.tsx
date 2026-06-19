@@ -172,19 +172,22 @@ export const Toast = ({ children }: { children: ReactNode }): ReactElement => (
 export function PointSeg({
   value,
   onChange,
-  options = [0, 1, 2, 3, 5, 8, 13],
+  options = [1, 2, 3, 5, 8, 13],
   disabled,
 }: {
-  value: number;
-  onChange: (n: number) => void;
+  value: number | null;
+  onChange: (n: number | null) => void;
   options?: number[];
   disabled?: boolean;
 }) {
   return (
     <div className={segStyles.seg} style={disabled ? { opacity: 0.55, pointerEvents: 'none' } : undefined}>
+      <button key="null" type="button" disabled={disabled} className={value == null ? segStyles.on : ''} onClick={() => onChange(null)}>
+        –
+      </button>
       {options.map((p) => (
         <button key={p} type="button" disabled={disabled} className={p === value ? segStyles.on : ''} onClick={() => onChange(p)}>
-          {p === 0 ? '–' : p}
+          {p}
         </button>
       ))}
     </div>

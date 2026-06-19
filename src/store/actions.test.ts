@@ -213,7 +213,7 @@ describe('createItem', () => {
     expect(it!.externalId).toBeNull();
     expect(it!.dirtyFields).toEqual([]);
     expect(it!.syncedValues).toBeNull();
-    expect(it!.points).toBe(0);
+    expect(it!.points).toBeNull();
   });
 
   it('returns null for an unknown release id', () => {
@@ -229,7 +229,7 @@ describe('updateItem', () => {
     const b = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'B' })!;
     A().updateItem(a.id, { points: 8, status: 'Blocked' });
     expect(getState().items.find((i) => i.id === a.id)).toMatchObject({ points: 8, status: 'Blocked' });
-    expect(getState().items.find((i) => i.id === b.id)?.points).toBe(0);
+    expect(getState().items.find((i) => i.id === b.id)?.points).toBeNull();
   });
 });
 

@@ -46,7 +46,7 @@ export function ConnectorItemModal({
     const v: FieldValues = {};
     if (!r) return v;
     for (const f of createFields) {
-      if (f.kind === 'number' && f.role === 'points') v[f.key] = 3;
+      if (f.kind === 'number' && f.role === 'points') v[f.key] = null;
       else if (f.kind === 'enum' && f.enumRef === 'status') v[f.key] = 'Not Started';
       else if (f.kind === 'ref' && f.target === 'workStream') v[f.key] = presetStreamId ?? (f.required ? (r.workStreams[0]?.id ?? '') : '');
       else if (f.kind === 'ref' && f.target === 'sprint') v[f.key] = presetSprintId ?? '';
@@ -119,7 +119,7 @@ export function ConnectorItemModal({
       if (f.kind === 'ref' && f.target === 'workStream') extWorkStreamId = refExternalId(f, v);
       else if (f.kind === 'ref' && f.target === 'sprint') extSprintId = refExternalId(f, v);
       else if (f.kind === 'ref' && f.target === 'member') extAssigneeId = refExternalId(f, v);
-      else if (f.kind === 'number') fields[f.key] = Number(v) || 0;
+      else if (f.kind === 'number') fields[f.key] = v == null ? null : Number(v);
       else if (v != null && v !== '') fields[f.key] = v;
     }
 

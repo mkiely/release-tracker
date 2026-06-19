@@ -99,7 +99,7 @@ export function FieldControl({
         />
       );
     case 'points':
-      return <PointSeg value={Number(value) || 0} onChange={(n) => onChange(n)} />;
+      return <PointSeg value={value != null ? Number(value) : null} onChange={(n) => onChange(n)} />;
     case 'date':
       return <PInput type="date" value={str} min={field.min} max={field.max} onChange={(e) => onChange(e.target.value)} />;
     case 'checkbox':

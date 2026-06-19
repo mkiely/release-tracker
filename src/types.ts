@@ -14,7 +14,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 17;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog and its
  *  status vocabulary (native workflow states mapped to canonical categories).
@@ -153,7 +153,7 @@ export interface WorkItem {
   subject: string;
   description: string;
   status: Status;
-  points: number;
+  points: number | null;
   externalId: string | null;
   assignedMemberId: string | null;
   /** The build/release label this item originated from, if it was pulled from a prior release. Set by the connector. */

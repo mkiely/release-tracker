@@ -690,7 +690,7 @@ export function WorkItemModal({
   const [wsId, setWsId] = useState<string | null>(presetStreamId || (r.workStreams[0] && r.workStreams[0].id) || null);
   const [sprintId, setSprintId] = useState<string | null>(presetSprintId ?? defaultSprintId);
   const [status, setStatus] = useState<Status>('Not Started');
-  const [points, setPoints] = useState(0);
+  const [points, setPoints] = useState<number | null>(null);
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(null);
   const [typeLabel, setTypeLabel] = useState<string>('');
   const canSave = !!subject.trim();
@@ -795,7 +795,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const [sprintId, setSprintId] = useState<string | null>(it?.sprintId ?? null);
   const [status, setStatus] = useState<Status>(it ? it.status : 'Not Started');
   const [statusNativeId, setStatusNativeId] = useState<string>(it?.statusNative?.id ?? '');
-  const [points, setPoints] = useState(it ? it.points : 0);
+  const [points, setPoints] = useState<number | null>(it ? it.points : null);
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(it?.assignedMemberId ?? null);
   const [typeLabel, setTypeLabel] = useState<string>(it?.itemType?.label ?? '');
   const [attrs, setAttrs] = useState<Record<string, AttrValue>>(it?.attributes ?? {});

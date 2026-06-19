@@ -102,7 +102,7 @@ export function upsertItem(
   // The incoming external values, in the canonical view shape — the single source
   // for both the dirty-aware overwrite and the synced baseline below.
   const incoming: CanonicalView = {
-    points: m.fields.points ?? 0,
+    points: m.fields.points ?? null,
     sprintId,
     workStreamId,
     assignedMemberId,
@@ -153,7 +153,7 @@ export function upsertItem(
     description: m.fields.description,
     descriptionFormat: m.fields.descriptionFormat ?? 'text',
     status: m.fields.status,
-    points: m.fields.points ?? 0,
+    points: m.fields.points ?? null,
     externalId: m.externalId,
     assignedMemberId,
     build: m.fields.build ?? null,

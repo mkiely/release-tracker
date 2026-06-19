@@ -31,9 +31,9 @@ export const eventsIn = (release: Release, sp: Sprint) =>
 export const statusSegs = (items: WorkItem[]): StatusSeg[] =>
   STATUSES.map((k) => ({ k, v: items.filter((i) => i.status === k).length })).filter((s) => s.v > 0);
 
-/** Sum of story points across a set of work items. */
-export const sumPoints = (items: { points: number }[]): number =>
-  items.reduce((a, i) => a + i.points, 0);
+/** Sum of story points across a set of work items. Null points contribute 0. */
+export const sumPoints = (items: { points: number | null }[]): number =>
+  items.reduce((a, i) => a + (i.points ?? 0), 0);
 
 export interface StreamHealth {
   /** Number of work items in the stream (regardless of points). Lets the forecast
@@ -57,7 +57,7 @@ export interface StreamHealth {
  */
 export function streamHealth(items: WorkItem[]): StreamHealth {
   const pts = (pred: (i: WorkItem) => boolean) =>
-    items.reduce((a, i) => (pred(i) ? a + i.points : a), 0);
+    items.reduce((a, i) => (pred(i) ? a + (i.points ?? 0) : a), 0);
   const totalPts = pts(() => true);
   const donePts = pts((i) => i.status === 'Complete');
   const blockedPts = pts((i) => i.status === 'Blocked');

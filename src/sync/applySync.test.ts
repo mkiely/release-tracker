@@ -100,14 +100,14 @@ describe('applySync — external wins on re-sync', () => {
     expect(result).toMatchObject({ created: 0, updated: 1, unchanged: 1 }); // item changed; ws re-matched but identical
   });
 
-  it('treats null points from the connector as 0 (unestimated)', () => {
+  it('treats null points from the connector as null (unestimated)', () => {
     const nullPoints = mapped({
       items: [
         { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null, fields: { key: 'EXT-1', subject: 'Tokenize vault', description: 'd', status: 'In Progress', points: null } },
       ],
     });
     const { next } = applySync(baseState(), 'rel_1', nullPoints);
-    expect(next.items[0].points).toBe(0);
+    expect(next.items[0].points).toBeNull();
   });
 
   it('preserves a locally-dirty writeable description across re-sync (external wins on the rest)', () => {
