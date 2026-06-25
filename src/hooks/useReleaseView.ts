@@ -103,6 +103,7 @@ export interface ReleaseViewProps {
   onBack: () => void;
   onNavigateToSprint: (sprintId: string) => void;
   onNavigateToStream: (wsId: string) => void;
+  onNavigateToBacklog: () => void;
   onOpenStreamHealth: (wsId: string) => void;
   onEditStream: (wsId: string) => void;
   onOpenTeam: () => void;
@@ -283,6 +284,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     onBack: () => navigate('/'),
     onNavigateToSprint: (spId) => navigate(`/releases/${id}/sprints/${spId}`),
     onNavigateToStream: (wsId) => navigate(`/releases/${id}/streams/${wsId}`),
+    onNavigateToBacklog: () => navigate(`/releases/${id}/backlog`),
     onOpenStreamHealth: (wsId) => openModal({ type: 'streamHealth', releaseId: id, wsId }),
     onEditStream: (wsId) => openModal({ type: 'stream', releaseId: id, wsId }),
     onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },

@@ -12,26 +12,29 @@ function StreamRow({
   row,
   onNavigateToStream,
   onNavigateToSprint,
+  onNavigateToBacklog,
   onOpenStreamHealth,
   onEditStream,
 }: {
   row: StreamRowData;
   onNavigateToStream: (wsId: string) => void;
   onNavigateToSprint: (sprintId: string) => void;
+  onNavigateToBacklog: () => void;
   onOpenStreamHealth: (wsId: string) => void;
   onEditStream: (wsId: string) => void;
 }) {
   const { ws, itemCount, points, segs, series, forecast, lane } = row;
   const filled = lane.filter((e) => e.n > 0);
   const activeIndex = lane.find((e) => e.isActive)?.sprintIndex ?? -1;
-  const clickable = ws !== null;
+  const clickable = true;
   const showVerdict = ws !== null && itemCount > 0;
+  const handleClick = ws !== null ? () => onNavigateToStream(ws.id) : onNavigateToBacklog;
 
   return (
     <div
       className={['card', releaseStyles.sprintrow].join(' ')}
-      onClick={clickable ? () => onNavigateToStream(ws!.id) : undefined}
-      style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, cursor: clickable ? 'pointer' : 'default' }}
+      onClick={handleClick}
+      style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }}
     >
       <div
         style={{
@@ -153,7 +156,7 @@ function StreamRow({
 }
 
 export function ReleaseStreamView(props: ReleaseViewProps) {
-  const { release: r, streamRows, onNavigateToStream, onNavigateToSprint, onOpenStreamHealth, onEditStream } = props;
+  const { release: r, streamRows, onNavigateToStream, onNavigateToSprint, onNavigateToBacklog, onOpenStreamHealth, onEditStream } = props;
   return (
     <ReleaseChrome {...props}>
       <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -169,6 +172,7 @@ export function ReleaseStreamView(props: ReleaseViewProps) {
                 row={row}
                 onNavigateToStream={onNavigateToStream}
                 onNavigateToSprint={onNavigateToSprint}
+                onNavigateToBacklog={onNavigateToBacklog}
                 onOpenStreamHealth={onOpenStreamHealth}
                 onEditStream={onEditStream}
               />

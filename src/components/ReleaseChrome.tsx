@@ -73,6 +73,7 @@ type ReleaseChromeProps = Pick<
   | 'hasUnassigned'
   | 'onBack'
   | 'onNavigateToStream'
+  | 'onNavigateToBacklog'
   | 'onOpenTeam'
   | 'onOpenTeamAllocations'
   | 'overAllocated'
@@ -101,6 +102,7 @@ export function ReleaseChrome({
   hasUnassigned,
   onBack,
   onNavigateToStream,
+  onNavigateToBacklog,
   onOpenTeam,
   onOpenTeamAllocations,
   overAllocated,
@@ -244,6 +246,7 @@ export function ReleaseChrome({
                     segs={unassignedSegs}
                     showSeg
                     unassigned
+                    onClick={onNavigateToBacklog}
                   />
                 )}
               </>

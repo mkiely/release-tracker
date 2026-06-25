@@ -299,6 +299,7 @@ export function SprintTable({
   allItems,
   filteredItems,
   streamCols,
+  unassignedItems,
   statusCols,
   sprintMembers,
   sprintTypes,
@@ -428,16 +429,39 @@ export function SprintTable({
             {isFiltered ? 'No items match the current filters.' : 'No work items in this sprint yet.'}
           </EmptyState>
         ) : groupBy === 'stream' ? (
-          streamCols.map((col) => (
-            <StreamSection
-              key={col.ws.id}
-              col={col}
-              members={members}
-              attrColumns={attrCols}
-              onOpenItem={onOpenItem}
-              onNavigateToStream={onNavigateToStream}
-            />
-          ))
+          <>
+            {streamCols.map((col) => (
+              <StreamSection
+                key={col.ws.id}
+                col={col}
+                members={members}
+                attrColumns={attrCols}
+                onOpenItem={onOpenItem}
+                onNavigateToStream={onNavigateToStream}
+              />
+            ))}
+            {unassignedItems.length > 0 && (
+              <div className={styles.section}>
+                <div className={styles.sectionLeft}>
+                  <span className={styles.sectionName} style={{ color: 'var(--rt-t3)', fontStyle: 'italic' }}>Unassigned</span>
+                  <div className={styles.sectionMeta}>
+                    {unassignedItems.length} item{unassignedItems.length !== 1 ? 's' : ''} · {sumPoints(unassignedItems)} pts
+                  </div>
+                </div>
+                <div className={styles.sectionRight}>
+                  {unassignedItems.map((it) => (
+                    <ItemRow
+                      key={it.id}
+                      item={it}
+                      members={members}
+                      attrColumns={attrCols}
+                      onOpen={() => onOpenItem(it.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           orderedStatusCols.map((col) => (
             <StatusSection

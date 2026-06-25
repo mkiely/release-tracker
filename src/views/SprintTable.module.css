@@ -278,7 +278,8 @@
   padding: 0 10px 0 14px;
   font-family: var(--rt-mono);
   font-size: var(--rt-fs-xs);
-  color: var(--rt-t3);
+  font-weight: var(--rt-fw-semibold);
+  color: var(--rt-st-ac-dot);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -351,6 +352,17 @@
 }
 
 .colWorkStream {
+  width: 130px;
+  flex-shrink: 0;
+  padding: 0 10px 0 8px;
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-t2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.colSprint {
   width: 130px;
   flex-shrink: 0;
   padding: 0 10px 0 8px;

@@ -262,13 +262,46 @@ export function WorkStreamTable({
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
         title={
-          <Breadcrumb
-            crumbs={[
-              { label: 'Releases', icon: Icon.release, onClick: onHome },
-              { label: r.name, onClick: onBack },
-              { label: ws.name, icon: Icon.stream },
-            ]}
-          />
+          <>
+            <Breadcrumb
+              marginBottom={3}
+              crumbs={[
+                { label: 'Releases', icon: Icon.release, onClick: onHome },
+                { label: r.name, onClick: onBack },
+                { label: 'Work stream' },
+              ]}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ display: 'inline-flex', color: 'var(--rt-t2)', flexShrink: 0 }}>{Icon.stream}</span>
+              <span
+                style={{
+                  fontSize: 'var(--rt-fs-xl)',
+                  fontWeight: 'var(--rt-fw-heading)',
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {ws.name}
+              </span>
+              {ws.externalUrl && (
+                <a
+                  href={ws.externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open this work stream in the external system (new tab)"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 28, height: 28, flexShrink: 0,
+                    color: 'var(--rt-accent)', borderRadius: 6,
+                    border: '1.5px solid var(--rt-line)', background: 'var(--rt-fill)',
+                  }}
+                >
+                  {Icon.external}
+                </a>
+              )}
+            </div>
+          </>
         }
         sub={team ? <TeamLink name={team.name} onClick={onOpenTeam} /> : undefined}
         right={

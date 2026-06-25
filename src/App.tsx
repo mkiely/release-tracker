@@ -13,6 +13,7 @@ import { Teams } from './routes/Teams';
 import { Release } from './routes/Release';
 import { Sprint } from './routes/Sprint';
 import { WorkStream } from './routes/WorkStream';
+import { Backlog } from './routes/Backlog';
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/releases/:id" element={<Release />} />
           <Route path="/releases/:id/sprints/:sprintId" element={<Sprint />} />
           <Route path="/releases/:id/streams/:wsId" element={<WorkStream />} />
+          <Route path="/releases/:id/backlog" element={<Backlog />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppProvider>

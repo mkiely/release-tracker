@@ -917,7 +917,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       width="var(--rt-modal-w-work-item)"
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span className="mono" style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', background: 'var(--rt-fill)', padding: '3px 7px', borderRadius: 5 }}>
+          <span className="mono" style={{ fontSize: 'var(--rt-fs-sm)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-st-ac-text)', background: 'var(--rt-st-ac-soft)', padding: '3px 7px', borderRadius: 5 }}>
             {it.key}
           </span>
           {it.itemType && (

@@ -17,12 +17,14 @@ export function ItemRow({
   item,
   members,
   workStreamName,
+  sprintName,
   attrColumns = [],
   onOpen,
 }: {
   item: WorkItem;
   members: Member[];
   workStreamName?: string;
+  sprintName?: string;
   attrColumns?: AttrColumn[];
   onOpen: () => void;
 }) {
@@ -76,6 +78,7 @@ export function ItemRow({
           </div>
         );
       })}
+      {sprintName !== undefined && <div className={styles.colSprint}>{sprintName}</div>}
       {workStreamName !== undefined && <div className={styles.colWorkStream}>{workStreamName}</div>}
       <div className={styles.colTitle}>{item.subject}</div>
     </div>
