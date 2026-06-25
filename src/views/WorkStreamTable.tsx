@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
+import type { RefObject } from 'react';
 import type { WorkStreamViewProps } from '../hooks/useWorkStreamView';
 import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
+import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
 import type { Member, Sprint, WorkItem } from '../types';
 import { STATUSES } from '../types';
@@ -17,6 +19,7 @@ import { TeamLink } from '../components/TeamLink';
 import { statusVars, typeVars } from '../components/statusVars';
 import { getActions } from '../store/store';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
+import { ResizeHandle } from './ResizeHandle';
 import { ItemRow } from './ItemRow';
 import styles from './SprintTable.module.css';
 
@@ -193,7 +196,13 @@ function FilterBar({
 
 // ── Column headers ────────────────────────────────────────────────────────
 
-function ColHeaders({ attrColumns }: { attrColumns: AttrColumn[] }) {
+function ColHeaders({
+  attrColumns,
+  containerRef,
+}: {
+  attrColumns: AttrColumn[];
+  containerRef: RefObject<HTMLElement | null>;
+}) {
   return (
     <div className={styles.colHeaders}>
       <div className={styles.colHeaderLeft}>
@@ -201,13 +210,25 @@ function ColHeaders({ attrColumns }: { attrColumns: AttrColumn[] }) {
       </div>
       <div className={styles.colHeaderRight}>
         <div className={`${styles.colKey} ${styles.colHeaderLabel}`}>Key</div>
-        <div className={`${styles.colType} ${styles.colHeaderLabel}`}>Type</div>
-        <div className={`${styles.colPts} ${styles.colHeaderLabel}`}>Pts</div>
+        <div className={`${styles.colType} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+          Type
+          <ResizeHandle col="type" containerRef={containerRef} />
+        </div>
+        <div className={`${styles.colPts} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+          Pts
+          <ResizeHandle col="pts" containerRef={containerRef} />
+        </div>
         <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`}>Assignee</div>
         <div className={`${styles.colStatus} ${styles.colHeaderLabel}`}>Status</div>
-        <div className={`${styles.colBuild} ${styles.colHeaderLabel}`}>Build</div>
+        <div className={`${styles.colBuild} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+          Build
+          <ResizeHandle col="build" containerRef={containerRef} />
+        </div>
         {attrColumns.map((c) => (
-          <div key={c.key} className={`${styles.colAttr} ${styles.colHeaderLabel}`}>{c.label}</div>
+          <div key={c.key} className={`${styles.colAttr} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+            {c.label}
+            <ResizeHandle col="attr" containerRef={containerRef} />
+          </div>
         ))}
         <div className={`${styles.colTitle} ${styles.colHeaderLabel}`}>Title</div>
       </div>
@@ -250,6 +271,7 @@ export function WorkStreamTable({
   const bodyRef = useRef<HTMLDivElement>(null);
   const presentation = usePresentationMode();
   useFitColumns(bodyRef, itemTableColumns(filteredItems), [itemColumnsDep(filteredItems), presentation]);
+  useColumnWidths(bodyRef);
 
   const sprintSections = r.sprints
     .map((sp) => ({ sp, items: filteredItems.filter((i) => i.sprintId === sp.id) }))
@@ -327,7 +349,7 @@ export function WorkStreamTable({
       />
 
       <div className={styles.body} ref={bodyRef}>
-        <ColHeaders attrColumns={attrCols} />
+        <ColHeaders attrColumns={attrCols} containerRef={bodyRef} />
 
         {filteredItems.length === 0 ? (
           <EmptyState>

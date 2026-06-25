@@ -298,7 +298,7 @@
 }
 
 .colType {
-  width: 100px;
+  width: var(--rt-col-type, 100px);
   flex-shrink: 0;
   padding: 0 8px;
   display: flex;
@@ -322,7 +322,7 @@
 }
 
 .colPts {
-  width: 40px;
+  width: var(--rt-col-pts, 40px);
   flex-shrink: 0;
   padding: 0 10px 0 4px;
   font-family: var(--rt-mono);
@@ -352,7 +352,7 @@
 }
 
 .colWorkStream {
-  width: 130px;
+  width: var(--rt-col-workstream, 130px);
   flex-shrink: 0;
   padding: 0 10px 0 8px;
   font-size: var(--rt-fs-sm);
@@ -363,7 +363,7 @@
 }
 
 .colSprint {
-  width: 130px;
+  width: var(--rt-col-sprint, 130px);
   flex-shrink: 0;
   padding: 0 10px 0 8px;
   font-size: var(--rt-fs-sm);
@@ -374,7 +374,7 @@
 }
 
 .colBuild {
-  width: 120px;
+  width: var(--rt-col-build, 120px);
   flex-shrink: 0;
   padding: 0 10px 0 8px;
   font-size: var(--rt-fs-sm);
@@ -390,7 +390,7 @@
 
 /* Vocabulary (connector-declared) columns — one class fits all attribute kinds. */
 .colAttr {
-  width: 104px;
+  width: var(--rt-col-attr, 104px);
   flex-shrink: 0;
   padding: 0 10px 0 8px;
   font-size: var(--rt-fs-sm);
@@ -421,4 +421,35 @@
   text-align: center;
   color: var(--rt-t3);
   font-size: var(--rt-fs-md);
+}
+
+/* ── Column resize ───────────────────────────────────────────────────────── */
+.resizeTarget {
+  position: relative;
+  overflow: visible;
+}
+
+.resizeHandle {
+  position: absolute;
+  right: -3px;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: col-resize;
+  z-index: 3;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.resizeHandle::after {
+  content: '';
+  width: 1.5px;
+  background: transparent;
+  transition: background 120ms;
+  border-radius: 1px;
+}
+
+.resizeHandle:hover::after {
+  background: var(--rt-accent, var(--rt-line));
 }

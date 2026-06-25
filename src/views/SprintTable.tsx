@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import type { GroupBy, SprintViewProps, StreamColumn, StatusColumn } from '../hooks/useSprintView';
 import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
+import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
 import { fmtShort } from '../lib/dates';
 import { sumPoints } from '../lib/derive';
@@ -17,6 +18,7 @@ import { TeamLink } from '../components/TeamLink';
 import { statusVars, typeVars } from '../components/statusVars';
 import { STATUSES, type Member, type Status } from '../types';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
+import { ResizeHandle } from './ResizeHandle';
 import { ItemRow } from './ItemRow';
 import styles from './SprintTable.module.css';
 
@@ -43,7 +45,15 @@ function GroupToggle({ value, onChange }: { value: GroupBy; onChange: (v: GroupB
   );
 }
 
-function ColHeaders({ groupBy, attrColumns }: { groupBy: GroupBy; attrColumns: AttrColumn[] }) {
+function ColHeaders({
+  groupBy,
+  attrColumns,
+  containerRef,
+}: {
+  groupBy: GroupBy;
+  attrColumns: AttrColumn[];
+  containerRef: React.RefObject<HTMLElement | null>;
+}) {
   return (
     <div className={styles.colHeaders}>
       <div className={styles.colHeaderLeft}>
@@ -53,16 +63,31 @@ function ColHeaders({ groupBy, attrColumns }: { groupBy: GroupBy; attrColumns: A
       </div>
       <div className={styles.colHeaderRight}>
         <div className={`${styles.colKey} ${styles.colHeaderLabel}`}>Key</div>
-        <div className={`${styles.colType} ${styles.colHeaderLabel}`}>Type</div>
-        <div className={`${styles.colPts} ${styles.colHeaderLabel}`}>Pts</div>
+        <div className={`${styles.colType} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+          Type
+          <ResizeHandle col="type" containerRef={containerRef} />
+        </div>
+        <div className={`${styles.colPts} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+          Pts
+          <ResizeHandle col="pts" containerRef={containerRef} />
+        </div>
         <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`}></div>
         <div className={`${styles.colStatus} ${styles.colHeaderLabel}`}>Status</div>
-        <div className={`${styles.colBuild} ${styles.colHeaderLabel}`}>Build</div>
+        <div className={`${styles.colBuild} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+          Build
+          <ResizeHandle col="build" containerRef={containerRef} />
+        </div>
         {attrColumns.map((c) => (
-          <div key={c.key} className={`${styles.colAttr} ${styles.colHeaderLabel}`}>{c.label}</div>
+          <div key={c.key} className={`${styles.colAttr} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+            {c.label}
+            <ResizeHandle col="attr" containerRef={containerRef} />
+          </div>
         ))}
         {groupBy === 'status' && (
-          <div className={`${styles.colWorkStream} ${styles.colHeaderLabel}`}>Work Stream</div>
+          <div className={`${styles.colWorkStream} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+            Work Stream
+            <ResizeHandle col="workstream" containerRef={containerRef} />
+          </div>
         )}
         <div className={`${styles.colTitle} ${styles.colHeaderLabel}`}>Title</div>
       </div>
@@ -335,6 +360,7 @@ export function SprintTable({
   const bodyRef = useRef<HTMLDivElement>(null);
   const presentation = usePresentationMode();
   useFitColumns(bodyRef, itemTableColumns(filteredItems), [itemColumnsDep(filteredItems), presentation]);
+  useColumnWidths(bodyRef);
 
   // status cols reordered for table view
   const orderedStatusCols = TABLE_STATUS_ORDER
@@ -422,7 +448,7 @@ export function SprintTable({
       />
 
       <div className={styles.body} ref={bodyRef}>
-        <ColHeaders groupBy={groupBy} attrColumns={attrCols} />
+        <ColHeaders groupBy={groupBy} attrColumns={attrCols} containerRef={bodyRef} />
 
         {filteredItems.length === 0 ? (
           <EmptyState>

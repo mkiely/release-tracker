@@ -1,6 +1,8 @@
 import { useRef } from 'react';
+import type { RefObject } from 'react';
 import type { BacklogViewProps } from '../hooks/useBacklogView';
 import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
+import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
 import type { Member, Sprint, WorkItem } from '../types';
 import { STATUSES } from '../types';
@@ -16,6 +18,7 @@ import { TeamLink } from '../components/TeamLink';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { statusVars, typeVars } from '../components/statusVars';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
+import { ResizeHandle } from './ResizeHandle';
 import { ItemRow } from './ItemRow';
 import styles from './SprintTable.module.css';
 
@@ -94,20 +97,43 @@ function SprintSection({
 
 // ── Col headers ───────────────────────────────────────────────────────────
 
-function ColHeaders({ groupBySprint, attrColumns }: { groupBySprint: boolean; attrColumns: AttrColumn[] }) {
+function ColHeaders({
+  groupBySprint,
+  attrColumns,
+  containerRef,
+}: {
+  groupBySprint: boolean;
+  attrColumns: AttrColumn[];
+  containerRef: RefObject<HTMLElement | null>;
+}) {
   const itemCols = (
     <>
       <div className={`${styles.colKey} ${styles.colHeaderLabel}`}>Key</div>
-      <div className={`${styles.colType} ${styles.colHeaderLabel}`}>Type</div>
-      <div className={`${styles.colPts} ${styles.colHeaderLabel}`}>Pts</div>
+      <div className={`${styles.colType} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+        Type
+        <ResizeHandle col="type" containerRef={containerRef} />
+      </div>
+      <div className={`${styles.colPts} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+        Pts
+        <ResizeHandle col="pts" containerRef={containerRef} />
+      </div>
       <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`}>Assignee</div>
       <div className={`${styles.colStatus} ${styles.colHeaderLabel}`}>Status</div>
-      <div className={`${styles.colBuild} ${styles.colHeaderLabel}`}>Build</div>
+      <div className={`${styles.colBuild} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+        Build
+        <ResizeHandle col="build" containerRef={containerRef} />
+      </div>
       {attrColumns.map((c) => (
-        <div key={c.key} className={`${styles.colAttr} ${styles.colHeaderLabel}`}>{c.label}</div>
+        <div key={c.key} className={`${styles.colAttr} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+          {c.label}
+          <ResizeHandle col="attr" containerRef={containerRef} />
+        </div>
       ))}
       {!groupBySprint && (
-        <div className={`${styles.colSprint} ${styles.colHeaderLabel}`}>Sprint</div>
+        <div className={`${styles.colSprint} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+          Sprint
+          <ResizeHandle col="sprint" containerRef={containerRef} />
+        </div>
       )}
       <div className={`${styles.colTitle} ${styles.colHeaderLabel}`}>Title</div>
     </>
@@ -161,6 +187,7 @@ export function BacklogView({
   const bodyRef = useRef<HTMLDivElement>(null);
   const presentation = usePresentationMode();
   useFitColumns(bodyRef, itemTableColumns(filteredItems), [itemColumnsDep(filteredItems), presentation]);
+  useColumnWidths(bodyRef);
 
   // Grouped mode: sprint sections in release order + "No sprint" at the end
   const sprintSections = groupBySprint
@@ -258,7 +285,7 @@ export function BacklogView({
       </div>
 
       <div className={styles.body} ref={bodyRef}>
-        <ColHeaders groupBySprint={groupBySprint} attrColumns={attrCols} />
+        <ColHeaders groupBySprint={groupBySprint} attrColumns={attrCols} containerRef={bodyRef} />
 
         {isEmpty ? (
           <EmptyState>
