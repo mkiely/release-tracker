@@ -1,7 +1,7 @@
 // Seed data — ported from proto-store.jsx seed(). Builds a primary demo
 // release plus two lighter releases so the home list feels real.
 
-import { SCHEMA_VERSION, type AppState, type ItemType, type Release, type Sprint, type Status, type WorkItem, type WorkStream } from '../types';
+import { SCHEMA_VERSION, SPRINT_LEN_DAYS, type AppState, type ItemType, type Release, type Sprint, type Status, type WorkItem, type WorkStream } from '../types';
 import { addDays, buildSprints, todayISO, uid } from './dates';
 
 // curated subjects per work stream so generated items read believably
@@ -121,6 +121,7 @@ export function seed(): AppState {
     externalId: null,
     connector: null,
     sync: null,
+    sprintLengthDays: SPRINT_LEN_DAYS,
   };
 
   // generate work items for the demo release from the matrix
@@ -290,6 +291,8 @@ export function seed(): AppState {
     externalId: 'NEXUS',
     connector: { type: 'acme', config: { projectKey: 'NXS', boardId: '88', fixVersion: '1.0', siteUrl: 'acme.atlassian.net' } },
     sync: { lastISO: `${addDays(today, -1)}T09:30:00.000Z`, state: 'ok', message: null },
+    // Connector sprints vary in length (see nexusSprints); this is nominal only.
+    sprintLengthDays: SPRINT_LEN_DAYS,
   };
   const nxsWsId = (name: string) => nexusStreams.find((w) => w.name === name)!.id;
   const nxsMembers = teams[1].members;

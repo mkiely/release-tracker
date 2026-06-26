@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "17.0.0",
+  "version": "18.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -445,6 +445,10 @@
           ],
           "description": "Last-known sync state for this release. Null for local releases or before the first sync has run."
         },
+        "sprintLengthDays": {
+          "type": "number",
+          "description": "Uniform calendar length (days) of every sprint in this release, chosen at creation and not editable. Drives sprint generation for local releases (e.g. 14 for a 2-week cadence). Connector releases take their sprints from the external system and may vary in length, so this holds a nominal value only."
+        },
         "catalog": {
           "oneOf": [
             { "$ref": "#/definitions/ReleaseCatalog" },
@@ -453,7 +457,7 @@
           "description": "Snapshot of the connector's vocabulary (item-type catalog + status vocabulary), taken at each sync. Lets the app interpret synced items' attributes and native statuses (labels, enum options, writeability) offline, and keeps already-synced items stable if the live catalog changes. Null/absent = never synced or a local release."
         }
       },
-      "required": ["id", "name", "startISO", "teamId", "workStreams", "events", "sprints", "externalId", "connector", "sync"],
+      "required": ["id", "name", "startISO", "teamId", "workStreams", "events", "sprints", "externalId", "connector", "sync", "sprintLengthDays"],
       "additionalProperties": false
     },
     "AppState": {
@@ -505,7 +509,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 17,
+      "value": 18,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {
@@ -516,7 +520,7 @@
     "SPRINT_LENGTH_DAYS": {
       "type": "integer",
       "value": 14,
-      "description": "Sprint duration in calendar days for standard local sprints. Connector sprints may have different lengths."
+      "description": "Default sprint duration in calendar days for a locally-created release (2-week cadence). The actual length is chosen at creation and stored per release as Release.sprintLengthDays; connector sprints may vary."
     },
     "WORKDAYS_PER_SPRINT": {
       "type": "integer",

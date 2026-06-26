@@ -5,7 +5,7 @@ import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } 
 import { releaseToTSV } from '../lib/exportRelease';
 import { useApp } from '../app-context';
 import { dOf, fmtShort, todayISO } from '../lib/dates';
-import { activeSprint, eventsIn, releaseCapacity, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, sumPoints, type StreamForecast, type StreamHealth } from '../lib/derive';
+import { activeSprint, eventsIn, releaseCapacity, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, sumPoints, velocityAttainment, type StreamForecast, type StreamHealth, type VelocityAttainment } from '../lib/derive';
 import { connectorLabel } from '../sync/client';
 import type { RowData, RowMetrics } from '../lib/rowData';
 import type { Release, ReleaseEvent, Sprint, StatusSeg, Team, WorkItem, WorkStream } from '../types';
@@ -89,6 +89,8 @@ export interface ReleaseViewProps {
   dateRange: string;
   connLabel: string | null;
   teamVelocity: number;
+  /** Actual-vs-planned velocity across elapsed sprints. */
+  velocity: VelocityAttainment;
   /** Release-level parallelism: streams with work collectively need more engineers
    *  than the team has. Drives the over-allocation note in the stream table. */
   overAllocated: boolean;
@@ -109,6 +111,8 @@ export interface ReleaseViewProps {
   onOpenTeam: () => void;
   /** Opens the team-allocations breakdown (over-allocation explainer when contended). */
   onOpenTeamAllocations: () => void;
+  /** Opens the velocity-attainment detail modal. */
+  onOpenVelocity: () => void;
   onExport: () => void;
   onNewEvent: () => void;
   onNewStream: () => void;
@@ -275,6 +279,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     dateRange,
     connLabel: r.connector ? connectorLabel(r.connector.type) : null,
     teamVelocity: team ? team.velocity : 0,
+    velocity: velocityAttainment(r, team, items, today),
     overAllocated: contention.overAllocated,
     engineersRequiredTotal: contention.totalRequired,
     contributingCount: ctx.contributingCount,
@@ -289,6 +294,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     onEditStream: (wsId) => openModal({ type: 'stream', releaseId: id, wsId }),
     onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
     onOpenTeamAllocations: () => openModal({ type: 'teamAllocations', releaseId: id }),
+    onOpenVelocity: () => openModal({ type: 'velocity', releaseId: id }),
     onExport,
     onNewEvent: () => openModal({ type: 'event', releaseId: id }),
     onNewStream: () => openModal({ type: 'stream', releaseId: id }),

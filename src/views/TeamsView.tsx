@@ -1,4 +1,3 @@
-import { WORKDAYS } from '../types';
 import type { TeamsViewProps } from '../hooks/useTeamsView';
 import { TopBar } from '../components/chrome';
 import { Icon } from '../components/Icon';
@@ -72,7 +71,7 @@ export function TeamsView({
                 <div style={{ flex: 1, paddingBottom: 13 }}>
                   <div style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>Full capacity</div>
                   <div style={{ fontSize: 'var(--rt-fs-base)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)' }}>
-                    {t.members.filter((m) => !m.nonContributing).length * WORKDAYS} person-days / sprint
+                    {t.members.filter((m) => !m.nonContributing).length * 5} person-days / week
                   </div>
                 </div>
               </div>

@@ -52,17 +52,19 @@ export const workdaysInRange = (startISO: string, endISO: string): number => {
 };
 
 // build `count` contiguous fixed-length sprints from a release start date.
-// `overrides` maps 1-based sprint position → person-days off.
+// `overrides` maps 1-based sprint position → person-days off. `lenDays` is the
+// uniform calendar length of every sprint (chosen at release creation).
 export const buildSprints = (
   startISO: string,
   overrides: Record<number, number> = {},
   count = DEFAULT_SPRINT_COUNT,
+  lenDays = SPRINT_LEN_DAYS,
 ): Sprint[] => {
   const arr: Sprint[] = [];
   for (let i = 0; i < count; i++) {
     const n = i + 1;
-    const s = addDays(startISO, i * SPRINT_LEN_DAYS);
-    const e = addDays(s, SPRINT_LEN_DAYS - 1);
+    const s = addDays(startISO, i * lenDays);
+    const e = addDays(s, lenDays - 1);
     arr.push({ id: uid('sp'), name: `Sprint ${n}`, startISO: s, endISO: e, daysOff: overrides[n] || 0, externalId: null });
   }
   return arr;

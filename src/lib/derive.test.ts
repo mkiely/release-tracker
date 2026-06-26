@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSprint, capPct, eventsIn, fullCap, groupItemsByStream, releaseCapacity, remainingSprints, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, type StreamHealth } from './derive';
+import { activeSprint, capPct, eventsIn, elapsedSprints, fullCap, groupItemsByStream, releaseCapacity, remainingSprints, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, velocityAttainment, type StreamHealth } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
 import type { Release, Sprint, Team, WorkItem } from '../types';
 
@@ -439,5 +439,71 @@ describe('forward capacity-fit health', () => {
       expect(f.verdict).toBe('at-risk');
       expect(Number.isFinite(f.runwaySprints)).toBe(false);
     });
+  });
+});
+
+describe('buildSprints length', () => {
+  it('defaults to 14-day sprints', () => {
+    const sps = buildSprints('2026-04-13', {}, 2);
+    expect(sps[0].startISO).toBe('2026-04-13');
+    expect(sps[0].endISO).toBe('2026-04-26'); // 14 calendar days inclusive
+    expect(sps[1].startISO).toBe('2026-04-27');
+  });
+
+  it('honors a custom uniform length (3 weeks)', () => {
+    const sps = buildSprints('2026-04-13', {}, 2, 21);
+    expect(sps[0].endISO).toBe('2026-05-03'); // 21 days inclusive
+    expect(sps[1].startISO).toBe('2026-05-04');
+    expect(workdaysInRange(sps[0].startISO, sps[0].endISO)).toBe(15);
+  });
+});
+
+describe('velocityAttainment', () => {
+  const today = todayISO();
+  // Two elapsed sprints + one active. daysOff 0 so sprintVel == team velocity.
+  const mkRelease = (): Release => ({
+    id: 'r', name: 'R', startISO: addDays(today, -42), teamId: 't',
+    workStreams: [], events: [], externalId: null, connector: null, sync: null,
+    sprints: [
+      { id: 'e1', name: 'Sprint 1', startISO: addDays(today, -42), endISO: addDays(today, -29), daysOff: 0, externalId: null },
+      { id: 'e2', name: 'Sprint 2', startISO: addDays(today, -28), endISO: addDays(today, -15), daysOff: 0, externalId: null },
+      { id: 'a',  name: 'Sprint 3', startISO: addDays(today, -5),  endISO: addDays(today, 9),   daysOff: 0, externalId: null },
+    ],
+  } as Release);
+
+  const item = (sprintId: string, status: WorkItem['status'], points: number): WorkItem =>
+    ({ id: Math.random().toString(), releaseId: 'r', workStreamId: null, sprintId, key: 'K', subject: 's', description: '', status, points } as WorkItem);
+
+  it('measures only elapsed sprints and rolls up attainment', () => {
+    const r = mkRelease();
+    const items = [
+      item('e1', 'Complete', 30),
+      item('e2', 'Complete', 20),
+      item('e2', 'Active', 100),  // not complete → excluded from actual
+      item('a', 'Complete', 999), // active sprint → excluded entirely
+    ];
+    const v = velocityAttainment(r, team(1, 40), items, today);
+    expect(v.perSprint.map((s) => s.sprint.id)).toEqual(['e1', 'e2']);
+    expect(v.totalPlanned).toBe(80); // 40 × 2 elapsed sprints
+    expect(v.totalActual).toBe(50); // 30 + 20
+    expect(v.attainmentPct).toBe(63); // round(50/80)
+    expect(v.verdict).toBe('under');
+  });
+
+  it('is on-track when delivery meets the plan', () => {
+    const r = mkRelease();
+    const items = [item('e1', 'Complete', 40), item('e2', 'Complete', 38)];
+    const v = velocityAttainment(r, team(1, 40), items, today);
+    expect(v.verdict).toBe('on-track'); // 78/80 = 98%
+  });
+
+  it('reports none when no sprint has elapsed', () => {
+    const r: Release = { ...mkRelease(), sprints: [
+      { id: 'a', name: 'Sprint 1', startISO: addDays(today, -5), endISO: addDays(today, 9), daysOff: 0, externalId: null },
+    ] };
+    const v = velocityAttainment(r, team(1, 40), [], today);
+    expect(elapsedSprints(r, today)).toHaveLength(0);
+    expect(v.attainmentPct).toBeNull();
+    expect(v.verdict).toBe('none');
   });
 });

@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import {
   SCHEMA_VERSION,
+  SPRINT_LEN_DAYS,
   type AppState,
   type ItemType,
   type Member,
@@ -19,13 +20,14 @@ import {
   type WorkItem,
   type WorkStream,
 } from '../types';
-import { buildSprints, todayISO, uid } from '../lib/dates';
+import { buildSprints, dOf, todayISO, uid } from '../lib/dates';
 import { seed } from '../lib/seed';
 import { applyCreatedItem, applySync } from '../sync/applySync';
 import { buildPushChanges } from '../sync/push';
 import { allWriteableLocalFields, canonicalBaseline, writeableLocalFieldsForItem } from '../lib/connectorFields';
 import { syncClient, SyncValidationError, type CreateItemInput } from '../sync/client';
 import type { PushResult, SyncResult } from '../sync/schema';
+import type { SharePayload } from '../lib/shareRelease';
 
 /** Result of a sync attempt, shaped so the UI can craft a precise toast. */
 export type SyncOutcome =
@@ -242,6 +244,21 @@ export function migrate(p: AppState): AppState | null {
       items: s.items.map((it) => ({ ...it, points: (it as any).points === 0 ? null : (it as any).points })),
     };
   }
+  // v17 → v18: releases gain a uniform sprintLengthDays. Derive it from the first
+  // sprint's calendar span when sprints exist; otherwise fall back to the default.
+  if (s.version === 17) {
+    s = {
+      ...s,
+      version: 18,
+      releases: s.releases.map((r) => {
+        const sp = r.sprints[0];
+        const len = sp
+          ? Math.round((dOf(sp.endISO).getTime() - dOf(sp.startISO).getTime()) / 86400000) + 1
+          : SPRINT_LEN_DAYS;
+        return { ...r, sprintLengthDays: (r as any).sprintLengthDays ?? len };
+      }),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -279,7 +296,11 @@ interface Actions {
   createTeam: (input: { name: string; velocity: number | string; members: string[] }) => Team;
   updateTeam: (id: string, patch: Partial<Pick<Team, 'name' | 'velocity' | 'members'>>) => void;
   deleteTeam: (id: string) => void;
-  createRelease: (input: { name: string; startISO: string; teamId: string; connector?: ReleaseConnector | null; sprintCount?: number }) => Release;
+  createRelease: (input: { name: string; startISO: string; teamId: string; connector?: ReleaseConnector | null; sprintCount?: number; sprintLengthDays?: number }) => Release;
+  /** Recreate a connector release from a decoded share payload: connector config +
+   *  local metadata (events, sprints incl. days off). No work items/streams — those
+   *  arrive on the recipient's first sync. The team arrives from the connector too. */
+  importSharedRelease: (payload: SharePayload) => Release;
   deleteRelease: (id: string) => void;
   createWorkStream: (releaseId: string, name: string) => WorkStream | null;
   updateWorkStream: (releaseId: string, wsId: string, patch: Partial<Pick<WorkStream, 'name' | 'engineersRequired'>>) => void;
@@ -371,8 +392,9 @@ export const useStore = create<StoreState>((set, get) => {
       });
     },
 
-    createRelease: ({ name, startISO, teamId, connector, sprintCount }) => {
+    createRelease: ({ name, startISO, teamId, connector, sprintCount, sprintLengthDays }) => {
       const start = startISO || todayISO();
+      const len = sprintLengthDays ?? SPRINT_LEN_DAYS;
       const r: Release = {
         id: uid('rel'),
         name: name || 'Untitled release',
@@ -381,11 +403,62 @@ export const useStore = create<StoreState>((set, get) => {
         workStreams: [],
         events: [],
         // Connector releases get their sprints from the external system on first
-        // sync; local releases start with the default fixed two-week grid.
-        sprints: connector ? [] : buildSprints(start, {}, sprintCount),
+        // sync; local releases build a uniform grid of `len`-day sprints.
+        sprints: connector ? [] : buildSprints(start, {}, sprintCount, len),
         externalId: null,
         connector: connector ?? null,
         sync: null,
+        // Connector sprints may vary in length; store the nominal default for them.
+        sprintLengthDays: len,
+        catalog: null,
+      };
+      commit((d) => { d.releases = [...d.releases, r]; });
+      return r;
+    },
+
+    importSharedRelease: (payload) => {
+      const r: Release = {
+        id: uid('rel'),
+        name: payload.name || 'Untitled release',
+        startISO: payload.startISO || todayISO(),
+        // A connector release's team is repointed on first sync; start unbound.
+        teamId: '',
+        // Seed work streams from the share so that engineersRequired (app-owned
+        // local metadata) survives the first sync: applySync matches by externalId
+        // and preserves app-owned fields on existing streams rather than resetting
+        // them to null. Only streams with an externalId can be reattached.
+        workStreams: (payload.workStreams ?? [])
+          .filter((ws) => ws.externalId !== null)
+          .map((ws) => ({
+            id: uid('ws'),
+            name: '',
+            externalId: ws.externalId,
+            engineersRequired: ws.engineersRequired ?? null,
+            build: null,
+            externalUrl: null,
+            attributes: {},
+          })),
+        events: payload.events.map((e) => ({
+          id: uid('ev'),
+          label: e.label || 'Event',
+          dateISO: e.dateISO,
+          externalId: e.externalId ?? null,
+        })),
+        // Carry sprints (with externalId) so days off reattach on the first sync,
+        // which matches sprints by externalId and preserves the app-owned daysOff.
+        sprints: payload.sprints.map((s) => ({
+          id: uid('sp'),
+          name: s.name,
+          startISO: s.startISO,
+          endISO: s.endISO,
+          daysOff: s.daysOff || 0,
+          externalId: s.externalId ?? null,
+        })),
+        externalId: null,
+        connector: payload.connector,
+        sync: null,
+        // Nominal only — a connector's actual sprints arrive (and may vary) on sync.
+        sprintLengthDays: SPRINT_LEN_DAYS,
         catalog: null,
       };
       commit((d) => { d.releases = [...d.releases, r]; });

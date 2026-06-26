@@ -27,6 +27,7 @@ export interface HomeViewProps {
   meta: ConnectorMeta | undefined;
   config: Record<string, string>;
   sprintCount: number;
+  sprintWeeks: number;
   canCreate: boolean;
   isDev: boolean;
   onSetName: (v: string) => void;
@@ -35,6 +36,7 @@ export interface HomeViewProps {
   onSetConnType: (v: string) => void;
   onSetConfig: (key: string, value: string) => void;
   onSetSprintCount: (v: number) => void;
+  onSetSprintWeeks: (v: number) => void;
   onCreate: () => void;
   onLoadDemo: () => void;
   onDeleteRelease: (e: React.MouseEvent, release: Release) => void;
@@ -55,6 +57,7 @@ export function useHomeView(): HomeViewProps {
   const [connType, setConnType] = useState('');
   const [config, setConfig] = useState<Record<string, string>>({});
   const [sprintCount, setSprintCount] = useState(DEFAULT_SPRINT_COUNT);
+  const [sprintWeeks, setSprintWeeks] = useState(2);
 
   useEffect(() => {
     let alive = true;
@@ -93,6 +96,7 @@ export function useHomeView(): HomeViewProps {
       teamId: effectiveTeamId,
       connector,
       sprintCount: connector ? undefined : sprintCount,
+      sprintLengthDays: connector ? undefined : sprintWeeks * 7,
     });
     navigate(`/releases/${r.id}`);
   };
@@ -108,6 +112,7 @@ export function useHomeView(): HomeViewProps {
     meta,
     config,
     sprintCount,
+    sprintWeeks,
     canCreate,
     isDev: import.meta.env.DEV,
     onSetName: setName,
@@ -116,6 +121,7 @@ export function useHomeView(): HomeViewProps {
     onSetConnType: setConnType,
     onSetConfig: (key, value) => setConfig((c) => ({ ...c, [key]: value })),
     onSetSprintCount: setSprintCount,
+    onSetSprintWeeks: setSprintWeeks,
     onCreate,
     onLoadDemo: () => getActions().reset(),
     onDeleteRelease: (e, r) => {

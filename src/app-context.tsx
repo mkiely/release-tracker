@@ -4,21 +4,25 @@
 
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import { getActions } from './store/store';
+import type { SharePayload } from './lib/shareRelease';
 import { Toast } from './components/primitives';
 import { ModalHost } from './modals/ModalHost';
+import { ShareImporter } from './components/ShareImporter';
 
 export type ModalSpec =
   | { type: 'team'; teamId?: string }
   | { type: 'stream'; releaseId: string; wsId?: string }
   | { type: 'streamHealth'; releaseId: string; wsId: string }
   | { type: 'teamAllocations'; releaseId: string }
+  | { type: 'velocity'; releaseId: string }
   | { type: 'event'; releaseId: string; eventId?: string }
   | { type: 'sprint'; releaseId: string; sprintId: string }
   | { type: 'item'; releaseId: string; presetStreamId?: string; presetSprintId?: string }
   | { type: 'connectorItem'; releaseId: string; presetStreamId?: string; presetSprintId?: string }
   | { type: 'itemDetail'; itemId: string }
   | { type: 'pushReview'; releaseId: string; onConfirm: () => void | Promise<void> }
-  | { type: 'confirm'; title: string; body: string; confirmLabel: string; onConfirm: () => void };
+  | { type: 'confirm'; title: string; body: string; confirmLabel: string; onConfirm: () => void }
+  | { type: 'loadShare'; payload: SharePayload; onConfirm: () => void };
 
 interface AppCtx {
   openModal: (m: ModalSpec) => void;
@@ -78,6 +82,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{ openModal: setModal, notify, onSync, onPush }}>
+      <ShareImporter />
       {children}
       <ModalHost modal={modal} onClose={() => setModal(null)} />
       {toast && <Toast>{toast}</Toast>}

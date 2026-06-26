@@ -3,19 +3,20 @@
 import { useState, type ReactNode } from 'react';
 import { LOCAL_ITEM_TYPES, STATUSES, type AttrValue, type Member, type Status } from '../types';
 import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
-import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
+import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints, velocityAttainment } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
 import { attributeFields, CANONICAL_FIELDS, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type CanonicalView, type EditConcept } from '../lib/connectorFields';
 import { displayValue, FieldControl } from '../components/fields/registry';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
+import type { SharePayload } from '../lib/shareRelease';
 import { DirtyDot } from '../components/DirtyDot';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
 import { SegBar } from '../components/badges';
-import { StreamBurnChart } from '../components/trend';
+import { StreamBurnChart, VelocityTrendChart } from '../components/trend';
 import { VerdictBadge } from '../components/VerdictLine';
 import { statusVars, verdictVars } from '../components/statusVars';
 
@@ -56,6 +57,56 @@ export function ConfirmModal({
   );
 }
 
+// ── Load shared release modal ──────────────────────────────────────────
+// Shown when the app opens with a `?share=` link. Confirms loading a release
+// from a decoded share payload (config + events + days off); work items and
+// streams are not included and arrive when the user syncs.
+export function LoadShareModal({
+  payload,
+  onConfirm,
+  onClose,
+}: {
+  payload: SharePayload;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const meta = useConnectorMeta(payload.connector.type);
+  const connName = meta?.label ?? payload.connector.type;
+  const eventCount = payload.events.length;
+  const sprintCount = payload.sprints.length;
+  const handleConfirm = () => { onConfirm(); onClose(); };
+  return (
+    <Modal
+      title="Load shared release"
+      icon={Icon.release}
+      onClose={onClose}
+      width={460}
+      footer={
+        <>
+          <PButton variant="subtle" onClick={onClose}>
+            Cancel
+          </PButton>
+          <PButton onClick={handleConfirm}>
+            Load release
+          </PButton>
+        </>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 'var(--rt-lh-normal)' }}>
+        <span>
+          Load <strong style={{ color: 'var(--rt-ink)' }}>{payload.name}</strong> as a new release connected to{' '}
+          <strong style={{ color: 'var(--rt-ink)' }}>{connName}</strong>?
+        </span>
+        <span style={{ color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-sm)' }}>
+          This brings over the connector configuration{eventCount > 0 ? `, ${eventCount} event${eventCount !== 1 ? 's' : ''}` : ''}
+          {sprintCount > 0 ? `, and ${sprintCount} sprint${sprintCount !== 1 ? 's' : ''} with days off` : ''}. Work items and
+          work streams aren’t included — click Sync after loading to fetch them from your backend.
+        </span>
+      </div>
+    </Modal>
+  );
+}
+
 // ── Team create / edit modal ───────────────────────────────────────────
 export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () => void }) {
   const editing = !!teamId;
@@ -73,6 +124,8 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
 
   const setMemberName = (i: number, v: string) =>
     setMembers((ms) => ms.map((m, j) => (j === i ? { ...m, name: v } : m)));
+  const toggleNonContrib = (i: number) =>
+    setMembers((ms) => ms.map((m, j) => (j === i ? { ...m, nonContributing: !m.nonContributing } : m)));
   const addMember = () =>
     setMembers((ms) => [...ms, { id: `m_${Math.random().toString(36).slice(2)}`, name: '', externalId: null, nonContributing: false }]);
   const rmMember = (i: number) => setMembers((ms) => ms.filter((_, j) => j !== i));
@@ -142,6 +195,16 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
                   }
                 }}
                 style={{ flex: 1 }}
+              />
+              <IconButton
+                icon={m.nonContributing ? Icon.memberOff : Icon.member}
+                title={m.nonContributing ? 'Non-contributing (click to mark contributing)' : 'Contributing (click to mark non-contributing)'}
+                onClick={() => toggleNonContrib(i)}
+                style={{
+                  border: 'none',
+                  color: m.nonContributing ? 'var(--rt-t3)' : 'var(--rt-accent)',
+                  opacity: m.nonContributing ? 0.5 : 1,
+                }}
               />
               {isSynced ? (
                 <span className="tag" style={{ flex: '0 0 auto', fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>
@@ -374,6 +437,89 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
             big
           />
         </div>
+      )}
+    </Modal>
+  );
+}
+
+// ── Velocity attainment detail (read-only) ──────────────────────────────
+export function VelocityModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
+  const r = useStore((s) => selRelease(s, releaseId));
+  const team = useStore((s) => (r ? selTeam(s, r.teamId) : undefined));
+  const allItems = useStore((s) => s.items);
+
+  if (!r) {
+    return (
+      <Modal title="Velocity" icon={Icon.sprint} onClose={onClose} width={560}>
+        <span style={{ color: 'var(--rt-t3)' }}>This release no longer exists.</span>
+      </Modal>
+    );
+  }
+
+  const items = allItems.filter((i) => i.releaseId === releaseId);
+  const v = velocityAttainment(r, team, items);
+  const under = v.verdict === 'under';
+  const none = v.verdict === 'none';
+  const tone = statusVars(under ? 'Blocked' : 'Complete');
+
+  return (
+    <Modal
+      onClose={onClose}
+      width={620}
+      title={
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Velocity attainment</span>
+          {!none && (
+            <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-display)', color: tone.dot }}>{v.attainmentPct}%</span>
+          )}
+        </span>
+      }
+      footer={
+        <PButton variant="subtle" onClick={onClose}>
+          Close
+        </PButton>
+      }
+    >
+      {none ? (
+        <div className="card dash" style={{ padding: '18px 16px', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-sm)', lineHeight: 1.5 }}>
+          No sprint has fully elapsed yet — attainment appears once the first sprint ends.
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
+            The team delivered <strong style={{ color: tone.dot }}>{v.totalActual}</strong> of{' '}
+            <strong>{v.totalPlanned}</strong> planned points across {v.perSprint.length} elapsed sprint
+            {v.perSprint.length !== 1 ? 's' : ''} — {under ? 'below' : 'meeting'} the set velocity.
+          </div>
+
+          <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 14px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span className="tag">Delivered vs. planned per sprint</span>
+            <VelocityTrendChart
+              series={v.perSprint.map((s) => ({ label: s.sprint.name.replace(/^Sprint\s*/i, 'S'), planned: s.planned, actual: s.actual }))}
+              tone={under ? 'under' : 'ok'}
+            />
+            <span style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)', lineHeight: 1.4 }}>
+              Faint bars are each sprint's planned velocity (capacity-adjusted); the bold bars + line are points completed.
+              Only fully-elapsed sprints are counted.
+            </span>
+          </div>
+
+          <div className="card" style={{ background: 'var(--rt-bg)', padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <span className="tag" style={{ marginBottom: 2 }}>By sprint</span>
+            {v.perSprint.map((s) => {
+              const pct = s.planned > 0 ? Math.round((s.actual / s.planned) * 100) : null;
+              return (
+                <Row
+                  key={s.sprint.id}
+                  k={s.sprint.name}
+                  v={`${s.actual} / ${s.planned} pts${pct !== null ? ` · ${pct}%` : ''}`}
+                />
+              );
+            })}
+            <hr className="divider" style={{ margin: '3px 0' }} />
+            <Row k="Total" v={`${v.totalActual} / ${v.totalPlanned} pts · ${v.attainmentPct}%`} big />
+          </div>
+        </>
       )}
     </Modal>
   );

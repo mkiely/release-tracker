@@ -14,7 +14,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 18;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog and its
  *  status vocabulary (native workflow states mapped to canonical categories).
@@ -133,6 +133,11 @@ export interface Release {
   externalId: string | null;
   connector: ReleaseConnector | null;
   sync: SyncStatus | null;
+  /** Calendar length (in days) of every sprint in this release. Uniform across the
+   *  release and fixed at creation — not editable. For local releases this drives
+   *  buildSprints; for connector releases sprints come from the external system and
+   *  may vary, so this holds a nominal value only and is not used for generation. */
+  sprintLengthDays: number;
   /** Snapshot of the connector's vocabulary (item-type catalog + status
    *  vocabulary), taken at each sync. Lets the app interpret synced items'
    *  attributes and native statuses (labels, enum options, lock state) offline,

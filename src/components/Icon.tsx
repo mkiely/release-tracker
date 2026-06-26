@@ -17,6 +17,8 @@ export const Icon: Record<string, ReactElement> = {
   copy: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" /><path d="M3.4 10.5h-.9a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v.9" /></svg>,
   // Open in external system — box with an out-arrow
   external: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 3H3.5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7.5" /><path d="M9.5 2.5H13.5V6.5" /><path d="M13.5 2.5 7.5 8.5" /></svg>,
+  // Share link — two interlocked chain links
+  link: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"><path d="M6.6 9.4a2.2 2.2 0 0 0 3.3.2l2-2a2.2 2.2 0 1 0-3.1-3.1l-1.1 1.1" /><path d="M9.4 6.6a2.2 2.2 0 0 0-3.3-.2l-2 2a2.2 2.2 0 1 0 3.1 3.1l1.1-1.1" /></svg>,
   // entity icons (16×16 grid, stroke 1.4, round caps+joins)
   release: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M8 1.7 13.7 4.9v6.2L8 14.3 2.3 11.1V4.9z"/><path d="M2.3 4.9 8 8.1l5.7-3.2"/><path d="M8 8.1v6.2"/></svg>,
   team:    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><circle cx="6" cy="6" r="2.3"/><path d="M1.9 13c0-2.3 1.8-3.7 4.1-3.7S10.1 10.7 10.1 13"/><path d="M10.6 4.1a2.2 2.2 0 0 1 .2 4.3M11.6 9.5c1.7.4 2.7 1.6 2.7 3.5"/></svg>,

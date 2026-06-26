@@ -82,6 +82,7 @@ export function HomeView({
   meta,
   config,
   sprintCount,
+  sprintWeeks,
   canCreate,
   isDev,
   onSetName,
@@ -90,6 +91,7 @@ export function HomeView({
   onSetConnType,
   onSetConfig,
   onSetSprintCount,
+  onSetSprintWeeks,
   onCreate,
   onLoadDemo,
   onDeleteRelease,
@@ -146,18 +148,28 @@ export function HomeView({
               <PInput type="date" value={start} onChange={(e) => onSetStart(e.target.value)} />
             </PField>
             {!meta && (
-              <PField label="Number of sprints" hint="2-week sprints; default is 8">
-                <PInput
-                  type="number"
-                  value={sprintCount}
-                  min={1}
-                  max={26}
-                  step={1}
-                  onChange={(e) =>
-                    onSetSprintCount(Math.max(1, Math.min(26, parseInt(e.target.value, 10) || sprintCount)))
-                  }
-                />
-              </PField>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <PField label="Number of sprints" hint="default is 8" style={{ flex: 1 }}>
+                  <PInput
+                    type="number"
+                    value={sprintCount}
+                    min={1}
+                    max={26}
+                    step={1}
+                    onChange={(e) =>
+                      onSetSprintCount(Math.max(1, Math.min(26, parseInt(e.target.value, 10) || sprintCount)))
+                    }
+                  />
+                </PField>
+                <PField label="Sprint length" hint="uniform; set at creation" style={{ flex: 1 }}>
+                  <PSelect value={sprintWeeks} onChange={(e) => onSetSprintWeeks(parseInt(e.target.value, 10))}>
+                    <option value={1}>1 week</option>
+                    <option value={2}>2 weeks</option>
+                    <option value={3}>3 weeks</option>
+                    <option value={4}>4 weeks</option>
+                  </PSelect>
+                </PField>
+              </div>
             )}
             <PField label="Team" hint={meta ? 'optional — team arrives from connector on first sync' : undefined}>
               <div style={{ display: 'flex', gap: 9 }}>

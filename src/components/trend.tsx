@@ -168,6 +168,66 @@ export function StreamBurnChart({
   );
 }
 
+/**
+ * Velocity attainment over the elapsed sprints: per sprint, a faint "planned"
+ * bar (the sprint's capacity-adjusted velocity) overlaid with a bold "actual"
+ * bar (points completed) and a line connecting the actuals. Same SVG idiom as
+ * the other charts here — no charting kit. Tone colours the actuals.
+ */
+export function VelocityTrendChart({
+  series,
+  tone,
+}: {
+  series: { label: string; planned: number; actual: number }[];
+  tone: 'ok' | 'under';
+}) {
+  const W = 560;
+  const H = 170;
+  const padL = 28;
+  const padR = 12;
+  const padT = 14;
+  const padB = 24;
+  const n = Math.max(1, series.length);
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const bw = plotW / n;
+  const yMax = Math.max(1, ...series.flatMap((s) => [s.planned, s.actual]));
+  const yOf = (v: number) => padT + plotH - (Math.max(0, v) / yMax) * plotH;
+  const xMid = (i: number) => padL + i * bw + bw / 2;
+
+  const actualColor = tone === 'under' ? statusVars('Blocked').dot : statusVars('Complete').dot;
+  const linePts = series.map((s, i) => `${xMid(i).toFixed(1)},${yOf(s.actual).toFixed(1)}`).join(' ');
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Actual vs planned velocity by sprint" style={{ display: 'block' }}>
+      {/* baseline */}
+      <line x1={padL} y1={yOf(0)} x2={W - padR} y2={yOf(0)} stroke="var(--rt-line-strong)" strokeWidth={1} />
+      <text x={padL - 6} y={yOf(yMax) + 3} textAnchor="end" fontSize={9} fill="var(--rt-t3)">{yMax}</text>
+      <text x={padL - 6} y={yOf(0) + 3} textAnchor="end" fontSize={9} fill="var(--rt-t3)">0</text>
+
+      {series.map((s, i) => {
+        const cx = xMid(i);
+        const pw = bw * 0.5;
+        const aw = bw * 0.3;
+        return (
+          <g key={i}>
+            {/* planned (faint, wide) */}
+            <rect x={cx - pw / 2} y={yOf(s.planned)} width={pw} height={Math.max(0, yOf(0) - yOf(s.planned))} rx={2} fill="var(--rt-line)" />
+            {/* actual (bold, narrow, on top) */}
+            <rect x={cx - aw / 2} y={yOf(s.actual)} width={aw} height={Math.max(0, yOf(0) - yOf(s.actual))} rx={2} fill={actualColor} />
+            <text x={cx} y={H - 8} textAnchor="middle" fontSize={9} fill="var(--rt-t3)">{s.label}</text>
+          </g>
+        );
+      })}
+
+      {/* actuals trend line */}
+      {series.length > 1 && (
+        <polyline points={linePts} fill="none" stroke={actualColor} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" opacity={0.55} />
+      )}
+    </svg>
+  );
+}
+
 /** Compact completion ring + percentage. */
 export function CompletionRing({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? done / total : 0;

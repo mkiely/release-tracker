@@ -205,6 +205,55 @@ export function streamForecast(
   return { ...base, verdict, nominalCap, effectiveEngineers, effectiveCap, shortfallPts, runwaySprints, sprintsShort, contended, summary };
 }
 
+// ── Velocity attainment ─────────────────────────────────────────────────────
+// As a release progresses, is the team actually delivering at its set velocity?
+// This is a BACKWARD-looking question, the mirror of streamForecast: it measures
+// elapsed sprints only. Each elapsed sprint compares points actually completed
+// against that sprint's planned velocity (capacity-adjusted team velocity).
+
+/** Sprints whose range has fully elapsed (endISO < today). ISO dates compare lexically. */
+export const elapsedSprints = (release: Release, today: string = todayISO()): Sprint[] =>
+  release.sprints.filter((s) => s.endISO < today);
+
+export interface SprintVelocity {
+  sprint: Sprint;
+  /** Capacity-adjusted planned velocity for the sprint. */
+  planned: number;
+  /** Points completed in the sprint (status === 'Complete'). */
+  actual: number;
+}
+
+export interface VelocityAttainment {
+  /** One entry per elapsed sprint, in release order. */
+  perSprint: SprintVelocity[];
+  totalPlanned: number;
+  totalActual: number;
+  /** totalActual / totalPlanned as a percentage; null when nothing to measure. */
+  attainmentPct: number | null;
+  /** 'none' until a sprint has elapsed; 'on-track' within tolerance of plan, else 'under'. */
+  verdict: 'on-track' | 'under' | 'none';
+}
+
+/** Points delivered vs. planned across the release's elapsed sprints. `items` should
+ *  be the release's work items. On-track means delivered ≥ 90% of planned. */
+export function velocityAttainment(
+  release: Release,
+  team: Team | undefined,
+  items: WorkItem[],
+  today: string = todayISO(),
+): VelocityAttainment {
+  const perSprint: SprintVelocity[] = elapsedSprints(release, today).map((sprint) => ({
+    sprint,
+    planned: sprintVel(team, sprint, sprint.daysOff),
+    actual: sumPoints(items.filter((i) => i.sprintId === sprint.id && i.status === 'Complete')),
+  }));
+  const totalPlanned = perSprint.reduce((a, s) => a + s.planned, 0);
+  const totalActual = perSprint.reduce((a, s) => a + s.actual, 0);
+  const attainmentPct = perSprint.length === 0 || totalPlanned === 0 ? null : Math.round((totalActual / totalPlanned) * 100);
+  const verdict = attainmentPct === null ? 'none' : attainmentPct >= 90 ? 'on-track' : 'under';
+  return { perSprint, totalPlanned, totalActual, attainmentPct, verdict };
+}
+
 /**
  * Groups a flat list of items by work stream, preserving the release's stream
  * order. Items whose workStreamId is absent from the stream list (or null) are

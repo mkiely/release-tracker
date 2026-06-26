@@ -1,5 +1,6 @@
 import type { WorkStreamViewProps } from '../hooks/useWorkStreamView';
 import { NewItemButton, PushButton, SyncButton, TopBar } from '../components/chrome';
+import { ShareButton } from '../components/ShareButton';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { EmptyState } from '../components/EmptyState';
 import { FilterChip, ClearFiltersButton } from '../components/FilterChip';
@@ -89,6 +90,7 @@ export function WorkStreamView({
             <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
               {totalItemCount} items · {totalPts} pts · drag cards between sprints
             </span>
+            <ShareButton release={r} />
             <PushButton release={r} onPush={onPush} />
             <SyncButton release={r} onSync={onSync} />
             <NewItemButton release={r} onClick={onNewItem} icon={Icon.plus} />

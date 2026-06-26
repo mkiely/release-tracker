@@ -9,6 +9,7 @@ import { STATUSES } from '../types';
 import { fmtShort } from '../lib/dates';
 import { sumPoints } from '../lib/derive';
 import { NewItemButton, PushButton, SyncButton, TopBar } from '../components/chrome';
+import { ShareButton } from '../components/ShareButton';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { EmptyState } from '../components/EmptyState';
 import { FilterChip, ClearFiltersButton } from '../components/FilterChip';
@@ -221,6 +222,7 @@ export function BacklogView({
             <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
               {totalItemCount} item{totalItemCount !== 1 ? 's' : ''} · {totalPts} pts
             </span>
+            <ShareButton release={r} />
             <PushButton release={r} onPush={onPush} />
             <SyncButton release={r} onSync={onSync} />
             <NewItemButton release={r} onClick={onNewItem} icon={Icon.plus} />

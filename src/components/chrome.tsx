@@ -12,6 +12,7 @@ import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import { connectorCreateTypes } from '../sync/client';
 import { Icon } from './Icon';
 import { IconButton, PButton } from './primitives';
+import { ShareButton } from './ShareButton';
 import { statusVars } from './statusVars';
 import styles from './chrome.module.css';
 
@@ -275,6 +276,7 @@ export function SprintTopActions({
           Edit sprint
         </PButton>
       )}
+      <ShareButton release={release} />
       <PushButton release={release} onPush={onPush} />
       <SyncButton release={release} onSync={onSync} />
       <NewItemButton release={release} onClick={onNewItem} />

@@ -7,7 +7,9 @@ import { FilterChip } from './FilterChip';
 import { ScreenScaffold } from './ScreenScaffold';
 import { Icon } from './Icon';
 import { SegBar } from './badges';
+import { statusVars } from './statusVars';
 import { IconButton, PButton } from './primitives';
+import { ShareButton } from './ShareButton';
 import { SegmentedToggle } from './SegmentedToggle';
 import { TeamLink } from './TeamLink';
 import { VDivider } from './VDivider';
@@ -76,6 +78,8 @@ type ReleaseChromeProps = Pick<
   | 'onNavigateToBacklog'
   | 'onOpenTeam'
   | 'onOpenTeamAllocations'
+  | 'onOpenVelocity'
+  | 'velocity'
   | 'overAllocated'
   | 'buildFilter'
   | 'offBuildStreamCount'
@@ -105,6 +109,8 @@ export function ReleaseChrome({
   onNavigateToBacklog,
   onOpenTeam,
   onOpenTeamAllocations,
+  onOpenVelocity,
+  velocity,
   overAllocated,
   buildFilter,
   offBuildStreamCount,
@@ -160,6 +166,20 @@ export function ReleaseChrome({
           )}
           <span style={{ opacity: 0.5 }}>·</span>
           <span>{dateRange}</span>
+          {velocity.verdict !== 'none' && (
+            <button
+              type="button"
+              className={`tag ${styles.allocTag}`}
+              onClick={onOpenVelocity}
+              title="Velocity attainment — delivered vs. planned across elapsed sprints"
+              style={{
+                color: statusVars(velocity.verdict === 'under' ? 'Blocked' : 'Complete').dot,
+              }}
+            >
+              {Icon.sprint}
+              Velocity {velocity.attainmentPct}%
+            </button>
+          )}
           {connLabel && (
             <>
               <span style={{ opacity: 0.5 }}>·</span>
@@ -182,6 +202,7 @@ export function ReleaseChrome({
       }
       right={
         <>
+          <ShareButton release={r} />
           <PushButton release={r} onPush={onPush} />
           <SyncButton release={r} onSync={onSync} />
           <PButton variant="subtle" sm icon={Icon.copy} onClick={onExport}>
