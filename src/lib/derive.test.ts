@@ -423,6 +423,7 @@ describe('forward capacity-fit health', () => {
       expect(f.shortfallPts).toBeCloseTo(20);
       expect(f.sprintsShort).toBeGreaterThan(0);
       expect(f.summary).toContain('sprints required at 2 eng');
+      expect(f.summary).toContain('(3 sprints remain)'); // ctx has 3 remaining sprints
     });
 
     it('downgrades a nominally-fine stream when the release is over-allocated', () => {
