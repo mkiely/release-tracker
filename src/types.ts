@@ -14,7 +14,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 19;
+export const SCHEMA_VERSION = 20;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog and its
  *  status vocabulary (native workflow states mapped to canonical categories).
@@ -64,6 +64,12 @@ export interface WorkStream {
    *  capacity-fit health forecast. Survives connector sync (sync only owns name).
    *  null = not yet configured. */
   engineersRequired: number | null;
+  /** App-owned enrichment: the user has muted the planning-runway proactive-creation
+   *  alarm for this stream (e.g. tickets intentionally deferred while research is
+   *  pending). Silences the alarm only — the stream still reads as un-judgeable, never
+   *  green, when it has unclaimed runway (see derive.streamRunway). Survives connector
+   *  sync. Defaults to false. */
+  planningMuted: boolean;
   /** Connector-owned provenance: the build/release this stream was carried in from,
    *  when it differs from this release. null = native to this release. Drives the
    *  "on-build only" lens (hide carried-in streams). Mirrors WorkItem.build; set by

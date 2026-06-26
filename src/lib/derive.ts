@@ -216,6 +216,111 @@ export function streamForecast(
   return { ...base, verdict, nominalCap, effectiveEngineers, effectiveCap, shortfallPts, runwaySprints, sprintsShort, contended, summary };
 }
 
+// ── Planning runway / proactive ticket creation ─────────────────────────────
+// The inverse of streamForecast. streamForecast asks "is there too MUCH work for
+// the remaining capacity?"; this asks "is there too LITTLE created work to fill
+// the capacity we're holding for this stream?" A large unclaimed runway is both a
+// "create tickets sooner" nudge AND a measurability warning: with little/no work
+// planned there's nothing to forecast or measure attainment against, so the
+// stream is un-judgeable rather than green. See docs/metrics.md.
+
+export type RunwayVerdict =
+  | 'unplanned' // no items at all — nothing to measure (un-judgeable)
+  | 'unestimated' // items exist but none carry points (un-judgeable)
+  | 'unconfigured' // engineersRequired unset — can't size the held capacity (un-judgeable)
+  | 'complete' // no remaining sprints — nothing left to plan forward
+  | 'under-planned' // held capacity materially exceeds created remaining work
+  | 'planned'; // created work reasonably fills the held capacity
+
+export interface StreamRunway {
+  verdict: RunwayVerdict;
+  /** False for the un-judgeable verdicts — a runway figure you can't stand a green behind. */
+  judgeable: boolean;
+  engineersRequired: number | null;
+  remainingSprintCount: number;
+  /** engineersRequired × perEngineerCap — capacity reserved for this stream over the remaining sprints. */
+  availableCap: number;
+  /** Remaining (not-Complete) points of created items, current+future (== health.remainingPts; past is complete). */
+  createdRemainingPts: number;
+  /** max(0, availableCap − createdRemainingPts) — capacity held but not yet planned. */
+  unclaimedRunway: number;
+  /** unclaimedRunway expressed in sprints of this stream's own held capacity. */
+  unclaimedSprints: number;
+  /** Not-Complete items planned into a sprint beyond the next one (proactive-planning signal). */
+  itemsBeyondNext: number;
+  /** User muted the proactive-creation alarm (e.g. research pending). Never promotes to green. */
+  muted: boolean;
+  /** Under-planned AND nothing created beyond the next sprint AND not muted — the "only one sprint ahead" smell. */
+  alarm: boolean;
+  /** Plain-language one-liner for the row + modal. */
+  summary: string;
+}
+
+/** Tolerate up to ~1 sprint of unclaimed held capacity before flagging under-planned. */
+const RUNWAY_SPRINT_TOLERANCE = 1;
+
+/**
+ * Forward planning-runway signal for one stream: does the created work fill the
+ * capacity reserved for it over the remaining sprints? `itemsBeyondNext` and
+ * `muted` are computed by the caller (active-sprint index + the stream's mute
+ * flag). Un-judgeable gates run first, mirroring streamForecast — an empty or
+ * unestimated stream must read as "can't tell", never as on-track.
+ */
+export function streamRunway(
+  health: StreamHealth,
+  engineersRequired: number | null,
+  ctx: ReleaseCapacity,
+  opts: { itemsBeyondNext: number; muted: boolean },
+): StreamRunway {
+  const { itemsBeyondNext, muted } = opts;
+  const base = {
+    engineersRequired,
+    remainingSprintCount: ctx.remainingSprintCount,
+    itemsBeyondNext,
+    muted,
+  };
+  const inert = { availableCap: 0, createdRemainingPts: health.remainingPts, unclaimedRunway: 0, unclaimedSprints: 0, alarm: false };
+
+  if (health.itemCount === 0) {
+    const held = engineersRequired != null ? ` (${r0(engineersRequired * ctx.perEngineerCap)} pts reserved)` : '';
+    return { ...base, ...inert, verdict: 'unplanned', judgeable: false, summary: `Nothing created${held} — unassessable until work is planned` };
+  }
+  if (health.totalPts === 0) {
+    const n = health.itemCount;
+    return { ...base, ...inert, verdict: 'unestimated', judgeable: false, summary: `${n} item${n === 1 ? '' : 's'} not yet estimated — can't tell if reserved capacity is filled` };
+  }
+  if (engineersRequired == null) {
+    return { ...base, ...inert, verdict: 'unconfigured', judgeable: false, summary: 'Set engineers required to assess planning runway' };
+  }
+  if (ctx.remainingSprintCount === 0) {
+    return { ...base, ...inert, verdict: 'complete', judgeable: true, summary: 'No sprints remaining — nothing left to plan' };
+  }
+
+  const availableCap = engineersRequired * ctx.perEngineerCap;
+  const createdRemainingPts = health.remainingPts;
+  const unclaimedRunway = Math.max(0, availableCap - createdRemainingPts);
+  const perSprintHeld = availableCap / ctx.remainingSprintCount;
+  const unclaimedSprints = perSprintHeld > 0 ? unclaimedRunway / perSprintHeld : 0;
+
+  const underPlanned = unclaimedSprints > RUNWAY_SPRINT_TOLERANCE;
+  const verdict: RunwayVerdict = underPlanned ? 'under-planned' : 'planned';
+  // The "only planning one sprint ahead" smell: holding 2+ sprints of capacity
+  // with nothing created beyond the next sprint. Mute silences the alarm only —
+  // the verdict stays under-planned (never promoted to green).
+  const alarm = underPlanned && itemsBeyondNext === 0 && ctx.remainingSprintCount > 1 && !muted;
+
+  let summary: string;
+  if (verdict === 'under-planned') {
+    summary = `~${r0(unclaimedRunway)} pts (~${unclaimedSprints.toFixed(1)} sprints) of reserved capacity not yet planned`;
+    if (alarm) summary += ' \xb7 nothing created beyond the next sprint';
+    else if (muted && itemsBeyondNext === 0 && ctx.remainingSprintCount > 1) summary += ' \xb7 alarm muted (planning deferred)';
+  } else {
+    summary = unclaimedRunway > 0 ? `Reserved capacity is planned (~${r0(unclaimedRunway)} pts headroom)` : 'Reserved capacity fully planned';
+  }
+
+  return { ...base, verdict, judgeable: true, availableCap, createdRemainingPts, unclaimedRunway, unclaimedSprints, alarm, summary };
+}
+
 // ── Velocity attainment ─────────────────────────────────────────────────────
 // As a release progresses, is the team actually delivering at its set velocity?
 // This is a BACKWARD-looking question, the mirror of streamForecast: it measures

@@ -538,6 +538,30 @@ describe('migrate — v18 → current', () => {
   });
 });
 
+describe('migrate — v19 → current', () => {
+  const v19 = (over: Record<string, unknown> = {}) => ({
+    version: 19,
+    teams: [],
+    meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), sprints: [], workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: 2, build: null, externalUrl: null, attributes: {}, ...over }] }],
+    items: [],
+  });
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v19() as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('adds planningMuted: false to work streams that lack it', () => {
+    const next = migrate(v19() as any)!;
+    expect(next.releases[0].workStreams[0].planningMuted).toBe(false);
+  });
+
+  it('preserves an existing planningMuted: true', () => {
+    const next = migrate(v19({ planningMuted: true }) as any)!;
+    expect(next.releases[0].workStreams[0].planningMuted).toBe(true);
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

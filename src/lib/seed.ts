@@ -100,7 +100,7 @@ export function seed(): AppState {
     'Checkout API': 3, 'Search Revamp': 2, 'Mobile Onboarding': 2,
     'Billing Migration': 2, 'Notifications': 1, 'Admin Console': 2,
   };
-  const demoStreams = streamNames.map((n) => ({ id: uid('ws'), name: n, externalId: null, engineersRequired: demoEngineers[n] ?? null, build: null, externalUrl: null }));
+  const demoStreams = streamNames.map((n) => ({ id: uid('ws'), name: n, externalId: null, engineersRequired: demoEngineers[n] ?? null, planningMuted: false, build: null, externalUrl: null }));
   // Anchor the release to today so the demo always shows a mix of past, active, and
   // future sprints. Sprint 4 (the one with mixed in-progress/not-started work in
   // RELEASE_MATRIX) is the "active" sprint — land today on its 8th day (of 14).
@@ -257,14 +257,14 @@ export function seed(): AppState {
   const nexusSite = 'acme.atlassian.net';
   const acmeUrl = (extId: string) => `https://${nexusSite}/browse/${extId}`;
   const nexusStreams: WorkStream[] = nexusStreamNames.map((n, i) => ({
-    id: uid('ws'), name: n, externalId: `EPIC-NXS-${i + 1}`, engineersRequired: nexusEngineers[i] ?? null, build: null,
+    id: uid('ws'), name: n, externalId: `EPIC-NXS-${i + 1}`, engineersRequired: nexusEngineers[i] ?? null, planningMuted: false, build: null,
     externalUrl: acmeUrl(`EPIC-NXS-${i + 1}`),
   }));
   // A carried-in stream: an epic from the prior build whose items overlap this
   // release's sprint window. build !== null marks it off-build; the "on-build only"
   // lens hides it. Exercises the build-filter feature in the demo data.
   const nexusCarriedStream: WorkStream = {
-    id: uid('ws'), name: 'Beta 2 Carryover', externalId: 'EPIC-NXS-B2', engineersRequired: null, build: 'Nexus Beta 2',
+    id: uid('ws'), name: 'Beta 2 Carryover', externalId: 'EPIC-NXS-B2', engineersRequired: null, planningMuted: false, build: 'Nexus Beta 2',
     externalUrl: acmeUrl('EPIC-NXS-B2'),
   };
   nexusStreams.push(nexusCarriedStream);

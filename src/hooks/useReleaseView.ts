@@ -5,7 +5,7 @@ import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } 
 import { releaseToTSV } from '../lib/exportRelease';
 import { useApp } from '../app-context';
 import { dOf, fmtShort, todayISO } from '../lib/dates';
-import { activeSprint, eventsIn, releaseCapacity, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, sumPoints, velocityAttainment, type StreamForecast, type StreamHealth, type VelocityAttainment } from '../lib/derive';
+import { activeSprint, eventsIn, releaseCapacity, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, streamRunway, sumPoints, velocityAttainment, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
 import { connectorLabel } from '../sync/client';
 import type { RowData, RowMetrics } from '../lib/rowData';
 import type { Release, ReleaseEvent, Sprint, StatusSeg, Team, WorkItem, WorkStream } from '../types';
@@ -72,6 +72,8 @@ interface StreamHeader {
   health: StreamHealth;
   /** Forward capacity-fit forecast (verdict + the "why"). */
   forecast: StreamForecast;
+  /** Forward planning-runway signal: is enough work created to fill held capacity? */
+  runway: StreamRunway;
 }
 
 /** Lane covers every sprint, including empty ones, so cells form aligned columns. */
@@ -224,6 +226,18 @@ export function useReleaseView(): ReleaseViewProps | null {
     ctx.contributingCount,
   );
 
+  // "Beyond next" = sprints two or more past the current one. An item created there
+  // is evidence of planning further than a sprint ahead — the runway alarm fires
+  // when a stream holds capacity but has nothing created beyond next. firstRemaining
+  // is the current sprint (active or first upcoming); -1 → release fully elapsed.
+  const firstRemainingIndex = r.sprints.findIndex((sp) => sp.endISO >= today);
+  const beyondNextThreshold = (firstRemainingIndex < 0 ? r.sprints.length : firstRemainingIndex) + 2;
+  const sprintIndexById = new Map(r.sprints.map((sp, i) => [sp.id, i] as const));
+  const itemsBeyondNextFor = (streamItems: WorkItem[]): number =>
+    streamItems.filter(
+      (i) => i.status !== 'Complete' && i.sprintId != null && (sprintIndexById.get(i.sprintId) ?? -1) >= beyondNextThreshold,
+    ).length;
+
   const streamRows: StreamRowData[] = streamInputs.map(({ ws, items: streamItems, series, health }) => ({
     ws,
     itemCount: streamItems.length,
@@ -232,6 +246,10 @@ export function useReleaseView(): ReleaseViewProps | null {
     series,
     health,
     forecast: streamForecast(health, ws ? ws.engineersRequired : null, ctx, contention),
+    runway: streamRunway(health, ws ? ws.engineersRequired : null, ctx, {
+      itemsBeyondNext: itemsBeyondNextFor(streamItems),
+      muted: ws ? ws.planningMuted : false,
+    }),
     lane: r.sprints.map((sp, sprintIndex) => {
       const its = streamItems.filter((i) => i.sprintId === sp.id);
       return {

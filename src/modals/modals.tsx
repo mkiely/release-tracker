@@ -242,6 +242,7 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
   const [engineers, setEngineers] = useState(
     existing && existing.engineersRequired != null ? String(existing.engineersRequired) : '',
   );
+  const [muted, setMuted] = useState(existing ? existing.planningMuted : false);
   const parseEngineers = (): number | null => {
     const n = Number(engineers);
     return engineers.trim() && Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
@@ -249,11 +250,11 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
   const save = () => {
     if (!name.trim()) return;
     if (editing && wsId) {
-      getActions().updateWorkStream(releaseId, wsId, { name: name.trim(), engineersRequired: parseEngineers() });
+      getActions().updateWorkStream(releaseId, wsId, { name: name.trim(), engineersRequired: parseEngineers(), planningMuted: muted });
     } else {
       const ws = getActions().createWorkStream(releaseId, name.trim());
       const er = parseEngineers();
-      if (ws && er != null) getActions().updateWorkStream(releaseId, ws.id, { engineersRequired: er });
+      if (ws && (er != null || muted)) getActions().updateWorkStream(releaseId, ws.id, { engineersRequired: er, planningMuted: muted });
     }
     onClose();
   };
@@ -299,6 +300,20 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
             if (e.key === 'Enter') save();
           }}
         />
+      </PField>
+      <PField label="Planning runway alarm">
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={muted}
+            onChange={(e) => setMuted(e.target.checked)}
+            style={{ marginTop: 2 }}
+          />
+          <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)', lineHeight: 1.45 }}>
+            Mute the under-planned alarm (tickets intentionally deferred, e.g. research pending).
+            The stream still reads as un-judgeable, not on-track — muting only silences the nudge.
+          </span>
+        </label>
       </PField>
       <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
         {nameLocked

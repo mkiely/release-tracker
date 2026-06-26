@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "19.0.0",
+  "version": "20.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -104,6 +104,10 @@
           "minimum": 0,
           "description": "App-owned enrichment: engineers the stream needs to progress. Drives the capacity-fit health forecast. Survives connector sync. Null when not configured."
         },
+        "planningMuted": {
+          "type": "boolean",
+          "description": "App-owned enrichment: the user has muted the planning-runway proactive-creation alarm for this stream (e.g. tickets deferred while research is pending). Silences the alarm only — the stream still reads as un-judgeable, never green, when it has unclaimed runway. Survives connector sync. Defaults to false."
+        },
         "build": {
           "type": ["string", "null"],
           "description": "Connector-owned provenance: the build/release this stream was carried in from, when it differs from this release. Null = native to this release. Drives the 'on-build only' lens."
@@ -117,7 +121,7 @@
           "description": "Connector vocabulary values for this stream. Optional — absence means none."
         }
       },
-      "required": ["id", "name", "externalId", "engineersRequired", "build", "externalUrl"],
+      "required": ["id", "name", "externalId", "engineersRequired", "planningMuted", "build", "externalUrl"],
       "additionalProperties": false
     },
     "Sprint": {
@@ -513,7 +517,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 19,
+      "value": 20,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {

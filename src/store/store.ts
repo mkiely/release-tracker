@@ -283,6 +283,18 @@ export function migrate(p: AppState): AppState | null {
       }),
     };
   }
+  // v19 → v20: work streams gain planningMuted (app-owned enrichment for the
+  // planning-runway alarm; default false). Existing streams are unmuted.
+  if (s.version === 19) {
+    s = {
+      ...s,
+      version: 20,
+      releases: s.releases.map((r) => ({
+        ...r,
+        workStreams: r.workStreams.map((ws) => ({ ...ws, planningMuted: (ws as any).planningMuted ?? false })),
+      })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -356,7 +368,7 @@ interface Actions {
   importSharedRelease: (payload: SharePayload) => Release;
   deleteRelease: (id: string) => void;
   createWorkStream: (releaseId: string, name: string) => WorkStream | null;
-  updateWorkStream: (releaseId: string, wsId: string, patch: Partial<Pick<WorkStream, 'name' | 'engineersRequired'>>) => void;
+  updateWorkStream: (releaseId: string, wsId: string, patch: Partial<Pick<WorkStream, 'name' | 'engineersRequired' | 'planningMuted'>>) => void;
   createEvent: (releaseId: string, input: { label: string; dateISO: string }) => void;
   updateEvent: (releaseId: string, eventId: string, patch: Partial<Pick<ReleaseEvent, 'label' | 'dateISO'>>) => void;
   deleteEvent: (releaseId: string, eventId: string) => void;
@@ -487,6 +499,7 @@ export const useStore = create<StoreState>((set, get) => {
             name: '',
             externalId: ws.externalId,
             engineersRequired: ws.engineersRequired ?? null,
+            planningMuted: false,
             build: null,
             externalUrl: null,
             attributes: {},
@@ -528,7 +541,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     createWorkStream: (releaseId, name) => {
       if (!release(releaseId)) return null;
-      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null, build: null, externalUrl: null, attributes: {} };
+      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null, planningMuted: false, build: null, externalUrl: null, attributes: {} };
       commit((d) => {
         d.releases = d.releases.map((r) =>
           r.id === releaseId ? { ...r, workStreams: [...r.workStreams, ws] } : r,

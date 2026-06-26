@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSprint, capPct, eventsIn, elapsedSprints, fullCap, groupItemsByStream, plannedVel, releaseCapacity, remainingSprints, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, velocityAttainment, velocitySuggestion, type StreamHealth } from './derive';
+import { activeSprint, capPct, eventsIn, elapsedSprints, fullCap, groupItemsByStream, plannedVel, releaseCapacity, remainingSprints, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
 import type { Release, Sprint, Team, WorkItem } from '../types';
 
@@ -438,6 +438,83 @@ describe('forward capacity-fit health', () => {
       const f = streamForecast(hp(20), 2, ctx0, streamContention([], 0));
       expect(f.verdict).toBe('at-risk');
       expect(Number.isFinite(f.runwaySprints)).toBe(false);
+    });
+  });
+
+  describe('streamRunway', () => {
+    const ctx = () => releaseCapacity(calRelease(), team(4, 40)); // perEngineerCap 30, 3 remaining sprints
+    const opts = (over: Partial<{ itemsBeyondNext: number; muted: boolean }> = {}) => ({ itemsBeyondNext: 2, muted: false, ...over });
+    // A fully-estimated health with custom remaining (totalPts == remaining + done).
+    const estimated = (remainingPts: number, donePts = 0, itemCount = 3): StreamHealth =>
+      ({ itemCount, totalPts: remainingPts + donePts, donePts, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
+
+    it('is unplanned (un-judgeable) when the stream has no items', () => {
+      const r = streamRunway(hp(0, 0), 2, ctx(), opts());
+      expect(r.verdict).toBe('unplanned');
+      expect(r.judgeable).toBe(false);
+      expect(r.alarm).toBe(false);
+      expect(r.summary).toContain('reserved'); // surfaces the held capacity that can't be assessed
+    });
+
+    it('is unestimated (un-judgeable) when items exist but carry no points', () => {
+      const noPoints: StreamHealth = { itemCount: 4, totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [] };
+      const r = streamRunway(noPoints, 2, ctx(), opts());
+      expect(r.verdict).toBe('unestimated');
+      expect(r.judgeable).toBe(false);
+    });
+
+    it('is unconfigured (un-judgeable) when engineersRequired is null', () => {
+      const r = streamRunway(estimated(50), null, ctx(), opts());
+      expect(r.verdict).toBe('unconfigured');
+      expect(r.judgeable).toBe(false);
+    });
+
+    it('is planned when created work fills most of the held capacity', () => {
+      // availableCap = 2 × 30 = 60; created 50 → unclaimed 10 = 0.5 sprints ≤ tolerance.
+      const r = streamRunway(estimated(50), 2, ctx(), opts());
+      expect(r.verdict).toBe('planned');
+      expect(r.availableCap).toBe(60);
+      expect(r.unclaimedRunway).toBe(10);
+      expect(r.judgeable).toBe(true);
+      expect(r.alarm).toBe(false);
+    });
+
+    it('is under-planned with an alarm when capacity is unclaimed and nothing is created beyond next', () => {
+      // availableCap 60; created 10 → unclaimed 50 = 2.5 sprints > tolerance.
+      const r = streamRunway(estimated(10), 2, ctx(), opts({ itemsBeyondNext: 0 }));
+      expect(r.verdict).toBe('under-planned');
+      expect(r.unclaimedRunway).toBe(50);
+      expect(r.unclaimedSprints).toBeCloseTo(2.5);
+      expect(r.alarm).toBe(true);
+      expect(r.summary).toContain('nothing created beyond the next sprint');
+    });
+
+    it('does not alarm when work is created beyond the next sprint', () => {
+      const r = streamRunway(estimated(10), 2, ctx(), opts({ itemsBeyondNext: 3 }));
+      expect(r.verdict).toBe('under-planned');
+      expect(r.alarm).toBe(false);
+    });
+
+    it('mute silences the alarm but never promotes to green', () => {
+      const r = streamRunway(estimated(10), 2, ctx(), opts({ itemsBeyondNext: 0, muted: true }));
+      expect(r.verdict).toBe('under-planned'); // still flagged, not planned/green
+      expect(r.alarm).toBe(false);
+      expect(r.summary).toContain('muted');
+    });
+
+    it('never reads "0 remaining" as on-track: a finished-but-undersized stream is under-planned', () => {
+      // All created work complete (remaining 0) but capacity is still held for 3 sprints.
+      const r = streamRunway(estimated(0, 30), 2, ctx(), opts({ itemsBeyondNext: 0 }));
+      expect(r.verdict).toBe('under-planned');
+      expect(r.createdRemainingPts).toBe(0);
+      expect(r.unclaimedRunway).toBe(60);
+    });
+
+    it('is complete when no sprints remain', () => {
+      const over: ReleaseCapacity = { remainingSprintCount: 0, teamRemainingCap: 0, contributingCount: 4, perEngineerCap: 0 };
+      const r = streamRunway(estimated(50), 2, over, opts());
+      expect(r.verdict).toBe('complete');
+      expect(r.judgeable).toBe(true);
     });
   });
 });

@@ -279,7 +279,7 @@ export function applySync(
       if (changed) result.updated++;
       else result.unchanged++;
     } else {
-      const ws: WorkStream = { id: uid('ws'), name: m.fields.name, externalId: m.externalId, engineersRequired: null, build: m.fields.build ?? null, externalUrl: m.fields.url ?? null, attributes: m.attributes ?? {} };
+      const ws: WorkStream = { id: uid('ws'), name: m.fields.name, externalId: m.externalId, engineersRequired: null, planningMuted: false, build: m.fields.build ?? null, externalUrl: m.fields.url ?? null, attributes: m.attributes ?? {} };
       workStreams.push(ws);
       wsByExt.set(m.externalId, ws.id);
       result.created++;
