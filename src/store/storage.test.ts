@@ -6,7 +6,7 @@
 // version-check → migrate → return, plus the corrupt-data and quota catch paths.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LS_KEY, load, persist } from './store';
+import { LS_KEY, load, persist, stampStartedSprints } from './store';
 import { seed } from '../lib/seed';
 import { SCHEMA_VERSION, type AppState } from '../types';
 
@@ -45,7 +45,10 @@ describe('persist', () => {
 
 describe('load', () => {
   it('round-trips persisted state with full fidelity', () => {
-    const original = seed();
+    // Persist an already-stamped state so load()'s lazy stamp-on-start is a no-op
+    // and the round-trip is a true identity (raw seed leaves started sprints
+    // unstamped, which load would then freeze).
+    const original = stampStartedSprints(seed());
     persist(original);
     expect(load()).toEqual(original);
   });

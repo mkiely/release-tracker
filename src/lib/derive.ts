@@ -17,6 +17,17 @@ export const capPct = (team: Team | undefined, sprint: Sprint, daysOff: number):
 export const sprintVel = (team: Team | undefined, sprint: Sprint, daysOff: number): number =>
   Math.round((team ? team.velocity : 0) * capPct(team, sprint, daysOff));
 
+/**
+ * Planned velocity for a sprint, in points — the point-in-time-aware reading of
+ * its commitment. A frozen `plannedVelocity` baseline wins (a started sprint's
+ * commitment is a historical fact and must not move when `team.velocity` later
+ * changes); otherwise it derives live from the current team velocity, exactly as
+ * a future sprint should. The freeze itself happens in stampStartedSprints (store);
+ * this is the read side every metric uses. See docs/metrics.md.
+ */
+export const plannedVel = (team: Team | undefined, sprint: Sprint): number =>
+  sprint.plannedVelocity ?? sprintVel(team, sprint, sprint.daysOff);
+
 /** The sprint whose date range contains today, or null. */
 export const activeSprint = (release: Release): Sprint | null =>
   release.sprints.find((s) => between(todayISO(), s.startISO, s.endISO)) || null;
@@ -244,7 +255,9 @@ export function velocityAttainment(
 ): VelocityAttainment {
   const perSprint: SprintVelocity[] = elapsedSprints(release, today).map((sprint) => ({
     sprint,
-    planned: sprintVel(team, sprint, sprint.daysOff),
+    // Frozen baseline when the sprint has one, else live — so lowering the team
+    // velocity can never improve a past sprint's attainment retroactively.
+    planned: plannedVel(team, sprint),
     actual: sumPoints(items.filter((i) => i.sprintId === sprint.id && i.status === 'Complete')),
   }));
   const totalPlanned = perSprint.reduce((a, s) => a + s.planned, 0);
@@ -252,6 +265,49 @@ export function velocityAttainment(
   const attainmentPct = perSprint.length === 0 || totalPlanned === 0 ? null : Math.round((totalActual / totalPlanned) * 100);
   const verdict = attainmentPct === null ? 'none' : attainmentPct >= 90 ? 'on-track' : 'under';
   return { perSprint, totalPlanned, totalActual, attainmentPct, verdict };
+}
+
+export interface VelocitySuggestion {
+  /** Mean points delivered across the sampled recent elapsed sprints, rounded. */
+  recentAvg: number;
+  /** How many elapsed sprints fed the average (≤ the requested window). */
+  sampleSize: number;
+  /** The team's currently-set velocity, for comparison. */
+  currentVelocity: number;
+  /** recentAvg − currentVelocity (negative = delivering under the set velocity). */
+  delta: number;
+  /** True when the gap is material enough to suggest a change (|delta| ≥ threshold). */
+  meaningful: boolean;
+}
+
+/**
+ * Advisory velocity suggestion from recent delivery: the mean points actually
+ * completed over the last `window` elapsed sprints, compared to the set velocity.
+ * Returns null until at least one sprint has elapsed. Applying this (setting
+ * `team.velocity = recentAvg`) is only safe because started sprints carry a frozen
+ * `plannedVelocity` baseline — without that, changing the velocity would rewrite
+ * the very attainment history this suggestion is derived from. See docs/metrics.md.
+ */
+export function velocitySuggestion(
+  release: Release,
+  team: Team | undefined,
+  items: WorkItem[],
+  window = 3,
+  today: string = todayISO(),
+): VelocitySuggestion | null {
+  const elapsed = elapsedSprints(release, today);
+  if (elapsed.length === 0) return null;
+  const recent = elapsed.slice(-window);
+  const actuals = recent.map((sp) =>
+    sumPoints(items.filter((i) => i.sprintId === sp.id && i.status === 'Complete')),
+  );
+  const recentAvg = Math.round(actuals.reduce((a, n) => a + n, 0) / recent.length);
+  const currentVelocity = team ? team.velocity : 0;
+  const delta = recentAvg - currentVelocity;
+  // Suggest a change only when the gap is both absolutely and relatively material,
+  // to avoid nagging on noise. 3 pts or 15% of the current velocity, whichever is larger.
+  const threshold = Math.max(3, Math.round(currentVelocity * 0.15));
+  return { recentAvg, sampleSize: recent.length, currentVelocity, delta, meaningful: Math.abs(delta) >= threshold };
 }
 
 /**

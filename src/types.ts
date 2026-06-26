@@ -14,7 +14,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 18;
+export const SCHEMA_VERSION = 19;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog and its
  *  status vocabulary (native workflow states mapped to canonical categories).
@@ -96,6 +96,15 @@ export interface Sprint {
   endISO: string;
   daysOff: number;
   externalId: string | null;
+  /** Point-in-time planned-velocity baseline, in points (the fully-computed
+   *  capacity-adjusted `sprintVel` captured when the sprint started). App-owned,
+   *  survives connector sync. null = not yet frozen → planned velocity derives
+   *  live from the current team velocity (future sprints). Once a sprint's window
+   *  begins it is stamped (see stampStartedSprints) and becomes immutable, so
+   *  later edits to `team.velocity` can never retroactively rewrite a started
+   *  sprint's commitment — the foundation that makes attainment history stable
+   *  and the velocity "Apply" action safe. See docs/metrics.md. */
+  plannedVelocity: number | null;
 }
 
 /** Connector type id, e.g. 'acme'. The set is defined by the local sync service. */

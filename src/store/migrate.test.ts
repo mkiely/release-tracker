@@ -508,6 +508,36 @@ describe('migrate — v15 → current', () => {
   });
 });
 
+describe('migrate — v18 → current', () => {
+  // today is 2026-06-26 (see test env); one started sprint, one future, no baselines yet.
+  const startedSp = { id: 'sp1', name: 'Sprint 1', startISO: '2026-06-01', endISO: '2026-06-14', daysOff: 0, externalId: null };
+  const futureSp = { id: 'sp2', name: 'Sprint 2', startISO: '2026-07-01', endISO: '2026-07-14', daysOff: 0, externalId: null };
+  const v18 = (over: { sprints?: unknown[] } = {}) => ({
+    version: 18,
+    teams: [{ id: 't1', name: 'Team', velocity: 30, externalId: null, members: [{ id: 'm1', name: 'A', externalId: null, nonContributing: false }] }],
+    meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), sprintLengthDays: 14, sprints: over.sprints ?? [startedSp, futureSp] }],
+    items: [],
+  });
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v18() as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('stamps a started sprint with its derived velocity and leaves the future one null', () => {
+    const next = migrate(v18() as any)!;
+    const [s1, s2] = next.releases[0].sprints;
+    // 1 contributing member × 10 business days, full capacity → planned == team velocity (30).
+    expect(s1.plannedVelocity).toBe(30);
+    expect(s2.plannedVelocity).toBeNull();
+  });
+
+  it('preserves an already-stamped baseline', () => {
+    const next = migrate(v18({ sprints: [{ ...startedSp, plannedVelocity: 17 }, futureSp] }) as any)!;
+    expect(next.releases[0].sprints[0].plannedVelocity).toBe(17);
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

@@ -273,7 +273,8 @@ export function seed(): AppState {
     const startISO = nexusCursor;
     const endISO = addDays(startISO, def.len - 1);
     nexusCursor = addDays(endISO, 1);
-    return { id: uid('sp'), name: def.name, startISO, endISO, daysOff: def.daysOff, externalId: def.externalId };
+    // plannedVelocity left null; load() stamps started sprints on first run.
+    return { id: uid('sp'), name: def.name, startISO, endISO, daysOff: def.daysOff, externalId: def.externalId, plannedVelocity: null };
   });
   const nexus: Release = {
     id: 'rel_nexus', name: 'Nexus 1.0', startISO: nexusStart, teamId: 'team_integrations',

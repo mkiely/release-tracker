@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSprint, capPct, eventsIn, elapsedSprints, fullCap, groupItemsByStream, releaseCapacity, remainingSprints, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, velocityAttainment, type StreamHealth } from './derive';
+import { activeSprint, capPct, eventsIn, elapsedSprints, fullCap, groupItemsByStream, plannedVel, releaseCapacity, remainingSprints, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, velocityAttainment, velocitySuggestion, type StreamHealth } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
 import type { Release, Sprint, Team, WorkItem } from '../types';
 
@@ -12,7 +12,7 @@ const team = (members: number, velocity: number): Team => ({
 });
 
 const sprint = (startISO: string, endISO: string): Sprint => ({
-  id: 'sp', name: 'S', startISO, endISO, daysOff: 0, externalId: null,
+  id: 'sp', name: 'S', startISO, endISO, daysOff: 0, externalId: null, plannedVelocity: null,
 });
 
 // standard 14-day sprint: Mon Apr 13 → Sun Apr 26, 2026 = 10 business days
@@ -499,11 +499,83 @@ describe('velocityAttainment', () => {
 
   it('reports none when no sprint has elapsed', () => {
     const r: Release = { ...mkRelease(), sprints: [
-      { id: 'a', name: 'Sprint 1', startISO: addDays(today, -5), endISO: addDays(today, 9), daysOff: 0, externalId: null },
+      { id: 'a', name: 'Sprint 1', startISO: addDays(today, -5), endISO: addDays(today, 9), daysOff: 0, externalId: null, plannedVelocity: null },
     ] };
     const v = velocityAttainment(r, team(1, 40), [], today);
     expect(elapsedSprints(r, today)).toHaveLength(0);
     expect(v.attainmentPct).toBeNull();
     expect(v.verdict).toBe('none');
+  });
+
+  it('reads a frozen plannedVelocity baseline instead of the live derivation', () => {
+    const r = mkRelease();
+    // Freeze e1 at 40 (its commitment); leave e2 live.
+    r.sprints[0].plannedVelocity = 40;
+    const items = [item('e1', 'Complete', 20), item('e2', 'Complete', 20)];
+    // Lower the team velocity to 28. e1 stays planned-40 (frozen); e2 redraws to 28.
+    const v = velocityAttainment(r, team(1, 28), items, today);
+    expect(v.perSprint.map((s) => s.planned)).toEqual([40, 28]);
+    expect(v.totalPlanned).toBe(68); // 40 (frozen) + 28 (live) — past not rewritten
+  });
+});
+
+describe('plannedVel', () => {
+  it('returns the frozen baseline when present, ignoring the live velocity', () => {
+    const sp = { ...sprint('2026-04-13', '2026-04-26'), plannedVelocity: 33 };
+    expect(plannedVel(team(2, 50), sp)).toBe(33);
+  });
+  it('derives live from team velocity when the baseline is null', () => {
+    const sp = sprint('2026-04-13', '2026-04-26'); // 10 business days, daysOff 0
+    expect(plannedVel(team(1, 40), sp)).toBe(40); // == sprintVel
+  });
+});
+
+describe('velocitySuggestion', () => {
+  const today = todayISO();
+  const mkRelease = (): Release => ({
+    id: 'r', name: 'R', startISO: addDays(today, -56), teamId: 't',
+    workStreams: [], events: [], externalId: null, connector: null, sync: null,
+    sprints: [
+      { id: 'e1', name: 'S1', startISO: addDays(today, -56), endISO: addDays(today, -43), daysOff: 0, externalId: null, plannedVelocity: 40 },
+      { id: 'e2', name: 'S2', startISO: addDays(today, -42), endISO: addDays(today, -29), daysOff: 0, externalId: null, plannedVelocity: 40 },
+      { id: 'e3', name: 'S3', startISO: addDays(today, -28), endISO: addDays(today, -15), daysOff: 0, externalId: null, plannedVelocity: 40 },
+      { id: 'a',  name: 'S4', startISO: addDays(today, -5),  endISO: addDays(today, 9),   daysOff: 0, externalId: null, plannedVelocity: null },
+    ],
+  } as Release);
+  const item = (sprintId: string, points: number): WorkItem =>
+    ({ id: Math.random().toString(), releaseId: 'r', workStreamId: null, sprintId, status: 'Complete', points } as WorkItem);
+
+  it('averages the last N elapsed sprints and flags a material gap', () => {
+    const r = mkRelease();
+    const items = [item('e1', 8), item('e2', 12), item('e3', 13), item('a', 999)];
+    const s = velocitySuggestion(r, team(1, 40), items, 3, today)!;
+    expect(s.sampleSize).toBe(3);
+    expect(s.recentAvg).toBe(11); // round((8+12+13)/3)
+    expect(s.currentVelocity).toBe(40);
+    expect(s.delta).toBe(-29);
+    expect(s.meaningful).toBe(true);
+  });
+
+  it('windows to the most recent sprints', () => {
+    const r = mkRelease();
+    const items = [item('e1', 100), item('e2', 10), item('e3', 10)]; // e1 outside a 2-window
+    const s = velocitySuggestion(r, team(1, 40), items, 2, today)!;
+    expect(s.sampleSize).toBe(2);
+    expect(s.recentAvg).toBe(10);
+  });
+
+  it('is not meaningful when recent delivery tracks the set velocity', () => {
+    const r = mkRelease();
+    const items = [item('e1', 39), item('e2', 41), item('e3', 40)];
+    const s = velocitySuggestion(r, team(1, 40), items, 3, today)!;
+    expect(s.recentAvg).toBe(40);
+    expect(s.meaningful).toBe(false);
+  });
+
+  it('returns null when no sprint has elapsed', () => {
+    const r: Release = { ...mkRelease(), sprints: [
+      { id: 'a', name: 'S1', startISO: addDays(today, -5), endISO: addDays(today, 9), daysOff: 0, externalId: null, plannedVelocity: null },
+    ] };
+    expect(velocitySuggestion(r, team(1, 40), [], 3, today)).toBeNull();
   });
 });

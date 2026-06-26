@@ -331,6 +331,7 @@ export function applySync(
       endISO: m.fields.endISO,
       daysOff: 0, // app-owned enrichment; adjusted separately, never overwritten by sync
       externalId: m.externalId,
+      plannedVelocity: null, // app-owned baseline; stamped on start, never set by sync
     };
     sprints.push(sp);
     sprintByExt.set(m.externalId, sp.id);

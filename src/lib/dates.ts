@@ -65,7 +65,7 @@ export const buildSprints = (
     const n = i + 1;
     const s = addDays(startISO, i * lenDays);
     const e = addDays(s, lenDays - 1);
-    arr.push({ id: uid('sp'), name: `Sprint ${n}`, startISO: s, endISO: e, daysOff: overrides[n] || 0, externalId: null });
+    arr.push({ id: uid('sp'), name: `Sprint ${n}`, startISO: s, endISO: e, daysOff: overrides[n] || 0, externalId: null, plannedVelocity: null });
   }
   return arr;
 };

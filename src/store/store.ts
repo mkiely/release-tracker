@@ -21,6 +21,7 @@ import {
   type WorkStream,
 } from '../types';
 import { buildSprints, dOf, todayISO, uid } from '../lib/dates';
+import { sprintVel } from '../lib/derive';
 import { seed } from '../lib/seed';
 import { applyCreatedItem, applySync } from '../sync/applySync';
 import { buildPushChanges } from '../sync/push';
@@ -259,7 +260,58 @@ export function migrate(p: AppState): AppState | null {
       }),
     };
   }
+  // v18 → v19: sprints gain a point-in-time plannedVelocity baseline (app-owned,
+  // frozen once a sprint starts). Backfill: stamp every already-started sprint
+  // (startISO <= today) with its current derived velocity so existing attainment
+  // history is preserved as a fact; future sprints stay null (derive live). New
+  // crossings are handled lazily by stampStartedSprints on every load.
+  if (s.version === 18) {
+    const today = todayISO();
+    s = {
+      ...s,
+      version: 19,
+      releases: s.releases.map((r) => {
+        const team = s.teams.find((t) => t.id === r.teamId);
+        return {
+          ...r,
+          sprints: r.sprints.map((sp) => ({
+            ...sp,
+            plannedVelocity:
+              (sp as any).plannedVelocity ?? (sp.startISO <= today ? sprintVel(team, sp, sp.daysOff) : null),
+          })),
+        };
+      }),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
+}
+
+/**
+ * Freeze the planned-velocity baseline of any sprint whose window has begun
+ * (startISO <= today) and that isn't already stamped. This is the lazy "stamp on
+ * start" trigger from docs/metrics.md: run on every load and after each sync, it
+ * captures the sprint's commitment at the current team velocity exactly once.
+ * After stamping, editing `team.velocity` only moves not-yet-started sprints —
+ * the property the velocity "Apply" action relies on. Returns the same reference
+ * when nothing changed, so callers can skip a redundant persist.
+ */
+export function stampStartedSprints(state: AppState, today: string = todayISO()): AppState {
+  let changed = false;
+  const releases = state.releases.map((r) => {
+    const team = state.teams.find((t) => t.id === r.teamId);
+    let touched = false;
+    const sprints = r.sprints.map((sp) => {
+      if (sp.plannedVelocity == null && sp.startISO <= today) {
+        touched = true;
+        return { ...sp, plannedVelocity: sprintVel(team, sp, sp.daysOff) };
+      }
+      return sp;
+    });
+    if (!touched) return r;
+    changed = true;
+    return { ...r, sprints };
+  });
+  return changed ? { ...state, releases } : state;
 }
 
 /** Read persisted state from localStorage, migrating it forward if needed.
@@ -269,14 +321,15 @@ export function load(): AppState {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const p = JSON.parse(raw) as AppState;
-      if (p?.version === SCHEMA_VERSION) return p;
-      const migrated = p && migrate(p);
-      if (migrated) return migrated;
+      const current = p?.version === SCHEMA_VERSION ? p : p && migrate(p);
+      // Freeze any sprint that has started since the last load (lazy stamp-on-start).
+      if (current) return stampStartedSprints(current);
     }
   } catch {
     /* ignore */
   }
-  return seed();
+  // Seed builds sprints with null baselines; stamp the ones already underway.
+  return stampStartedSprints(seed());
 }
 
 /** Write the data slice to localStorage. Silently no-ops if storage is unavailable. */
@@ -453,6 +506,7 @@ export const useStore = create<StoreState>((set, get) => {
           endISO: s.endISO,
           daysOff: s.daysOff || 0,
           externalId: s.externalId ?? null,
+          plannedVelocity: null,
         })),
         externalId: null,
         connector: payload.connector,
@@ -653,7 +707,9 @@ export const useStore = create<StoreState>((set, get) => {
         const writeableItemFields = [...allWriteableLocalFields(meta?.itemTypes)];
 
         const mapped = await syncClient.sync(r.connector);
-        const { next, result } = applySync(snapshot(get()), releaseId, mapped, writeableItemFields);
+        const { next: synced, result } = applySync(snapshot(get()), releaseId, mapped, writeableItemFields);
+        // Freeze the baseline of any sprint already underway in the just-synced data.
+        const next = stampStartedSprints(synced);
         const at = stamp();
         next.meta = { ...next.meta, lastSyncISO: at };
         next.releases = next.releases.map((rel) =>

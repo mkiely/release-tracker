@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { LOCAL_ITEM_TYPES, STATUSES, type AttrValue, type Member, type Status } from '../types';
 import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
-import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints, velocityAttainment } from '../lib/derive';
+import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints, velocityAttainment, velocitySuggestion } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
 import { attributeFields, CANONICAL_FIELDS, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type CanonicalView, type EditConcept } from '../lib/connectorFields';
@@ -447,6 +447,7 @@ export function VelocityModal({ releaseId, onClose }: { releaseId: string; onClo
   const r = useStore((s) => selRelease(s, releaseId));
   const team = useStore((s) => (r ? selTeam(s, r.teamId) : undefined));
   const allItems = useStore((s) => s.items);
+  const { notify } = useApp();
 
   if (!r) {
     return (
@@ -458,9 +459,19 @@ export function VelocityModal({ releaseId, onClose }: { releaseId: string; onClo
 
   const items = allItems.filter((i) => i.releaseId === releaseId);
   const v = velocityAttainment(r, team, items);
+  const suggestion = velocitySuggestion(r, team, items);
   const under = v.verdict === 'under';
   const none = v.verdict === 'none';
   const tone = statusVars(under ? 'Blocked' : 'Complete');
+
+  // Applying is safe only because started sprints carry a frozen plannedVelocity
+  // baseline (see docs/metrics.md): lowering team.velocity moves future sprints
+  // but never rewrites the elapsed/active attainment this suggestion came from.
+  const onApply = () => {
+    if (!suggestion || !r.teamId) return;
+    getActions().updateTeam(r.teamId, { velocity: suggestion.recentAvg });
+    notify(`Team velocity set to ${suggestion.recentAvg} pts — started sprints keep their baselines`);
+  };
 
   return (
     <Modal
@@ -491,6 +502,26 @@ export function VelocityModal({ releaseId, onClose }: { releaseId: string; onClo
             <strong>{v.totalPlanned}</strong> planned points across {v.perSprint.length} elapsed sprint
             {v.perSprint.length !== 1 ? 's' : ''} — {under ? 'below' : 'meeting'} the set velocity.
           </div>
+
+          {suggestion && suggestion.meaningful && (
+            <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <span className="tag">Suggestion</span>
+              <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
+                The last {suggestion.sampleSize} sprint{suggestion.sampleSize !== 1 ? 's' : ''} delivered{' '}
+                ~<strong>{suggestion.recentAvg}</strong> pts on average against a set velocity of{' '}
+                <strong>{suggestion.currentVelocity}</strong> — consider {suggestion.delta < 0 ? 'lowering' : 'raising'} it.
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <PButton sm onClick={onApply} disabled={!r.teamId}>
+                  Set velocity to {suggestion.recentAvg}
+                </PButton>
+                <span style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)', lineHeight: 1.4 }}>
+                  Affects only sprints not yet started; elapsed and active sprints keep their frozen
+                  baselines, so attainment history is unchanged.
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 14px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span className="tag">Delivered vs. planned per sprint</span>

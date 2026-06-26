@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "18.0.0",
+  "version": "19.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -152,9 +152,13 @@
         "externalId": {
           "type": ["string", "null"],
           "description": "ID from external ticketing system (Acme, Linear, etc.). Null for locally-managed sprints."
+        },
+        "plannedVelocity": {
+          "type": ["number", "null"],
+          "description": "App-owned point-in-time baseline (in points) of the sprint's planned velocity — the capacity-adjusted sprintVel frozen when the sprint started. Null = not yet frozen (future sprint), planned velocity derives live from team.velocity. Once a sprint begins it is stamped and becomes immutable so later velocity edits never rewrite a started sprint's commitment. Survives connector sync (never set by the connector)."
         }
       },
-      "required": ["id", "name", "startISO", "endISO", "daysOff", "externalId"],
+      "required": ["id", "name", "startISO", "endISO", "daysOff", "externalId", "plannedVelocity"],
       "additionalProperties": false
     },
     "Event": {
@@ -509,7 +513,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 18,
+      "value": 19,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {
