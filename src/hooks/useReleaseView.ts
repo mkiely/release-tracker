@@ -248,7 +248,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     series,
     health,
     forecast: streamForecast(health, ws ? ws.engineersRequired : null, ctx, contention),
-    runway: streamRunway(health, ws ? ws.engineersRequired : null, ctx, {
+    runway: streamRunway(health, ws ? ws.engineersRequired : null, ctx, contention, {
       itemsBeyondNext: itemsBeyondNextFor(streamItems),
       muted: ws ? ws.planningMuted : false,
     }),

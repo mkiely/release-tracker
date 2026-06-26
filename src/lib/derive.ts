@@ -238,7 +238,11 @@ export interface StreamRunway {
   judgeable: boolean;
   engineersRequired: number | null;
   remainingSprintCount: number;
-  /** engineersRequired × perEngineerCap — capacity reserved for this stream over the remaining sprints. */
+  /** Effective (contention-adjusted) capacity reserved for this stream over the
+   *  remaining sprints — engineersRequired × contention.scale × perEngineerCap.
+   *  Uses the SAME capacity baseline as streamForecast so a stream can never be
+   *  both "too much work" (at-risk) and "too little created" (under-planned) at
+   *  once (see docs/metrics.md "Reconciling at-risk vs under-planned"). */
   availableCap: number;
   /** Remaining (not-Complete) points of created items, current+future (== health.remainingPts; past is complete). */
   createdRemainingPts: number;
@@ -252,6 +256,8 @@ export interface StreamRunway {
   muted: boolean;
   /** Under-planned AND nothing created beyond the next sprint AND not muted — the "only one sprint ahead" smell. */
   alarm: boolean;
+  /** Release is over-allocated, so this stream's reserved capacity was scaled down. */
+  contended: boolean;
   /** Plain-language one-liner for the row + modal. */
   summary: string;
 }
@@ -261,28 +267,35 @@ const RUNWAY_SPRINT_TOLERANCE = 1;
 
 /**
  * Forward planning-runway signal for one stream: does the created work fill the
- * capacity reserved for it over the remaining sprints? `itemsBeyondNext` and
- * `muted` are computed by the caller (active-sprint index + the stream's mute
- * flag). Un-judgeable gates run first, mirroring streamForecast — an empty or
- * unestimated stream must read as "can't tell", never as on-track.
+ * capacity reserved for it over the remaining sprints? Measured against the same
+ * contention-adjusted EFFECTIVE capacity as streamForecast (so the two verdicts
+ * sit on one spectrum and can't contradict — an overbooked, over-capacity stream
+ * reads at-risk on the forecast and simply "not under-planned" here, rather than
+ * paradoxically holding "unclaimed" capacity the team can't actually provide).
+ * `contention` is the release-level parallelism check; `itemsBeyondNext` and
+ * `muted` come from the caller. Un-judgeable gates run first, mirroring
+ * streamForecast — an empty or unestimated stream reads "can't tell", never green.
  */
 export function streamRunway(
   health: StreamHealth,
   engineersRequired: number | null,
   ctx: ReleaseCapacity,
+  contention: StreamContention,
   opts: { itemsBeyondNext: number; muted: boolean },
 ): StreamRunway {
   const { itemsBeyondNext, muted } = opts;
+  const contended = contention.overAllocated;
   const base = {
     engineersRequired,
     remainingSprintCount: ctx.remainingSprintCount,
     itemsBeyondNext,
     muted,
+    contended,
   };
   const inert = { availableCap: 0, createdRemainingPts: health.remainingPts, unclaimedRunway: 0, unclaimedSprints: 0, alarm: false };
 
   if (health.itemCount === 0) {
-    const held = engineersRequired != null ? ` (${r0(engineersRequired * ctx.perEngineerCap)} pts reserved)` : '';
+    const held = engineersRequired != null ? ` (${r0(engineersRequired * contention.scale * ctx.perEngineerCap)} pts reserved)` : '';
     return { ...base, ...inert, verdict: 'unplanned', judgeable: false, summary: `Nothing created${held} — unassessable until work is planned` };
   }
   if (health.totalPts === 0) {
@@ -296,7 +309,10 @@ export function streamRunway(
     return { ...base, ...inert, verdict: 'complete', judgeable: true, summary: 'No sprints remaining — nothing left to plan' };
   }
 
-  const availableCap = engineersRequired * ctx.perEngineerCap;
+  // Effective capacity: the stream's share after the release-level contention scale,
+  // matching streamForecast.effectiveCap. When the release is overbooked this shrinks,
+  // so "unclaimed runway" reflects capacity the team can REALISTICALLY give the stream.
+  const availableCap = engineersRequired * contention.scale * ctx.perEngineerCap;
   const createdRemainingPts = health.remainingPts;
   const unclaimedRunway = Math.max(0, availableCap - createdRemainingPts);
   const perSprintHeld = availableCap / ctx.remainingSprintCount;
@@ -314,6 +330,7 @@ export function streamRunway(
     summary = `~${r0(unclaimedRunway)} pts over ${ctx.remainingSprintCount} sprint${ctx.remainingSprintCount === 1 ? '' : 's'} remaining at ${engineersRequired} eng capacity remaining`;
     if (alarm) summary += ' \xb7 nothing created beyond the next sprint';
     else if (muted && itemsBeyondNext === 0 && ctx.remainingSprintCount > 1) summary += ' \xb7 alarm muted (planning deferred)';
+    else if (contended) summary += ' \xb7 capacity scaled for team overbooking';
   } else {
     summary = unclaimedRunway > 0 ? `Reserved capacity is planned (~${r0(unclaimedRunway)} pts headroom)` : 'Reserved capacity fully planned';
   }

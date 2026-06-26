@@ -207,13 +207,20 @@ function buildRunwayRows(r: Release, team: Team | undefined, items: WorkItem[]) 
   const firstRemainingIndex = r.sprints.findIndex((sp) => sp.endISO >= today);
   const beyondNextThreshold = (firstRemainingIndex < 0 ? r.sprints.length : firstRemainingIndex) + 2;
   const sprintIndexById = new Map(r.sprints.map((sp, i) => [sp.id, i] as const));
+  const healthByWs = new Map(r.workStreams.map((ws) => [ws.id, streamHealth(items.filter((i) => i.workStreamId === ws.id))] as const));
+  // Release-level contention so the runway capacity matches the at-risk forecast's
+  // effective capacity (one baseline → no at-risk/under-planned contradiction).
+  const contention = streamContention(
+    r.workStreams.filter((ws) => ws.engineersRequired != null && healthByWs.get(ws.id)!.remainingPts > 0).map((ws) => ws.engineersRequired!),
+    ctx.contributingCount,
+  );
   return r.workStreams.map((ws) => {
     const streamItems = items.filter((i) => i.workStreamId === ws.id);
-    const health = streamHealth(streamItems);
+    const health = healthByWs.get(ws.id)!;
     const itemsBeyondNext = streamItems.filter(
       (i) => i.status !== 'Complete' && i.sprintId != null && (sprintIndexById.get(i.sprintId) ?? -1) >= beyondNextThreshold,
     ).length;
-    return { ws, runway: streamRunway(health, ws.engineersRequired, ctx, { itemsBeyondNext, muted: ws.planningMuted }) };
+    return { ws, runway: streamRunway(health, ws.engineersRequired, ctx, contention, { itemsBeyondNext, muted: ws.planningMuted }) };
   });
 }
 

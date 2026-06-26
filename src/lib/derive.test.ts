@@ -444,13 +444,14 @@ describe('forward capacity-fit health', () => {
 
   describe('streamRunway', () => {
     const ctx = () => releaseCapacity(calRelease(), team(4, 40)); // perEngineerCap 30, 3 remaining sprints
+    const noContention = streamContention([], 4); // scale 1 → effective cap == nominal
     const opts = (over: Partial<{ itemsBeyondNext: number; muted: boolean }> = {}) => ({ itemsBeyondNext: 2, muted: false, ...over });
     // A fully-estimated health with custom remaining (totalPts == remaining + done).
     const estimated = (remainingPts: number, donePts = 0, itemCount = 3): StreamHealth =>
       ({ itemCount, totalPts: remainingPts + donePts, donePts, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
 
     it('is unplanned (un-judgeable) when the stream has no items', () => {
-      const r = streamRunway(hp(0, 0), 2, ctx(), opts());
+      const r = streamRunway(hp(0, 0), 2, ctx(), noContention, opts());
       expect(r.verdict).toBe('unplanned');
       expect(r.judgeable).toBe(false);
       expect(r.alarm).toBe(false);
@@ -459,20 +460,20 @@ describe('forward capacity-fit health', () => {
 
     it('is unestimated (un-judgeable) when items exist but carry no points', () => {
       const noPoints: StreamHealth = { itemCount: 4, totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [] };
-      const r = streamRunway(noPoints, 2, ctx(), opts());
+      const r = streamRunway(noPoints, 2, ctx(), noContention, opts());
       expect(r.verdict).toBe('unestimated');
       expect(r.judgeable).toBe(false);
     });
 
     it('is unconfigured (un-judgeable) when engineersRequired is null', () => {
-      const r = streamRunway(estimated(50), null, ctx(), opts());
+      const r = streamRunway(estimated(50), null, ctx(), noContention, opts());
       expect(r.verdict).toBe('unconfigured');
       expect(r.judgeable).toBe(false);
     });
 
     it('is planned when created work fills most of the held capacity', () => {
       // availableCap = 2 × 30 = 60; created 50 → unclaimed 10 = 0.5 sprints ≤ tolerance.
-      const r = streamRunway(estimated(50), 2, ctx(), opts());
+      const r = streamRunway(estimated(50), 2, ctx(), noContention, opts());
       expect(r.verdict).toBe('planned');
       expect(r.availableCap).toBe(60);
       expect(r.unclaimedRunway).toBe(10);
@@ -482,7 +483,7 @@ describe('forward capacity-fit health', () => {
 
     it('is under-planned with an alarm when capacity is unclaimed and nothing is created beyond next', () => {
       // availableCap 60; created 10 → unclaimed 50 = 2.5 sprints > tolerance.
-      const r = streamRunway(estimated(10), 2, ctx(), opts({ itemsBeyondNext: 0 }));
+      const r = streamRunway(estimated(10), 2, ctx(), noContention, opts({ itemsBeyondNext: 0 }));
       expect(r.verdict).toBe('under-planned');
       expect(r.unclaimedRunway).toBe(50);
       expect(r.unclaimedSprints).toBeCloseTo(2.5);
@@ -492,13 +493,13 @@ describe('forward capacity-fit health', () => {
     });
 
     it('does not alarm when work is created beyond the next sprint', () => {
-      const r = streamRunway(estimated(10), 2, ctx(), opts({ itemsBeyondNext: 3 }));
+      const r = streamRunway(estimated(10), 2, ctx(), noContention, opts({ itemsBeyondNext: 3 }));
       expect(r.verdict).toBe('under-planned');
       expect(r.alarm).toBe(false);
     });
 
     it('mute silences the alarm but never promotes to green', () => {
-      const r = streamRunway(estimated(10), 2, ctx(), opts({ itemsBeyondNext: 0, muted: true }));
+      const r = streamRunway(estimated(10), 2, ctx(), noContention, opts({ itemsBeyondNext: 0, muted: true }));
       expect(r.verdict).toBe('under-planned'); // still flagged, not planned/green
       expect(r.alarm).toBe(false);
       expect(r.summary).toContain('muted');
@@ -506,7 +507,7 @@ describe('forward capacity-fit health', () => {
 
     it('never reads "0 remaining" as on-track: a finished-but-undersized stream is under-planned', () => {
       // All created work complete (remaining 0) but capacity is still held for 3 sprints.
-      const r = streamRunway(estimated(0, 30), 2, ctx(), opts({ itemsBeyondNext: 0 }));
+      const r = streamRunway(estimated(0, 30), 2, ctx(), noContention, opts({ itemsBeyondNext: 0 }));
       expect(r.verdict).toBe('under-planned');
       expect(r.createdRemainingPts).toBe(0);
       expect(r.unclaimedRunway).toBe(60);
@@ -514,9 +515,24 @@ describe('forward capacity-fit health', () => {
 
     it('is complete when no sprints remain', () => {
       const over: ReleaseCapacity = { remainingSprintCount: 0, teamRemainingCap: 0, contributingCount: 4, perEngineerCap: 0 };
-      const r = streamRunway(estimated(50), 2, over, opts());
+      const r = streamRunway(estimated(50), 2, over, noContention, opts());
       expect(r.verdict).toBe('complete');
       expect(r.judgeable).toBe(true);
+    });
+
+    it('uses contention-adjusted capacity so an overbooked, over-capacity stream is not under-planned', () => {
+      // Mirrors the real Search-Revamp case: with the team overbooked, the stream's
+      // effective share shrinks below its remaining work, so there is no "unclaimed"
+      // capacity and it can't read under-planned while the forecast calls it at-risk.
+      const contended = streamContention([2, 3, 4, 3], 4); // totalRequired 12, scale 1/3
+      const r = streamRunway(estimated(35), 2, ctx(), contended, opts({ itemsBeyondNext: 0 }));
+      // effective cap = 2 × (1/3) × 30 = 20 < 35 remaining → nothing unclaimed.
+      expect(r.contended).toBe(true);
+      expect(r.availableCap).toBeCloseTo(20);
+      expect(r.unclaimedRunway).toBe(0);
+      expect(r.verdict).not.toBe('under-planned');
+      // Without contention the same stream WOULD look under-planned (nominal 60 vs 35).
+      expect(streamRunway(estimated(35), 2, ctx(), noContention, opts()).verdict).toBe('under-planned');
     });
   });
 });
