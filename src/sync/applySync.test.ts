@@ -17,6 +17,7 @@ const baseRelease = (): Release => ({
   externalId: null,
   connector: { type: 'acme', config: {} },
   sync: null,
+  sprintLengthDays: 14,
 });
 
 // A local release keeps the fixed grid and never creates sprints from a sync.

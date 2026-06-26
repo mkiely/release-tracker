@@ -15,7 +15,7 @@ const connectorRelease = (overrides: Partial<Release> = {}): Release => ({
   startISO: '2026-04-13',
   teamId: 'team_local',
   workStreams: [
-    { id: 'ws1', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: null },
+    { id: 'ws1', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: null, planningMuted: false },
   ],
   events: [
     { id: 'ev1', label: 'Code freeze', dateISO: '2026-05-01', externalId: 'X-EV-1' },
@@ -29,6 +29,7 @@ const connectorRelease = (overrides: Partial<Release> = {}): Release => ({
   connector: { type: 'acme', config: { project: 'ATL', board: '42' } },
   sync: null,
   catalog: null,
+  sprintLengthDays: 14,
   ...overrides,
 });
 
@@ -57,8 +58,8 @@ describe('buildSharePayload', () => {
     const payload = buildSharePayload(
       connectorRelease({
         workStreams: [
-          { id: 'ws1', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: null },
-          { id: 'ws2', name: 'Search', externalId: 'EPIC-2', engineersRequired: null, build: null, externalUrl: null },
+          { id: 'ws1', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: null, planningMuted: false },
+          { id: 'ws2', name: 'Search', externalId: 'EPIC-2', engineersRequired: null, build: null, externalUrl: null, planningMuted: false },
         ],
       }),
     )!;

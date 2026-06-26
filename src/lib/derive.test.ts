@@ -114,6 +114,7 @@ describe('eventsIn', () => {
     externalId: null,
     connector: null,
     sync: null,
+    sprintLengthDays: 14,
   });
 
   it('returns events inside the sprint range, sorted ascending', () => {
@@ -136,22 +137,22 @@ describe('activeSprint', () => {
   const makeRelease = (sprints: Sprint[]): Release => ({
     id: 'r', name: 'R', startISO: sprints[0]?.startISO ?? '2026-01-01',
     teamId: 't', workStreams: [], events: [], sprints, externalId: null,
-    connector: null, sync: null,
+    connector: null, sync: null, sprintLengthDays: 14,
   });
 
   it('returns the sprint whose window contains today', () => {
     const today = todayISO();
-    const active: Sprint = { id: 'sp_active', name: 'Active', startISO: addDays(today, -5), endISO: addDays(today, 5), daysOff: 0, externalId: null };
-    const past: Sprint = { id: 'sp_past', name: 'Past', startISO: addDays(today, -20), endISO: addDays(today, -7), daysOff: 0, externalId: null };
-    const future: Sprint = { id: 'sp_future', name: 'Future', startISO: addDays(today, 7), endISO: addDays(today, 20), daysOff: 0, externalId: null };
+    const active: Sprint = { id: 'sp_active', name: 'Active', startISO: addDays(today, -5), endISO: addDays(today, 5), daysOff: 0, externalId: null, plannedVelocity: null };
+    const past: Sprint = { id: 'sp_past', name: 'Past', startISO: addDays(today, -20), endISO: addDays(today, -7), daysOff: 0, externalId: null, plannedVelocity: null };
+    const future: Sprint = { id: 'sp_future', name: 'Future', startISO: addDays(today, 7), endISO: addDays(today, 20), daysOff: 0, externalId: null, plannedVelocity: null };
     const r = makeRelease([past, active, future]);
     expect(activeSprint(r)?.id).toBe('sp_active');
   });
 
   it('returns null when today falls between sprints', () => {
     const today = todayISO();
-    const past: Sprint = { id: 'sp_past', name: 'Past', startISO: addDays(today, -30), endISO: addDays(today, -16), daysOff: 0, externalId: null };
-    const future: Sprint = { id: 'sp_future', name: 'Future', startISO: addDays(today, 2), endISO: addDays(today, 15), daysOff: 0, externalId: null };
+    const past: Sprint = { id: 'sp_past', name: 'Past', startISO: addDays(today, -30), endISO: addDays(today, -16), daysOff: 0, externalId: null, plannedVelocity: null };
+    const future: Sprint = { id: 'sp_future', name: 'Future', startISO: addDays(today, 2), endISO: addDays(today, 15), daysOff: 0, externalId: null, plannedVelocity: null };
     expect(activeSprint(makeRelease([past, future]))).toBeNull();
   });
 
@@ -161,13 +162,13 @@ describe('activeSprint', () => {
 
   it('matches on the boundary start date', () => {
     const today = todayISO();
-    const sp: Sprint = { id: 'sp1', name: 'S', startISO: today, endISO: addDays(today, 13), daysOff: 0, externalId: null };
+    const sp: Sprint = { id: 'sp1', name: 'S', startISO: today, endISO: addDays(today, 13), daysOff: 0, externalId: null, plannedVelocity: null };
     expect(activeSprint(makeRelease([sp]))?.id).toBe('sp1');
   });
 
   it('matches on the boundary end date', () => {
     const today = todayISO();
-    const sp: Sprint = { id: 'sp1', name: 'S', startISO: addDays(today, -13), endISO: today, daysOff: 0, externalId: null };
+    const sp: Sprint = { id: 'sp1', name: 'S', startISO: addDays(today, -13), endISO: today, daysOff: 0, externalId: null, plannedVelocity: null };
     expect(activeSprint(makeRelease([sp]))?.id).toBe('sp1');
   });
 });
@@ -329,11 +330,11 @@ describe('forward capacity-fit health', () => {
   // future sprints. With daysOff 0, sprintVel == velocity, so capacity is exact.
   const calRelease = (): Release => {
     const today = todayISO();
-    const past: Sprint = { id: 'p', name: 'P', startISO: addDays(today, -28), endISO: addDays(today, -15), daysOff: 0, externalId: null };
-    const active: Sprint = { id: 'a', name: 'A', startISO: addDays(today, -5), endISO: addDays(today, 9), daysOff: 0, externalId: null };
-    const f1: Sprint = { id: 'f1', name: 'F1', startISO: addDays(today, 10), endISO: addDays(today, 23), daysOff: 0, externalId: null };
-    const f2: Sprint = { id: 'f2', name: 'F2', startISO: addDays(today, 24), endISO: addDays(today, 37), daysOff: 0, externalId: null };
-    return { id: 'r', name: 'R', startISO: past.startISO, teamId: 't', workStreams: [], events: [], sprints: [past, active, f1, f2], externalId: null, connector: null, sync: null };
+    const past: Sprint = { id: 'p', name: 'P', startISO: addDays(today, -28), endISO: addDays(today, -15), daysOff: 0, externalId: null, plannedVelocity: null };
+    const active: Sprint = { id: 'a', name: 'A', startISO: addDays(today, -5), endISO: addDays(today, 9), daysOff: 0, externalId: null, plannedVelocity: null };
+    const f1: Sprint = { id: 'f1', name: 'F1', startISO: addDays(today, 10), endISO: addDays(today, 23), daysOff: 0, externalId: null, plannedVelocity: null };
+    const f2: Sprint = { id: 'f2', name: 'F2', startISO: addDays(today, 24), endISO: addDays(today, 37), daysOff: 0, externalId: null, plannedVelocity: null };
+    return { id: 'r', name: 'R', startISO: past.startISO, teamId: 't', workStreams: [], events: [], sprints: [past, active, f1, f2], externalId: null, connector: null, sync: null, sprintLengthDays: 14 };
   };
 
   const hp = (remainingPts: number, itemCount = 1): StreamHealth => ({ itemCount, totalPts: remainingPts, donePts: 0, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
@@ -561,10 +562,11 @@ describe('velocityAttainment', () => {
     id: 'r', name: 'R', startISO: addDays(today, -42), teamId: 't',
     workStreams: [], events: [], externalId: null, connector: null, sync: null,
     sprints: [
-      { id: 'e1', name: 'Sprint 1', startISO: addDays(today, -42), endISO: addDays(today, -29), daysOff: 0, externalId: null },
-      { id: 'e2', name: 'Sprint 2', startISO: addDays(today, -28), endISO: addDays(today, -15), daysOff: 0, externalId: null },
-      { id: 'a',  name: 'Sprint 3', startISO: addDays(today, -5),  endISO: addDays(today, 9),   daysOff: 0, externalId: null },
+      { id: 'e1', name: 'Sprint 1', startISO: addDays(today, -42), endISO: addDays(today, -29), daysOff: 0, externalId: null, plannedVelocity: null },
+      { id: 'e2', name: 'Sprint 2', startISO: addDays(today, -28), endISO: addDays(today, -15), daysOff: 0, externalId: null, plannedVelocity: null },
+      { id: 'a',  name: 'Sprint 3', startISO: addDays(today, -5),  endISO: addDays(today, 9),   daysOff: 0, externalId: null, plannedVelocity: null },
     ],
+    sprintLengthDays: 14,
   } as Release);
 
   const item = (sprintId: string, status: WorkItem['status'], points: number): WorkItem =>
@@ -575,7 +577,7 @@ describe('velocityAttainment', () => {
     const items = [
       item('e1', 'Complete', 30),
       item('e2', 'Complete', 20),
-      item('e2', 'Active', 100),  // not complete → excluded from actual
+      item('e2', 'In Progress', 100),  // not complete → excluded from actual
       item('a', 'Complete', 999), // active sprint → excluded entirely
     ];
     const v = velocityAttainment(r, team(1, 40), items, today);
@@ -630,7 +632,7 @@ describe('velocitySuggestion', () => {
   const today = todayISO();
   const mkRelease = (): Release => ({
     id: 'r', name: 'R', startISO: addDays(today, -56), teamId: 't',
-    workStreams: [], events: [], externalId: null, connector: null, sync: null,
+    workStreams: [], events: [], externalId: null, connector: null, sync: null, sprintLengthDays: 14,
     sprints: [
       { id: 'e1', name: 'S1', startISO: addDays(today, -56), endISO: addDays(today, -43), daysOff: 0, externalId: null, plannedVelocity: 40 },
       { id: 'e2', name: 'S2', startISO: addDays(today, -42), endISO: addDays(today, -29), daysOff: 0, externalId: null, plannedVelocity: 40 },

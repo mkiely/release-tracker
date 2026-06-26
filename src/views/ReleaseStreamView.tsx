@@ -26,7 +26,6 @@ function StreamRow({
   const { ws, itemCount, points, segs, series, forecast, lane } = row;
   const filled = lane.filter((e) => e.n > 0);
   const activeIndex = lane.find((e) => e.isActive)?.sprintIndex ?? -1;
-  const clickable = true;
   const showVerdict = ws !== null && itemCount > 0;
   const handleClick = ws !== null ? () => onNavigateToStream(ws.id) : onNavigateToBacklog;
 

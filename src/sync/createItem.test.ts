@@ -66,10 +66,10 @@ const team = (): Team => ({
 });
 const release = (): Release => ({
   id: 'rel1', name: 'Orion', startISO: '2026-04-13', teamId: 'team1',
-  workStreams: [{ id: 'ws1', name: 'Checkout', externalId: 'EPIC-A', engineersRequired: null, build: null, externalUrl: null }],
+  workStreams: [{ id: 'ws1', name: 'Checkout', externalId: 'EPIC-A', engineersRequired: null, build: null, externalUrl: null, planningMuted: false }],
   events: [],
-  sprints: [{ id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 0, externalId: 'JSPR-1' }],
-  externalId: null, connector: { type: 'acme', config: {} }, sync: null,
+  sprints: [{ id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 0, externalId: 'JSPR-1', plannedVelocity: null }],
+  externalId: null, connector: { type: 'acme', config: {} }, sync: null, sprintLengthDays: 14,
 });
 const state = (): AppState => ({
   version: SCHEMA_VERSION, teams: [team()], releases: [release()], items: [], meta: { lastSyncISO: null },

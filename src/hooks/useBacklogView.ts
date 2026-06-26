@@ -72,7 +72,7 @@ export function useBacklogView(): BacklogViewProps | null {
     onHome: () => navigate('/'),
     onBack: () => navigate(`/releases/${id}`),
     onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
-    onNewItem: () => openModal({ type: r.connector ? 'connectorItem' : 'item', releaseId: id, presetStreamId: null }),
+    onNewItem: () => openModal({ type: r.connector ? 'connectorItem' : 'item', releaseId: id, presetStreamId: undefined }),
     onOpenItem: (itemId) => openModal({ type: 'itemDetail', itemId }),
     onToggleStatus: (s) =>
       setStatusFilter((prev) => {

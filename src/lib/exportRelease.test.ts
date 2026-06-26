@@ -14,6 +14,7 @@ const sprint = (n: number) => ({
   endISO: SPRINT_DATES[n][1],
   daysOff: 0,
   externalId: null,
+  plannedVelocity: null,
 });
 
 const release = (): Release => ({
@@ -30,6 +31,7 @@ const release = (): Release => ({
   externalId: null,
   connector: null,
   sync: null,
+  sprintLengthDays: 14,
 });
 
 const item = (over: Partial<WorkItem>): WorkItem => ({

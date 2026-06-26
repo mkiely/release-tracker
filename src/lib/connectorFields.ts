@@ -24,7 +24,7 @@ const LEGACY_WRITEABLE = ['points', 'sprint'] as const;
  *  {@link WorkItem} and an incoming (mapped) snapshot satisfy this shape, so the
  *  registry's `read`/`apply` work uniformly over either. */
 export interface CanonicalView {
-  points: number;
+  points: number | null;
   sprintId: string | null;
   workStreamId: string | null;
   assignedMemberId: string | null;

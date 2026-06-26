@@ -10,9 +10,10 @@ const sprint = (id: string, externalId: string | null): Sprint => ({
   endISO: '2026-04-26',
   daysOff: 0,
   externalId,
+  plannedVelocity: null,
 });
 
-const stream = (id: string, externalId: string | null): WorkStream => ({ id, name: 'WS', externalId, engineersRequired: null, build: null, externalUrl: null });
+const stream = (id: string, externalId: string | null): WorkStream => ({ id, name: 'WS', externalId, engineersRequired: null, build: null, externalUrl: null, planningMuted: false });
 const member = (id: string, externalId: string | null): Member => ({ id, name: 'M', externalId, nonContributing: false });
 
 /** Wrap loose ref arrays in the PushRefs shape buildPushChanges expects. */
