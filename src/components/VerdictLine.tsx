@@ -1,11 +1,9 @@
-import type { HealthVerdict, StreamForecast } from '../lib/derive';
-import { verdictVars } from './statusVars';
+import type { HealthVerdict, RunwayVerdict, StreamForecast } from '../lib/derive';
+import { runwayVars, verdictVars } from './statusVars';
 import styles from './VerdictLine.module.css';
 
-/** Verdict pill — colored dot + label, shared by the stream presenters and the
- *  health detail modal. Muted tone for unconfigured/complete, status tones else. */
-export function VerdictBadge({ verdict }: { verdict: HealthVerdict }) {
-  const v = verdictVars(verdict);
+/** Shared pill body for a verdict: colored dot + label. Muted tone reads neutral. */
+function Pill({ v }: { v: { label: string; tone: 'ok' | 'risk' | 'muted'; dot: string; soft: string; text: string } }) {
   return (
     <span
       style={{
@@ -21,6 +19,17 @@ export function VerdictBadge({ verdict }: { verdict: HealthVerdict }) {
       {v.label}
     </span>
   );
+}
+
+/** Verdict pill — colored dot + label, shared by the stream presenters and the
+ *  health detail modal. Muted tone for unconfigured/complete, status tones else. */
+export function VerdictBadge({ verdict }: { verdict: HealthVerdict }) {
+  return <Pill v={verdictVars(verdict)} />;
+}
+
+/** Planning-runway verdict pill — same idiom as VerdictBadge, runway palette. */
+export function RunwayBadge({ verdict }: { verdict: RunwayVerdict }) {
+  return <Pill v={runwayVars(verdict)} />;
 }
 
 /** Always-visible verdict + plain-language "why", clickable to the detail modal

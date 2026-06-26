@@ -5,6 +5,7 @@
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import { getActions } from './store/store';
 import type { SharePayload } from './lib/shareRelease';
+import type { MetricsSection } from './modals/MetricsModal';
 import { Toast } from './components/primitives';
 import { ModalHost } from './modals/ModalHost';
 import { ShareImporter } from './components/ShareImporter';
@@ -13,8 +14,7 @@ export type ModalSpec =
   | { type: 'team'; teamId?: string }
   | { type: 'stream'; releaseId: string; wsId?: string }
   | { type: 'streamHealth'; releaseId: string; wsId: string }
-  | { type: 'teamAllocations'; releaseId: string }
-  | { type: 'velocity'; releaseId: string }
+  | { type: 'metrics'; releaseId: string; section?: MetricsSection }
   | { type: 'event'; releaseId: string; eventId?: string }
   | { type: 'sprint'; releaseId: string; sprintId: string }
   | { type: 'item'; releaseId: string; presetStreamId?: string; presetSprintId?: string }

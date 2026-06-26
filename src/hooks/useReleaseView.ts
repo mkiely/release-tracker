@@ -7,6 +7,7 @@ import { useApp } from '../app-context';
 import { dOf, fmtShort, todayISO } from '../lib/dates';
 import { activeSprint, eventsIn, releaseCapacity, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, streamRunway, sumPoints, velocityAttainment, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
 import { connectorLabel } from '../sync/client';
+import type { MetricsSection } from '../modals/MetricsModal';
 import type { RowData, RowMetrics } from '../lib/rowData';
 import type { Release, ReleaseEvent, Sprint, StatusSeg, Team, WorkItem, WorkStream } from '../types';
 
@@ -98,6 +99,9 @@ export interface ReleaseViewProps {
   overAllocated: boolean;
   engineersRequiredTotal: number;
   contributingCount: number;
+  /** How many visible streams are firing the planning-runway under-planned alarm.
+   *  Feeds the Metrics chip's at-a-glance status. */
+  runwayAlarmCount: number;
   /** "On-build only" lens is active — streams with no work native to this release are hidden. */
   buildFilter: boolean;
   /** How many streams carry only carried-in work (no native items) — what the lens would hide.
@@ -111,10 +115,8 @@ export interface ReleaseViewProps {
   onOpenStreamHealth: (wsId: string) => void;
   onEditStream: (wsId: string) => void;
   onOpenTeam: () => void;
-  /** Opens the team-allocations breakdown (over-allocation explainer when contended). */
-  onOpenTeamAllocations: () => void;
-  /** Opens the velocity-attainment detail modal. */
-  onOpenVelocity: () => void;
+  /** Opens the consolidated Metrics modal, optionally at a given section. */
+  onOpenMetrics: (section?: MetricsSection) => void;
   onExport: () => void;
   onNewEvent: () => void;
   onNewStream: () => void;
@@ -301,6 +303,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     overAllocated: contention.overAllocated,
     engineersRequiredTotal: contention.totalRequired,
     contributingCount: ctx.contributingCount,
+    runwayAlarmCount: streamRows.filter((row) => row.runway.alarm).length,
     buildFilter,
     offBuildStreamCount,
     onToggleBuildFilter: () => BuildFilterStore.toggle(),
@@ -311,8 +314,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     onOpenStreamHealth: (wsId) => openModal({ type: 'streamHealth', releaseId: id, wsId }),
     onEditStream: (wsId) => openModal({ type: 'stream', releaseId: id, wsId }),
     onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
-    onOpenTeamAllocations: () => openModal({ type: 'teamAllocations', releaseId: id }),
-    onOpenVelocity: () => openModal({ type: 'velocity', releaseId: id }),
+    onOpenMetrics: (section) => openModal({ type: 'metrics', releaseId: id, section }),
     onExport,
     onNewEvent: () => openModal({ type: 'event', releaseId: id }),
     onNewStream: () => openModal({ type: 'stream', releaseId: id }),

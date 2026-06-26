@@ -77,10 +77,10 @@ type ReleaseChromeProps = Pick<
   | 'onNavigateToStream'
   | 'onNavigateToBacklog'
   | 'onOpenTeam'
-  | 'onOpenTeamAllocations'
-  | 'onOpenVelocity'
+  | 'onOpenMetrics'
   | 'velocity'
   | 'overAllocated'
+  | 'runwayAlarmCount'
   | 'buildFilter'
   | 'offBuildStreamCount'
   | 'onToggleBuildFilter'
@@ -108,10 +108,10 @@ export function ReleaseChrome({
   onNavigateToStream,
   onNavigateToBacklog,
   onOpenTeam,
-  onOpenTeamAllocations,
-  onOpenVelocity,
+  onOpenMetrics,
   velocity,
   overAllocated,
+  runwayAlarmCount,
   buildFilter,
   offBuildStreamCount,
   onToggleBuildFilter,
@@ -126,6 +126,16 @@ export function ReleaseChrome({
   // Capability handshake verdict, from the release's catalog snapshot: which
   // semantic concepts this connector can't express (degraded app features).
   const degraded = missingCapabilities(r.catalog?.itemTypes);
+
+  // Single Metrics chip status: collect the at-a-glance issues across the three
+  // sections, tint red when any fire, and default the modal to the worst section.
+  const metricsIssues: string[] = [];
+  if (overAllocated) metricsIssues.push('Team overbooked');
+  if (velocity.verdict === 'under') metricsIssues.push(`Velocity ${velocity.attainmentPct}%`);
+  if (runwayAlarmCount > 0) metricsIssues.push(`${runwayAlarmCount} stream${runwayAlarmCount === 1 ? '' : 's'} under-planned`);
+  const metricsBad = metricsIssues.length > 0;
+  const metricsSection: 'velocity' | 'capacity' | 'runway' = overAllocated ? 'capacity' : runwayAlarmCount > 0 ? 'runway' : 'velocity';
+  const metricsTitle = metricsBad ? metricsIssues.join(' · ') : 'Release metrics — velocity, capacity, planning runway';
   return (
     <ScreenScaffold
       left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
@@ -141,45 +151,26 @@ export function ReleaseChrome({
               <span>—</span>
             </>
           )}
-          {overAllocated ? (
-            <button
-              type="button"
-              className={`tag ${styles.overTag}`}
-              onClick={onOpenTeamAllocations}
-              title="Team over-allocated — view details"
-            >
-              {Icon.alert}
-              Overbooked
-            </button>
-          ) : (
-            team && (
-              <button
-                type="button"
-                className={`tag ${styles.allocTag}`}
-                onClick={onOpenTeamAllocations}
-                title="View team allocation breakdown"
+          <button
+            type="button"
+            className={`tag ${metricsBad ? styles.overTag : styles.allocTag}`}
+            onClick={() => onOpenMetrics(metricsSection)}
+            title={metricsTitle}
+            style={metricsBad ? { color: statusVars('Blocked').dot } : undefined}
+          >
+            {metricsBad ? Icon.alert : Icon.sprint}
+            Metrics
+            {metricsBad && (
+              <span
+                className="mono"
+                style={{ fontSize: 'var(--rt-fs-micro)', fontWeight: 'var(--rt-fw-semibold)', marginLeft: 2 }}
               >
-                {Icon.users}
-                Allocations
-              </button>
-            )
-          )}
+                {metricsIssues.length}
+              </span>
+            )}
+          </button>
           <span style={{ opacity: 0.5 }}>·</span>
           <span>{dateRange}</span>
-          {velocity.verdict !== 'none' && (
-            <button
-              type="button"
-              className={`tag ${styles.allocTag}`}
-              onClick={onOpenVelocity}
-              title="Velocity attainment — delivered vs. planned across elapsed sprints"
-              style={{
-                color: statusVars(velocity.verdict === 'under' ? 'Blocked' : 'Complete').dot,
-              }}
-            >
-              {Icon.sprint}
-              Velocity {velocity.attainmentPct}%
-            </button>
-          )}
           {connLabel && (
             <>
               <span style={{ opacity: 0.5 }}>·</span>

@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { LOCAL_ITEM_TYPES, STATUSES, type AttrValue, type Member, type Status } from '../types';
 import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
-import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints, velocityAttainment, velocitySuggestion } from '../lib/derive';
+import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
 import { attributeFields, CANONICAL_FIELDS, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type CanonicalView, type EditConcept } from '../lib/connectorFields';
@@ -16,7 +16,7 @@ import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
 import { SegBar } from '../components/badges';
-import { StreamBurnChart, VelocityTrendChart } from '../components/trend';
+import { StreamBurnChart } from '../components/trend';
 import { VerdictBadge } from '../components/VerdictLine';
 import { statusVars, verdictVars } from '../components/statusVars';
 
@@ -457,241 +457,6 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
   );
 }
 
-// ── Velocity attainment detail (read-only) ──────────────────────────────
-export function VelocityModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
-  const r = useStore((s) => selRelease(s, releaseId));
-  const team = useStore((s) => (r ? selTeam(s, r.teamId) : undefined));
-  const allItems = useStore((s) => s.items);
-  const { notify } = useApp();
-
-  if (!r) {
-    return (
-      <Modal title="Velocity" icon={Icon.sprint} onClose={onClose} width={560}>
-        <span style={{ color: 'var(--rt-t3)' }}>This release no longer exists.</span>
-      </Modal>
-    );
-  }
-
-  const items = allItems.filter((i) => i.releaseId === releaseId);
-  const v = velocityAttainment(r, team, items);
-  const suggestion = velocitySuggestion(r, team, items);
-  const under = v.verdict === 'under';
-  const none = v.verdict === 'none';
-  const tone = statusVars(under ? 'Blocked' : 'Complete');
-
-  // Applying is safe only because started sprints carry a frozen plannedVelocity
-  // baseline (see docs/metrics.md): lowering team.velocity moves future sprints
-  // but never rewrites the elapsed/active attainment this suggestion came from.
-  const onApply = () => {
-    if (!suggestion || !r.teamId) return;
-    getActions().updateTeam(r.teamId, { velocity: suggestion.recentAvg });
-    notify(`Team velocity set to ${suggestion.recentAvg} pts — started sprints keep their baselines`);
-  };
-
-  return (
-    <Modal
-      onClose={onClose}
-      width={620}
-      title={
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Velocity attainment</span>
-          {!none && (
-            <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-display)', color: tone.dot }}>{v.attainmentPct}%</span>
-          )}
-        </span>
-      }
-      footer={
-        <PButton variant="subtle" onClick={onClose}>
-          Close
-        </PButton>
-      }
-    >
-      {none ? (
-        <div className="card dash" style={{ padding: '18px 16px', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-sm)', lineHeight: 1.5 }}>
-          No sprint has fully elapsed yet — attainment appears once the first sprint ends.
-        </div>
-      ) : (
-        <>
-          <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
-            The team delivered <strong style={{ color: tone.dot }}>{v.totalActual}</strong> of{' '}
-            <strong>{v.totalPlanned}</strong> planned points across {v.perSprint.length} elapsed sprint
-            {v.perSprint.length !== 1 ? 's' : ''} — {under ? 'below' : 'meeting'} the set velocity.
-          </div>
-
-          {suggestion && suggestion.meaningful && (
-            <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <span className="tag">Suggestion</span>
-              <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
-                The last {suggestion.sampleSize} sprint{suggestion.sampleSize !== 1 ? 's' : ''} delivered{' '}
-                ~<strong>{suggestion.recentAvg}</strong> pts on average against a set velocity of{' '}
-                <strong>{suggestion.currentVelocity}</strong> — consider {suggestion.delta < 0 ? 'lowering' : 'raising'} it.
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <PButton sm onClick={onApply} disabled={!r.teamId}>
-                  Set velocity to {suggestion.recentAvg}
-                </PButton>
-                <span style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)', lineHeight: 1.4 }}>
-                  Affects only sprints not yet started; elapsed and active sprints keep their frozen
-                  baselines, so attainment history is unchanged.
-                </span>
-              </div>
-            </div>
-          )}
-
-          <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 14px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span className="tag">Delivered vs. planned per sprint</span>
-            <VelocityTrendChart
-              series={v.perSprint.map((s) => ({ label: s.sprint.name.replace(/^Sprint\s*/i, 'S'), planned: s.planned, actual: s.actual }))}
-              tone={under ? 'under' : 'ok'}
-            />
-            <span style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)', lineHeight: 1.4 }}>
-              Faint bars are each sprint's planned velocity (capacity-adjusted); the bold bars + line are points completed.
-              Only fully-elapsed sprints are counted.
-            </span>
-          </div>
-
-          <div className="card" style={{ background: 'var(--rt-bg)', padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <span className="tag" style={{ marginBottom: 2 }}>By sprint</span>
-            {v.perSprint.map((s) => {
-              const pct = s.planned > 0 ? Math.round((s.actual / s.planned) * 100) : null;
-              return (
-                <Row
-                  key={s.sprint.id}
-                  k={s.sprint.name}
-                  v={`${s.actual} / ${s.planned} pts${pct !== null ? ` · ${pct}%` : ''}`}
-                />
-              );
-            })}
-            <hr className="divider" style={{ margin: '3px 0' }} />
-            <Row k="Total" v={`${v.totalActual} / ${v.totalPlanned} pts · ${v.attainmentPct}%`} big />
-          </div>
-        </>
-      )}
-    </Modal>
-  );
-}
-
-// ── Team over-allocation explainer (read-only) ──────────────────────────
-export function TeamAllocationsModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
-  const r = useStore((s) => selRelease(s, releaseId));
-  const team = useStore((s) => (r ? selTeam(s, r.teamId) : undefined));
-  const allItems = useStore((s) => s.items);
-  const { openModal } = useApp();
-
-  if (!r) {
-    return (
-      <Modal title="Team capacity" icon={Icon.alert} onClose={onClose} width={520}>
-        <span style={{ color: 'var(--rt-t3)' }}>This release no longer exists.</span>
-      </Modal>
-    );
-  }
-
-  const items = allItems.filter((i) => i.releaseId === releaseId);
-  const ctx = releaseCapacity(r, team);
-
-  // Streams with remaining work and a declared engineer need — the ones whose
-  // demand is checked against the team's contributing headcount below.
-  const active = r.workStreams
-    .map((ws) => ({ ws, remainingPts: streamHealth(items.filter((i) => i.workStreamId === ws.id)).remainingPts }))
-    .filter((s) => s.ws.engineersRequired != null && s.remainingPts > 0)
-    .sort((a, b) => (b.ws.engineersRequired ?? 0) - (a.ws.engineersRequired ?? 0));
-
-  const contention = streamContention(active.map((s) => s.ws.engineersRequired!), ctx.contributingCount);
-  const over = contention.totalRequired - ctx.contributingCount;
-  const isOver = contention.overAllocated;
-  const headroom = ctx.contributingCount - contention.totalRequired;
-  const sv = isOver ? statusVars('Blocked') : statusVars('Complete');
-
-  return (
-    <Modal
-      onClose={onClose}
-      width={560}
-      title={
-        <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span style={{ display: 'inline-flex', color: sv.text }}>{isOver ? Icon.alert : Icon.check}</span>
-          <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>
-            {isOver ? 'Team over-allocated' : 'Team allocations'}
-          </span>
-        </span>
-      }
-      footer={
-        <PButton variant="subtle" onClick={onClose}>
-          Close
-        </PButton>
-      }
-    >
-      <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
-        {isOver ? (
-          <>
-            The active work streams collectively ask for <strong style={{ color: 'var(--rt-ink)' }}>{contention.totalRequired} engineers</strong>, but{' '}
-            {team ? team.name : 'the team'} has only <strong style={{ color: 'var(--rt-ink)' }}>{ctx.contributingCount} contributing</strong>
-            {over > 0 ? <> — over by <strong style={{ color: 'var(--rt-ink)' }}>{over}</strong>.</> : '.'} Everyone can't be on everything at once, so
-            each stream's <em>effective</em> staffing is scaled down and its forecast below reflects that contention.
-          </>
-        ) : (
-          <>
-            The active work streams collectively ask for{' '}
-            <strong style={{ color: 'var(--rt-ink)' }}>{contention.totalRequired} engineer{contention.totalRequired === 1 ? '' : 's'}</strong>, and{' '}
-            {team ? team.name : 'the team'} has <strong style={{ color: 'var(--rt-ink)' }}>{ctx.contributingCount} contributing</strong>
-            {headroom > 0 ? <> — <strong style={{ color: 'var(--rt-ink)' }}>{headroom}</strong> to spare.</> : ' — fully allocated, with no contention.'} Each
-            stream can be staffed at its full request.
-          </>
-        )}
-      </div>
-
-      {/* Per-stream demand */}
-      <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <span className="tag" style={{ marginBottom: 2 }}>Engineers requested · active streams</span>
-        {active.length === 0 ? (
-          <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>No active streams have a configured engineer requirement.</span>
-        ) : (
-          active.map((s) => (
-            <Row key={s.ws.id} k={s.ws.name} v={`${s.ws.engineersRequired} eng · ${s.remainingPts} pts left`} />
-          ))
-        )}
-        <hr className="divider" style={{ margin: '3px 0' }} />
-        <Row k="Total requested" v={`${contention.totalRequired} eng`} />
-      </div>
-
-      {/* The math */}
-      <div className="card" style={{ background: 'var(--rt-bg)', padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <span className="tag" style={{ marginBottom: 2 }}>The math</span>
-        <Row k="Engineers available" v={`${ctx.contributingCount} contributing`} />
-        <Row k="Engineers requested" v={`${contention.totalRequired}`} />
-        {isOver ? (
-          <>
-            <Row k="Allocation factor" v={`${ctx.contributingCount} ÷ ${contention.totalRequired} = ×${contention.scale.toFixed(2)}`} />
-            <hr className="divider" style={{ margin: '3px 0' }} />
-            <Row k="Effect" v={`each stream runs at ${Math.round(contention.scale * 100)}% staffing`} big />
-          </>
-        ) : (
-          <>
-            <hr className="divider" style={{ margin: '3px 0' }} />
-            <Row k="Headroom" v={headroom > 0 ? `${headroom} eng` : 'none'} big />
-          </>
-        )}
-      </div>
-
-      <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.5 }}>
-        {isOver ? (
-          <>
-            To clear the over-allocation, lower some streams' <strong style={{ color: 'var(--rt-t2)' }}>engineers required</strong>, add contributing
-            team members, or move work out of the release. Open any stream's verdict to see its individual capacity-fit detail.
-          </>
-        ) : (
-          <>Open any stream's verdict to see its individual capacity-fit detail.</>
-        )}
-      </div>
-
-      {team && (
-        <PButton variant="subtle" onClick={() => openModal({ type: 'team', teamId: team.id })} style={{ alignSelf: 'flex-start' }}>
-          {Icon.team} View team
-        </PButton>
-      )}
-    </Modal>
-  );
-}
-
 // ── Event create / edit modal ───────────────────────────────────────────
 export function EventModal({ releaseId, eventId, onClose }: { releaseId: string; eventId?: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId))!;
@@ -769,7 +534,7 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
 }
 
 // ── Sprint edit modal (name + days off → capacity) ─────────────────────
-function Row({ k, v, big }: { k: ReactNode; v: ReactNode; big?: boolean }) {
+export function Row({ k, v, big }: { k: ReactNode; v: ReactNode; big?: boolean }) {
   return (
     <div className="calc" style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, fontSize: big ? 15 : 13 }}>
       <span title={typeof k === 'string' ? k : undefined} style={{ color: big ? 'var(--rt-ink)' : 'var(--rt-t2)', fontWeight: big ? 700 : 400, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k}</span>
