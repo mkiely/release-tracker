@@ -22,8 +22,8 @@ const connectorRelease = (overrides: Partial<Release> = {}): Release => ({
     { id: 'ev2', label: 'GA', dateISO: '2026-05-20', externalId: null },
   ],
   sprints: [
-    { id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 3, externalId: 'JIRA-S1' },
-    { id: 'sp2', name: 'Sprint 2', startISO: '2026-04-27', endISO: '2026-05-10', daysOff: 0, externalId: 'JIRA-S2' },
+    { id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 3, externalId: 'JIRA-S1', plannedVelocity: null },
+    { id: 'sp2', name: 'Sprint 2', startISO: '2026-04-27', endISO: '2026-05-10', daysOff: 0, externalId: 'JIRA-S2', plannedVelocity: null },
   ],
   externalId: null,
   connector: { type: 'acme', config: { project: 'ATL', board: '42' } },
@@ -37,15 +37,32 @@ describe('buildSharePayload', () => {
     expect(buildSharePayload(connectorRelease({ connector: null }))).toBeNull();
   });
 
-  it('captures config + events + sprints (with days off) but not work streams', () => {
+  it('captures config + events + sprints (with days off) + stream local metadata, but not items', () => {
     const payload = buildSharePayload(connectorRelease())!;
     expect(payload.connector).toEqual({ type: 'acme', config: { project: 'ATL', board: '42' } });
     expect(payload.events).toHaveLength(2);
     expect(payload.sprints.map((s) => s.daysOff)).toEqual([3, 0]);
     // Sprint externalIds survive so days off reattach on the recipient's first sync.
     expect(payload.sprints.map((s) => s.externalId)).toEqual(['JIRA-S1', 'JIRA-S2']);
-    expect('workStreams' in payload).toBe(false);
+    // Per-stream local metadata travels keyed by externalId, so engineersRequired
+    // reattaches after the recipient's first sync (names/items come from sync).
+    expect(payload.workStreams).toEqual([{ externalId: 'EPIC-1', engineersRequired: 2 }]);
+    // The frozen plannedVelocity baseline is app-local and is NOT shared — the
+    // recipient stamps their own once a sprint starts.
+    expect(payload.sprints.every((s) => !('plannedVelocity' in s))).toBe(true);
     expect('items' in payload).toBe(false);
+  });
+
+  it('omits streams without a declared engineersRequired (nothing to reattach)', () => {
+    const payload = buildSharePayload(
+      connectorRelease({
+        workStreams: [
+          { id: 'ws1', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: null },
+          { id: 'ws2', name: 'Search', externalId: 'EPIC-2', engineersRequired: null, build: null, externalUrl: null },
+        ],
+      }),
+    )!;
+    expect(payload.workStreams).toEqual([{ externalId: 'EPIC-1', engineersRequired: 2 }]);
   });
 });
 
