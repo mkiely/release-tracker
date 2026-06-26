@@ -199,16 +199,15 @@ function CapacitySection({ r, team, items }: SectionProps) {
 }
 
 // ── Planning runway (forward) ───────────────────────────────────────────
-function RunwaySection({ r, team, items }: SectionProps) {
-  const { openModal } = useApp();
+/** One runway verdict per work stream. Shared by the Runway section and the
+ *  modal's tab-warning check so the alarm logic lives in one place. */
+function buildRunwayRows(r: Release, team: Team | undefined, items: WorkItem[]) {
   const ctx = releaseCapacity(r, team);
-
   const today = todayISO();
   const firstRemainingIndex = r.sprints.findIndex((sp) => sp.endISO >= today);
   const beyondNextThreshold = (firstRemainingIndex < 0 ? r.sprints.length : firstRemainingIndex) + 2;
   const sprintIndexById = new Map(r.sprints.map((sp, i) => [sp.id, i] as const));
-
-  const rows = r.workStreams.map((ws) => {
+  return r.workStreams.map((ws) => {
     const streamItems = items.filter((i) => i.workStreamId === ws.id);
     const health = streamHealth(streamItems);
     const itemsBeyondNext = streamItems.filter(
@@ -216,6 +215,11 @@ function RunwaySection({ r, team, items }: SectionProps) {
     ).length;
     return { ws, runway: streamRunway(health, ws.engineersRequired, ctx, { itemsBeyondNext, muted: ws.planningMuted }) };
   });
+}
+
+function RunwaySection({ r, team, items }: SectionProps) {
+  const { openModal } = useApp();
+  const rows = buildRunwayRows(r, team, items);
 
   // Order by urgency: alarms first, then other under-planned, then the rest.
   const rank = (x: (typeof rows)[number]) => (x.runway.alarm ? 0 : x.runway.verdict === 'under-planned' ? 1 : 2);
@@ -284,11 +288,19 @@ function RunwaySection({ r, team, items }: SectionProps) {
   );
 }
 
-const SECTIONS: { value: MetricsSection; label: string; icon: ReactNode; title: string }[] = [
-  { value: 'velocity', label: 'Velocity', icon: Icon.sprint, title: 'Delivered vs. planned across elapsed sprints' },
-  { value: 'capacity', label: 'Capacity', icon: Icon.users, title: 'Team allocation across streams' },
-  { value: 'runway', label: 'Runway', icon: Icon.stream, title: 'Is enough work created to fill held capacity?' },
-];
+/** Which sections currently hold a warning — drives the red tab tint + alert icon,
+ *  matching the chip in the release chrome so problems are obvious on open. */
+function sectionWarnings(r: Release, team: Team | undefined, items: WorkItem[]): Record<MetricsSection, boolean> {
+  const ctx = releaseCapacity(r, team);
+  const activeReq = r.workStreams
+    .filter((ws) => ws.engineersRequired != null && streamHealth(items.filter((i) => i.workStreamId === ws.id)).remainingPts > 0)
+    .map((ws) => ws.engineersRequired!);
+  return {
+    velocity: velocityAttainment(r, team, items).verdict === 'under',
+    capacity: streamContention(activeReq, ctx.contributingCount).overAllocated,
+    runway: buildRunwayRows(r, team, items).some((x) => x.runway.alarm),
+  };
+}
 
 export function MetricsModal({ releaseId, section, onClose }: { releaseId: string; section?: MetricsSection; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId));
@@ -298,26 +310,32 @@ export function MetricsModal({ releaseId, section, onClose }: { releaseId: strin
 
   if (!r) {
     return (
-      <Modal title="Metrics" icon={Icon.sprint} onClose={onClose} width={620}>
+      <Modal title="Release analysis" icon={Icon.sprint} onClose={onClose} width={620}>
         <span style={{ color: 'var(--rt-t3)' }}>This release no longer exists.</span>
       </Modal>
     );
   }
 
   const items = allItems.filter((i) => i.releaseId === releaseId);
+  const warn = sectionWarnings(r, team, items);
+  const options: { value: MetricsSection; label: string; icon: ReactNode; title: string; warn: boolean }[] = [
+    { value: 'velocity', label: 'Velocity', icon: warn.velocity ? Icon.alert : Icon.sprint, warn: warn.velocity, title: 'Delivered vs. planned across elapsed sprints' },
+    { value: 'capacity', label: 'Capacity', icon: warn.capacity ? Icon.alert : Icon.users, warn: warn.capacity, title: 'Team allocation across streams' },
+    { value: 'runway', label: 'Runway', icon: warn.runway ? Icon.alert : Icon.stream, warn: warn.runway, title: 'Is enough work created to fill held capacity?' },
+  ];
 
   return (
     <Modal
       onClose={onClose}
       width={640}
-      title={<span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Metrics</span>}
+      title={<span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Release analysis</span>}
       footer={
         <PButton variant="subtle" onClick={onClose}>
           Close
         </PButton>
       }
     >
-      <SegmentedToggle<MetricsSection> ariaLabel="Metric" value={tab} onChange={setTab} options={SECTIONS} />
+      <SegmentedToggle<MetricsSection> ariaLabel="Metric" value={tab} onChange={setTab} options={options} />
       {tab === 'velocity' && <VelocitySection r={r} team={team} items={items} />}
       {tab === 'capacity' && <CapacitySection r={r} team={team} items={items} />}
       {tab === 'runway' && <RunwaySection r={r} team={team} items={items} />}

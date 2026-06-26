@@ -135,7 +135,7 @@ export function ReleaseChrome({
   if (runwayAlarmCount > 0) metricsIssues.push(`${runwayAlarmCount} stream${runwayAlarmCount === 1 ? '' : 's'} under-planned`);
   const metricsBad = metricsIssues.length > 0;
   const metricsSection: 'velocity' | 'capacity' | 'runway' = overAllocated ? 'capacity' : runwayAlarmCount > 0 ? 'runway' : 'velocity';
-  const metricsTitle = metricsBad ? metricsIssues.join(' · ') : 'Release metrics — velocity, capacity, planning runway';
+  const metricsTitle = metricsBad ? metricsIssues.join(' · ') : 'Release analysis — velocity, capacity, planning runway';
   return (
     <ScreenScaffold
       left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
@@ -159,7 +159,7 @@ export function ReleaseChrome({
             style={metricsBad ? { color: statusVars('Blocked').dot } : undefined}
           >
             {metricsBad ? Icon.alert : Icon.sprint}
-            Metrics
+            Release analysis
             {metricsBad && (
               <span
                 className="mono"

@@ -161,7 +161,7 @@ export function HomeView({
                     }
                   />
                 </PField>
-                <PField label="Sprint length" hint="uniform; set at creation" style={{ flex: 1 }}>
+                <PField label="Sprint length" style={{ flex: 1 }}>
                   <PSelect value={sprintWeeks} onChange={(e) => onSetSprintWeeks(parseInt(e.target.value, 10))}>
                     <option value={1}>1 week</option>
                     <option value={2}>2 weeks</option>

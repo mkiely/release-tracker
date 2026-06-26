@@ -210,7 +210,7 @@ export function streamForecast(
     summary = `${remainingPts} pts left \xb7 ${engineersRequired} eng \xd7 ~${r0(perSprintRate)} pts/sprint \xd7 ${ctx.remainingSprintCount} = ${r0(effectiveCap)} cap → fits${overbook}`;
   } else {
     const short = Math.max(1, Math.ceil(sprintsShort));
-    summary = `${remainingPts} pts left, ~${runwaySprints.toFixed(1)} sprints of runway at ${engineersRequired} eng → short by ~${short} sprint${short !== 1 ? 's' : ''}${overbook}`;
+    summary = `${remainingPts} pts left, ~${runwaySprints.toFixed(1)} sprints required at ${engineersRequired} eng → short by ~${short} sprint${short !== 1 ? 's' : ''}${overbook}`;
   }
 
   return { ...base, verdict, nominalCap, effectiveEngineers, effectiveCap, shortfallPts, runwaySprints, sprintsShort, contended, summary };
@@ -311,7 +311,7 @@ export function streamRunway(
 
   let summary: string;
   if (verdict === 'under-planned') {
-    summary = `~${r0(unclaimedRunway)} pts (~${unclaimedSprints.toFixed(1)} sprints) of reserved capacity not yet planned`;
+    summary = `~${r0(unclaimedRunway)} pts over ${ctx.remainingSprintCount} sprint${ctx.remainingSprintCount === 1 ? '' : 's'} remaining at ${engineersRequired} eng capacity remaining`;
     if (alarm) summary += ' \xb7 nothing created beyond the next sprint';
     else if (muted && itemsBeyondNext === 0 && ctx.remainingSprintCount > 1) summary += ' \xb7 alarm muted (planning deferred)';
   } else {

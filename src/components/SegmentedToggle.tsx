@@ -8,6 +8,8 @@ export interface SegOption<T extends string> {
   icon?: ReactNode;
   /** Tooltip for the segment (e.g. what grouping it selects). */
   title?: string;
+  /** When true, the segment is tinted red (a warning lives in that section). */
+  warn?: boolean;
 }
 
 /**
@@ -35,6 +37,7 @@ export function SegmentedToggle<T extends string>({
           title={o.title}
           aria-pressed={value === o.value}
           className={`${styles.btn} ${value === o.value ? styles.btnActive : ''}`}
+          style={o.warn ? { color: 'var(--rt-st-bl-text)' } : undefined}
         >
           {o.icon}
           {o.label}

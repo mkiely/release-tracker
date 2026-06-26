@@ -422,6 +422,7 @@ describe('forward capacity-fit health', () => {
       expect(f.verdict).toBe('at-risk');
       expect(f.shortfallPts).toBeCloseTo(20);
       expect(f.sprintsShort).toBeGreaterThan(0);
+      expect(f.summary).toContain('sprints required at 2 eng');
     });
 
     it('downgrades a nominally-fine stream when the release is over-allocated', () => {
@@ -486,6 +487,7 @@ describe('forward capacity-fit health', () => {
       expect(r.unclaimedRunway).toBe(50);
       expect(r.unclaimedSprints).toBeCloseTo(2.5);
       expect(r.alarm).toBe(true);
+      expect(r.summary).toContain('pts over 3 sprints remaining at 2 eng capacity remaining');
       expect(r.summary).toContain('nothing created beyond the next sprint');
     });
 
