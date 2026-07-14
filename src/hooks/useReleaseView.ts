@@ -268,7 +268,7 @@ export function useReleaseView(): ReleaseViewProps | null {
   }));
 
   const onExport = async () => {
-    const tsv = releaseToTSV(st, id);
+    const tsv = releaseToTSV(st, id, lensActive);
     try {
       await navigator.clipboard.writeText(tsv);
     } catch {

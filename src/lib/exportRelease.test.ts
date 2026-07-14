@@ -94,6 +94,9 @@ function parseRows(tsv: string): string[][] {
 // then per-stream sections (stream header row + item rows).
 const BODY = 6;
 
+const tsvHasStream = (rows: string[][], name: string): boolean =>
+  rows.some((row) => row[0].split('\n')[0] === name);
+
 describe('releaseToTSV', () => {
   it('has a header row of Work Stream + sprint names', () => {
     const rows = parseRows(releaseToTSV(state([]), 'rel'));
@@ -205,6 +208,47 @@ describe('releaseToTSV', () => {
     expect(rows).toHaveLength(BODY + 2);
     expect(rows[BODY][0]).toMatch(/^Payments\n/);
     expect(rows[BODY + 1][0]).toMatch(/^Auth\n/);
+  });
+
+  it('onBuildOnly drops streams carried in from a prior build, and their items', () => {
+    const r = release();
+    r.workStreams[1] = { ...r.workStreams[1], build: 'prior-build' }; // Auth is carried-in
+    const st: AppState = {
+      version: 1,
+      teams: [],
+      releases: [r],
+      items: [
+        item({ workStreamId: 'ws1', key: 'ORN-100', subject: 'Native' }),
+        item({ workStreamId: 'ws2', key: 'ORN-200', subject: 'Carried in' }),
+      ],
+      meta: { lastSyncISO: null },
+    };
+    const rows = parseRows(releaseToTSV(st, 'rel', true));
+    // Only the native stream's section is present.
+    expect(rows).toHaveLength(BODY + 2);
+    expect(rows[BODY][0]).toMatch(/^Payments\n/);
+    expect(rows[BODY + 1]).toEqual(['', 'ORN-100 Native', '']);
+    expect(tsvHasStream(rows, 'Auth')).toBe(false);
+  });
+
+  it('onBuildOnly keeps the unassigned bucket even though it has no build field', () => {
+    const st: AppState = {
+      version: 1,
+      teams: [],
+      releases: [release()],
+      items: [item({ workStreamId: null, key: 'ORN-300', subject: 'Loose' })],
+      meta: { lastSyncISO: null },
+    };
+    const rows = parseRows(releaseToTSV(st, 'rel', true));
+    expect(tsvHasStream(rows, 'Unassigned')).toBe(true);
+  });
+
+  it('without onBuildOnly, carried-in streams are still exported (default/false behaviour unchanged)', () => {
+    const r = release();
+    r.workStreams[1] = { ...r.workStreams[1], build: 'prior-build' };
+    const st: AppState = { version: 1, teams: [], releases: [r], items: [], meta: { lastSyncISO: null } };
+    const rows = parseRows(releaseToTSV(st, 'rel'));
+    expect(tsvHasStream(rows, 'Auth')).toBe(true);
   });
 
   it('strips tabs/newlines from item labels so the grid stays intact', () => {

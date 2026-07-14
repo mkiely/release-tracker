@@ -38,8 +38,14 @@ const serializeRow = (row: string[]): string => row.map(quoteField).join(TAB);
 
 /**
  * Build a TSV string for a release. Returns '' if the release is not found.
+ *
+ * `onBuildOnly` mirrors the release view's build-filter lens: streams carried
+ * in from a prior build (`ws.build !== null`) are dropped from the per-stream
+ * sections (and from the contention math that feeds their forecast/runway
+ * lines), matching what's on screen when the lens is active. The release-wide
+ * summary rows (dates, capacity, planned) stay unfiltered, same as the app.
  */
-export function releaseToTSV(state: AppState, releaseId: string): string {
+export function releaseToTSV(state: AppState, releaseId: string, onBuildOnly = false): string {
   const release = state.releases.find((r) => r.id === releaseId);
   if (!release) return '';
 
@@ -47,12 +53,14 @@ export function releaseToTSV(state: AppState, releaseId: string): string {
   const sprints = [...release.sprints].sort((a, b) => a.startISO.localeCompare(b.startISO));
   const emptySprints = sprints.map(() => '');
 
+  const visibleWorkStreams = onBuildOnly ? release.workStreams.filter((ws) => ws.build === null) : release.workStreams;
+
   // Pre-compute per-stream metrics.
   const today = todayISO();
   const ctx = releaseCapacity(release, team, today);
 
   const streamHealthMap = new Map(
-    release.workStreams.map((ws) => {
+    visibleWorkStreams.map((ws) => {
       const its = state.items.filter((i) => i.releaseId === releaseId && i.workStreamId === ws.id);
       return [ws.id, { health: streamHealth(its), items: its }] as const;
     }),
@@ -60,7 +68,7 @@ export function releaseToTSV(state: AppState, releaseId: string): string {
   const unassignedItems = state.items.filter((i) => i.releaseId === releaseId && i.workStreamId === null);
   const unassignedHealth = streamHealth(unassignedItems);
 
-  const activeEngineerCounts = release.workStreams
+  const activeEngineerCounts = visibleWorkStreams
     .filter((ws) => ws.engineersRequired != null && (streamHealthMap.get(ws.id)?.health.remainingPts ?? 0) > 0)
     .map((ws) => ws.engineersRequired!);
   const contention = streamContention(activeEngineerCounts, ctx.contributingCount);
@@ -114,7 +122,7 @@ export function releaseToTSV(state: AppState, releaseId: string): string {
   ];
 
   const streamsToExport: Array<{ name: string; matchId: string | null; muted: boolean }> = [
-    ...release.workStreams.map((ws) => ({ name: ws.name, matchId: ws.id, muted: ws.planningMuted })),
+    ...visibleWorkStreams.map((ws) => ({ name: ws.name, matchId: ws.id, muted: ws.planningMuted })),
   ];
   const unassignedInRelease = state.items.filter((i) => i.releaseId === releaseId && i.workStreamId === null);
   if (unassignedInRelease.length > 0) {
