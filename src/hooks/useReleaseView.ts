@@ -1,8 +1,10 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAxisMode } from '../store/axisMode';
-import { BuildFilterStore, useBuildFilter } from '../store/buildFilter';
 import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } from '../store/store';
 import { releaseToTSV } from '../lib/exportRelease';
+import { applyFacets, buildFacetGroups, buildStreamFacet, catalogStreamFacets, isAnyFacetActive } from '../lib/facets';
+import type { FacetGroup } from '../lib/facets';
+import { useFacetSelections } from './useFacets';
 import { useApp } from '../app-context';
 import { dOf, fmtShort, todayISO } from '../lib/dates';
 import { activeSprint, eventsIn, releaseCapacity, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, streamRunway, sumPoints, velocityAttainment, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
@@ -102,12 +104,14 @@ export interface ReleaseViewProps {
   /** How many visible streams are firing the planning-runway under-planned alarm.
    *  Feeds the Metrics chip's at-a-glance status. */
   runwayAlarmCount: number;
-  /** "On-build only" lens is active — streams with no work native to this release are hidden. */
-  buildFilter: boolean;
-  /** How many streams carry only carried-in work (no native items) — what the lens would hide.
-   *  Computed over all streams regardless of the lens, so the toggle can show whether it does anything. */
-  offBuildStreamCount: number;
-  onToggleBuildFilter: () => void;
+  /** Stream-level facets (build + connector-declared), applied on the stream axis
+   *  only — the sprint axis always shows every stream's lanes. */
+  streamFacetGroups: FacetGroup<WorkStream>[];
+  isStreamFiltered: boolean;
+  /** How many streams the active facets hide (for the bar's summary text). */
+  hiddenStreamCount: number;
+  onToggleStreamFacet: (facetKey: string, value: string) => void;
+  onClearStreamFacets: () => void;
   onBack: () => void;
   onNavigateToSprint: (sprintId: string) => void;
   onNavigateToStream: (wsId: string) => void;
@@ -130,8 +134,8 @@ export function useReleaseView(): ReleaseViewProps | null {
   const navigate = useNavigate();
   const { openModal, onSync, onPush, notify } = useApp();
   const { id = '' } = useParams();
-  const buildFilter = useBuildFilter();
   const axis = useAxisMode();
+  const facetState = useFacetSelections(id);
 
   const r = selRelease(st, id);
   if (!r) return null;
@@ -142,14 +146,19 @@ export function useReleaseView(): ReleaseViewProps | null {
   const unassigned = selUnassignedItems(st, r.id);
   const last = r.sprints.length ? r.sprints[r.sprints.length - 1] : null;
 
-  // A stream is "on-build" when it's native to this release (build === null). Streams
-  // carried in from a prior build (build !== null, set by the connector) are clutter;
-  // the build-filter lens hides them so the plan shows only this release's planned work.
-  // The lens is a by-stream concept — it only applies (and is only offered) in the
-  // stream-axis views; the sprint axis always shows every stream's lanes.
-  const offBuildStreamCount = r.workStreams.filter((ws) => ws.build !== null).length;
-  const lensActive = buildFilter && axis === 'stream';
-  const streams = lensActive ? r.workStreams.filter((ws) => ws.build === null) : r.workStreams;
+  // Stream facets (build + connector-declared filterable stream fields) hide
+  // streams from the plan — e.g. selecting only 'Native' on the build facet hides
+  // streams carried in from a prior build. Facets are a by-stream concept: they
+  // only apply (and are only offered) in the stream-axis views; the sprint axis
+  // always shows every stream's lanes.
+  const streamFacetGroups = buildFacetGroups(
+    [buildStreamFacet(), ...catalogStreamFacets(r.catalog)],
+    r.workStreams,
+    facetState.selections,
+  );
+  const isStreamFiltered = isAnyFacetActive(streamFacetGroups);
+  const facetsActive = isStreamFiltered && axis === 'stream';
+  const streams = facetsActive ? applyFacets(r.workStreams, streamFacetGroups) : r.workStreams;
 
   const dateRange = last
     ? `${fmtShort(r.startISO)} – ${fmtShort(last.endISO)}, ${dOf(last.endISO).getFullYear()}`
@@ -268,7 +277,7 @@ export function useReleaseView(): ReleaseViewProps | null {
   }));
 
   const onExport = async () => {
-    const tsv = releaseToTSV(st, id, lensActive);
+    const tsv = releaseToTSV(st, id, facetsActive ? new Set(streams.map((ws) => ws.id)) : undefined);
     try {
       await navigator.clipboard.writeText(tsv);
     } catch {
@@ -304,9 +313,11 @@ export function useReleaseView(): ReleaseViewProps | null {
     engineersRequiredTotal: contention.totalRequired,
     contributingCount: ctx.contributingCount,
     runwayAlarmCount: streamRows.filter((row) => row.runway.alarm).length,
-    buildFilter,
-    offBuildStreamCount,
-    onToggleBuildFilter: () => BuildFilterStore.toggle(),
+    streamFacetGroups,
+    isStreamFiltered,
+    hiddenStreamCount: r.workStreams.length - streams.length,
+    onToggleStreamFacet: facetState.toggle,
+    onClearStreamFacets: facetState.clear,
     onBack: () => navigate('/'),
     onNavigateToSprint: (spId) => navigate(`/releases/${id}/sprints/${spId}`),
     onNavigateToStream: (wsId) => navigate(`/releases/${id}/streams/${wsId}`),

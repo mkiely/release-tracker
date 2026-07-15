@@ -4,18 +4,14 @@ import { groupItemsByStream, sumPoints } from '../lib/derive';
 import { SprintTopActions, TopBar } from '../components/chrome';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { EmptyState } from '../components/EmptyState';
-import { FilterChip, ClearFiltersButton } from '../components/FilterChip';
+import { FacetBar } from '../components/FacetBar';
 import { Icon } from '../components/Icon';
 import { EventBadge, StatusPill } from '../components/badges';
-import { memberInitials } from '../components/Avatar';
 import { SprintRail } from '../components/dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
 import { IconButton } from '../components/primitives';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { TeamLink } from '../components/TeamLink';
-import { VDivider } from '../components/VDivider';
-import { statusVars } from '../components/statusVars';
-import { STATUSES } from '../types';
 import sprintStyles from '../routes/Sprint.module.css';
 
 function GroupToggle({ value, onChange }: { value: GroupBy; onChange: (v: GroupBy) => void }) {
@@ -47,14 +43,8 @@ export function SprintView({
   streamCols,
   unassignedItems,
   statusCols,
-  sprintMembers,
-  sprintTypes,
-  sprintBuilds,
+  facetGroups,
   groupBy,
-  memberFilter,
-  statusFilter,
-  typeFilter,
-  buildFilter,
   sprintItemCount,
   isFiltered,
   onHome,
@@ -66,10 +56,7 @@ export function SprintView({
   onOpenItem,
   onOpenEvent,
   onSetGroupBy,
-  onToggleMember,
-  onToggleStatus,
-  onToggleType,
-  onToggleBuild,
+  onToggleFacet,
   onClearFilters,
   onSync,
   onPush,
@@ -186,87 +173,7 @@ export function SprintView({
         }}
       >
         <GroupToggle value={groupBy} onChange={onSetGroupBy} />
-        <VDivider />
-
-        {sprintMembers.map((m) => {
-          const isMemberActive = memberFilter.has(m.id);
-          return (
-            <button
-              key={m.id}
-              title={isMemberActive ? `Hide ${m.name}` : `Filter: ${m.name}`}
-              onClick={() => onToggleMember(m.id)}
-              style={{
-                width: 26,
-                height: 26,
-                borderRadius: '50%',
-                border: isMemberActive ? `2px solid ${'var(--rt-ink)'}` : `1.5px solid ${'var(--rt-line)'}`,
-                background: isMemberActive ? 'var(--rt-fill)' : 'transparent',
-                cursor: 'pointer',
-                fontSize: 'var(--rt-fs-micro)',
-                fontWeight: 'var(--rt-fw-bold)',
-                color: isMemberActive ? 'var(--rt-ink)' : 'var(--rt-t3)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                fontFamily: 'var(--rt-sans)',
-              }}
-            >
-              {memberInitials(m.name)}
-            </button>
-          );
-        })}
-
-        {sprintMembers.length > 0 && <VDivider />}
-
-        {STATUSES.map((s) => (
-          <FilterChip
-            key={s}
-            active={statusFilter.has(s)}
-            vars={statusVars(s)}
-            label={s}
-            title={statusFilter.has(s) ? `Remove filter: ${s}` : `Filter: ${s}`}
-            onClick={() => onToggleStatus(s)}
-          />
-        ))}
-
-        {sprintTypes.length > 0 && (
-          <>
-            <VDivider />
-            {sprintTypes.map((t) => (
-              <FilterChip
-                key={t}
-                active={typeFilter.has(t)}
-                label={t}
-                title={typeFilter.has(t) ? `Remove filter: ${t}` : `Filter: ${t}`}
-                onClick={() => onToggleType(t)}
-              />
-            ))}
-          </>
-        )}
-
-        {sprintBuilds.length > 0 && (
-          <>
-            <VDivider />
-            {sprintBuilds.map((b) => (
-              <FilterChip
-                key={b}
-                active={buildFilter.has(b)}
-                dotShape="square"
-                label={b}
-                title={buildFilter.has(b) ? `Remove filter: ${b}` : `Filter: ${b}`}
-                onClick={() => onToggleBuild(b)}
-              />
-            ))}
-          </>
-        )}
-
-        {isFiltered && (
-          <>
-            <VDivider />
-            <ClearFiltersButton onClick={onClearFilters} title="Clear all filters" />
-          </>
-        )}
+        <FacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} leadingDivider />
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '18px 24px' }}>

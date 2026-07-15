@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "20.0.0",
+  "version": "21.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -226,12 +226,17 @@
     },
     "ReleaseCatalog": {
       "type": "object",
-      "description": "Sync-time snapshot of a connector's vocabulary: item-type catalog + status vocabulary. Stored on the release so synced data stays interpretable offline.",
+      "description": "Sync-time snapshot of a connector's vocabulary: item-type catalog + status vocabulary + work-stream field catalog. Stored on the release so synced data stays interpretable offline.",
       "properties": {
         "itemTypes": { "type": "array", "items": { "$ref": "#/definitions/ConnectorItemType" } },
-        "statuses": { "type": "array", "items": { "$ref": "#/definitions/StatusDef" } }
+        "statuses": { "type": "array", "items": { "$ref": "#/definitions/StatusDef" } },
+        "workStreamFields": {
+          "type": "array",
+          "items": { "type": "object" },
+          "description": "The connector's work-stream field catalog (data-only FieldSpecs describing WorkStream.attributes; flat — streams have no type dimension). Authoritative schema: ConnectorMeta.workStreamFields in packages/sync-contract/openapi.yaml; stored here as an opaque snapshot. Fields with filterable:true become stream-level facets."
+        }
       },
-      "required": ["itemTypes", "statuses"]
+      "required": ["itemTypes", "statuses", "workStreamFields"]
     },
     "ReleaseConnector": {
       "type": "object",
@@ -462,7 +467,7 @@
             { "$ref": "#/definitions/ReleaseCatalog" },
             { "type": "null" }
           ],
-          "description": "Snapshot of the connector's vocabulary (item-type catalog + status vocabulary), taken at each sync. Lets the app interpret synced items' attributes and native statuses (labels, enum options, writeability) offline, and keeps already-synced items stable if the live catalog changes. Null/absent = never synced or a local release."
+          "description": "Snapshot of the connector's vocabulary (item-type catalog + status vocabulary + work-stream field catalog), taken at each sync. Lets the app interpret synced items' and streams' attributes and native statuses (labels, enum options, writeability, filterability) offline, and keeps already-synced items stable if the live catalog changes. Null/absent = never synced or a local release."
         }
       },
       "required": ["id", "name", "startISO", "teamId", "workStreams", "events", "sprints", "externalId", "connector", "sync", "sprintLengthDays"],
@@ -517,7 +522,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 20,
+      "value": 21,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {

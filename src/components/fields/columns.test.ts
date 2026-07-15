@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { attributeColumns } from './columns';
-import type { ReleaseCatalog, WorkItem } from '../../types';
+import { attributeColumns, streamAttributeColumns } from './columns';
+import type { ReleaseCatalog, WorkItem, WorkStream } from '../../types';
 
 const item = (over: Partial<WorkItem>): WorkItem => ({
   id: 'it_1', releaseId: 'rel_1', workStreamId: 'ws_1', sprintId: null,
@@ -11,6 +11,11 @@ const item = (over: Partial<WorkItem>): WorkItem => ({
 
 const catalog: ReleaseCatalog = {
   statuses: [],
+  workStreamFields: [
+    { key: 'track', label: 'Track', kind: 'enum', options: [{ value: 'product', label: 'Product' }] },
+    { key: 'owner', kind: 'string' },
+    { key: 'epicRef', kind: 'ref', target: 'workStream' }, // ref — never a column
+  ],
   itemTypes: [
     {
       id: 'bug',
@@ -65,5 +70,31 @@ describe('attributeColumns', () => {
     expect(rootCause.cell(bug)).toBe('');       // bug doesn't declare rootCause
     expect(rootCause.cell(incident)).toBe('—'); // declared, unset
     expect(rootCause.cell(untyped)).toBe('');   // no type to resolve through
+  });
+});
+
+describe('streamAttributeColumns', () => {
+  const stream = (attributes: WorkStream['attributes']): WorkStream => ({
+    id: 'ws_1', name: 'API', externalId: null, engineersRequired: null,
+    planningMuted: false, build: null, externalUrl: null, attributes,
+  });
+
+  it('projects vocabulary stream fields flat, skipping non-attribute shapes', () => {
+    expect(streamAttributeColumns(catalog).map((c) => [c.key, c.label])).toEqual([
+      ['track', 'Track'],
+      ['owner', 'owner'], // label falls back to key
+    ]);
+  });
+
+  it('returns no columns without a catalog (local releases)', () => {
+    expect(streamAttributeColumns(null)).toEqual([]);
+    expect(streamAttributeColumns(undefined)).toEqual([]);
+  });
+
+  it('formats cells through the declaring spec, em dash when unset', () => {
+    const [track] = streamAttributeColumns(catalog);
+    expect(track.cell(stream({ track: 'product' }))).toBe('Product');
+    expect(track.cell(stream({}))).toBe('—');
+    expect(track.cell(stream(undefined))).toBe('—');
   });
 });

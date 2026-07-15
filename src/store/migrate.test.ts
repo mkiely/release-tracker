@@ -463,15 +463,15 @@ describe('migrate — v14 → current', () => {
     expect(next.items[0].statusNative).toBeNull();
   });
 
-  it('wraps a bare itemTypes-array catalog into { itemTypes, statuses: [] }', () => {
+  it('wraps a bare itemTypes-array catalog into { itemTypes, statuses: [] } (v21 adds workStreamFields)', () => {
     const next = migrate(v14(itemTypes) as any)!;
-    expect(next.releases[0].catalog).toEqual({ itemTypes, statuses: [] });
+    expect(next.releases[0].catalog).toEqual({ itemTypes, statuses: [], workStreamFields: [] });
   });
 
   it('keeps a null catalog null and preserves an already-wrapped one', () => {
     expect(migrate(v14(null) as any)!.releases[0].catalog).toBeNull();
     const wrapped = { itemTypes, statuses: [{ id: 'qa', label: 'QA', category: 'Under Review' }] };
-    expect(migrate(v14(wrapped) as any)!.releases[0].catalog).toEqual(wrapped);
+    expect(migrate(v14(wrapped) as any)!.releases[0].catalog).toEqual({ ...wrapped, workStreamFields: [] });
   });
 });
 
@@ -509,9 +509,11 @@ describe('migrate — v15 → current', () => {
 });
 
 describe('migrate — v18 → current', () => {
-  // today is 2026-06-26 (see test env); one started sprint, one future, no baselines yet.
+  // One started sprint (past), one far-future one, no baselines yet. The test env
+  // does not pin the clock, so the "future" sprint must stay comfortably ahead of
+  // the real date — a 2026-07-01 sprint here started failing on 2026-07-01.
   const startedSp = { id: 'sp1', name: 'Sprint 1', startISO: '2026-06-01', endISO: '2026-06-14', daysOff: 0, externalId: null };
-  const futureSp = { id: 'sp2', name: 'Sprint 2', startISO: '2026-07-01', endISO: '2026-07-14', daysOff: 0, externalId: null };
+  const futureSp = { id: 'sp2', name: 'Sprint 2', startISO: '2100-07-01', endISO: '2100-07-14', daysOff: 0, externalId: null };
   const v18 = (over: { sprints?: unknown[] } = {}) => ({
     version: 18,
     teams: [{ id: 't1', name: 'Team', velocity: 30, externalId: null, members: [{ id: 'm1', name: 'A', externalId: null, nonContributing: false }] }],
@@ -559,6 +561,35 @@ describe('migrate — v19 → current', () => {
   it('preserves an existing planningMuted: true', () => {
     const next = migrate(v19({ planningMuted: true }) as any)!;
     expect(next.releases[0].workStreams[0].planningMuted).toBe(true);
+  });
+});
+
+describe('migrate — v20 → current', () => {
+  const v20 = (catalog: unknown) => ({
+    version: 20,
+    teams: [],
+    meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), sprints: [], catalog }],
+    items: [],
+  });
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v20(null) as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('keeps a null catalog null', () => {
+    expect(migrate(v20(null) as any)!.releases[0].catalog).toBeNull();
+  });
+
+  it('adds workStreamFields: [] to an existing catalog snapshot', () => {
+    const next = migrate(v20({ itemTypes: [], statuses: [] }) as any)!;
+    expect(next.releases[0].catalog).toEqual({ itemTypes: [], statuses: [], workStreamFields: [] });
+  });
+
+  it('preserves existing workStreamFields', () => {
+    const wsf = [{ key: 'track', kind: 'enum', filterable: true }];
+    const next = migrate(v20({ itemTypes: [], statuses: [], workStreamFields: wsf }) as any)!;
+    expect(next.releases[0].catalog?.workStreamFields).toEqual(wsf);
   });
 });
 

@@ -218,7 +218,7 @@ export function migrate(p: AppState): AppState | null {
         const cat = r.catalog as unknown;
         return {
           ...r,
-          catalog: cat == null ? null : Array.isArray(cat) ? { itemTypes: cat, statuses: [] } : (cat as ReleaseCatalog),
+          catalog: cat == null ? null : Array.isArray(cat) ? { itemTypes: cat, statuses: [], workStreamFields: [] } : (cat as ReleaseCatalog),
         };
       }),
       items: s.items.map((it) => ({ ...it, statusNative: it.statusNative ?? null })),
@@ -295,6 +295,19 @@ export function migrate(p: AppState): AppState | null {
       })),
     };
   }
+  // v20 → v21: the release catalog snapshot grows workStreamFields (the connector's
+  // work-stream field catalog; empty until the next sync refreshes the snapshot).
+  if (s.version === 20) {
+    s = {
+      ...s,
+      version: 21,
+      releases: s.releases.map((r) => ({
+        ...r,
+        catalog:
+          r.catalog == null ? null : { ...r.catalog, workStreamFields: (r.catalog as any).workStreamFields ?? [] },
+      })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -329,6 +342,12 @@ export function stampStartedSprints(state: AppState, today: string = todayISO())
 /** Read persisted state from localStorage, migrating it forward if needed.
  *  Falls back to fresh seed data on a missing/corrupt/too-old store. */
 export function load(): AppState {
+  try {
+    // The persisted "on-build only" lens was replaced by ephemeral stream facets.
+    localStorage.removeItem('release-tracker:buildFilter');
+  } catch {
+    /* ignore */
+  }
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
@@ -733,7 +752,13 @@ export const useStore = create<StoreState>((set, get) => {
                 // Snapshot the vocabulary the items were just interpreted under, so
                 // attributes + native statuses stay renderable offline and across
                 // catalog changes.
-                catalog: meta ? { itemTypes: meta.itemTypes ?? [], statuses: meta.statuses ?? [] } : null,
+                catalog: meta
+                  ? {
+                      itemTypes: meta.itemTypes ?? [],
+                      statuses: meta.statuses ?? [],
+                      workStreamFields: meta.workStreamFields ?? [],
+                    }
+                  : null,
               }
             : rel,
         );

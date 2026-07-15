@@ -210,28 +210,26 @@ describe('releaseToTSV', () => {
     expect(rows[BODY + 1][0]).toMatch(/^Auth\n/);
   });
 
-  it('onBuildOnly drops streams carried in from a prior build, and their items', () => {
-    const r = release();
-    r.workStreams[1] = { ...r.workStreams[1], build: 'prior-build' }; // Auth is carried-in
+  it('visibleStreamIds drops filtered-out streams, and their items', () => {
     const st: AppState = {
       version: 1,
       teams: [],
-      releases: [r],
+      releases: [release()],
       items: [
         item({ workStreamId: 'ws1', key: 'ORN-100', subject: 'Native' }),
         item({ workStreamId: 'ws2', key: 'ORN-200', subject: 'Carried in' }),
       ],
       meta: { lastSyncISO: null },
     };
-    const rows = parseRows(releaseToTSV(st, 'rel', true));
-    // Only the native stream's section is present.
+    const rows = parseRows(releaseToTSV(st, 'rel', new Set(['ws1'])));
+    // Only the visible stream's section is present.
     expect(rows).toHaveLength(BODY + 2);
     expect(rows[BODY][0]).toMatch(/^Payments\n/);
     expect(rows[BODY + 1]).toEqual(['', 'ORN-100 Native', '']);
     expect(tsvHasStream(rows, 'Auth')).toBe(false);
   });
 
-  it('onBuildOnly keeps the unassigned bucket even though it has no build field', () => {
+  it('visibleStreamIds keeps the unassigned bucket even though it is not a stream', () => {
     const st: AppState = {
       version: 1,
       teams: [],
@@ -239,16 +237,47 @@ describe('releaseToTSV', () => {
       items: [item({ workStreamId: null, key: 'ORN-300', subject: 'Loose' })],
       meta: { lastSyncISO: null },
     };
-    const rows = parseRows(releaseToTSV(st, 'rel', true));
+    const rows = parseRows(releaseToTSV(st, 'rel', new Set(['ws1'])));
     expect(tsvHasStream(rows, 'Unassigned')).toBe(true);
   });
 
-  it('without onBuildOnly, carried-in streams are still exported (default/false behaviour unchanged)', () => {
-    const r = release();
-    r.workStreams[1] = { ...r.workStreams[1], build: 'prior-build' };
-    const st: AppState = { version: 1, teams: [], releases: [r], items: [], meta: { lastSyncISO: null } };
+  it('without visibleStreamIds, every stream is exported (default behaviour unchanged)', () => {
+    const st: AppState = { version: 1, teams: [], releases: [release()], items: [], meta: { lastSyncISO: null } };
     const rows = parseRows(releaseToTSV(st, 'rel'));
     expect(tsvHasStream(rows, 'Auth')).toBe(true);
+    expect(tsvHasStream(rows, 'Payments')).toBe(true);
+  });
+
+  it('drops an excluded stream from the contention math behind forecast lines', () => {
+    // Both streams demand engineers against a 1-engineer team; excluding one
+    // changes the contention scale behind the visible stream's effective
+    // capacity, so its forecast shortfall differs — proof the forecast/runway
+    // lines are computed over the filtered set, matching the on-screen facets.
+    // Sprints must lie in the future (contention is inert once no sprints
+    // remain) and remaining points must exceed capacity in both scenarios so
+    // the at-risk line carries the (different) shortfall numbers.
+    const r = release();
+    r.sprints = [
+      { id: 'sp1', name: 'Sprint 1', startISO: '2027-04-13', endISO: '2027-04-26', daysOff: 0, externalId: null, plannedVelocity: null },
+      { id: 'sp2', name: 'Sprint 2', startISO: '2027-04-27', endISO: '2027-05-10', daysOff: 0, externalId: null, plannedVelocity: null },
+    ];
+    r.workStreams = r.workStreams.map((ws) => ({ ...ws, engineersRequired: 2 }));
+    const st: AppState = {
+      version: 1,
+      teams: [{ id: 't', name: 'Core', velocity: 20, members: [{ id: 'm1', name: 'Alice', externalId: null, nonContributing: false }], externalId: null }],
+      releases: [r],
+      items: [
+        item({ workStreamId: 'ws1', key: 'ORN-100', subject: 'A', points: 100 }),
+        item({ workStreamId: 'ws2', key: 'ORN-200', subject: 'B', points: 100 }),
+      ],
+      meta: { lastSyncISO: null },
+    };
+    const all = releaseToTSV(st, 'rel');
+    const filtered = releaseToTSV(st, 'rel', new Set(['ws1']));
+    expect(tsvHasStream(parseRows(filtered), 'Auth')).toBe(false);
+    // The Payments header cell differs once Auth's engineer demand leaves the pool.
+    const paymentsCell = (tsv: string) => parseRows(tsv).find((row) => row[0].startsWith('Payments'))?.[0];
+    expect(paymentsCell(filtered)).not.toBe(paymentsCell(all));
   });
 
   it('strips tabs/newlines from item labels so the grid stays intact', () => {

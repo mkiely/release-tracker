@@ -5,7 +5,7 @@
 // field surfaces it in the sprint/stream tables with no per-field wiring.
 
 import type { FieldSpec } from '../../sync/schema';
-import type { ReleaseCatalog, WorkItem } from '../../types';
+import type { ReleaseCatalog, WorkItem, WorkStream } from '../../types';
 import { isAttributeField } from '../../lib/connectorFields';
 import { displayValue } from './registry';
 
@@ -48,5 +48,27 @@ export function attributeColumns(catalog: ReleaseCatalog | null | undefined): At
       if (!spec) return ''; // this item's type doesn't declare the field
       return displayValue(spec, item.attributes?.[key]);
     },
+  }));
+}
+
+/** One vocabulary-driven work-stream column/tag. */
+export interface StreamAttrColumn {
+  key: string;
+  label: string;
+  /** Display string for one stream: an em dash when declared but unset. */
+  cell: (ws: WorkStream) => string;
+}
+
+/**
+ * Project a release's work-stream field catalog into columns/tags. Flat —
+ * streams have no type dimension, so every declared vocabulary field applies
+ * to every stream (defensively re-filtered through isAttributeField; the
+ * conformance suite enforces the same shape service-side).
+ */
+export function streamAttributeColumns(catalog: ReleaseCatalog | null | undefined): StreamAttrColumn[] {
+  return (catalog?.workStreamFields ?? []).filter(isAttributeField).map((f) => ({
+    key: f.key,
+    label: f.label ?? f.key,
+    cell: (ws) => displayValue(f, ws.attributes?.[f.key]),
   }));
 }

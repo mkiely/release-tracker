@@ -77,6 +77,7 @@ const ACME_ITEM_TYPES: ConnectorItemType[] = [
         required: true,
         creatable: true,
         writeable: true,
+        filterable: true,
         options: [
           { value: 'low', label: 'Low' },
           { value: 'medium', label: 'Medium' },
@@ -84,6 +85,22 @@ const ACME_ITEM_TYPES: ConnectorItemType[] = [
           { value: 'critical', label: 'Critical' },
         ],
       },
+    ],
+  },
+];
+
+// The fixture backend's work-stream field catalog: describes the keys emitted in
+// MappedWorkStream.attributes. Flat — streams have no type dimension. `track` is
+// filterable, so it surfaces as a stream-level facet on the release overview.
+const ACME_STREAM_FIELDS = [
+  {
+    key: 'track',
+    label: 'Track',
+    kind: 'enum' as const,
+    filterable: true,
+    options: [
+      { value: 'product', label: 'Product' },
+      { value: 'platform', label: 'Platform' },
     ],
   },
 ];
@@ -101,6 +118,7 @@ export const FIXTURE_CONNECTORS: ConnectorMeta[] = [
     ],
     itemTypes: ACME_ITEM_TYPES,
     statuses: ACME_STATUSES,
+    workStreamFields: ACME_STREAM_FIELDS,
   },
 ];
 
@@ -170,9 +188,11 @@ export function fixtureMappedRelease(): MappedRelease {
       ],
     },
     workStreams: [
-      { externalId: 'EPIC-CHK', fields: { name: 'Checkout API' } },
-      { externalId: 'EPIC-SRCH', fields: { name: 'Search Revamp' } },
-      { externalId: 'EPIC-BILL', fields: { name: 'Billing Migration' } },
+      { externalId: 'EPIC-CHK', attributes: { track: 'product' }, fields: { name: 'Checkout API' } },
+      // Carried in from the 264 build line; `track` left unset to exercise the
+      // "(none)" stream-facet option.
+      { externalId: 'EPIC-SRCH', fields: { name: 'Search Revamp', build: '264' } },
+      { externalId: 'EPIC-BILL', attributes: { track: 'platform' }, fields: { name: 'Billing Migration' } },
     ],
     sprints: [
       { externalId: 'JSPR-101', fields: { name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26' } },
@@ -183,10 +203,12 @@ export function fixtureMappedRelease(): MappedRelease {
       { externalId: 'EXT-101', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-101', extAssigneeId: 'ACME-USR-ADA', fields: { key: 'EXT-101', subject: 'Tokenize card vault', description: 'PCI-scoped vault for card tokens.', status: 'Complete', statusNative: { id: 'done', label: 'Done' }, points: 5, itemType: { id: 'acme_story', label: 'Story' } } },
       { externalId: 'EXT-102', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-101', extAssigneeId: 'ACME-USR-MARCO', fields: { key: 'EXT-102', subject: 'Idempotent charge endpoint', description: '', status: 'In Progress', statusNative: { id: 'dev', label: 'In Dev' }, points: 3, itemType: { id: 'acme_story', label: 'Story' } } },
       { externalId: 'EXT-103', extWorkStreamId: 'EPIC-CHK', extSprintId: 'JSPR-102', extAssigneeId: 'ACME-USR-WEI', fields: { key: 'EXT-103', subject: '3-D Secure handshake', description: '', status: 'Under Review', statusNative: { id: 'qa', label: 'In QA' }, points: 8, itemType: { id: 'acme_story', label: 'Story' } } },
-      { externalId: 'EXT-110', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-101', extAssigneeId: 'ACME-USR-DEVI', fields: { key: 'EXT-110', subject: 'Typeahead suggestions', description: '', status: 'Complete', statusNative: { id: 'done', label: 'Done' }, points: 3, itemType: { id: 'acme_story', label: 'Story' } } },
-      { externalId: 'EXT-111', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-102', extAssigneeId: 'ACME-USR-TOM', fields: { key: 'EXT-111', subject: 'Relevance ranking model', description: '', status: 'Blocked', statusNative: { id: 'blocked', label: 'Blocked' }, points: 5, itemType: { id: 'acme_task', label: 'Task' } } },
+      // Carried-in items keep their origin build ('264' line, dotted point builds) —
+      // the app's build facets group them under one '264' chip (prefix grouping).
+      { externalId: 'EXT-110', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-101', extAssigneeId: 'ACME-USR-DEVI', fields: { key: 'EXT-110', subject: 'Typeahead suggestions', description: '', status: 'Complete', statusNative: { id: 'done', label: 'Done' }, points: 3, build: '264', itemType: { id: 'acme_story', label: 'Story' } } },
+      { externalId: 'EXT-111', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-102', extAssigneeId: 'ACME-USR-TOM', fields: { key: 'EXT-111', subject: 'Relevance ranking model', description: '', status: 'Blocked', statusNative: { id: 'blocked', label: 'Blocked' }, points: 5, build: '264.1', itemType: { id: 'acme_task', label: 'Task' } } },
       // A Bug with a vocabulary field — exercises the attribute round-trip + read-only display.
-      { externalId: 'EXT-112', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-103', extAssigneeId: 'ACME-USR-DEVI', attributes: { severity: 'high' }, fields: { key: 'EXT-112', subject: 'Stale results after reindex', description: 'Cache not invalidated on reindex completion.', status: 'Not Started', statusNative: { id: 'backlog', label: 'Backlog' }, points: 2, itemType: { id: 'acme_bug', label: 'Bug' } } },
+      { externalId: 'EXT-112', extWorkStreamId: 'EPIC-SRCH', extSprintId: 'JSPR-103', extAssigneeId: 'ACME-USR-DEVI', attributes: { severity: 'high' }, fields: { key: 'EXT-112', subject: 'Stale results after reindex', description: 'Cache not invalidated on reindex completion.', status: 'Not Started', statusNative: { id: 'backlog', label: 'Backlog' }, points: 2, build: '264.2', itemType: { id: 'acme_bug', label: 'Bug' } } },
       { externalId: 'EXT-120', extWorkStreamId: 'EPIC-BILL', extSprintId: 'JSPR-102', extAssigneeId: 'ACME-USR-ADA', fields: { key: 'EXT-120', subject: 'Dual-write ledger', description: '', status: 'In Progress', statusNative: { id: 'dev', label: 'In Dev' }, points: 8, itemType: { id: 'acme_story', label: 'Story' } } },
       { externalId: 'EXT-121', extWorkStreamId: 'EPIC-BILL', extSprintId: 'JSPR-103', extAssigneeId: 'ACME-USR-MARCO', fields: { key: 'EXT-121', subject: 'Proration engine', description: '', status: 'Not Started', statusNative: { id: 'backlog', label: 'Backlog' }, points: 5, itemType: { id: 'acme_story', label: 'Story' } } },
       // Unscheduled (no external sprint) → lands in the backlog.

@@ -1,5 +1,6 @@
-import { useRef } from 'react';
+import { Fragment, useRef } from 'react';
 import type { GroupBy, SprintViewProps, StreamColumn, StatusColumn } from '../hooks/useSprintView';
+import { isAnyFacetActive, type FacetGroup } from '../lib/facets';
 import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
 import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
@@ -15,8 +16,8 @@ import { Icon } from '../components/Icon';
 import { SprintRail } from '../components/dnd';
 import { IconButton } from '../components/primitives';
 import { TeamLink } from '../components/TeamLink';
-import { statusVars, typeVars } from '../components/statusVars';
-import { STATUSES, type Member, type Status } from '../types';
+import { statusVars } from '../components/statusVars';
+import type { Member, Status } from '../types';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
 import { ResizeHandle } from './ResizeHandle';
 import { ItemRow } from './ItemRow';
@@ -190,120 +191,93 @@ function StatusSection({
 }
 
 // ── Filter bar ────────────────────────────────────────────────────────────
+// The table's labeled-group presentation of the generic facet groups — every
+// facet (built-in and connector-declared) renders here with no per-field
+// wiring. Member facets keep the leading-avatar chip style.
 
-function FilterBar({
-  sprintTypes,
-  sprintMembers,
-  memberFilter,
-  statusFilter,
-  typeFilter,
-  isFiltered,
-  onToggleMember,
-  onToggleStatus,
-  onToggleType,
-  onClearFilters,
-}: Pick<
-  SprintViewProps,
-  | 'sprintTypes'
-  | 'sprintMembers'
-  | 'memberFilter'
-  | 'statusFilter'
-  | 'typeFilter'
-  | 'isFiltered'
-  | 'onToggleMember'
-  | 'onToggleStatus'
-  | 'onToggleType'
-  | 'onClearFilters'
->) {
+export function TableFacetBar<T>({
+  groups,
+  onToggle,
+  onClear,
+  trailing,
+}: {
+  groups: FacetGroup<T>[];
+  onToggle: (facetKey: string, value: string) => void;
+  onClear: () => void;
+  /** Extra bar content after the facets (e.g. the backlog's group-by toggle). */
+  trailing?: React.ReactNode;
+}) {
+  const visible = groups.filter((g) => g.visible);
+  if (visible.length === 0 && !trailing) return null;
+  const isFiltered = isAnyFacetActive(groups);
   return (
     <div className={styles.filterBar}>
-      {/* Type */}
-      {sprintTypes.length > 0 && (
-        <>
+      {visible.map((g, gi) => (
+        <Fragment key={g.def.key}>
+          {gi > 0 && <div className={styles.filterDivider} />}
           <div className={styles.filterGroup}>
-            <span className={styles.filterLabel}>Type</span>
+            <span className={styles.filterLabel}>{g.def.label}</span>
             <div className={styles.filterChips}>
-              {sprintTypes.map((t) => (
-                <FilterChip
-                  key={t}
-                  active={typeFilter.has(t)}
-                  vars={typeVars(t)}
-                  label={t}
-                  title={typeFilter.has(t) ? `Remove filter: ${t}` : `Filter: ${t}`}
-                  onClick={() => onToggleType(t)}
-                />
-              ))}
-            </div>
-          </div>
-          <div className={styles.filterDivider} />
-        </>
-      )}
-
-      {/* Assignee */}
-      {sprintMembers.length > 0 && (
-        <>
-          <div className={styles.filterGroup}>
-            <span className={styles.filterLabel}>Assignee</span>
-            <div className={styles.filterChips}>
-              {sprintMembers.map((m) => {
-                const active = memberFilter.has(m.id);
-                const pal = avatarPalette(m.id);
+              {g.options.map((o) => {
+                const active = g.selection.has(o.value);
+                const title = active ? `Remove filter: ${o.label}` : `Filter: ${o.label}`;
+                if (g.def.chip?.render === 'avatar') {
+                  const pal = avatarPalette(o.value);
+                  return (
+                    <FilterChip
+                      key={o.value}
+                      active={active}
+                      label={o.label.split(' ')[0]}
+                      title={title}
+                      onClick={() => onToggle(g.def.key, o.value)}
+                      leading={
+                        <span
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: '50%',
+                            background: active ? pal.bg : 'var(--rt-fill)',
+                            color: active ? pal.color : 'var(--rt-t3)',
+                            fontSize: 'var(--rt-fs-micro)',
+                            fontWeight: 'var(--rt-fw-bold)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {memberInitials(o.label)}
+                        </span>
+                      }
+                    />
+                  );
+                }
                 return (
                   <FilterChip
-                    key={m.id}
+                    key={o.value}
                     active={active}
-                    label={m.name.split(' ')[0]}
-                    title={active ? `Hide ${m.name}` : `Filter: ${m.name}`}
-                    onClick={() => onToggleMember(m.id)}
-                    leading={
-                      <span
-                        style={{
-                          width: 18,
-                          height: 18,
-                          borderRadius: '50%',
-                          background: active ? pal.bg : 'var(--rt-fill)',
-                          color: active ? pal.color : 'var(--rt-t3)',
-                          fontSize: 'var(--rt-fs-micro)',
-                          fontWeight: 'var(--rt-fw-bold)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {memberInitials(m.name)}
-                      </span>
-                    }
+                    vars={g.def.chip?.vars?.(o.value)}
+                    dotShape={g.def.chip?.dotShape}
+                    label={o.label}
+                    title={title}
+                    onClick={() => onToggle(g.def.key, o.value)}
                   />
                 );
               })}
             </div>
           </div>
-          <div className={styles.filterDivider} />
-        </>
-      )}
-
-      {/* Status */}
-      <div className={styles.filterGroup}>
-        <span className={styles.filterLabel}>Status</span>
-        <div className={styles.filterChips}>
-          {STATUSES.map((s) => (
-            <FilterChip
-              key={s}
-              active={statusFilter.has(s)}
-              vars={statusVars(s)}
-              label={s}
-              title={statusFilter.has(s) ? `Remove filter: ${s}` : `Filter: ${s}`}
-              onClick={() => onToggleStatus(s)}
-            />
-          ))}
-        </div>
-      </div>
-
+        </Fragment>
+      ))}
       {isFiltered && (
         <div className={styles.filterClear}>
-          <ClearFiltersButton onClick={onClearFilters} />
+          <ClearFiltersButton onClick={onClear} />
         </div>
+      )}
+      {trailing && (
+        <>
+          {visible.length > 0 && <div className={styles.filterDivider} />}
+          {trailing}
+        </>
       )}
     </div>
   );
@@ -326,12 +300,8 @@ export function SprintTable({
   streamCols,
   unassignedItems,
   statusCols,
-  sprintMembers,
-  sprintTypes,
+  facetGroups,
   groupBy,
-  memberFilter,
-  statusFilter,
-  typeFilter,
   sprintItemCount,
   isFiltered,
   onHome,
@@ -343,9 +313,7 @@ export function SprintTable({
   onOpenItem,
   onOpenEvent,
   onSetGroupBy,
-  onToggleMember,
-  onToggleStatus,
-  onToggleType,
+  onToggleFacet,
   onClearFilters,
   onSync,
   onPush,
@@ -434,18 +402,7 @@ export function SprintTable({
         onGo={onGoToSprint}
       />
 
-      <FilterBar
-        sprintTypes={sprintTypes}
-        sprintMembers={sprintMembers}
-        memberFilter={memberFilter}
-        statusFilter={statusFilter}
-        typeFilter={typeFilter}
-        isFiltered={isFiltered}
-        onToggleMember={onToggleMember}
-        onToggleStatus={onToggleStatus}
-        onToggleType={onToggleType}
-        onClearFilters={onClearFilters}
-      />
+      <TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />
 
       <div className={styles.body} ref={bodyRef}>
         <ColHeaders groupBy={groupBy} attrColumns={attrCols} containerRef={bodyRef} />

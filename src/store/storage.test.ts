@@ -101,6 +101,12 @@ describe('load', () => {
     expect(loaded.releases.length).toBeGreaterThan(0);
   });
 
+  it('removes the deprecated on-build lens key (replaced by ephemeral stream facets)', () => {
+    localStorage.setItem('release-tracker:buildFilter', '1');
+    load();
+    expect(localStorage.getItem('release-tracker:buildFilter')).toBeNull();
+  });
+
   it('survives a persist → load → persist → load cycle without drift', () => {
     const a = load();        // seed (empty start)
     persist(a);

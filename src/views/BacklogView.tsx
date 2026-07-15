@@ -5,19 +5,18 @@ import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFit
 import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
 import type { Member, Sprint, WorkItem } from '../types';
-import { STATUSES } from '../types';
 import { fmtShort } from '../lib/dates';
 import { sumPoints } from '../lib/derive';
 import { NewItemButton, PushButton, SyncButton, TopBar } from '../components/chrome';
 import { ShareButton } from '../components/ShareButton';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { EmptyState } from '../components/EmptyState';
-import { FilterChip, ClearFiltersButton } from '../components/FilterChip';
 import { Icon } from '../components/Icon';
 import { IconButton } from '../components/primitives';
 import { TeamLink } from '../components/TeamLink';
 import { SegmentedToggle } from '../components/SegmentedToggle';
-import { statusVars, typeVars } from '../components/statusVars';
+import { statusVars } from '../components/statusVars';
+import { TableFacetBar } from './SprintTable';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
 import { ResizeHandle } from './ResizeHandle';
 import { ItemRow } from './ItemRow';
@@ -165,9 +164,7 @@ export function BacklogView({
   activeSprintId,
   totalItemCount,
   totalPts,
-  itemTypes,
-  statusFilter,
-  typeFilter,
+  facetGroups,
   isFiltered,
   groupBySprint,
   onToggleGroupBy,
@@ -176,8 +173,7 @@ export function BacklogView({
   onOpenTeam,
   onNewItem,
   onOpenItem,
-  onToggleStatus,
-  onToggleType,
+  onToggleFacet,
   onClearFilters,
   onSync,
   onPush,
@@ -230,61 +226,25 @@ export function BacklogView({
         }
       />
 
-      <div className={styles.filterBar}>
-        {itemTypes.length > 0 && (
-          <>
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>Type</span>
-              <div className={styles.filterChips}>
-                {itemTypes.map((t) => (
-                  <FilterChip
-                    key={t}
-                    active={typeFilter.has(t)}
-                    vars={typeVars(t)}
-                    label={t}
-                    title={typeFilter.has(t) ? `Remove filter: ${t}` : `Filter: ${t}`}
-                    onClick={() => onToggleType(t)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className={styles.filterDivider} />
-          </>
-        )}
-        <div className={styles.filterGroup}>
-          <span className={styles.filterLabel}>Status</span>
-          <div className={styles.filterChips}>
-            {STATUSES.map((s) => (
-              <FilterChip
-                key={s}
-                active={statusFilter.has(s)}
-                vars={statusVars(s)}
-                label={s}
-                title={statusFilter.has(s) ? `Remove filter: ${s}` : `Filter: ${s}`}
-                onClick={() => onToggleStatus(s)}
-              />
-            ))}
+      <TableFacetBar
+        groups={facetGroups}
+        onToggle={onToggleFacet}
+        onClear={onClearFilters}
+        trailing={
+          <div className={styles.filterGroup} style={{ justifyContent: 'flex-end' }}>
+            <span className={styles.filterLabel}>Group by</span>
+            <SegmentedToggle<'flat' | 'sprint'>
+              ariaLabel="Group backlog by"
+              value={groupBySprint ? 'sprint' : 'flat'}
+              onChange={(v) => { if ((v === 'sprint') !== groupBySprint) onToggleGroupBy(); }}
+              options={[
+                { value: 'flat', label: 'All items', title: 'Show all items in one list' },
+                { value: 'sprint', label: 'By sprint', title: 'Group items by sprint' },
+              ]}
+            />
           </div>
-        </div>
-        {isFiltered && (
-          <div className={styles.filterClear}>
-            <ClearFiltersButton onClick={onClearFilters} />
-          </div>
-        )}
-        <div className={styles.filterDivider} />
-        <div className={styles.filterGroup} style={{ justifyContent: 'flex-end' }}>
-          <span className={styles.filterLabel}>Group by</span>
-          <SegmentedToggle<'flat' | 'sprint'>
-            ariaLabel="Group backlog by"
-            value={groupBySprint ? 'sprint' : 'flat'}
-            onChange={(v) => { if ((v === 'sprint') !== groupBySprint) onToggleGroupBy(); }}
-            options={[
-              { value: 'flat', label: 'All items', title: 'Show all items in one list' },
-              { value: 'sprint', label: 'By sprint', title: 'Group items by sprint' },
-            ]}
-          />
-        </div>
-      </div>
+        }
+      />
 
       <div className={styles.body} ref={bodyRef}>
         <ColHeaders groupBySprint={groupBySprint} attrColumns={attrCols} containerRef={bodyRef} />

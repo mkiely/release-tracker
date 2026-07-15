@@ -1,6 +1,6 @@
 // Domain types for Release Tracker. Mirrors the schema in proto-store.jsx.
 
-import type { ConnectorItemType, StatusDef } from './sync/schema';
+import type { ConnectorItemType, FieldSpec, StatusDef } from './sync/schema';
 
 export const STATUSES = ['Not Started', 'In Progress', 'Under Review', 'Blocked', 'Complete'] as const;
 export type Status = (typeof STATUSES)[number];
@@ -14,14 +14,16 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 20;
+export const SCHEMA_VERSION = 21;
 
-/** Sync-time snapshot of a connector's vocabulary: its item-type catalog and its
- *  status vocabulary (native workflow states mapped to canonical categories).
+/** Sync-time snapshot of a connector's vocabulary: its item-type catalog, its
+ *  status vocabulary (native workflow states mapped to canonical categories),
+ *  and its work-stream field catalog (describes MappedWorkStream.attributes).
  *  Stored on the release so synced data stays interpretable offline. */
 export interface ReleaseCatalog {
   itemTypes: ConnectorItemType[];
   statuses: StatusDef[];
+  workStreamFields: FieldSpec[];
 }
 
 /** A person on a team. Members supply the per-sprint capacity (person-days). */

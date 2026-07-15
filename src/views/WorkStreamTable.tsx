@@ -5,18 +5,18 @@ import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFit
 import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
 import type { Member, Sprint, WorkItem } from '../types';
-import { STATUSES } from '../types';
 import { fmtShort } from '../lib/dates';
 import { sumPoints } from '../lib/derive';
 import { NewItemButton, PushButton, SyncButton, TopBar } from '../components/chrome';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { EmptyState } from '../components/EmptyState';
-import { FilterChip, ClearFiltersButton } from '../components/FilterChip';
 import { Icon } from '../components/Icon';
 import { Drag, useDrag } from '../components/dnd';
 import { IconButton } from '../components/primitives';
 import { TeamLink } from '../components/TeamLink';
-import { statusVars, typeVars } from '../components/statusVars';
+import { StreamAttrSummary } from '../components/StreamAttrSummary';
+import { statusVars } from '../components/statusVars';
+import { TableFacetBar } from './SprintTable';
 import { getActions } from '../store/store';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
 import { ResizeHandle } from './ResizeHandle';
@@ -131,69 +131,6 @@ function SprintSection({
   );
 }
 
-// ── Filter bar ────────────────────────────────────────────────────────────
-
-function FilterBar({
-  streamTypes,
-  statusFilter,
-  typeFilter,
-  isFiltered,
-  onToggleStatus,
-  onToggleType,
-  onClearFilters,
-}: Pick<
-  WorkStreamViewProps,
-  'streamTypes' | 'statusFilter' | 'typeFilter' | 'isFiltered'
-  | 'onToggleStatus' | 'onToggleType' | 'onClearFilters'
->) {
-  return (
-    <div className={styles.filterBar}>
-      {streamTypes.length > 0 && (
-        <>
-          <div className={styles.filterGroup}>
-            <span className={styles.filterLabel}>Type</span>
-            <div className={styles.filterChips}>
-              {streamTypes.map((t) => (
-                <FilterChip
-                  key={t}
-                  active={typeFilter.has(t)}
-                  vars={typeVars(t)}
-                  label={t}
-                  title={typeFilter.has(t) ? `Remove filter: ${t}` : `Filter: ${t}`}
-                  onClick={() => onToggleType(t)}
-                />
-              ))}
-            </div>
-          </div>
-          <div className={styles.filterDivider} />
-        </>
-      )}
-
-      <div className={styles.filterGroup}>
-        <span className={styles.filterLabel}>Status</span>
-        <div className={styles.filterChips}>
-          {STATUSES.map((s) => (
-            <FilterChip
-              key={s}
-              active={statusFilter.has(s)}
-              vars={statusVars(s)}
-              label={s}
-              title={statusFilter.has(s) ? `Remove filter: ${s}` : `Filter: ${s}`}
-              onClick={() => onToggleStatus(s)}
-            />
-          ))}
-        </div>
-      </div>
-
-      {isFiltered && (
-        <div className={styles.filterClear}>
-          <ClearFiltersButton onClick={onClearFilters} />
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Column headers ────────────────────────────────────────────────────────
 
 function ColHeaders({
@@ -247,16 +184,13 @@ export function WorkStreamTable({
   activeSprintId,
   totalItemCount,
   totalPts,
-  streamTypes,
-  statusFilter,
-  typeFilter,
+  facetGroups,
   isFiltered,
   onHome,
   onBack,
   onNewItem,
   onOpenItem,
-  onToggleStatus,
-  onToggleType,
+  onToggleFacet,
   onClearFilters,
   onSync,
   onPush,
@@ -322,6 +256,7 @@ export function WorkStreamTable({
                   {Icon.external}
                 </a>
               )}
+              <StreamAttrSummary release={r} ws={ws} />
             </div>
           </>
         }
@@ -338,15 +273,7 @@ export function WorkStreamTable({
         }
       />
 
-      <FilterBar
-        streamTypes={streamTypes}
-        statusFilter={statusFilter}
-        typeFilter={typeFilter}
-        isFiltered={isFiltered}
-        onToggleStatus={onToggleStatus}
-        onToggleType={onToggleType}
-        onClearFilters={onClearFilters}
-      />
+      <TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />
 
       <div className={styles.body} ref={bodyRef}>
         <ColHeaders attrColumns={attrCols} containerRef={bodyRef} />

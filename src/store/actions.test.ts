@@ -258,6 +258,20 @@ describe('syncRelease', () => {
     expect(after.items.map((i) => i.externalId)).toContain('EXT-1');
   });
 
+  it('snapshots the full connector vocabulary onto the release catalog', async () => {
+    const streamFields = [{ key: 'track', label: 'Track', kind: 'enum' as const, filterable: true, options: [{ value: 'product', label: 'Product' }] }];
+    client.listConnectors.mockResolvedValue([acmeMeta({ workStreamFields: streamFields })]);
+    client.sync.mockResolvedValue(mappedRelease());
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'acme', config: {} } });
+
+    await A().syncRelease(r.id);
+
+    const catalog = getState().releases[0].catalog;
+    expect(catalog?.itemTypes).toEqual([STORY_TYPE]);
+    expect(catalog?.statuses).toEqual([]);
+    expect(catalog?.workStreamFields).toEqual(streamFields);
+  });
+
   it("returns { ok: false, reason: 'error' } and records the error when sync throws", async () => {
     client.listConnectors.mockResolvedValue([acmeMeta()]);
     client.sync.mockRejectedValue(new Error('boom'));
@@ -297,7 +311,7 @@ describe('revertItem', () => {
     useStore.setState({
       releases: getState().releases.map((rel) =>
         rel.id === r.id
-          ? { ...rel, catalog: { itemTypes: [], statuses: [{ id: 'in_progress', label: 'Doing', category: 'In Progress' as const }] } }
+          ? { ...rel, catalog: { itemTypes: [], statuses: [{ id: 'in_progress', label: 'Doing', category: 'In Progress' as const }], workStreamFields: [] } }
           : rel,
       ),
     });

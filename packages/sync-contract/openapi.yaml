@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.16.0
+  version: 0.17.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
@@ -406,6 +406,33 @@ components:
         pattern: { type: string, description: 'Regex the value must match (kind=string).' }
         creatable: { type: boolean, description: 'Shown on the create form. Default false.' }
         writeable: { type: boolean, description: 'Pushable on an existing item. Default false.' }
+        filterable:
+          type: boolean
+          description: >-
+            The app should offer this field as a filter facet (a chip group) in
+            its item/stream views. Only valid on vocabulary fields — no `role`,
+            not `kind: ref`, no `enumRef` (canonical concepts already have
+            built-in facets) — and only for kinds that facet well: enum,
+            boolean, and string (discrete observed values; number/date are
+            continuous and do not facet). Facet options derive from declared
+            enum `options` intersected with observed values; the app is free to
+            suppress a facet that would offer fewer than two choices. Default
+            false.
+        facetGroup:
+          type: string
+          enum: [prefix]
+          description: >-
+            For filterable string fields with dense value spaces: collapse
+            observed values into facet options by leading segment — split each
+            value on `facetSeparator` (default '.'), group by the first
+            segment, and one option matches every value in its group ('264'
+            matches 264, 264.1, 264.2). Values without the separator form
+            their own group. Omit for exact per-value options. Bounded
+            strategy enum by design (no connector-supplied patterns); new
+            strategies are additive.
+        facetSeparator:
+          type: string
+          description: Separator for facetGroup=prefix. Default '.'.
 
     ConnectorItemType:
       type: object
@@ -448,6 +475,20 @@ components:
             backend uses the canonical five directly and items carry no
             statusNative.
           items: { $ref: '#/components/schemas/StatusDef' }
+        workStreamFields:
+          type: array
+          description: >-
+            Field catalog for work streams — describes the keys a connector
+            emits in MappedWorkStream.attributes, exactly as itemTypes[].fields
+            describes MappedItem.attributes. Streams have no type dimension, so
+            this is a flat list. Entries must be vocabulary-shaped (no role, no
+            ref target, no enumRef); `creatable`/`writeable` are meaningless
+            here and must be omitted or false — stream attributes are
+            read-only. A field with filterable:true becomes a stream-level
+            facet in the app (a lens over which streams are shown). Absent or
+            empty means the connector declares no stream vocabulary; connectors
+            must not emit undeclared MappedWorkStream.attributes keys.
+          items: { $ref: '#/components/schemas/FieldSpec' }
 
     ReleaseConnector:
       type: object

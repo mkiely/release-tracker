@@ -39,13 +39,18 @@ const serializeRow = (row: string[]): string => row.map(quoteField).join(TAB);
 /**
  * Build a TSV string for a release. Returns '' if the release is not found.
  *
- * `onBuildOnly` mirrors the release view's build-filter lens: streams carried
- * in from a prior build (`ws.build !== null`) are dropped from the per-stream
+ * `visibleStreamIds` mirrors the release view's active stream facets (build +
+ * connector-declared): streams outside the set are dropped from the per-stream
  * sections (and from the contention math that feeds their forecast/runway
- * lines), matching what's on screen when the lens is active. The release-wide
- * summary rows (dates, capacity, planned) stay unfiltered, same as the app.
+ * lines), matching what's on screen when facets are active. Null/undefined =
+ * all streams. The release-wide summary rows (dates, capacity, planned) stay
+ * unfiltered, same as the app.
  */
-export function releaseToTSV(state: AppState, releaseId: string, onBuildOnly = false): string {
+export function releaseToTSV(
+  state: AppState,
+  releaseId: string,
+  visibleStreamIds?: ReadonlySet<string> | null,
+): string {
   const release = state.releases.find((r) => r.id === releaseId);
   if (!release) return '';
 
@@ -53,7 +58,9 @@ export function releaseToTSV(state: AppState, releaseId: string, onBuildOnly = f
   const sprints = [...release.sprints].sort((a, b) => a.startISO.localeCompare(b.startISO));
   const emptySprints = sprints.map(() => '');
 
-  const visibleWorkStreams = onBuildOnly ? release.workStreams.filter((ws) => ws.build === null) : release.workStreams;
+  const visibleWorkStreams = visibleStreamIds
+    ? release.workStreams.filter((ws) => visibleStreamIds.has(ws.id))
+    : release.workStreams;
 
   // Pre-compute per-stream metrics.
   const today = todayISO();

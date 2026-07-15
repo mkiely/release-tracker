@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { selRelease, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { activeSprint, capPct, eventsIn, sprintVel, sumPoints } from '../lib/derive';
-import { STATUSES, type Member, type Release, type ReleaseEvent, type Sprint, type Status, type Team, type WorkItem, type WorkStream } from '../types';
+import { applyFacets, buildFacetGroups, buildItemFacet, catalogItemFacets, isAnyFacetActive, memberFacet, statusFacet, typeFacet } from '../lib/facets';
+import type { FacetGroup } from '../lib/facets';
+import { useFacetSelections } from './useFacets';
+import { STATUSES, type Release, type ReleaseEvent, type Sprint, type Status, type Team, type WorkItem, type WorkStream } from '../types';
 
 export type GroupBy = 'stream' | 'status';
 
@@ -31,14 +34,8 @@ export interface SprintViewProps {
   streamCols: StreamColumn[];
   unassignedItems: WorkItem[];
   statusCols: StatusColumn[];
-  sprintMembers: Member[];
-  sprintTypes: string[];
-  sprintBuilds: string[];
+  facetGroups: FacetGroup<WorkItem>[];
   groupBy: GroupBy;
-  memberFilter: Set<string>;
-  statusFilter: Set<Status>;
-  typeFilter: Set<string>;
-  buildFilter: Set<string>;
   sprintItemCount: number;
   isFiltered: boolean;
   onHome: () => void;
@@ -51,10 +48,7 @@ export interface SprintViewProps {
   onOpenItem: (itemId: string) => void;
   onOpenEvent: (eventId: string) => void;
   onSetGroupBy: (v: GroupBy) => void;
-  onToggleMember: (mid: string) => void;
-  onToggleStatus: (s: Status) => void;
-  onToggleType: (t: string) => void;
-  onToggleBuild: (b: string) => void;
+  onToggleFacet: (facetKey: string, value: string) => void;
   onClearFilters: () => void;
   onSync: () => void;
   onPush: () => void;
@@ -68,17 +62,7 @@ export function useSprintView(): SprintViewProps | null {
   const { id = '', sprintId = '' } = useParams();
 
   const [groupBy, setGroupBy] = useState<GroupBy>('stream');
-  const [memberFilter, setMemberFilter] = useState<Set<string>>(new Set());
-  const [statusFilter, setStatusFilter] = useState<Set<Status>>(new Set());
-  const [buildFilter, setBuildFilter] = useState<Set<string>>(new Set());
-  const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    setMemberFilter(new Set());
-    setStatusFilter(new Set());
-    setBuildFilter(new Set());
-    setTypeFilter(new Set());
-  }, [sprintId]);
+  const facetState = useFacetSelections(sprintId);
 
   const r = selRelease(st, id);
   const sp = r?.sprints.find((s) => s.id === sprintId);
@@ -95,15 +79,13 @@ export function useSprintView(): SprintViewProps | null {
   const evts = eventsIn(r, sp);
   const totalPts = sumPoints(items);
 
-  const sprintTypes = [...new Set(items.map((i) => i.itemType?.label).filter((t): t is string => t !== undefined))];
-  const sprintBuilds = [...new Set(items.map((i) => i.build).filter((b): b is string => b !== null))];
-  const sprintMembers = (team?.members ?? []).filter((m) => items.some((i) => i.assignedMemberId === m.id));
-
-  const filteredItems = items
-    .filter((i) => memberFilter.size === 0 || memberFilter.has(i.assignedMemberId ?? ''))
-    .filter((i) => statusFilter.size === 0 || statusFilter.has(i.status))
-    .filter((i) => typeFilter.size === 0 || (i.itemType !== null && typeFilter.has(i.itemType.label)))
-    .filter((i) => buildFilter.size === 0 || buildFilter.has(i.build ?? ''));
+  const facetGroups = buildFacetGroups(
+    [memberFacet(team), statusFacet(), typeFacet(), buildItemFacet(), ...catalogItemFacets(r.catalog)],
+    items,
+    facetState.selections,
+  );
+  const filteredItems = applyFacets(items, facetGroups);
+  const isFiltered = isAnyFacetActive(facetGroups);
 
   const streamCols: StreamColumn[] = r.workStreams
     .map((ws) => ({ ws, items: filteredItems.filter((i) => i.workStreamId === ws.id) }))
@@ -114,17 +96,6 @@ export function useSprintView(): SprintViewProps | null {
     status: s,
     items: filteredItems.filter((i) => i.status === s),
   }));
-
-  const isFiltered = memberFilter.size > 0 || statusFilter.size > 0 || typeFilter.size > 0 || buildFilter.size > 0;
-
-  function toggleSet<T>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, v: T) {
-    setter((prev) => {
-      const next = new Set(prev);
-      if (next.has(v)) next.delete(v);
-      else next.add(v);
-      return next;
-    });
-  }
 
   return {
     release: r,
@@ -140,14 +111,8 @@ export function useSprintView(): SprintViewProps | null {
     streamCols,
     unassignedItems,
     statusCols,
-    sprintMembers,
-    sprintTypes,
-    sprintBuilds,
+    facetGroups,
     groupBy,
-    memberFilter,
-    statusFilter,
-    typeFilter,
-    buildFilter,
     sprintItemCount: items.length,
     isFiltered,
     onHome: () => navigate('/'),
@@ -160,16 +125,8 @@ export function useSprintView(): SprintViewProps | null {
     onOpenItem: (itemId) => openModal({ type: 'itemDetail', itemId }),
     onOpenEvent: (eventId) => openModal({ type: 'event', releaseId: id, eventId }),
     onSetGroupBy: setGroupBy,
-    onToggleMember: (mid) => toggleSet(setMemberFilter, mid),
-    onToggleStatus: (s) => toggleSet(setStatusFilter, s),
-    onToggleType: (t) => toggleSet(setTypeFilter, t),
-    onToggleBuild: (b) => toggleSet(setBuildFilter, b),
-    onClearFilters: () => {
-      setMemberFilter(new Set());
-      setStatusFilter(new Set());
-      setTypeFilter(new Set());
-      setBuildFilter(new Set());
-    },
+    onToggleFacet: facetState.toggle,
+    onClearFilters: facetState.clear,
     onSync: () => onSync(id),
     onPush: () => onPush(id),
     notify,

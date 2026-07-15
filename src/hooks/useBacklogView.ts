@@ -3,7 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { selRelease, selTeam, selUnassignedItems, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { activeSprint, sumPoints } from '../lib/derive';
-import type { Release, Status, Team, WorkItem } from '../types';
+import { applyFacets, buildFacetGroups, catalogItemFacets, isAnyFacetActive, statusFacet, typeFacet } from '../lib/facets';
+import type { FacetGroup } from '../lib/facets';
+import { useFacetSelections } from './useFacets';
+import type { Release, Team, WorkItem } from '../types';
 
 export interface BacklogViewProps {
   release: Release;
@@ -12,9 +15,7 @@ export interface BacklogViewProps {
   activeSprintId: string | null;
   totalItemCount: number;
   totalPts: number;
-  itemTypes: string[];
-  statusFilter: Set<Status>;
-  typeFilter: Set<string>;
+  facetGroups: FacetGroup<WorkItem>[];
   isFiltered: boolean;
   groupBySprint: boolean;
   onToggleGroupBy: () => void;
@@ -23,8 +24,7 @@ export interface BacklogViewProps {
   onOpenTeam: () => void;
   onNewItem: () => void;
   onOpenItem: (itemId: string) => void;
-  onToggleStatus: (s: Status) => void;
-  onToggleType: (t: string) => void;
+  onToggleFacet: (facetKey: string, value: string) => void;
   onClearFilters: () => void;
   onSync: () => void;
   onPush: () => void;
@@ -37,8 +37,7 @@ export function useBacklogView(): BacklogViewProps | null {
   const { openModal, onSync, onPush, notify } = useApp();
   const { id = '' } = useParams();
 
-  const [statusFilter, setStatusFilter] = useState<Set<Status>>(new Set());
-  const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set());
+  const facetState = useFacetSelections(id);
   const [groupBySprint, setGroupBySprint] = useState(false);
 
   const r = selRelease(st, id);
@@ -49,12 +48,13 @@ export function useBacklogView(): BacklogViewProps | null {
   const act = activeSprint(r);
   const totalPts = sumPoints(items);
 
-  const itemTypes = [...new Set(items.map((i) => i.itemType?.label).filter((t): t is string => t !== undefined))];
-
-  const filteredItems = items
-    .filter((i) => statusFilter.size === 0 || statusFilter.has(i.status))
-    .filter((i) => typeFilter.size === 0 || (i.itemType !== null && typeFilter.has(i.itemType.label)));
-  const isFiltered = statusFilter.size > 0 || typeFilter.size > 0;
+  const facetGroups = buildFacetGroups(
+    [statusFacet(), typeFacet(), ...catalogItemFacets(r.catalog)],
+    items,
+    facetState.selections,
+  );
+  const filteredItems = applyFacets(items, facetGroups);
+  const isFiltered = isAnyFacetActive(facetGroups);
 
   return {
     release: r,
@@ -63,9 +63,7 @@ export function useBacklogView(): BacklogViewProps | null {
     activeSprintId: act ? act.id : null,
     totalItemCount: items.length,
     totalPts,
-    itemTypes,
-    statusFilter,
-    typeFilter,
+    facetGroups,
     isFiltered,
     groupBySprint,
     onToggleGroupBy: () => setGroupBySprint((v) => !v),
@@ -74,24 +72,8 @@ export function useBacklogView(): BacklogViewProps | null {
     onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
     onNewItem: () => openModal({ type: r.connector ? 'connectorItem' : 'item', releaseId: id, presetStreamId: undefined }),
     onOpenItem: (itemId) => openModal({ type: 'itemDetail', itemId }),
-    onToggleStatus: (s) =>
-      setStatusFilter((prev) => {
-        const next = new Set(prev);
-        if (next.has(s)) next.delete(s);
-        else next.add(s);
-        return next;
-      }),
-    onToggleType: (t) =>
-      setTypeFilter((prev) => {
-        const next = new Set(prev);
-        if (next.has(t)) next.delete(t);
-        else next.add(t);
-        return next;
-      }),
-    onClearFilters: () => {
-      setStatusFilter(new Set());
-      setTypeFilter(new Set());
-    },
+    onToggleFacet: facetState.toggle,
+    onClearFilters: facetState.clear,
     onSync: () => onSync(id),
     onPush: () => onPush(id),
     notify,

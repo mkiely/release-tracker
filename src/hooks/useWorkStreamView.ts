@@ -1,9 +1,11 @@
-import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { selRelease, selItemsForStream, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { activeSprint, sumPoints } from '../lib/derive';
-import type { Release, Status, Team, WorkItem, WorkStream } from '../types';
+import { applyFacets, buildFacetGroups, catalogItemFacets, isAnyFacetActive, statusFacet, typeFacet } from '../lib/facets';
+import type { FacetGroup } from '../lib/facets';
+import { useFacetSelections } from './useFacets';
+import type { Release, Team, WorkItem, WorkStream } from '../types';
 
 export interface WorkStreamViewProps {
   release: Release;
@@ -14,17 +16,14 @@ export interface WorkStreamViewProps {
   activeSprintId: string | null;
   totalItemCount: number;
   totalPts: number;
-  streamTypes: string[];
-  statusFilter: Set<Status>;
-  typeFilter: Set<string>;
+  facetGroups: FacetGroup<WorkItem>[];
   isFiltered: boolean;
   onHome: () => void;
   onBack: () => void;
   onOpenTeam: () => void;
   onNewItem: () => void;
   onOpenItem: (itemId: string) => void;
-  onToggleStatus: (s: Status) => void;
-  onToggleType: (t: string) => void;
+  onToggleFacet: (facetKey: string, value: string) => void;
   onClearFilters: () => void;
   onSync: () => void;
   onPush: () => void;
@@ -37,8 +36,7 @@ export function useWorkStreamView(): WorkStreamViewProps | null {
   const { openModal, onSync, onPush, notify } = useApp();
   const { id = '', wsId = '' } = useParams();
 
-  const [statusFilter, setStatusFilter] = useState<Set<Status>>(new Set());
-  const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set());
+  const facetState = useFacetSelections(wsId);
 
   const r = selRelease(st, id);
   const ws = r?.workStreams.find((w) => w.id === wsId);
@@ -50,12 +48,13 @@ export function useWorkStreamView(): WorkStreamViewProps | null {
   const act = activeSprint(r);
   const totalPts = sumPoints(items);
 
-  const streamTypes = [...new Set(items.map((i) => i.itemType?.label).filter((t): t is string => t !== undefined))];
-
-  const filteredItems = items
-    .filter((i) => statusFilter.size === 0 || statusFilter.has(i.status))
-    .filter((i) => typeFilter.size === 0 || (i.itemType !== null && typeFilter.has(i.itemType.label)));
-  const isFiltered = statusFilter.size > 0 || typeFilter.size > 0;
+  const facetGroups = buildFacetGroups(
+    [statusFacet(), typeFacet(), ...catalogItemFacets(r.catalog)],
+    items,
+    facetState.selections,
+  );
+  const filteredItems = applyFacets(items, facetGroups);
+  const isFiltered = isAnyFacetActive(facetGroups);
 
   return {
     release: r,
@@ -66,33 +65,15 @@ export function useWorkStreamView(): WorkStreamViewProps | null {
     activeSprintId: act ? act.id : null,
     totalItemCount: items.length,
     totalPts,
-    streamTypes,
-    statusFilter,
-    typeFilter,
+    facetGroups,
     isFiltered,
     onHome: () => navigate('/'),
     onBack: () => navigate(`/releases/${id}`),
     onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
     onNewItem: () => openModal({ type: r.connector ? 'connectorItem' : 'item', releaseId: id, presetStreamId: ws.id }),
     onOpenItem: (itemId) => openModal({ type: 'itemDetail', itemId }),
-    onToggleStatus: (s) =>
-      setStatusFilter((prev) => {
-        const next = new Set(prev);
-        if (next.has(s)) next.delete(s);
-        else next.add(s);
-        return next;
-      }),
-    onToggleType: (t) =>
-      setTypeFilter((prev) => {
-        const next = new Set(prev);
-        if (next.has(t)) next.delete(t);
-        else next.add(t);
-        return next;
-      }),
-    onClearFilters: () => {
-      setStatusFilter(new Set());
-      setTypeFilter(new Set());
-    },
+    onToggleFacet: facetState.toggle,
+    onClearFilters: facetState.clear,
     onSync: () => onSync(id),
     onPush: () => onPush(id),
     notify,

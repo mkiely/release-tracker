@@ -3,15 +3,13 @@ import { NewItemButton, PushButton, SyncButton, TopBar } from '../components/chr
 import { ShareButton } from '../components/ShareButton';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { EmptyState } from '../components/EmptyState';
-import { FilterChip, ClearFiltersButton } from '../components/FilterChip';
+import { FacetBar } from '../components/FacetBar';
 import { Icon } from '../components/Icon';
+import { StreamAttrSummary } from '../components/StreamAttrSummary';
 import { StreamSprintColumn } from '../components/dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
 import { IconButton } from '../components/primitives';
 import { TeamLink } from '../components/TeamLink';
-import { VDivider } from '../components/VDivider';
-import { statusVars } from '../components/statusVars';
-import { STATUSES } from '../types';
 
 export function WorkStreamView({
   release: r,
@@ -23,16 +21,13 @@ export function WorkStreamView({
   activeSprintId,
   totalItemCount,
   totalPts,
-  streamTypes,
-  statusFilter,
-  typeFilter,
+  facetGroups,
   isFiltered,
   onHome,
   onBack,
   onNewItem,
   onOpenItem,
-  onToggleStatus,
-  onToggleType,
+  onToggleFacet,
   onClearFilters,
   onSync,
   onPush,
@@ -81,6 +76,7 @@ export function WorkStreamView({
                   {Icon.external}
                 </a>
               )}
+              <StreamAttrSummary release={r} ws={ws} />
             </div>
           </>
         }
@@ -109,37 +105,7 @@ export function WorkStreamView({
           flexWrap: 'wrap',
         }}
       >
-        <span style={{ fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t3)', marginRight: 2 }}>Status</span>
-        {STATUSES.map((s) => (
-          <FilterChip
-            key={s}
-            active={statusFilter.has(s)}
-            vars={statusVars(s)}
-            label={s}
-            title={statusFilter.has(s) ? `Remove filter: ${s}` : `Filter: ${s}`}
-            onClick={() => onToggleStatus(s)}
-          />
-        ))}
-        {streamTypes.length > 0 && (
-          <>
-            <VDivider />
-            {streamTypes.map((t) => (
-              <FilterChip
-                key={t}
-                active={typeFilter.has(t)}
-                label={t}
-                title={typeFilter.has(t) ? `Remove filter: ${t}` : `Filter: ${t}`}
-                onClick={() => onToggleType(t)}
-              />
-            ))}
-          </>
-        )}
-        {isFiltered && (
-          <>
-            <VDivider />
-            <ClearFiltersButton onClick={onClearFilters} title="Clear filters" />
-          </>
-        )}
+        <FacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '18px 24px' }}>
