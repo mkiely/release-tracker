@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import type { RefObject } from 'react';
-import type { BacklogViewProps } from '../hooks/useBacklogView';
+import type { ItemListViewProps } from '../hooks/useItemListView';
 import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
 import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
@@ -30,6 +30,7 @@ function SprintSection({
   items,
   members,
   attrColumns,
+  streamNameOf,
   onOpenItem,
 }: {
   sp: Sprint;
@@ -37,6 +38,8 @@ function SprintSection({
   items: WorkItem[];
   members: Member[];
   attrColumns: AttrColumn[];
+  /** Present when the list mixes streams (backlog): resolves the row's Work Stream cell. */
+  streamNameOf?: (it: WorkItem) => string;
   onOpenItem: (id: string) => void;
 }) {
   const pts = sumPoints(items);
@@ -88,7 +91,14 @@ function SprintSection({
       </div>
       <div className={styles.sectionRight}>
         {items.map((it) => (
-          <ItemRow key={it.id} item={it} members={members} attrColumns={attrColumns} onOpen={() => onOpenItem(it.id)} />
+          <ItemRow
+            key={it.id}
+            item={it}
+            members={members}
+            attrColumns={attrColumns}
+            workStreamName={streamNameOf ? streamNameOf(it) : undefined}
+            onOpen={() => onOpenItem(it.id)}
+          />
         ))}
       </div>
     </div>
@@ -99,10 +109,12 @@ function SprintSection({
 
 function ColHeaders({
   groupBySprint,
+  showStream,
   attrColumns,
   containerRef,
 }: {
   groupBySprint: boolean;
+  showStream: boolean;
   attrColumns: AttrColumn[];
   containerRef: RefObject<HTMLElement | null>;
 }) {
@@ -135,6 +147,12 @@ function ColHeaders({
           <ResizeHandle col="sprint" containerRef={containerRef} />
         </div>
       )}
+      {showStream && (
+        <div className={`${styles.colWorkStream} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
+          Work Stream
+          <ResizeHandle col="workstream" containerRef={containerRef} />
+        </div>
+      )}
       <div className={`${styles.colTitle} ${styles.colHeaderLabel}`}>Title</div>
     </>
   );
@@ -157,7 +175,8 @@ function ColHeaders({
 
 // ── Main component ────────────────────────────────────────────────────────
 
-export function BacklogView({
+export function ItemListView({
+  variant,
   release: r,
   team,
   filteredItems,
@@ -167,6 +186,7 @@ export function BacklogView({
   facetGroups,
   isFiltered,
   groupBySprint,
+  showStreamColumn,
   onToggleGroupBy,
   onHome,
   onBack,
@@ -177,7 +197,7 @@ export function BacklogView({
   onClearFilters,
   onSync,
   onPush,
-}: BacklogViewProps) {
+}: ItemListViewProps) {
   const members = team?.members ?? [];
   const attrCols = attributeColumns(r.catalog);
 
@@ -185,6 +205,18 @@ export function BacklogView({
   const presentation = usePresentationMode();
   useFitColumns(bodyRef, itemTableColumns(filteredItems), [itemColumnsDep(filteredItems), presentation]);
   useColumnWidths(bodyRef);
+
+  const crumbLabel = variant === 'backlog' ? 'Backlog' : 'Unassigned';
+  const emptyMessage = isFiltered
+    ? 'No items match the current filters.'
+    : variant === 'backlog'
+      ? 'Backlog is clear — no incomplete work in this release.'
+      : 'No unassigned items — all work on this build has been organized into streams.';
+
+  const streamNameById = new Map(r.workStreams.map((ws) => [ws.id, ws.name]));
+  const streamNameOf = showStreamColumn
+    ? (it: WorkItem) => (it.workStreamId ? (streamNameById.get(it.workStreamId) ?? '—') : '—')
+    : undefined;
 
   // Grouped mode: sprint sections in release order + "No sprint" at the end
   const sprintSections = groupBySprint
@@ -208,7 +240,7 @@ export function BacklogView({
             crumbs={[
               { label: 'Releases', icon: Icon.release, onClick: onHome },
               { label: r.name, onClick: onBack },
-              { label: 'Backlog', icon: Icon.stream },
+              { label: crumbLabel, icon: variant === 'backlog' ? Icon.backlog : Icon.stream },
             ]}
           />
         }
@@ -234,7 +266,7 @@ export function BacklogView({
           <div className={styles.filterGroup} style={{ justifyContent: 'flex-end' }}>
             <span className={styles.filterLabel}>Group by</span>
             <SegmentedToggle<'flat' | 'sprint'>
-              ariaLabel="Group backlog by"
+              ariaLabel={`Group ${crumbLabel.toLowerCase()} by`}
               value={groupBySprint ? 'sprint' : 'flat'}
               onChange={(v) => { if ((v === 'sprint') !== groupBySprint) onToggleGroupBy(); }}
               options={[
@@ -247,12 +279,15 @@ export function BacklogView({
       />
 
       <div className={styles.body} ref={bodyRef}>
-        <ColHeaders groupBySprint={groupBySprint} attrColumns={attrCols} containerRef={bodyRef} />
+        <ColHeaders
+          groupBySprint={groupBySprint}
+          showStream={showStreamColumn}
+          attrColumns={attrCols}
+          containerRef={bodyRef}
+        />
 
         {isEmpty ? (
-          <EmptyState>
-            {isFiltered ? 'No items match the current filters.' : 'No unassigned items — all work has been organized into streams.'}
-          </EmptyState>
+          <EmptyState>{emptyMessage}</EmptyState>
         ) : groupBySprint ? (
           <>
             {sprintSections.map(({ sp, items }) => (
@@ -263,6 +298,7 @@ export function BacklogView({
                 items={items}
                 members={members}
                 attrColumns={attrCols}
+                streamNameOf={streamNameOf}
                 onOpenItem={onOpenItem}
               />
             ))}
@@ -274,7 +310,14 @@ export function BacklogView({
                 </div>
                 <div className={styles.sectionRight}>
                   {noSprintItems.map((it) => (
-                    <ItemRow key={it.id} item={it} members={members} attrColumns={attrCols} onOpen={() => onOpenItem(it.id)} />
+                    <ItemRow
+                      key={it.id}
+                      item={it}
+                      members={members}
+                      attrColumns={attrCols}
+                      workStreamName={streamNameOf ? streamNameOf(it) : undefined}
+                      onOpen={() => onOpenItem(it.id)}
+                    />
                   ))}
                 </div>
               </div>
@@ -290,6 +333,7 @@ export function BacklogView({
                   members={members}
                   attrColumns={attrCols}
                   sprintName={it.sprintId ? (sprintById.get(it.sprintId) ?? '—') : 'No sprint'}
+                  workStreamName={streamNameOf ? streamNameOf(it) : undefined}
                   onOpen={() => onOpenItem(it.id)}
                 />
               ))}

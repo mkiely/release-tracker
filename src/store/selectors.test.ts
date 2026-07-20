@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selDirtyCount, selItem, selItemsFor, selItemsForStream, selRelease, selTeam } from './store';
+import { selBacklogItems, selDirtyCount, selItem, selItemsFor, selItemsForStream, selRelease, selTeam, selUnassignedItems } from './store';
 import { SCHEMA_VERSION } from '../types';
 import type { AppState, Release, Team, WorkItem } from '../types';
 
@@ -80,6 +80,45 @@ describe('selItemsForStream', () => {
     const items = [item('i1', 'r1', 'ws1')];
     expect(selItemsForStream(state({ items }), 'r1', 'ws_none')).toHaveLength(0);
     expect(selItemsForStream(state({ items }), 'r_none', 'ws1')).toHaveLength(0);
+  });
+});
+
+describe('selUnassignedItems', () => {
+  // Unassigned = native to this release's build (build === null) AND no work stream.
+  it('returns only native items without a work stream', () => {
+    const items = [
+      { ...item('i1', 'r1'), workStreamId: null },                       // native, no stream — unassigned
+      item('i2', 'r1', 'ws1'),                                          // native, in a stream — not unassigned
+      { ...item('i3', 'r1'), workStreamId: null, build: '263' },        // carried-in, no stream — not unassigned
+      { ...item('i4', 'r2'), workStreamId: null },                      // other release
+    ];
+    const result = selUnassignedItems(state({ items }), 'r1');
+    expect(result.map((i) => i.id)).toEqual(['i1']);
+  });
+
+  it('returns empty when every native item has a stream', () => {
+    const items = [item('i1', 'r1', 'ws1'), { ...item('i2', 'r1'), workStreamId: null, build: '263.1' }];
+    expect(selUnassignedItems(state({ items }), 'r1')).toHaveLength(0);
+  });
+});
+
+describe('selBacklogItems', () => {
+  // Backlog = every incomplete item in the release, regardless of build/stream.
+  it('returns incomplete items across streams, no-stream, and carried-in builds', () => {
+    const items = [
+      item('i1', 'r1', 'ws1'),                                          // in a stream
+      { ...item('i2', 'r1'), workStreamId: null },                      // no stream
+      { ...item('i3', 'r1'), workStreamId: null, build: '263' },        // carried-in, no stream
+      { ...item('i4', 'r1'), status: 'Complete' as const },             // complete — excluded
+      item('i5', 'r2'),                                                 // other release
+    ];
+    const result = selBacklogItems(state({ items }), 'r1');
+    expect(result.map((i) => i.id)).toEqual(['i1', 'i2', 'i3']);
+  });
+
+  it('returns empty when all items are complete', () => {
+    const items = [{ ...item('i1', 'r1'), status: 'Complete' as const }];
+    expect(selBacklogItems(state({ items }), 'r1')).toHaveLength(0);
   });
 });
 

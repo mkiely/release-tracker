@@ -299,7 +299,7 @@ export function WorkStreamTable({
             {backlogItems.length > 0 && (
               <div className={styles.section}>
                 <div className={styles.sectionLeft}>
-                  <span className={styles.sectionName} style={{ color: 'var(--rt-t3)', fontStyle: 'italic' }}>Backlog</span>
+                  <span className={styles.sectionName} style={{ color: 'var(--rt-t3)', fontStyle: 'italic' }}>No sprint</span>
                   <div className={styles.sectionMeta}>{backlogItems.length} item{backlogItems.length !== 1 ? 's' : ''}</div>
                 </div>
                 <div className={styles.sectionRight}>

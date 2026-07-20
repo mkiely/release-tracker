@@ -692,7 +692,7 @@ export function WorkItemModal({
         </PField>
         <PField label="Sprint" style={{ flex: 1 }}>
           <PSelect value={sprintId ?? ''} onChange={(e) => setSprintId(e.target.value || null)}>
-            <option value="">Backlog</option>
+            <option value="">No sprint</option>
             {r.sprints.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -964,7 +964,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
         </PField>
         <PField label="Sprint" style={{ flex: 1 }}>
           <PSelect value={sprintId ?? ''} disabled={!canWrite('sprint')} onChange={(e) => setSprintId(e.target.value || null)}>
-            <option value="">Backlog</option>
+            <option value="">No sprint</option>
             {r.sprints.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -1072,7 +1072,7 @@ export function PushReviewModal({
   }
 
   const sprintName = (id: string | null): string =>
-    id == null ? 'Backlog' : (r.sprints.find((s) => s.id === id)?.name ?? 'Unknown sprint');
+    id == null ? 'No sprint' : (r.sprints.find((s) => s.id === id)?.name ?? 'Unknown sprint');
   const statusVocab = meta?.statuses?.length ? meta.statuses : (r.catalog?.statuses ?? []);
   const valueText = (d: PushItemPreview['diffs'][number], v: AttrValue): string => {
     if (d.field === 'sprint') return sprintName(v as string | null);

@@ -115,7 +115,10 @@ export interface ReleaseViewProps {
   onBack: () => void;
   onNavigateToSprint: (sprintId: string) => void;
   onNavigateToStream: (wsId: string) => void;
+  /** Opens the true backlog — every incomplete item in the release. */
   onNavigateToBacklog: () => void;
+  /** Opens the unassigned list — on-build items not yet in a work stream. */
+  onNavigateToUnassigned: () => void;
   onOpenStreamHealth: (wsId: string) => void;
   onEditStream: (wsId: string) => void;
   onOpenTeam: () => void;
@@ -322,6 +325,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     onNavigateToSprint: (spId) => navigate(`/releases/${id}/sprints/${spId}`),
     onNavigateToStream: (wsId) => navigate(`/releases/${id}/streams/${wsId}`),
     onNavigateToBacklog: () => navigate(`/releases/${id}/backlog`),
+    onNavigateToUnassigned: () => navigate(`/releases/${id}/unassigned`),
     onOpenStreamHealth: (wsId) => openModal({ type: 'streamHealth', releaseId: id, wsId }),
     onEditStream: (wsId) => openModal({ type: 'stream', releaseId: id, wsId }),
     onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },

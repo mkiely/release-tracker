@@ -1,8 +1,8 @@
-import { useBacklogView } from '../hooks/useItemListView';
+import { useUnassignedView } from '../hooks/useItemListView';
 import { ItemListView } from '../views/ItemListView';
 import { NotFound } from '../components/chrome';
 
-export function Backlog() {
-  const vm = useBacklogView();
+export function Unassigned() {
+  const vm = useUnassignedView();
   return vm ? <ItemListView {...vm} /> : <NotFound label="Release not found." />;
 }

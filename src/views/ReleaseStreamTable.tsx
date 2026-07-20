@@ -58,19 +58,19 @@ function HealthPanel({ health }: { health: StreamHealth }) {
 function StreamRow({
   row,
   onNavigateToStream,
-  onNavigateToBacklog,
+  onNavigateToUnassigned,
   onOpenStreamHealth,
   onEditStream,
 }: {
   row: StreamRowData;
   onNavigateToStream: (wsId: string) => void;
-  onNavigateToBacklog: () => void;
+  onNavigateToUnassigned: () => void;
   onOpenStreamHealth: (wsId: string) => void;
   onEditStream: (wsId: string) => void;
 }) {
   const { ws, itemCount, points, series, health, forecast } = row;
   const activeIndex = row.lane.find((e) => e.isActive)?.sprintIndex ?? -1;
-  const handleClick = ws !== null ? () => onNavigateToStream(ws.id) : onNavigateToBacklog;
+  const handleClick = ws !== null ? () => onNavigateToStream(ws.id) : onNavigateToUnassigned;
 
   return (
     <div
@@ -128,7 +128,7 @@ function StreamRow({
 }
 
 export function ReleaseStreamTable(props: ReleaseViewProps) {
-  const { release: r, streamRows, onNavigateToStream, onNavigateToBacklog, onOpenStreamHealth, onEditStream, overAllocated, engineersRequiredTotal, contributingCount } = props;
+  const { release: r, streamRows, onNavigateToStream, onNavigateToUnassigned, onOpenStreamHealth, onEditStream, overAllocated, engineersRequiredTotal, contributingCount } = props;
   return (
     <ReleaseChrome {...props}>
       <div className={styles.body}>
@@ -151,7 +151,7 @@ export function ReleaseStreamTable(props: ReleaseViewProps) {
               key={row.ws ? row.ws.id : '__unassigned__'}
               row={row}
               onNavigateToStream={onNavigateToStream}
-              onNavigateToBacklog={onNavigateToBacklog}
+              onNavigateToUnassigned={onNavigateToUnassigned}
               onOpenStreamHealth={onOpenStreamHealth}
               onEditStream={onEditStream}
             />

@@ -849,8 +849,15 @@ export const selItemsFor = (s: AppState, releaseId: string): WorkItem[] =>
   s.items.filter((i) => i.releaseId === releaseId);
 export const selItemsForStream = (s: AppState, releaseId: string, wsId: string): WorkItem[] =>
   s.items.filter((i) => i.releaseId === releaseId && i.workStreamId === wsId);
+/** Unassigned = on this release's build (build === null, i.e. not carried in
+ *  from a prior build) but not yet organized into a work stream. Carried-in
+ *  items without a stream are NOT unassigned — they surface via the backlog. */
 export const selUnassignedItems = (s: AppState, releaseId: string): WorkItem[] =>
-  s.items.filter((i) => i.releaseId === releaseId && i.workStreamId === null);
+  s.items.filter((i) => i.releaseId === releaseId && i.workStreamId === null && i.build === null);
+/** Backlog = every incomplete item in the release (the team's remaining work),
+ *  regardless of build or work-stream assignment. */
+export const selBacklogItems = (s: AppState, releaseId: string): WorkItem[] =>
+  s.items.filter((i) => i.releaseId === releaseId && i.status !== 'Complete');
 export const selItem = (s: AppState, id: string): WorkItem | undefined =>
   s.items.find((i) => i.id === id);
 
