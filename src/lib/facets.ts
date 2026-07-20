@@ -230,7 +230,7 @@ export function buildStreamFacet(): FacetDef<WorkStream> {
         seen.add(g);
         out.push({ value: g, label: g });
       }
-      if (streams.some((ws) => ws.build === null)) out.push({ value: FACET_NONE, label: 'Native' });
+      if (streams.some((ws) => ws.build === null)) out.push({ value: FACET_NONE, label: 'Current Build' });
       return out;
     },
     valueOf: (ws) => (ws.build === null ? FACET_NONE : group(ws.build)),

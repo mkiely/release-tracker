@@ -222,7 +222,7 @@ describe('buildStreamFacet (the on-build lens successor)', () => {
     const [g] = buildFacetGroups([buildStreamFacet()], streams, new Map());
     expect(g.options).toEqual([
       { value: '264', label: '264' },
-      { value: FACET_NONE, label: 'Native' },
+      { value: FACET_NONE, label: 'Current Build' },
     ]);
   });
 
