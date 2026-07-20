@@ -133,7 +133,9 @@ export function releaseToTSV(
   ];
   const unassignedInRelease = state.items.filter((i) => i.releaseId === releaseId && i.workStreamId === null);
   if (unassignedInRelease.length > 0) {
-    streamsToExport.push({ name: 'Unassigned', matchId: null, muted: false });
+    // Catch-all for every streamless item (native and carried-in alike), so the
+    // export stays complete — broader than the app's Unassigned view, hence the label.
+    streamsToExport.push({ name: 'No stream', matchId: null, muted: false });
   }
 
   for (const { name, matchId, muted } of streamsToExport) {

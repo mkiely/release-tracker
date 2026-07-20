@@ -11,6 +11,7 @@ import {
   memberFacet,
   prefixGroup,
   statusFacet,
+  streamItemFacet,
   typeFacet,
 } from './facets';
 import type { FacetDef } from './facets';
@@ -106,6 +107,39 @@ describe('statusFacet', () => {
     const [g] = buildFacetGroups([statusFacet()], [item()], new Map());
     expect(g.options.map((o) => o.value)).toEqual([...STATUSES]);
     expect(g.visible).toBe(true);
+  });
+
+  it('omits excluded statuses (backlog views rule out Complete by construction)', () => {
+    const [g] = buildFacetGroups([statusFacet(['Complete'])], [item()], new Map());
+    expect(g.options.map((o) => o.value)).toEqual(STATUSES.filter((s) => s !== 'Complete'));
+  });
+});
+
+describe('streamItemFacet', () => {
+  const streams = [stream({ id: 'ws1', name: 'API' }), stream({ id: 'ws2', name: 'UI' }), stream({ id: 'ws3', name: 'Empty' })];
+  const items = [
+    item({ id: 'a', workStreamId: 'ws1' }),
+    item({ id: 'b', workStreamId: 'ws2' }),
+    item({ id: 'c', workStreamId: null }),
+  ];
+
+  it('offers streams with observed items plus a "No stream" option', () => {
+    const [g] = buildFacetGroups([streamItemFacet(streams)], items, new Map());
+    expect(g.options).toEqual([
+      { value: 'ws1', label: 'API' },
+      { value: 'ws2', label: 'UI' },
+      { value: FACET_NONE, label: 'No stream' },
+    ]);
+  });
+
+  it('selecting "No stream" matches only unstreamed items', () => {
+    const groups = buildFacetGroups([streamItemFacet(streams)], items, selections([['stream', [FACET_NONE]]]));
+    expect(applyFacets(items, groups).map((i) => i.id)).toEqual(['c']);
+  });
+
+  it('selecting a stream matches its items', () => {
+    const groups = buildFacetGroups([streamItemFacet(streams)], items, selections([['stream', ['ws1']]]));
+    expect(applyFacets(items, groups).map((i) => i.id)).toEqual(['a']);
   });
 });
 

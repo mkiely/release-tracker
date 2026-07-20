@@ -229,7 +229,7 @@ describe('releaseToTSV', () => {
     expect(tsvHasStream(rows, 'Auth')).toBe(false);
   });
 
-  it('visibleStreamIds keeps the unassigned bucket even though it is not a stream', () => {
+  it('visibleStreamIds keeps the streamless bucket even though it is not a stream', () => {
     const st: AppState = {
       version: 1,
       teams: [],
@@ -238,7 +238,7 @@ describe('releaseToTSV', () => {
       meta: { lastSyncISO: null },
     };
     const rows = parseRows(releaseToTSV(st, 'rel', new Set(['ws1'])));
-    expect(tsvHasStream(rows, 'Unassigned')).toBe(true);
+    expect(tsvHasStream(rows, 'No stream')).toBe(true);
   });
 
   it('without visibleStreamIds, every stream is exported (default behaviour unchanged)', () => {

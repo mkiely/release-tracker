@@ -13,7 +13,7 @@ function F3SprintRow({
   rowRef,
   onNavigate,
   onNavigateToStream,
-  onNavigateToBacklog,
+  onNavigateToUnassigned,
   onOpenEvent,
 }: {
   row: ReleaseViewProps['sprintRows'][0];
@@ -21,7 +21,7 @@ function F3SprintRow({
   rowRef?: React.Ref<HTMLDivElement>;
   onNavigate: () => void;
   onNavigateToStream: (wsId: string) => void;
-  onNavigateToBacklog: () => void;
+  onNavigateToUnassigned: () => void;
   onOpenEvent: (eventId: string) => void;
 }) {
   const { sprint: sp, sprintIndex, isActive, vel, donePts, itemCount, events, lane } = row;
@@ -77,7 +77,7 @@ function F3SprintRow({
                     styles.trackLabelClickable,
                     isUnassigned && styles.trackLabelUnassigned,
                   ].filter(Boolean).join(' ')}
-                  onClick={(ev) => { ev.stopPropagation(); isUnassigned ? onNavigateToBacklog() : onNavigateToStream(e.ws!.id); }}
+                  onClick={(ev) => { ev.stopPropagation(); isUnassigned ? onNavigateToUnassigned() : onNavigateToStream(e.ws!.id); }}
                 >
                   {e.ws ? e.ws.name : 'Unassigned'}
                 </span>
@@ -108,7 +108,7 @@ function F3SprintRow({
 }
 
 export function ReleaseTable(props: ReleaseViewProps) {
-  const { release: r, sprintRows, onNavigateToSprint, onNavigateToStream, onNavigateToBacklog, onOpenEvent } = props;
+  const { release: r, sprintRows, onNavigateToSprint, onNavigateToStream, onNavigateToUnassigned, onOpenEvent } = props;
   const activeRowRef = useScrollActiveIntoView<HTMLDivElement>();
 
   return (
@@ -127,7 +127,7 @@ export function ReleaseTable(props: ReleaseViewProps) {
               isPast={row.isPast}
               onNavigate={() => onNavigateToSprint(row.sprint.id)}
               onNavigateToStream={onNavigateToStream}
-              onNavigateToBacklog={onNavigateToBacklog}
+              onNavigateToUnassigned={onNavigateToUnassigned}
               onOpenEvent={onOpenEvent}
             />
           ))

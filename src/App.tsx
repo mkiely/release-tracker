@@ -14,6 +14,7 @@ import { Release } from './routes/Release';
 import { Sprint } from './routes/Sprint';
 import { WorkStream } from './routes/WorkStream';
 import { Backlog } from './routes/Backlog';
+import { Unassigned } from './routes/Unassigned';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/releases/:id/sprints/:sprintId" element={<Sprint />} />
           <Route path="/releases/:id/streams/:wsId" element={<WorkStream />} />
           <Route path="/releases/:id/backlog" element={<Backlog />} />
+          <Route path="/releases/:id/unassigned" element={<Unassigned />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppProvider>

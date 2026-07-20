@@ -90,7 +90,7 @@ export function upsertItem(
   if (m.extSprintId != null) {
     const resolved = maps.sprintByExt.get(m.extSprintId);
     if (resolved === undefined) {
-      warning = `Item ${m.fields.key}: sprint ${m.extSprintId} not mapped; placed in backlog.`;
+      warning = `Item ${m.fields.key}: sprint ${m.extSprintId} not mapped; left with no sprint.`;
     } else {
       sprintId = resolved;
     }

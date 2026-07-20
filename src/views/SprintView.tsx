@@ -237,7 +237,7 @@ export function SprintView({
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px', gap: 8 }}>
                   <span style={{ fontWeight: 'var(--rt-fw-heading)', fontSize: 'var(--rt-fs-base)', color: 'var(--rt-t3)', fontStyle: 'italic' }}>
-                    Unassigned
+                    No stream
                   </span>
                   <span
                     style={{
@@ -311,7 +311,7 @@ export function SprintView({
                               textOverflow: 'ellipsis',
                             }}
                           >
-                            {grp.wsName ?? 'Unassigned'}
+                            {grp.wsName ?? 'No stream'}
                           </span>
                           <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', flex: '0 0 auto' }}>
                             {sumPoints(grp.items)} pts

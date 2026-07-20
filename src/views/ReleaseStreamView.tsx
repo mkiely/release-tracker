@@ -12,14 +12,14 @@ function StreamRow({
   row,
   onNavigateToStream,
   onNavigateToSprint,
-  onNavigateToBacklog,
+  onNavigateToUnassigned,
   onOpenStreamHealth,
   onEditStream,
 }: {
   row: StreamRowData;
   onNavigateToStream: (wsId: string) => void;
   onNavigateToSprint: (sprintId: string) => void;
-  onNavigateToBacklog: () => void;
+  onNavigateToUnassigned: () => void;
   onOpenStreamHealth: (wsId: string) => void;
   onEditStream: (wsId: string) => void;
 }) {
@@ -27,7 +27,7 @@ function StreamRow({
   const filled = lane.filter((e) => e.n > 0);
   const activeIndex = lane.find((e) => e.isActive)?.sprintIndex ?? -1;
   const showVerdict = ws !== null && itemCount > 0;
-  const handleClick = ws !== null ? () => onNavigateToStream(ws.id) : onNavigateToBacklog;
+  const handleClick = ws !== null ? () => onNavigateToStream(ws.id) : onNavigateToUnassigned;
 
   return (
     <div
@@ -155,7 +155,7 @@ function StreamRow({
 }
 
 export function ReleaseStreamView(props: ReleaseViewProps) {
-  const { release: r, streamRows, onNavigateToStream, onNavigateToSprint, onNavigateToBacklog, onOpenStreamHealth, onEditStream } = props;
+  const { release: r, streamRows, onNavigateToStream, onNavigateToSprint, onNavigateToUnassigned, onOpenStreamHealth, onEditStream } = props;
   return (
     <ReleaseChrome {...props}>
       <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -171,7 +171,7 @@ export function ReleaseStreamView(props: ReleaseViewProps) {
                 row={row}
                 onNavigateToStream={onNavigateToStream}
                 onNavigateToSprint={onNavigateToSprint}
-                onNavigateToBacklog={onNavigateToBacklog}
+                onNavigateToUnassigned={onNavigateToUnassigned}
                 onOpenStreamHealth={onOpenStreamHealth}
                 onEditStream={onEditStream}
               />

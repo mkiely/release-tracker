@@ -141,7 +141,7 @@ export function FieldControl({
     case 'sprintSelect':
       return (
         <PSelect value={str} onChange={(e) => onChange(e.target.value)}>
-          <option value="">Backlog</option>
+          <option value="">No sprint</option>
           {ctx.sprints.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}

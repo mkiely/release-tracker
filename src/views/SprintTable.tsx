@@ -178,7 +178,7 @@ function StatusSection({
             <ItemRow
               key={it.id}
               item={it}
-              workStreamName={ws?.name ?? 'Unassigned'}
+              workStreamName={ws?.name ?? 'No stream'}
               members={members}
               attrColumns={attrColumns}
               onOpen={() => onOpenItem(it.id)}
@@ -426,7 +426,7 @@ export function SprintTable({
             {unassignedItems.length > 0 && (
               <div className={styles.section}>
                 <div className={styles.sectionLeft}>
-                  <span className={styles.sectionName} style={{ color: 'var(--rt-t3)', fontStyle: 'italic' }}>Unassigned</span>
+                  <span className={styles.sectionName} style={{ color: 'var(--rt-t3)', fontStyle: 'italic' }}>No stream</span>
                   <div className={styles.sectionMeta}>
                     {unassignedItems.length} item{unassignedItems.length !== 1 ? 's' : ''} · {sumPoints(unassignedItems)} pts
                   </div>

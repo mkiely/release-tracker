@@ -236,7 +236,7 @@ describe('applySync — reference resolution', () => {
     });
     const { next, result } = applySync(baseState(), 'rel_1', m);
     expect(next.items[0].sprintId).toBeNull();
-    expect(result.warnings.some((w) => w.includes('backlog'))).toBe(true);
+    expect(result.warnings.some((w) => w.includes('no sprint'))).toBe(true);
   });
 
   it('places an item with no external sprint into the backlog', () => {

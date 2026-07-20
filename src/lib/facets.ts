@@ -114,13 +114,15 @@ export function isAnyFacetActive(groups: { selection: ReadonlySet<string> }[]): 
 // Canonical app data; available for local and connector releases alike. Each
 // preserves the exact semantics of the bespoke Set filter it replaced.
 
-/** Canonical status — fixed vocabulary, always offered in full. */
-export function statusFacet(): FacetDef<WorkItem> {
+/** Canonical status — fixed vocabulary, always offered in full. `exclude`
+ *  drops statuses a view rules out by construction (e.g. the backlog holds no
+ *  Complete items), so no dead chip is offered. */
+export function statusFacet(exclude: readonly Status[] = []): FacetDef<WorkItem> {
   return {
     key: 'status',
     label: 'Status',
     scope: 'item',
-    options: () => STATUSES.map((s) => ({ value: s, label: s })),
+    options: () => STATUSES.filter((s) => !exclude.includes(s)).map((s) => ({ value: s, label: s })),
     valueOf: (i) => i.status,
     alwaysVisible: true,
     chip: { vars: (v) => statusVars(v as Status) },
@@ -162,6 +164,25 @@ export function memberFacet(team: Team | undefined): FacetDef<WorkItem> {
         .map((m) => ({ value: m.id, label: m.name })),
     valueOf: (i) => i.assignedMemberId ?? FACET_NONE,
     chip: { render: 'avatar' },
+  };
+}
+
+/** Item work stream — the release's streams with at least one observed item,
+ *  plus a 'No stream' option when unstreamed items are in scope. Used by the
+ *  backlog, where items from every stream (and none) mix in one list. */
+export function streamItemFacet(streams: WorkStream[]): FacetDef<WorkItem> {
+  return {
+    key: 'stream',
+    label: 'Stream',
+    scope: 'item',
+    options: (items) => {
+      const out: FacetOption[] = streams
+        .filter((ws) => items.some((i) => i.workStreamId === ws.id))
+        .map((ws) => ({ value: ws.id, label: ws.name }));
+      if (items.some((i) => i.workStreamId === null)) out.push({ value: FACET_NONE, label: 'No stream' });
+      return out;
+    },
+    valueOf: (i) => i.workStreamId ?? FACET_NONE,
   };
 }
 

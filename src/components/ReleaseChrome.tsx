@@ -76,6 +76,7 @@ type ReleaseChromeProps = Pick<
   | 'onBack'
   | 'onNavigateToStream'
   | 'onNavigateToBacklog'
+  | 'onNavigateToUnassigned'
   | 'onOpenTeam'
   | 'onOpenMetrics'
   | 'velocity'
@@ -109,6 +110,7 @@ export function ReleaseChrome({
   onBack,
   onNavigateToStream,
   onNavigateToBacklog,
+  onNavigateToUnassigned,
   onOpenTeam,
   onOpenMetrics,
   velocity,
@@ -197,6 +199,9 @@ export function ReleaseChrome({
       }
       right={
         <>
+          <PButton variant="subtle" sm icon={Icon.backlog} onClick={onNavigateToBacklog} title="All incomplete work in this release">
+            Backlog
+          </PButton>
           <ShareButton release={r} />
           <PushButton release={r} onPush={onPush} />
           <SyncButton release={r} onSync={onSync} />
@@ -257,7 +262,7 @@ export function ReleaseChrome({
                     segs={unassignedSegs}
                     showSeg
                     unassigned
-                    onClick={onNavigateToBacklog}
+                    onClick={onNavigateToUnassigned}
                   />
                 )}
               </>
