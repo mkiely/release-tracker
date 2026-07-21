@@ -110,6 +110,8 @@
   flex-direction: column;
   gap: 5px;
   padding: 8px 16px;
+  /* Don't compress groups to fit — let the bar overflow so overflow-x scrolls. */
+  flex-shrink: 0;
 }
 
 .filterLabel {
@@ -415,6 +417,32 @@
   padding-bottom: 6px;
 }
 
+/* Sortable headers: click to cycle asc/desc/off; caret marks the active column. */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable:hover {
+  color: var(--rt-t2);
+}
+
+.sortActive {
+  color: var(--rt-ink);
+}
+
+.sortArrow {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 2px;
+  color: var(--rt-t2);
+}
+
+.sortArrow svg {
+  width: 11px;
+  height: 11px;
+}
+
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 .empty {
   padding: 40px;
@@ -444,12 +472,20 @@
 
 .resizeHandle::after {
   content: '';
-  width: 1.5px;
-  background: transparent;
-  transition: background 120ms;
+  width: 2px;
+  height: 55%;
+  align-self: center;
+  background: var(--rt-line);
+  transition: background 120ms, height 120ms;
   border-radius: 1px;
 }
 
+/* Hovering anywhere over the header row reveals the full-height grips. */
+.colHeaders:hover .resizeHandle::after {
+  height: 100%;
+}
+
 .resizeHandle:hover::after {
-  background: var(--rt-accent, var(--rt-line));
+  background: var(--rt-accent, var(--rt-t2));
+  height: 100%;
 }

@@ -18,19 +18,6 @@ export function statusVars(s: Status) {
   };
 }
 
-/**
- * Color tokens for a work-item *type* label, reusing the status palette so types
- * read consistently with statuses. Unknown/absent labels fall back to the
- * neutral "Not Started" tones.
- */
-export function typeVars(label: string | undefined) {
-  if (!label) return statusVars('Not Started');
-  if (label === 'Bug') return statusVars('Blocked');
-  if (label === 'User Story' || label === 'Story') return statusVars('In Progress');
-  if (label === 'Investigation') return statusVars('Under Review');
-  return statusVars('Not Started');
-}
-
 /** Health-verdict styling, reusing the status color tokens. `tone` lets non-status
  *  consumers (charts) pick a color without re-deriving the mapping. */
 export function verdictVars(v: HealthVerdict): { label: string; tone: 'ok' | 'risk' | 'muted'; dot: string; soft: string; text: string } {

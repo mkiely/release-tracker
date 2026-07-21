@@ -15,7 +15,8 @@ import type { ReleaseCatalog, Status, Team, WorkItem, WorkStream } from '../type
 import type { FieldSpec } from '../sync/schema';
 import { STATUSES } from '../types';
 import { isAttributeField } from './connectorFields';
-import { statusVars, typeVars } from '../components/statusVars';
+import { statusVars } from '../components/statusVars';
+import { typeVars } from '../components/typeColor';
 import type { ChipVars } from '../components/FilterChip';
 
 /** Sentinel selection value meaning "entity has no value for this facet". */

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { ItemListViewProps } from '../hooks/useItemListView';
 import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
@@ -20,6 +20,7 @@ import { TableFacetBar } from './SprintTable';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
 import { ResizeHandle } from './ResizeHandle';
 import { ItemRow } from './ItemRow';
+import { sortItems, nextSort, type ItemSort, type SortCtx } from './itemSort';
 import styles from './SprintTable.module.css';
 
 // ── Sprint section (grouped mode) ─────────────────────────────────────────
@@ -107,53 +108,91 @@ function SprintSection({
 
 // ── Col headers ───────────────────────────────────────────────────────────
 
+/** One clickable, sortable column header. `resizeCol` (when set) mounts the
+ *  resize handle — its own mousedown stops propagation, so dragging never sorts. */
+function HeaderCell({
+  colClass,
+  label,
+  sortCol,
+  resizeCol,
+  sort,
+  onSort,
+  containerRef,
+}: {
+  colClass: string;
+  label: string;
+  sortCol: string;
+  resizeCol?: string;
+  sort: ItemSort | null;
+  onSort: (col: string) => void;
+  containerRef: RefObject<HTMLElement | null>;
+}) {
+  const active = sort?.col === sortCol;
+  return (
+    <div
+      className={
+        `${colClass} ${styles.colHeaderLabel} ${styles.sortable}` +
+        (active ? ` ${styles.sortActive}` : '') +
+        (resizeCol ? ` ${styles.resizeTarget}` : '')
+      }
+      role="button"
+      tabIndex={0}
+      aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      title={`Sort by ${label}`}
+      onClick={() => onSort(sortCol)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSort(sortCol); }
+      }}
+    >
+      {label}
+      {active && (
+        <span
+          className={styles.sortArrow}
+          style={sort!.dir === 'asc' ? { transform: 'rotate(180deg)' } : undefined}
+          aria-hidden
+        >
+          {Icon.chevDown}
+        </span>
+      )}
+      {resizeCol && <ResizeHandle col={resizeCol} containerRef={containerRef} />}
+    </div>
+  );
+}
+
 function ColHeaders({
   groupBySprint,
   showStream,
   attrColumns,
   containerRef,
+  sort,
+  onSort,
 }: {
   groupBySprint: boolean;
   showStream: boolean;
   attrColumns: AttrColumn[];
   containerRef: RefObject<HTMLElement | null>;
+  sort: ItemSort | null;
+  onSort: (col: string) => void;
 }) {
+  const hp = { sort, onSort, containerRef };
   const itemCols = (
     <>
-      <div className={`${styles.colKey} ${styles.colHeaderLabel}`}>Key</div>
-      <div className={`${styles.colType} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-        Type
-        <ResizeHandle col="type" containerRef={containerRef} />
-      </div>
-      <div className={`${styles.colPts} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-        Pts
-        <ResizeHandle col="pts" containerRef={containerRef} />
-      </div>
-      <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`}>Assignee</div>
-      <div className={`${styles.colStatus} ${styles.colHeaderLabel}`}>Status</div>
-      <div className={`${styles.colBuild} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-        Build
-        <ResizeHandle col="build" containerRef={containerRef} />
-      </div>
+      <HeaderCell {...hp} colClass={styles.colKey} label="Key" sortCol="key" />
+      <HeaderCell {...hp} colClass={styles.colType} label="Type" sortCol="type" resizeCol="type" />
+      <HeaderCell {...hp} colClass={styles.colPts} label="Pts" sortCol="pts" resizeCol="pts" />
+      <HeaderCell {...hp} colClass={styles.colAssignee} label="Assignee" sortCol="assignee" />
+      <HeaderCell {...hp} colClass={styles.colStatus} label="Status" sortCol="status" />
+      <HeaderCell {...hp} colClass={styles.colBuild} label="Build" sortCol="build" resizeCol="build" />
       {attrColumns.map((c) => (
-        <div key={c.key} className={`${styles.colAttr} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-          {c.label}
-          <ResizeHandle col="attr" containerRef={containerRef} />
-        </div>
+        <HeaderCell {...hp} key={c.key} colClass={styles.colAttr} label={c.label} sortCol={`attr:${c.key}`} resizeCol="attr" />
       ))}
       {!groupBySprint && (
-        <div className={`${styles.colSprint} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-          Sprint
-          <ResizeHandle col="sprint" containerRef={containerRef} />
-        </div>
+        <HeaderCell {...hp} colClass={styles.colSprint} label="Sprint" sortCol="sprint" resizeCol="sprint" />
       )}
       {showStream && (
-        <div className={`${styles.colWorkStream} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-          Work Stream
-          <ResizeHandle col="workstream" containerRef={containerRef} />
-        </div>
+        <HeaderCell {...hp} colClass={styles.colWorkStream} label="Work Stream" sortCol="workstream" resizeCol="workstream" />
       )}
-      <div className={`${styles.colTitle} ${styles.colHeaderLabel}`}>Title</div>
+      <HeaderCell {...hp} colClass={styles.colTitle} label="Title" sortCol="title" />
     </>
   );
 
@@ -206,6 +245,9 @@ export function ItemListView({
   useFitColumns(bodyRef, itemTableColumns(filteredItems), [itemColumnsDep(filteredItems), presentation]);
   useColumnWidths(bodyRef);
 
+  const [sort, setSort] = useState<ItemSort | null>(null);
+  const onSort = (col: string) => setSort((cur) => nextSort(cur, col));
+
   const crumbLabel = variant === 'backlog' ? 'Backlog' : 'Unassigned';
   const emptyMessage = isFiltered
     ? 'No items match the current filters.'
@@ -218,16 +260,28 @@ export function ItemListView({
     ? (it: WorkItem) => (it.workStreamId ? (streamNameById.get(it.workStreamId) ?? '—') : '—')
     : undefined;
 
-  // Grouped mode: sprint sections in release order + "No sprint" at the end
-  const sprintSections = groupBySprint
-    ? r.sprints
-        .map((sp) => ({ sp, items: filteredItems.filter((i) => i.sprintId === sp.id) }))
-        .filter((s) => s.items.length > 0)
-    : [];
-  const noSprintItems = groupBySprint ? filteredItems.filter((i) => i.sprintId === null) : [];
-
   // Flat mode: sprint name lookup for inline column
   const sprintById = new Map(r.sprints.map((sp) => [sp.id, sp.name]));
+  const sprintOrderById = new Map(r.sprints.map((sp, i) => [sp.id, i]));
+  const attrByKey = new Map(attrCols.map((c) => [c.key, c]));
+  const sortCtx: SortCtx = {
+    memberName: (id) => (id ? (members.find((m) => m.id === id)?.name ?? '') : ''),
+    sprintOrder: (id) => (id ? (sprintOrderById.get(id) ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER),
+    streamName: (id) => (id ? (streamNameById.get(id) ?? '') : ''),
+    attrCell: (item, key) => attrByKey.get(key)?.cell(item) ?? '',
+  };
+
+  // Grouped mode: sprint sections in release order + "No sprint" at the end.
+  // Sorting applies within each section (and the flat list) so grouping wins.
+  const sprintSections = groupBySprint
+    ? r.sprints
+        .map((sp) => ({ sp, items: sortItems(filteredItems.filter((i) => i.sprintId === sp.id), sort, sortCtx) }))
+        .filter((s) => s.items.length > 0)
+    : [];
+  const noSprintItems = groupBySprint
+    ? sortItems(filteredItems.filter((i) => i.sprintId === null), sort, sortCtx)
+    : [];
+  const flatItems = groupBySprint ? filteredItems : sortItems(filteredItems, sort, sortCtx);
 
   const isEmpty = filteredItems.length === 0;
 
@@ -284,6 +338,8 @@ export function ItemListView({
           showStream={showStreamColumn}
           attrColumns={attrCols}
           containerRef={bodyRef}
+          sort={sort}
+          onSort={onSort}
         />
 
         {isEmpty ? (
@@ -326,7 +382,7 @@ export function ItemListView({
         ) : (
           <div className={styles.section} style={{ border: 'none' }}>
             <div className={styles.sectionRight} style={{ flex: 1 }}>
-              {filteredItems.map((it) => (
+              {flatItems.map((it) => (
                 <ItemRow
                   key={it.id}
                   item={it}
