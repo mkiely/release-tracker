@@ -29,6 +29,20 @@
   --rt-st-bl-dot: #d04a39; --rt-st-bl-soft: #f9e6e2; --rt-st-bl-text: #a8311f; /* Blocked (warning = high-contrast red) */
   --rt-st-co-dot: #6f9d77; --rt-st-co-soft: #e7f0e8; --rt-st-co-text: #4d7a55; /* Complete     */
 
+  /* categorical hues — for non-status "which kind is this" color (work-item types).
+     Deliberately theme-independent: only these 8 base hues are authored, and each
+     consumer derives its tint/text with color-mix() against --rt-bg / --rt-ink, so
+     the ramp adapts to all six themes without re-authoring 8 hues per theme.
+     Spread around the wheel for pairwise distinctness; see components/typeColor.ts. */
+  --rt-cat-1: #4C7FBF;  /* blue    */
+  --rt-cat-2: #8B5FC4;  /* purple  */
+  --rt-cat-3: #CF4A3A;  /* red     */
+  --rt-cat-4: #4E9E62;  /* green   */
+  --rt-cat-5: #C08A22;  /* amber   */
+  --rt-cat-6: #2F9199;  /* teal    */
+  --rt-cat-7: #C4589E;  /* magenta */
+  --rt-cat-8: #7A4A28;  /* brown   */
+
   /* type — families */
   --rt-sans: "Hanken Grotesk", system-ui, sans-serif;
   --rt-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
@@ -102,7 +116,9 @@
   --rt-st-ns-dot: #B896A8; --rt-st-ns-soft: #F5EBF2; --rt-st-ns-text: #7A5268;
   --rt-st-ac-dot: #DC1E5A; --rt-st-ac-soft: #FDEAF1; --rt-st-ac-text: #A81443;
   --rt-st-ur-dot: #8F3AB4; --rt-st-ur-soft: #F4E4FA; --rt-st-ur-text: #6A2888;
-  --rt-st-bl-dot: #E03152; --rt-st-bl-soft: #FCE3E8; --rt-st-bl-text: #AC1E3C;
+  /* Blocked is a red-orange, not a berry pink: at #E03152 it sat ΔE 4.7 from the
+     In Progress accent (#DC1E5A) and the two chips were indistinguishable. */
+  --rt-st-bl-dot: #C9452C; --rt-st-bl-soft: #FAE5DE; --rt-st-bl-text: #9B3319;
   --rt-st-co-dot: #1B7A76; --rt-st-co-soft: #DEF0EE; --rt-st-co-text: #0E5550;
 }
 
@@ -131,7 +147,9 @@
   --rt-st-ac-dot: #2ECC9A; --rt-st-ac-soft: rgba(46,204,154,0.18); --rt-st-ac-text: #7EECD8;
   --rt-st-ur-dot: #D468FF; --rt-st-ur-soft: rgba(212,104,255,0.18); --rt-st-ur-text: #E8A8FF;
   --rt-st-bl-dot: #F24166; --rt-st-bl-soft: rgba(242,65,102,0.18); --rt-st-bl-text: #F890A8;
-  --rt-st-co-dot: #7DE85C; --rt-st-co-soft: rgba(125,232,92,0.16); --rt-st-co-text: #B4F49A;
+  /* Complete pushed toward chartreuse: at #7DE85C it read as a second green
+     against the In Progress accent (#2ECC9A), only ΔE 17.4 apart. */
+  --rt-st-co-dot: #BFF03C; --rt-st-co-soft: rgba(191,240,60,0.16); --rt-st-co-text: #DCF58E;
 }
 
 /* ----------------------------------------------------------------------------

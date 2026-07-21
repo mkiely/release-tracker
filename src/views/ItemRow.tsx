@@ -4,7 +4,7 @@ import { StatusPill } from '../components/badges';
 import { DirtyDot } from '../components/DirtyDot';
 import { Drag, setDragGhost, useDrag } from '../components/dnd';
 import type { AttrColumn } from '../components/fields/columns';
-import { typeVars } from '../components/statusVars';
+import { typeVars } from '../components/typeColor';
 import styles from './SprintTable.module.css';
 
 /**
