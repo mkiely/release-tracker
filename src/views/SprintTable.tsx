@@ -178,7 +178,7 @@ function StatusSection({
             <ItemRow
               key={it.id}
               item={it}
-              workStreamName={ws?.name ?? 'No stream'}
+              workStream={{ id: it.workStreamId, name: ws?.name ?? 'No stream' }}
               members={members}
               attrColumns={attrColumns}
               onOpen={() => onOpenItem(it.id)}

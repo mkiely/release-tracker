@@ -4,26 +4,27 @@ import { StatusPill } from '../components/badges';
 import { DirtyDot } from '../components/DirtyDot';
 import { Drag, setDragGhost, useDrag } from '../components/dnd';
 import type { AttrColumn } from '../components/fields/columns';
+import { StreamChip } from '../components/StreamChip';
 import { typeVars } from '../components/typeColor';
 import styles from './SprintTable.module.css';
 
 /**
  * One draggable work-item row in a table view (sprint or work-stream). The key
- * cell is the drag handle; `workStreamName` adds the optional Work Stream column
+ * cell is the drag handle; `workStream` adds the optional Work Stream column
  * (used by the sprint view's "by status" grouping); `attrColumns` adds the
  * release's vocabulary columns (declared by the connector catalog, not the app).
  */
 export function ItemRow({
   item,
   members,
-  workStreamName,
+  workStream,
   sprintName,
   attrColumns = [],
   onOpen,
 }: {
   item: WorkItem;
   members: Member[];
-  workStreamName?: string;
+  workStream?: { id: string | null; name: string };
   sprintName?: string;
   attrColumns?: AttrColumn[];
   onOpen: () => void;
@@ -79,7 +80,11 @@ export function ItemRow({
         );
       })}
       {sprintName !== undefined && <div className={styles.colSprint}>{sprintName}</div>}
-      {workStreamName !== undefined && <div className={styles.colWorkStream}>{workStreamName}</div>}
+      {workStream !== undefined && (
+        <div className={styles.colWorkStream}>
+          <StreamChip workStreamId={workStream.id} label={workStream.name} />
+        </div>
+      )}
       <div className={styles.colTitle}>{item.subject}</div>
     </div>
   );

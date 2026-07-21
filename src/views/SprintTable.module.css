@@ -356,12 +356,10 @@
 .colWorkStream {
   width: var(--rt-col-workstream, 130px);
   flex-shrink: 0;
+  min-width: 0;
   padding: 0 10px 0 8px;
-  font-size: var(--rt-fs-sm);
-  color: var(--rt-t2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
 }
 
 .colSprint {
