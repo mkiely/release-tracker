@@ -17,6 +17,7 @@ import { STATUSES } from '../types';
 import { isAttributeField } from './connectorFields';
 import { statusVars } from '../components/statusVars';
 import { typeVars } from '../components/typeColor';
+import { streamVars } from '../components/streamColor';
 import type { ChipVars } from '../components/FilterChip';
 
 /** Sentinel selection value meaning "entity has no value for this facet". */
@@ -184,6 +185,7 @@ export function streamItemFacet(streams: WorkStream[]): FacetDef<WorkItem> {
       return out;
     },
     valueOf: (i) => i.workStreamId ?? FACET_NONE,
+    chip: { vars: (v) => (v === FACET_NONE ? undefined : streamVars(v)) },
   };
 }
 

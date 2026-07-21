@@ -31,7 +31,7 @@ function SprintSection({
   items,
   members,
   attrColumns,
-  streamNameOf,
+  streamOf,
   onOpenItem,
 }: {
   sp: Sprint;
@@ -40,7 +40,7 @@ function SprintSection({
   members: Member[];
   attrColumns: AttrColumn[];
   /** Present when the list mixes streams (backlog): resolves the row's Work Stream cell. */
-  streamNameOf?: (it: WorkItem) => string;
+  streamOf?: (it: WorkItem) => { id: string | null; name: string };
   onOpenItem: (id: string) => void;
 }) {
   const pts = sumPoints(items);
@@ -97,7 +97,7 @@ function SprintSection({
             item={it}
             members={members}
             attrColumns={attrColumns}
-            workStreamName={streamNameOf ? streamNameOf(it) : undefined}
+            workStream={streamOf ? streamOf(it) : undefined}
             onOpen={() => onOpenItem(it.id)}
           />
         ))}
@@ -256,8 +256,8 @@ export function ItemListView({
       : 'No unassigned items — all work on this build has been organized into streams.';
 
   const streamNameById = new Map(r.workStreams.map((ws) => [ws.id, ws.name]));
-  const streamNameOf = showStreamColumn
-    ? (it: WorkItem) => (it.workStreamId ? (streamNameById.get(it.workStreamId) ?? '—') : '—')
+  const streamOf = showStreamColumn
+    ? (it: WorkItem) => ({ id: it.workStreamId, name: it.workStreamId ? (streamNameById.get(it.workStreamId) ?? '—') : '—' })
     : undefined;
 
   // Flat mode: sprint name lookup for inline column
@@ -354,7 +354,7 @@ export function ItemListView({
                 items={items}
                 members={members}
                 attrColumns={attrCols}
-                streamNameOf={streamNameOf}
+                streamOf={streamOf}
                 onOpenItem={onOpenItem}
               />
             ))}
@@ -371,7 +371,7 @@ export function ItemListView({
                       item={it}
                       members={members}
                       attrColumns={attrCols}
-                      workStreamName={streamNameOf ? streamNameOf(it) : undefined}
+                      workStream={streamOf ? streamOf(it) : undefined}
                       onOpen={() => onOpenItem(it.id)}
                     />
                   ))}
@@ -389,7 +389,7 @@ export function ItemListView({
                   members={members}
                   attrColumns={attrCols}
                   sprintName={it.sprintId ? (sprintById.get(it.sprintId) ?? '—') : 'No sprint'}
-                  workStreamName={streamNameOf ? streamNameOf(it) : undefined}
+                  workStream={streamOf ? streamOf(it) : undefined}
                   onOpen={() => onOpenItem(it.id)}
                 />
               ))}
