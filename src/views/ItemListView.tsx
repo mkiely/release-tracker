@@ -18,8 +18,8 @@ import { SegmentedToggle } from '../components/SegmentedToggle';
 import { statusVars } from '../components/statusVars';
 import { TableFacetBar } from './SprintTable';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
-import { ResizeHandle } from './ResizeHandle';
 import { ItemRow } from './ItemRow';
+import { HeaderCell } from './HeaderCell';
 import { sortItems, nextSort, type ItemSort, type SortCtx } from './itemSort';
 import styles from './SprintTable.module.css';
 
@@ -107,57 +107,6 @@ function SprintSection({
 }
 
 // ── Col headers ───────────────────────────────────────────────────────────
-
-/** One clickable, sortable column header. `resizeCol` (when set) mounts the
- *  resize handle — its own mousedown stops propagation, so dragging never sorts. */
-function HeaderCell({
-  colClass,
-  label,
-  sortCol,
-  resizeCol,
-  sort,
-  onSort,
-  containerRef,
-}: {
-  colClass: string;
-  label: string;
-  sortCol: string;
-  resizeCol?: string;
-  sort: ItemSort | null;
-  onSort: (col: string) => void;
-  containerRef: RefObject<HTMLElement | null>;
-}) {
-  const active = sort?.col === sortCol;
-  return (
-    <div
-      className={
-        `${colClass} ${styles.colHeaderLabel} ${styles.sortable}` +
-        (active ? ` ${styles.sortActive}` : '') +
-        (resizeCol ? ` ${styles.resizeTarget}` : '')
-      }
-      role="button"
-      tabIndex={0}
-      aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-      title={`Sort by ${label}`}
-      onClick={() => onSort(sortCol)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSort(sortCol); }
-      }}
-    >
-      {label}
-      {active && (
-        <span
-          className={styles.sortArrow}
-          style={sort!.dir === 'asc' ? { transform: 'rotate(180deg)' } : undefined}
-          aria-hidden
-        >
-          {Icon.chevDown}
-        </span>
-      )}
-      {resizeCol && <ResizeHandle col={resizeCol} containerRef={containerRef} />}
-    </div>
-  );
-}
 
 function ColHeaders({
   groupBySprint,

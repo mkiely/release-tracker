@@ -9,10 +9,15 @@ import { typeVars } from '../components/typeColor';
 import styles from './SprintTable.module.css';
 
 /**
- * One draggable work-item row in a table view (sprint or work-stream). The key
- * cell is the drag handle; `workStream` adds the optional Work Stream column
- * (used by the sprint view's "by status" grouping); `attrColumns` adds the
- * release's vocabulary columns (declared by the connector catalog, not the app).
+ * One draggable work-item row in a table view (sprint or work-stream). The whole
+ * row is the drag handle (not just the key cell) — a narrower handle made drags
+ * inconsistent to initiate, since a mousedown landing anywhere else in the row's
+ * generous hit area just fell through to the row's click-to-open instead. Native
+ * drag/click disambiguation (movement threshold before dragstart fires) means the
+ * row's onClick still works normally for a plain click. `workStream` adds the
+ * optional Work Stream column (used by the sprint view's "by status" grouping);
+ * `attrColumns` adds the release's vocabulary columns (declared by the connector
+ * catalog, not the app).
  */
 export function ItemRow({
   item,
@@ -36,20 +41,20 @@ export function ItemRow({
   const isDirty = item.dirtyFields.length > 0;
 
   return (
-    <div className={styles.itemRow} onClick={onOpen} style={isMe ? { opacity: 0.4 } : undefined}>
-      <div
-        className={styles.colKey}
-        draggable
-        style={{ cursor: 'grab', userSelect: 'none', WebkitUserSelect: 'none', display: 'flex', alignItems: 'center', gap: 5 }}
-        onDragStart={(e) => {
-          e.stopPropagation();
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', item.id);
-          setDragGhost(e, item.key);
-          Drag.start(item);
-        }}
-        onDragEnd={() => Drag.end()}
-      >
+    <div
+      className={styles.itemRow}
+      draggable
+      onClick={onOpen}
+      style={isMe ? { opacity: 0.4, cursor: 'grab' } : { cursor: 'grab' }}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', item.id);
+        setDragGhost(e, item.key);
+        Drag.start(item);
+      }}
+      onDragEnd={() => Drag.end()}
+    >
+      <div className={styles.colKey} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.key}</span>
         {isDirty && <DirtyDot />}
       </div>
