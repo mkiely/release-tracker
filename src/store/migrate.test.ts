@@ -593,6 +593,30 @@ describe('migrate — v20 → current', () => {
   });
 });
 
+describe('migrate — v21 → current', () => {
+  const v21 = () => ({
+    version: 21,
+    teams: [],
+    meta: { lastSyncISO: null },
+    releases: [{ ...v2Release(), sprints: [], workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: 2, planningMuted: false, build: null, externalUrl: null, attributes: {} }] }],
+    items: [],
+  });
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v21() as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('adds codeFreezeISO: null to the release', () => {
+    const next = migrate(v21() as any)!;
+    expect(next.releases[0].codeFreezeISO).toBeNull();
+  });
+
+  it('adds codeFreezeISO: null to work streams that lack it', () => {
+    const next = migrate(v21() as any)!;
+    expect(next.releases[0].workStreams[0].codeFreezeISO).toBeNull();
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

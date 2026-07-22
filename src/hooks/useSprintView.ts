@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { selRelease, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
-import { activeSprint, capPct, eventsIn, sprintVel, sumPoints } from '../lib/derive';
+import { activeSprint, capPct, sprintEventChips, sprintVel, sumPoints, type EventChip } from '../lib/derive';
 import { applyFacets, buildFacetGroups, buildItemFacet, catalogItemFacets, isAnyFacetActive, memberFacet, statusFacet, typeFacet } from '../lib/facets';
 import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
-import { STATUSES, type Release, type ReleaseEvent, type Sprint, type Status, type Team, type WorkItem, type WorkStream } from '../types';
+import { STATUSES, type Release, type Sprint, type Status, type Team, type WorkItem, type WorkStream } from '../types';
 
 export type GroupBy = 'stream' | 'status';
 
@@ -28,7 +28,7 @@ export interface SprintViewProps {
   vel: number;
   pct: number;
   totalPts: number;
-  events: ReleaseEvent[];
+  events: EventChip[];
   allItems: WorkItem[];
   filteredItems: WorkItem[];
   streamCols: StreamColumn[];
@@ -76,7 +76,7 @@ export function useSprintView(): SprintViewProps | null {
   const vel = sprintVel(team, sp, off);
   const act = activeSprint(r);
   const isActive = !!act && act.id === sp.id;
-  const evts = eventsIn(r, sp);
+  const evts = sprintEventChips(r, sp);
   const totalPts = sumPoints(items);
 
   const facetGroups = buildFacetGroups(

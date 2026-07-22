@@ -14,6 +14,7 @@ const baseRelease = (): Release => ({
   workStreams: [],
   events: [],
   sprints: [],
+  codeFreezeISO: null,
   externalId: null,
   connector: { type: 'acme', config: {} },
   sync: null,

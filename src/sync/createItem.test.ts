@@ -69,6 +69,7 @@ const release = (): Release => ({
   workStreams: [{ id: 'ws1', name: 'Checkout', externalId: 'EPIC-A', engineersRequired: null, build: null, externalUrl: null, planningMuted: false }],
   events: [],
   sprints: [{ id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 0, externalId: 'JSPR-1', plannedVelocity: null }],
+  codeFreezeISO: null,
   externalId: null, connector: { type: 'acme', config: {} }, sync: null, sprintLengthDays: 14,
 });
 const state = (): AppState => ({

@@ -28,6 +28,7 @@ const release = (): Release => ({
   ],
   events: [],
   sprints: [sprint(1), sprint(2)],
+  codeFreezeISO: null,
   externalId: null,
   connector: null,
   sync: null,

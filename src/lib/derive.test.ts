@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { activeSprint, capPct, eventsIn, elapsedSprints, fullCap, groupItemsByStream, plannedVel, releaseCapacity, remainingSprints, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
+import { activeSprint, capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, fullCap, groupItemsByStream, plannedVel, releaseCapacity, remainingSprints, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
-import type { Release, Sprint, Team, WorkItem } from '../types';
+import type { Release, Sprint, Team, WorkItem, WorkStream } from '../types';
 
 const team = (members: number, velocity: number): Team => ({
   id: 't',
@@ -111,6 +111,7 @@ describe('eventsIn', () => {
       { id: 'e4', label: 'D', dateISO: '2026-05-01', externalId: null }, // outside sprint 1
     ],
     sprints: buildSprints('2026-04-13', {}),
+    codeFreezeISO: null,
     externalId: null,
     connector: null,
     sync: null,
@@ -136,7 +137,7 @@ describe('activeSprint', () => {
   // calendar date they run on. todayISO() and addDays() are pure utilities.
   const makeRelease = (sprints: Sprint[]): Release => ({
     id: 'r', name: 'R', startISO: sprints[0]?.startISO ?? '2026-01-01',
-    teamId: 't', workStreams: [], events: [], sprints, externalId: null,
+    teamId: 't', workStreams: [], events: [], sprints, codeFreezeISO: null, externalId: null,
     connector: null, sync: null, sprintLengthDays: 14,
   });
 
@@ -334,7 +335,7 @@ describe('forward capacity-fit health', () => {
     const active: Sprint = { id: 'a', name: 'A', startISO: addDays(today, -5), endISO: addDays(today, 9), daysOff: 0, externalId: null, plannedVelocity: null };
     const f1: Sprint = { id: 'f1', name: 'F1', startISO: addDays(today, 10), endISO: addDays(today, 23), daysOff: 0, externalId: null, plannedVelocity: null };
     const f2: Sprint = { id: 'f2', name: 'F2', startISO: addDays(today, 24), endISO: addDays(today, 37), daysOff: 0, externalId: null, plannedVelocity: null };
-    return { id: 'r', name: 'R', startISO: past.startISO, teamId: 't', workStreams: [], events: [], sprints: [past, active, f1, f2], externalId: null, connector: null, sync: null, sprintLengthDays: 14 };
+    return { id: 'r', name: 'R', startISO: past.startISO, teamId: 't', workStreams: [], events: [], sprints: [past, active, f1, f2], codeFreezeISO: null, externalId: null, connector: null, sync: null, sprintLengthDays: 14 };
   };
 
   const hp = (remainingPts: number, itemCount = 1): StreamHealth => ({ itemCount, totalPts: remainingPts, donePts: 0, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
@@ -359,6 +360,74 @@ describe('forward capacity-fit health', () => {
       const ctx = releaseCapacity(calRelease(), undefined);
       expect(ctx.contributingCount).toBe(0);
       expect(ctx.perEngineerCap).toBe(0);
+    });
+  });
+
+  describe('code freeze', () => {
+    // Fixed-date sprints (not today-relative) so proration math is deterministic.
+    const sp1 = sprint('2026-04-13', '2026-04-26'); // Mon–Sun, 10 business days
+    const sp2 = sprint('2026-04-27', '2026-05-10'); // Mon–Sun, 10 business days
+    const freezeRelease = (codeFreezeISO: string | null): Release => ({
+      id: 'r', name: 'R', startISO: sp1.startISO, teamId: 't',
+      workStreams: [], events: [], sprints: [sp1, sp2], codeFreezeISO,
+      externalId: null, connector: null, sync: null, sprintLengthDays: 14,
+    });
+    const ws = (codeFreezeISO?: string | null): WorkStream => ({
+      id: 'ws', name: 'W', externalId: null, engineersRequired: null, planningMuted: false, build: null, externalUrl: null, codeFreezeISO,
+    });
+    const before = '2026-04-01'; // "today" earlier than both sprints — both are remaining
+
+    describe('effectiveCodeFreeze', () => {
+      it('defaults to the last sprint end when unset', () => {
+        expect(effectiveCodeFreeze(freezeRelease(null))).toBe(sp2.endISO);
+      });
+
+      it('uses the explicit override when set', () => {
+        expect(effectiveCodeFreeze(freezeRelease('2026-04-20'))).toBe('2026-04-20');
+      });
+    });
+
+    describe('effectiveStreamCodeFreeze', () => {
+      it('inherits the release date when the stream has no override', () => {
+        expect(effectiveStreamCodeFreeze(freezeRelease('2026-04-20'), ws(null))).toBe('2026-04-20');
+      });
+
+      it("uses the stream's own override when set", () => {
+        expect(effectiveStreamCodeFreeze(freezeRelease('2026-04-20'), ws('2026-05-05'))).toBe('2026-05-05');
+      });
+
+      it('inherits the release date for the Unassigned bucket (ws null)', () => {
+        expect(effectiveStreamCodeFreeze(freezeRelease('2026-04-20'), null)).toBe('2026-04-20');
+      });
+    });
+
+    describe('releaseCapacity with a code freeze', () => {
+      it('excludes sprints that start after the freeze and prorates the straddling one', () => {
+        const ctx = releaseCapacity(freezeRelease('2026-04-20'), team(1, 100), before);
+        expect(ctx.remainingSprintCount).toBe(1); // sp2 starts 04-27, after the freeze
+        const factor = workdaysInRange(sp1.startISO, '2026-04-20') / workdaysInRange(sp1.startISO, sp1.endISO);
+        expect(ctx.teamRemainingCap).toBeCloseTo(100 * factor);
+      });
+
+      it('counts a sprint in full when it ends on/before the freeze', () => {
+        const ctx = releaseCapacity(freezeRelease(sp1.endISO), team(1, 100), before);
+        expect(ctx.remainingSprintCount).toBe(1);
+        expect(ctx.teamRemainingCap).toBe(100);
+      });
+
+      it('is unaffected when codeFreezeISO is null (defaults to the last sprint end)', () => {
+        const ctx = releaseCapacity(freezeRelease(null), team(1, 100), before);
+        expect(ctx.remainingSprintCount).toBe(2);
+        expect(ctx.teamRemainingCap).toBe(200);
+      });
+
+      it("uses a work stream's own freeze override when passed explicitly", () => {
+        const r = freezeRelease('2026-04-20');
+        const streamFreeze = effectiveStreamCodeFreeze(r, ws('2026-05-10'));
+        const ctx = releaseCapacity(r, team(1, 100), before, streamFreeze);
+        expect(ctx.remainingSprintCount).toBe(2); // stream's own freeze reaches through sp2
+        expect(ctx.teamRemainingCap).toBe(200);
+      });
     });
   });
 
@@ -566,6 +635,7 @@ describe('velocityAttainment', () => {
       { id: 'e2', name: 'Sprint 2', startISO: addDays(today, -28), endISO: addDays(today, -15), daysOff: 0, externalId: null, plannedVelocity: null },
       { id: 'a',  name: 'Sprint 3', startISO: addDays(today, -5),  endISO: addDays(today, 9),   daysOff: 0, externalId: null, plannedVelocity: null },
     ],
+    codeFreezeISO: null,
     sprintLengthDays: 14,
   } as Release);
 
@@ -632,7 +702,7 @@ describe('velocitySuggestion', () => {
   const today = todayISO();
   const mkRelease = (): Release => ({
     id: 'r', name: 'R', startISO: addDays(today, -56), teamId: 't',
-    workStreams: [], events: [], externalId: null, connector: null, sync: null, sprintLengthDays: 14,
+    workStreams: [], events: [], codeFreezeISO: null, externalId: null, connector: null, sync: null, sprintLengthDays: 14,
     sprints: [
       { id: 'e1', name: 'S1', startISO: addDays(today, -56), endISO: addDays(today, -43), daysOff: 0, externalId: null, plannedVelocity: 40 },
       { id: 'e2', name: 'S2', startISO: addDays(today, -42), endISO: addDays(today, -29), daysOff: 0, externalId: null, plannedVelocity: 40 },

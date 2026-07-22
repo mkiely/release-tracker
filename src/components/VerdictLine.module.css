@@ -29,9 +29,12 @@
   transition: background 80ms;
 }
 
+/* Distinct from the row's own hover (which also tints var(--rt-fill)) — this needs
+   to read as its own clickable target even while the row underneath is hovered. */
 .verdictBtn:hover,
 .verdictBtnBadge:hover {
-  background: var(--rt-fill);
+  background: var(--rt-st-ac-soft);
+  box-shadow: inset 0 0 0 1.5px var(--rt-st-ac-dot);
 }
 
 .verdictBtn:focus-visible,

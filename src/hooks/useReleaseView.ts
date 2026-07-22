@@ -7,11 +7,11 @@ import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
 import { useApp } from '../app-context';
 import { dOf, fmtShort, todayISO } from '../lib/dates';
-import { activeSprint, eventsIn, releaseCapacity, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, streamRunway, sumPoints, velocityAttainment, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
+import { activeSprint, effectiveStreamCodeFreeze, sprintEventChips, releaseCapacity, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, streamRunway, sumPoints, velocityAttainment, type EventChip, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
 import { connectorLabel } from '../sync/client';
 import type { MetricsSection } from '../modals/MetricsModal';
 import type { RowData, RowMetrics } from '../lib/rowData';
-import type { Release, ReleaseEvent, Sprint, StatusSeg, Team, WorkItem, WorkStream } from '../types';
+import type { Release, Sprint, StatusSeg, Team, WorkItem, WorkStream } from '../types';
 
 /** Counts items by their work-item-type label, preserving first-seen order. Untyped items are skipped. */
 function typeCounts(items: WorkItem[]): { label: string; n: number }[] {
@@ -44,7 +44,7 @@ interface SprintHeader {
   /** Points actually completed in this sprint — meaningful once the sprint is past. */
   donePts: number;
   itemCount: number;
-  events: ReleaseEvent[];
+  events: EventChip[];
 }
 
 export type SprintRowData = RowData<SprintHeader, SprintLaneEntry>;
@@ -128,6 +128,8 @@ export interface ReleaseViewProps {
   onNewEvent: () => void;
   onNewStream: () => void;
   onOpenEvent: (eventId: string) => void;
+  /** Opens the release-level code-freeze editor. */
+  onEditCodeFreeze: () => void;
   onSync: () => void;
   onPush: () => void;
 }
@@ -185,7 +187,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     const donePts = sumPoints(spItems.filter((i) => i.status === 'Complete'));
     const isActive = !!active && active.id === sp.id;
     const isPast = sp.endISO < today && !isActive;
-    const evts = eventsIn(r, sp);
+    const evts = sprintEventChips(r, sp);
 
     const lane: SprintLaneEntry[] = streams
       .map((ws) => {
@@ -252,32 +254,37 @@ export function useReleaseView(): ReleaseViewProps | null {
       (i) => i.status !== 'Complete' && i.sprintId != null && (sprintIndexById.get(i.sprintId) ?? -1) >= beyondNextThreshold,
     ).length;
 
-  const streamRows: StreamRowData[] = streamInputs.map(({ ws, items: streamItems, series, health }) => ({
-    ws,
-    itemCount: streamItems.length,
-    points: sumPoints(streamItems),
-    segs: statusSegs(streamItems),
-    series,
-    health,
-    forecast: streamForecast(health, ws ? ws.engineersRequired : null, ctx, contention),
-    runway: streamRunway(health, ws ? ws.engineersRequired : null, ctx, contention, {
-      itemsBeyondNext: itemsBeyondNextFor(streamItems),
-      muted: ws ? ws.planningMuted : false,
-    }),
-    lane: r.sprints.map((sp, sprintIndex) => {
-      const its = streamItems.filter((i) => i.sprintId === sp.id);
-      return {
-        sprint: sp,
-        sprintIndex,
-        isActive: !!active && active.id === sp.id,
-        n: its.length,
-        points: sumPoints(its),
-        done: its.filter((i) => i.status === 'Complete').length,
-        segs: statusSegs(its),
-        types: typeCounts(its),
-      };
-    }),
-  }));
+  const streamRows: StreamRowData[] = streamInputs.map(({ ws, items: streamItems, series, health }) => {
+    // Most streams inherit the release's code freeze, so they share `ctx`; a stream
+    // with its own override needs its own capacity window computed against that date.
+    const streamCtx = ws?.codeFreezeISO != null ? releaseCapacity(r, team, today, effectiveStreamCodeFreeze(r, ws)) : ctx;
+    return {
+      ws,
+      itemCount: streamItems.length,
+      points: sumPoints(streamItems),
+      segs: statusSegs(streamItems),
+      series,
+      health,
+      forecast: streamForecast(health, ws ? ws.engineersRequired : null, streamCtx, contention),
+      runway: streamRunway(health, ws ? ws.engineersRequired : null, streamCtx, contention, {
+        itemsBeyondNext: itemsBeyondNextFor(streamItems),
+        muted: ws ? ws.planningMuted : false,
+      }),
+      lane: r.sprints.map((sp, sprintIndex) => {
+        const its = streamItems.filter((i) => i.sprintId === sp.id);
+        return {
+          sprint: sp,
+          sprintIndex,
+          isActive: !!active && active.id === sp.id,
+          n: its.length,
+          points: sumPoints(its),
+          done: its.filter((i) => i.status === 'Complete').length,
+          segs: statusSegs(its),
+          types: typeCounts(its),
+        };
+      }),
+    };
+  });
 
   const onExport = async () => {
     const tsv = releaseToTSV(st, id, facetsActive ? new Set(streams.map((ws) => ws.id)) : undefined);
@@ -334,6 +341,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     onNewEvent: () => openModal({ type: 'event', releaseId: id }),
     onNewStream: () => openModal({ type: 'stream', releaseId: id }),
     onOpenEvent: (eventId) => openModal({ type: 'event', releaseId: id, eventId }),
+    onEditCodeFreeze: () => openModal({ type: 'codeFreeze', releaseId: id }),
     onSync: () => onSync(id),
     onPush: () => onPush(id),
   };

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "21.0.0",
+  "version": "22.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -119,6 +119,11 @@
         "attributes": {
           "$ref": "#/definitions/AttributeBag",
           "description": "Connector vocabulary values for this stream. Optional — absence means none."
+        },
+        "codeFreezeISO": {
+          "type": ["string", "null"],
+          "format": "date",
+          "description": "App-owned enrichment: overrides the release's code freeze for this stream alone (e.g. an infra stream that must lock down ahead of feature streams). Optional — absence/null means it inherits Release.codeFreezeISO. Survives connector sync."
         }
       },
       "required": ["id", "name", "externalId", "engineersRequired", "planningMuted", "build", "externalUrl"],
@@ -440,6 +445,11 @@
           },
           "description": "Sprints in this release, ordered by startISO ascending. Local releases default to 8 two-week sprints; connector releases may have any count or duration."
         },
+        "codeFreezeISO": {
+          "type": ["string", "null"],
+          "format": "date",
+          "description": "App-owned code check-in deadline. Null = defaults to the last sprint's endISO (no artificial cutoff). Feeds the capacity-fit forecast/burndown and renders as a critical-tone calendar chip on the sprint whose range contains it. Individual work streams may override via WorkStream.codeFreezeISO."
+        },
         "externalId": {
           "type": ["string", "null"],
           "description": "ID from external ticketing system (Acme, Linear, etc.). Null for locally-created releases."
@@ -470,7 +480,7 @@
           "description": "Snapshot of the connector's vocabulary (item-type catalog + status vocabulary + work-stream field catalog), taken at each sync. Lets the app interpret synced items' and streams' attributes and native statuses (labels, enum options, writeability, filterability) offline, and keeps already-synced items stable if the live catalog changes. Null/absent = never synced or a local release."
         }
       },
-      "required": ["id", "name", "startISO", "teamId", "workStreams", "events", "sprints", "externalId", "connector", "sync", "sprintLengthDays"],
+      "required": ["id", "name", "startISO", "teamId", "workStreams", "events", "sprints", "codeFreezeISO", "externalId", "connector", "sync", "sprintLengthDays"],
       "additionalProperties": false
     },
     "AppState": {
@@ -522,7 +532,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 21,
+      "value": 22,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {

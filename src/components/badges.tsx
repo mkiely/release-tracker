@@ -1,33 +1,48 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { Status, StatusSeg } from '../types';
-import { statusVars } from './statusVars';
+import { Icon } from './Icon';
+import { statusVars, warningVars } from './statusVars';
 import styles from './badges.module.css';
 
 /** A calendar-event chip (flag + label + optional date). Long labels are
- *  truncated to `max` chars with the full text in a tooltip. */
+ *  truncated to `max` chars with the full text in a tooltip. `critical` gives it
+ *  a warning visual semantic — the Blocked status tone plus the app's alert-triangle
+ *  icon (same language as the release's other warning chips) instead of the plain
+ *  flag — reserved for the code-freeze marker, which also never takes `onClick`:
+ *  unlike a real event it isn't editable from the chip. */
 export function EventBadge({
   children,
   date,
   max = 22,
+  critical,
   onClick,
 }: {
   children: ReactNode;
   date?: string;
   max?: number;
+  critical?: boolean;
   onClick?: () => void;
 }) {
   const full = typeof children === 'string' ? children : null;
   const txt = full && full.length > max ? full.slice(0, max - 1) + '…' : children;
+  const cv = warningVars();
   return (
     <span
       className={styles.badge}
       title={full || undefined}
-      onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
-      style={onClick ? { cursor: 'pointer' } : undefined}
+      onClick={!critical && onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
+      style={{
+        cursor: !critical && onClick ? 'pointer' : undefined,
+        ...(critical ? { borderColor: cv.soft, background: cv.soft, color: cv.text } : undefined),
+      }}
     >
-      <span className={styles.flag} />
+      {critical ? (
+        <span className={styles.warnIcon} style={{ color: cv.dot }}>{Icon.alert}</span>
+      ) : (
+        <span className={styles.flag} />
+      )}
       <span className={styles.text}>{txt}</span>
-      {date ? <span className={styles.date}>{date}</span> : null}
+      {date ? <span className={styles.date} style={critical ? { color: cv.text, opacity: 0.75 } : undefined}>{date}</span> : null}
     </span>
   );
 }
