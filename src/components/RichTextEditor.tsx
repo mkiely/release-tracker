@@ -3,6 +3,7 @@ import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { DOMParser as PMDOMParser } from '@tiptap/pm/model';
 import { markdownToHtml, looksLikeMarkdown } from '../lib/markdown';
+import { normalizeBlanks } from '../lib/htmlNormalize';
 import { Icon } from './Icon';
 import { IconButton } from './primitives';
 import styles from './RichTextEditor.module.css';
@@ -42,15 +43,6 @@ function Toolbar({ editor }: { editor: Editor }) {
       />
     </div>
   );
-}
-
-// Connector HTML often uses <p><br></p> as a blank-line separator. TipTap
-// parses the <br> as a hard break node, which then gets a second ProseMirror
-// trailing placeholder appended — producing <p><br><br.ProseMirror-trailingBreak></p>
-// and defeating the :only-child CSS collapse rule. Stripping the <br> first
-// lets TipTap treat the paragraph as truly empty so only the placeholder remains.
-function normalizeBlanks(html: string): string {
-  return html.replace(/<p>(\s*<br[^>]*>)+\s*<\/p>/gi, '<p></p>');
 }
 
 /** A deliberately minimal rich-text editor for work-item HTML descriptions.

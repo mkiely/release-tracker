@@ -5,6 +5,7 @@
 
 import type { AttrValue, Status, WorkItem } from '../types';
 import type { ConnectorItemType, FieldSpec } from '../sync/schema';
+import { htmlEqual } from './htmlNormalize';
 
 // Fields the app can locally edit on a synced item. When an item's type isn't in
 // the catalog (legacy/unknown), we fall back to this set so editing still works.
@@ -45,12 +46,23 @@ interface CanonicalField {
   read: (v: CanonicalView) => AttrValue;
   /** Copy an incoming value from `v` onto `item` (status writes both columns). */
   apply: (item: WorkItem, v: CanonicalView) => void;
+  /** Value equality for dirty-detection. Defaults to strict `===`. HTML fields
+   *  override this to compare canonical (schema-normalized) form, so the editor's
+   *  parse→serialize round-trip isn't mistaken for a real edit. */
+  equals?: (a: AttrValue, b: AttrValue) => boolean;
+}
+
+/** Whether a canonical field's value changed between two views, honoring the
+ *  field's own equality (HTML fields compare canonicalized markup, not raw
+ *  strings). The single dirty-detection predicate — use instead of a bare `!==`. */
+export function canonicalChanged(c: CanonicalField, a: AttrValue, b: AttrValue): boolean {
+  return c.equals ? !c.equals(a, b) : a !== b;
 }
 
 /** The canonical fields, in push-preview display order. */
 export const CANONICAL_FIELDS: readonly CanonicalField[] = [
   { field: 'subject', label: 'Subject', match: (f) => f.role === 'subject', read: (v) => v.subject, apply: (it, v) => { it.subject = v.subject; } },
-  { field: 'description', label: 'Description', match: (f) => f.role === 'description', read: (v) => v.description, apply: (it, v) => { it.description = v.description; } },
+  { field: 'description', label: 'Description', match: (f) => f.role === 'description', read: (v) => v.description, apply: (it, v) => { it.description = v.description; }, equals: (a, b) => htmlEqual(String(a ?? ''), String(b ?? '')) },
   { field: 'points', label: 'Points', match: (f) => f.role === 'points', read: (v) => v.points, apply: (it, v) => { it.points = v.points; } },
   { field: 'sprint', label: 'Sprint', match: (f) => f.kind === 'ref' && f.target === 'sprint', read: (v) => v.sprintId, apply: (it, v) => { it.sprintId = v.sprintId; } },
   { field: 'workStream', label: 'Work stream', match: (f) => f.kind === 'ref' && f.target === 'workStream', read: (v) => v.workStreamId, apply: (it, v) => { it.workStreamId = v.workStreamId; } },
