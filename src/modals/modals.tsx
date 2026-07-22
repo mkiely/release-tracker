@@ -6,7 +6,8 @@ import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
 import { capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, freezeSprintX, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
-import { attributeFields, CANONICAL_FIELDS, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type CanonicalView, type EditConcept } from '../lib/connectorFields';
+import { attributeFields, CANONICAL_FIELDS, canonicalChanged, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type CanonicalView, type EditConcept } from '../lib/connectorFields';
+import { htmlToText } from '../lib/htmlNormalize';
 import { displayValue, FieldControl } from '../components/fields/registry';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import type { SharePayload } from '../lib/shareRelease';
@@ -902,7 +903,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       };
       for (const c of CANONICAL_FIELDS) {
         if (!writeableLocal.has(c.field)) continue;
-        if (c.read(nextView) !== c.read(it) && !nextDirty.includes(c.field)) nextDirty.push(c.field);
+        if (canonicalChanged(c, c.read(nextView), c.read(it)) && !nextDirty.includes(c.field)) nextDirty.push(c.field);
       }
       for (const f of attrFields) {
         if (!attrEditable(f.key)) continue;
@@ -1206,6 +1207,10 @@ export function PushReviewModal({
   const valueText = (d: PushItemPreview['diffs'][number], v: AttrValue): string => {
     if (d.field === 'sprint') return sprintName(v as string | null);
     if (d.field === 'status') return statusVocab.find((sd) => sd.id === v)?.label ?? (v == null ? '—' : String(v));
+    // Descriptions are long rich-text HTML; show a plain-text projection (clipped
+    // at render). The point of the row is to flag that description is included,
+    // not to render the whole document.
+    if (d.field === 'description') return htmlToText(v == null ? '' : String(v)) || '—';
     if (d.spec) return displayValue(d.spec, v); // vocabulary: enum labels, Yes/No, em-dash
     return v == null ? '—' : String(v);
   };
@@ -1286,14 +1291,25 @@ export function PushReviewModal({
                     </span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {p.diffs.map((d) => (
-                      <div key={d.field} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--rt-fs-sm)' }}>
-                        <span style={{ color: 'var(--rt-t3)', minWidth: 52 }}>{d.label}</span>
-                        <span style={{ color: 'var(--rt-t3)', textDecoration: 'line-through' }}>{valueText(d, d.from)}</span>
-                        {arrow}
-                        <span style={{ color: 'var(--rt-t1)', fontWeight: 'var(--rt-fw-semibold)' }}>{valueText(d, d.to)}</span>
-                      </div>
-                    ))}
+                    {p.diffs.map((d) => {
+                      // Long free-text values (description) clip to one ellipsized
+                      // line so a row stays a single line; the full text is on the
+                      // title tooltip.
+                      const clip = d.field === 'description';
+                      const clipStyle = clip
+                        ? { maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' as const }
+                        : undefined;
+                      const fromText = valueText(d, d.from);
+                      const toText = valueText(d, d.to);
+                      return (
+                        <div key={d.field} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--rt-fs-sm)' }}>
+                          <span style={{ color: 'var(--rt-t3)', minWidth: 52, flexShrink: 0 }}>{d.label}</span>
+                          <span title={clip ? fromText : undefined} style={{ color: 'var(--rt-t3)', textDecoration: 'line-through', ...clipStyle }}>{fromText}</span>
+                          {arrow}
+                          <span title={clip ? toText : undefined} style={{ color: 'var(--rt-t1)', fontWeight: 'var(--rt-fw-semibold)', ...clipStyle }}>{toText}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
                 <PButton
