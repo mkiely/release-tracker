@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Release } from '../types';
+import type { Release, Team } from '../types';
 import {
   MAX_SAFE_URL_LENGTH,
   SHARE_PARAM,
@@ -34,9 +34,34 @@ const connectorRelease = (overrides: Partial<Release> = {}): Release => ({
   ...overrides,
 });
 
+const team = (overrides: Partial<Team> = {}): Team => ({
+  id: 'team_local',
+  name: 'Atlas',
+  velocity: 40,
+  externalId: 'ACME-TEAM',
+  members: [
+    { id: 'm1', name: 'Ada L.', externalId: 'USR-ADA', nonContributing: false },
+    { id: 'm2', name: 'Pete O.', externalId: 'USR-PETE', nonContributing: true },
+    { id: 'm3', name: 'Local Only', externalId: null, nonContributing: true },
+  ],
+  ...overrides,
+});
+
 describe('buildSharePayload', () => {
   it('returns null for a Local (non-connector) release', () => {
     expect(buildSharePayload(connectorRelease({ connector: null }))).toBeNull();
+  });
+
+  it('carries each synced member\'s nonContributing flag, skipping members without an externalId', () => {
+    const payload = buildSharePayload(connectorRelease(), team())!;
+    expect(payload.members).toEqual([
+      { externalId: 'USR-ADA', nonContributing: false },
+      { externalId: 'USR-PETE', nonContributing: true },
+    ]);
+  });
+
+  it('emits an empty members list when no team is passed', () => {
+    expect(buildSharePayload(connectorRelease())!.members).toEqual([]);
   });
 
   it('captures config + events + sprints (with days off) + stream local metadata, but not items', () => {
@@ -73,6 +98,15 @@ describe('encode/decode round-trip', () => {
     const payload = buildSharePayload(connectorRelease())!;
     const decoded = decodeSharePayload(encodeSharePayload(payload));
     expect(decoded).toEqual(payload);
+  });
+
+  it('preserves member overrides through a round-trip', () => {
+    const payload = buildSharePayload(connectorRelease(), team())!;
+    const decoded = decodeSharePayload(encodeSharePayload(payload));
+    expect(decoded?.members).toEqual([
+      { externalId: 'USR-ADA', nonContributing: false },
+      { externalId: 'USR-PETE', nonContributing: true },
+    ]);
   });
 
   it('returns null for malformed input', () => {

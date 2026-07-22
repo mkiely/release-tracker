@@ -24,9 +24,14 @@ export const sprintVel = (team: Team | undefined, sprint: Sprint, daysOff: numbe
  * changes); otherwise it derives live from the current team velocity, exactly as
  * a future sprint should. The freeze itself happens in stampStartedSprints (store);
  * this is the read side every metric uses. See docs/metrics.md.
+ *
+ * A `0` (or null) baseline means "no real baseline" — never a genuine commitment of
+ * zero points. It re-derives live, so a sprint that started while the team velocity
+ * was still unset (0 — the default for connector releases) picks up a meaningful
+ * planned figure the moment a velocity is set, instead of being trapped at 0.
  */
 export const plannedVel = (team: Team | undefined, sprint: Sprint): number =>
-  sprint.plannedVelocity ?? sprintVel(team, sprint, sprint.daysOff);
+  sprint.plannedVelocity || sprintVel(team, sprint, sprint.daysOff);
 
 /** The sprint whose date range contains today, or null. */
 export const activeSprint = (release: Release): Sprint | null =>
@@ -465,8 +470,10 @@ export interface VelocityAttainment {
   totalActual: number;
   /** totalActual / totalPlanned as a percentage; null when nothing to measure. */
   attainmentPct: number | null;
-  /** 'none' until a sprint has elapsed; 'on-track' within tolerance of plan, else 'under'. */
-  verdict: 'on-track' | 'under' | 'none';
+  /** 'none' until a sprint has elapsed; 'no-baseline' when sprints have elapsed but
+   *  there's no planned total to measure against (team velocity unset — the default
+   *  for connector releases); 'on-track' within tolerance of plan, else 'under'. */
+  verdict: 'on-track' | 'under' | 'none' | 'no-baseline';
 }
 
 /** Points delivered vs. planned across the release's elapsed sprints. `items` should
@@ -487,7 +494,11 @@ export function velocityAttainment(
   const totalPlanned = perSprint.reduce((a, s) => a + s.planned, 0);
   const totalActual = perSprint.reduce((a, s) => a + s.actual, 0);
   const attainmentPct = perSprint.length === 0 || totalPlanned === 0 ? null : Math.round((totalActual / totalPlanned) * 100);
-  const verdict = attainmentPct === null ? 'none' : attainmentPct >= 90 ? 'on-track' : 'under';
+  // Two distinct "can't measure" states share attainmentPct === null: no elapsed
+  // sprints at all ('none') vs. elapsed sprints with no velocity baseline to compare
+  // against ('no-baseline'). Callers surface very different copy for each.
+  const verdict: VelocityAttainment['verdict'] =
+    perSprint.length === 0 ? 'none' : totalPlanned === 0 ? 'no-baseline' : attainmentPct! >= 90 ? 'on-track' : 'under';
   return { perSprint, totalPlanned, totalActual, attainmentPct, verdict };
 }
 

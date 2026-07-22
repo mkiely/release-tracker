@@ -12,6 +12,7 @@
 import type { AppState, WorkItem } from '../types';
 import { fmtShort, todayISO } from './dates';
 import {
+  effectiveStreamCodeFreeze,
   eventsIn,
   releaseCapacity,
   sprintVel,
@@ -100,6 +101,10 @@ export function releaseToTSV(
 
     const healthLine = `${h.itemCount} items · ${h.pct}% done (${h.donePts}/${h.totalPts}pt) · ${h.remainingPts}pt rem${h.blockedPts > 0 ? ` · ${h.blockedPts}pt blocked` : ''}`;
 
+    // Effective freeze date for this stream: its own override wins, else the release's.
+    // Surfaces the cutoff the forecast/runway lines above are already computed against.
+    const freezeLine = `Code freeze: ${fmtShort(effectiveStreamCodeFreeze(release, ws))}${ws?.codeFreezeISO ? ' (stream override)' : ''}`;
+
     let forecastLine = `Forecast: ${forecast.verdict}`;
     if (forecast.verdict === 'at-risk') {
       forecastLine += ` — ${Math.round(forecast.shortfallPts)}pt short (~${Math.ceil(forecast.sprintsShort)} sprint${Math.ceil(forecast.sprintsShort) !== 1 ? 's' : ''})`;
@@ -119,7 +124,7 @@ export function releaseToTSV(
       runwayLine += ' — no items created';
     }
 
-    return [name, '----', healthLine, forecastLine, runwayLine].join('\n');
+    return [name, '----', healthLine, freezeLine, forecastLine, runwayLine].join('\n');
   };
 
   const outputRows: string[] = [

@@ -210,6 +210,13 @@ export function applySync(
   let releaseTeamId = release.teamId;
   const memberByExt = new Map<string, string>(); // external member id -> local member id
 
+  // A freshly imported share stashes the sharer's non-contributing overrides here
+  // (keyed by member externalId) because the team didn't exist at import time. They
+  // seed a member's flag on first creation, then are cleared below.
+  const memberOverrides = new Map(
+    (release.pendingMemberOverrides ?? []).map((o) => [o.externalId, o.nonContributing] as const),
+  );
+
   if (isConnector && mapped.team) {
     const mt = mapped.team;
     let team = teams.find((t) => t.externalId === mt.externalId);
@@ -250,7 +257,9 @@ export function applySync(
           id: uid('m'),
           name: mm.fields.name,
           externalId: mm.externalId,
-          nonContributing: mm.fields.nonContributing ?? false,
+          // A shared override (either direction) wins over the connector's seed hint;
+          // otherwise fall back to the connector value, then to contributing.
+          nonContributing: memberOverrides.get(mm.externalId) ?? mm.fields.nonContributing ?? false,
         };
         members.push(m);
         memberByExt.set(mm.externalId, m.id);
@@ -352,8 +361,14 @@ export function applySync(
     if (warning) result.warnings.push(warning);
   }
 
-  const releases = state.releases.map((r) =>
-    r.id === releaseId ? { ...r, teamId: releaseTeamId, workStreams, sprints } : r,
-  );
+  const releases = state.releases.map((r) => {
+    if (r.id !== releaseId) return r;
+    const next: Release = { ...r, teamId: releaseTeamId, workStreams, sprints };
+    // pendingMemberOverrides is a one-shot import hint. Clear it only once the team
+    // arrived this sync (its members — and their flags — now exist). A team-less sync
+    // (e.g. an incremental one) leaves it in place for the sync that does carry the team.
+    if (mapped.team) delete next.pendingMemberOverrides;
+    return next;
+  });
   return { next: { ...state, teams, releases, items }, result };
 }

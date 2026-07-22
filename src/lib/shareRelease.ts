@@ -13,7 +13,7 @@
 // app-owned and survives). Events keep theirs for the same reason.
 
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
-import type { Release, ReleaseConnector } from '../types';
+import type { MemberOverride, Release, ReleaseConnector, Team } from '../types';
 
 /** Query-string key carrying an encoded share payload. */
 export const SHARE_PARAM = 'share';
@@ -25,8 +25,10 @@ export const SHARE_PARAM = 'share';
  */
 export const MAX_SAFE_URL_LENGTH = 2000;
 
-/** Schema version for the share payload, so a future shape change can be detected. */
-const SHARE_VERSION = 1;
+/** Schema version for the share payload, so a future shape change can be detected.
+ *  v2 adds `members` (non-contributing overrides). v1 links still decode — `members`
+ *  is simply absent, and the recipient's sync seeds member flags from the connector. */
+const SHARE_VERSION = 2;
 
 /** Per-sprint metadata that travels in a share. Dates/name are for pre-sync
  *  display; `externalId` + `daysOff` are what make days off reattach on sync. */
@@ -64,14 +66,23 @@ export interface SharePayload {
   /** Local-metadata-only slice of each work stream (no names/items — those come
    *  from sync). Only streams with an externalId can be reattached. */
   workStreams?: ShareWorkStream[];
+  /** The sharer's app-owned `nonContributing` flag per synced member, keyed by
+   *  `externalId`. Reattaches on the recipient's first sync so a manual override
+   *  (either direction) survives instead of resetting to the connector's value.
+   *  Absent on v1 links and for members with no externalId. */
+  members?: MemberOverride[];
 }
 
 /**
  * Build a share payload from a release. Returns null for Local (non-connector)
  * releases — there's no external system for the recipient to sync against, so a
  * link would carry config that can't be filled in.
+ *
+ * `team` is the release's bound team, used only to carry each synced member's
+ * app-owned `nonContributing` flag so a manual override survives the recipient's
+ * first sync. Omit it (or pass an unsynced team) and no member overrides travel.
  */
-export function buildSharePayload(release: Release): SharePayload | null {
+export function buildSharePayload(release: Release, team?: Team): SharePayload | null {
   if (!release.connector) return null;
   return {
     v: SHARE_VERSION,
@@ -89,6 +100,11 @@ export function buildSharePayload(release: Release): SharePayload | null {
     workStreams: release.workStreams
       .filter((ws) => ws.engineersRequired !== null)
       .map((ws) => ({ externalId: ws.externalId, engineersRequired: ws.engineersRequired })),
+    // Every synced member's current (app-owned) flag, keyed by externalId — reattaches
+    // on the recipient's first sync. Members with no externalId can't be matched there.
+    members: (team?.members ?? [])
+      .filter((m) => m.externalId !== null)
+      .map((m) => ({ externalId: m.externalId!, nonContributing: m.nonContributing })),
   };
 }
 
@@ -129,8 +145,8 @@ export type ShareLinkResult =
  * window.location.origin). Reports `too-long` when the result would exceed
  * {@link MAX_SAFE_URL_LENGTH} rather than producing a link that may be truncated.
  */
-export function buildShareUrl(release: Release, origin: string): ShareLinkResult {
-  const payload = buildSharePayload(release);
+export function buildShareUrl(release: Release, origin: string, team?: Team): ShareLinkResult {
+  const payload = buildSharePayload(release, team);
   if (!payload) return { ok: false, reason: 'not-connector' };
   const url = `${origin}/?${SHARE_PARAM}=${encodeSharePayload(payload)}`;
   if (url.length > MAX_SAFE_URL_LENGTH) return { ok: false, reason: 'too-long', length: url.length };

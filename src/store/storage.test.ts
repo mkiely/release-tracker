@@ -117,3 +117,36 @@ describe('load', () => {
     expect(c).toEqual(a);
   });
 });
+
+describe('stampStartedSprints', () => {
+  const today = '2026-07-22';
+  const startedSprint = () => ({
+    id: 'sp1', name: 'Sprint 1', startISO: '2026-06-01', endISO: '2026-06-14',
+    daysOff: 0, externalId: null, plannedVelocity: null as number | null,
+  });
+  const stateWith = (velocity: number, plannedVelocity: number | null): AppState => ({
+    version: SCHEMA_VERSION,
+    teams: [{ id: 't1', name: 'T', velocity, externalId: null, members: [{ id: 'm1', name: 'A', externalId: null, nonContributing: false }] }],
+    releases: [{
+      id: 'r1', name: 'R', startISO: '2026-06-01', teamId: 't1', workStreams: [], events: [],
+      sprints: [{ ...startedSprint(), plannedVelocity }], codeFreezeISO: null, externalId: null,
+      connector: null, sync: null, sprintLengthDays: 14,
+    }],
+    items: [], meta: { lastSyncISO: null },
+  } as AppState);
+
+  it('does not freeze a started sprint while the team velocity is unset (0)', () => {
+    const out = stampStartedSprints(stateWith(0, null), today);
+    expect(out.releases[0].sprints[0].plannedVelocity).toBeNull(); // stays unstamped, not trapped at 0
+  });
+
+  it('freezes a started sprint once a real velocity exists', () => {
+    const out = stampStartedSprints(stateWith(40, null), today);
+    expect(out.releases[0].sprints[0].plannedVelocity).toBe(40);
+  });
+
+  it('re-stamps a stale 0 baseline with the now-set velocity', () => {
+    const out = stampStartedSprints(stateWith(40, 0), today);
+    expect(out.releases[0].sprints[0].plannedVelocity).toBe(40); // 0 treated as unstamped
+  });
+});

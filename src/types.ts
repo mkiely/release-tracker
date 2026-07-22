@@ -14,7 +14,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 22;
+export const SCHEMA_VERSION = 23;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog, its
  *  status vocabulary (native workflow states mapped to canonical categories),
@@ -171,6 +171,19 @@ export interface Release {
    *  and keeps already-synced items stable if the connector's live catalog
    *  changes between syncs. null/absent = never synced or Local release. */
   catalog?: ReleaseCatalog | null;
+  /** Transient reattach hint carried by an imported share link: the sharer's
+   *  app-owned `nonContributing` flag per member (keyed by `externalId`). The team
+   *  doesn't exist yet at import time (teamId is unbound until first sync), so these
+   *  wait here until applySync creates the members, then seed their flag in place of
+   *  the connector's. Consumed and cleared by the first sync. Absent otherwise. */
+  pendingMemberOverrides?: MemberOverride[];
+}
+
+/** A member's app-owned `nonContributing` flag, keyed by connector `externalId`.
+ *  Travels in a share link and reattaches on the recipient's first sync. */
+export interface MemberOverride {
+  externalId: string;
+  nonContributing: boolean;
 }
 
 /** A single piece of work. Belongs to one release, optionally assigned to a work

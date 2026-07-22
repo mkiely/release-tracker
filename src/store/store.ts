@@ -321,6 +321,12 @@ export function migrate(p: AppState): AppState | null {
       })),
     };
   }
+  // v22 → v23: releases gain an optional, transient `pendingMemberOverrides` set only
+  // on a freshly imported share and cleared by the first sync. Nothing to backfill —
+  // existing releases have none — so this is a pure version bump.
+  if (s.version === 22) {
+    s = { ...s, version: 23 };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -339,9 +345,16 @@ export function stampStartedSprints(state: AppState, today: string = todayISO())
     const team = state.teams.find((t) => t.id === r.teamId);
     let touched = false;
     const sprints = r.sprints.map((sp) => {
-      if (sp.plannedVelocity == null && sp.startISO <= today) {
-        touched = true;
-        return { ...sp, plannedVelocity: sprintVel(team, sp, sp.daysOff) };
+      // Freeze a started sprint only once there's a real baseline to freeze. A 0 (or
+      // null) is treated as unstamped, so a sprint that began while the team velocity
+      // was still unset (0 — the connector default) isn't trapped at 0: the next load
+      // after a velocity is set stamps it with a meaningful figure. See plannedVel.
+      if (!sp.plannedVelocity && sp.startISO <= today) {
+        const baseline = sprintVel(team, sp, sp.daysOff);
+        if (baseline > 0) {
+          touched = true;
+          return { ...sp, plannedVelocity: baseline };
+        }
       }
       return sp;
     });
@@ -564,6 +577,9 @@ export const useStore = create<StoreState>((set, get) => {
         // Nominal only — a connector's actual sprints arrive (and may vary) on sync.
         sprintLengthDays: SPRINT_LEN_DAYS,
         catalog: null,
+        // Stash the sharer's non-contributing overrides until the first sync creates
+        // the members (the team is unbound until then). applySync consumes + clears.
+        pendingMemberOverrides: payload.members?.length ? payload.members : undefined,
       };
       commit((d) => { d.releases = [...d.releases, r]; });
       return r;

@@ -147,7 +147,7 @@ describe('releaseToTSV', () => {
     expect(rows[BODY][2]).toBe('');
   });
 
-  it('stream header cell contains name, separator, health, forecast, and runway lines', () => {
+  it('stream header cell contains name, separator, health, freeze, forecast, and runway lines', () => {
     const tsv = releaseToTSV(
       state([item({ workStreamId: 'ws1', sprintId: 'sp1', points: 5, status: 'Complete' })]),
       'rel',
@@ -159,8 +159,25 @@ describe('releaseToTSV', () => {
     expect(cellLines[2]).toMatch(/1 items/);
     expect(cellLines[2]).toMatch(/100% done/);
     expect(cellLines[2]).toMatch(/5\/5pt/);
-    expect(cellLines[3]).toMatch(/^Forecast:/);
-    expect(cellLines[4]).toMatch(/^Runway:/);
+    expect(cellLines[3]).toMatch(/^Code freeze:/);
+    expect(cellLines[4]).toMatch(/^Forecast:/);
+    expect(cellLines[5]).toMatch(/^Runway:/);
+  });
+
+  it('freeze line inherits the release freeze, and flags a per-stream override', () => {
+    const s = state([item({ workStreamId: 'ws1' }), item({ workStreamId: 'ws2' })]);
+    const rel = s.releases[0];
+    rel.codeFreezeISO = '2026-04-20'; // release-wide freeze
+    rel.workStreams.find((w) => w.id === 'ws2')!.codeFreezeISO = '2026-04-15'; // Auth overrides earlier
+
+    // Only the per-stream header lines use the "Code freeze: <date>" form (the Events
+    // row uses "Code freeze (<date>)"), so filter on the colon.
+    const freezeLines = releaseToTSV(s, 'rel')
+      .split('\n')
+      .filter((l) => l.startsWith('Code freeze:'));
+
+    expect(freezeLines).toContain('Code freeze: Apr 20'); // Payments inherits, no tag
+    expect(freezeLines).toContain('Code freeze: Apr 15 (stream override)'); // Auth override
   });
 
   it('places items in sprint columns on rows below the stream header', () => {

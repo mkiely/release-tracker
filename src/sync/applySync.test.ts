@@ -345,6 +345,34 @@ describe('applySync — team sync', () => {
     expect(team.members.find((m) => m.id === 'm_local')).toBeDefined();
   });
 
+  it('applies a shared nonContributing override to a newly created member, over the connector seed, then clears it', () => {
+    // Fresh import: unbound team, override stashed on the release. The connector reports
+    // Ada as contributing, but the sharer had flagged her non-contributing.
+    const release = {
+      ...baseRelease(),
+      teamId: '',
+      pendingMemberOverrides: [{ externalId: 'USR-ADA', nonContributing: true }],
+    };
+    const state = { ...baseState(), releases: [release] };
+    const m = mapped({
+      team: {
+        externalId: 'ACME-TEAM-1',
+        fields: { name: 'Platform Core' },
+        members: [
+          { externalId: 'USR-ADA', fields: { name: 'Ada L.', nonContributing: false } },
+          { externalId: 'USR-MARCO', fields: { name: 'Marco P.' } },
+        ],
+      },
+    });
+    const { next } = applySync(state, 'rel_1', m);
+    const team = next.teams.find((t) => t.externalId === 'ACME-TEAM-1')!;
+    // Override wins over the connector's false seed for Ada; Marco (no override) defaults.
+    expect(team.members.find((mm) => mm.externalId === 'USR-ADA')!.nonContributing).toBe(true);
+    expect(team.members.find((mm) => mm.externalId === 'USR-MARCO')!.nonContributing).toBe(false);
+    // One-shot hint is consumed once the team arrives.
+    expect(next.releases[0].pendingMemberOverrides).toBeUndefined();
+  });
+
   it('does not sync team for local releases even if payload has one', () => {
     const m = mapped({
       team: { externalId: 'ACME-TEAM-1', fields: { name: 'Platform Core' }, members: [] },

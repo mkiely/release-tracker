@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "22.0.0",
+  "version": "23.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -478,9 +478,30 @@
             { "type": "null" }
           ],
           "description": "Snapshot of the connector's vocabulary (item-type catalog + status vocabulary + work-stream field catalog), taken at each sync. Lets the app interpret synced items' and streams' attributes and native statuses (labels, enum options, writeability, filterability) offline, and keeps already-synced items stable if the live catalog changes. Null/absent = never synced or a local release."
+        },
+        "pendingMemberOverrides": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/MemberOverride" },
+          "description": "Transient, one-shot reattach hint set only on a release freshly imported from a share link: the sharer's app-owned nonContributing flag per synced member, keyed by member externalId. The team is unbound at import time, so these wait here until the first sync creates the members and seeds their flag (over the connector's value), then are cleared. Absent otherwise."
         }
       },
       "required": ["id", "name", "startISO", "teamId", "workStreams", "events", "sprints", "codeFreezeISO", "externalId", "connector", "sync", "sprintLengthDays"],
+      "additionalProperties": false
+    },
+    "MemberOverride": {
+      "type": "object",
+      "description": "A team member's app-owned nonContributing flag, keyed by connector externalId. Travels in a share link (see Release.pendingMemberOverrides) and reattaches on the recipient's first sync.",
+      "properties": {
+        "externalId": {
+          "type": "string",
+          "description": "External member id this override applies to."
+        },
+        "nonContributing": {
+          "type": "boolean",
+          "description": "The sharer's app-owned nonContributing value to seed on first sync."
+        }
+      },
+      "required": ["externalId", "nonContributing"],
       "additionalProperties": false
     },
     "AppState": {
@@ -532,7 +553,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 22,
+      "value": 23,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {

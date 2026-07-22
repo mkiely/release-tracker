@@ -44,6 +44,7 @@ function VelocitySection({ r, team, items }: SectionProps) {
   const suggestion = velocitySuggestion(r, team, items);
   const under = v.verdict === 'under';
   const none = v.verdict === 'none';
+  const noBaseline = v.verdict === 'no-baseline';
   const tone = statusVars(under ? 'Blocked' : 'Complete');
 
   // Applying is safe only because started sprints carry a frozen plannedVelocity
@@ -59,6 +60,37 @@ function VelocitySection({ r, team, items }: SectionProps) {
     return (
       <div className="card dash" style={{ padding: '18px 16px', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-sm)', lineHeight: 1.5 }}>
         No sprint has fully elapsed yet — attainment appears once the first sprint ends.
+      </div>
+    );
+  }
+
+  // Sprints have elapsed, but there's no planned baseline to divide by — the team
+  // has no velocity set (0, the connector default). Show what was delivered and let
+  // the user seed a velocity from it, rather than the false "no sprint elapsed" copy.
+  if (noBaseline) {
+    return (
+      <div className="card dash" style={{ padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ color: 'var(--rt-t2)', fontSize: 'var(--rt-fs-sm)', lineHeight: 1.5 }}>
+          The team delivered <strong style={{ color: 'var(--rt-ink)' }}>{v.totalActual}</strong> point
+          {v.totalActual !== 1 ? 's' : ''} across {v.perSprint.length} elapsed sprint
+          {v.perSprint.length !== 1 ? 's' : ''}, but <strong style={{ color: 'var(--rt-ink)' }}>{team ? team.name : 'the team'}</strong> has
+          no velocity set — so there's no planned baseline to measure attainment against yet.
+        </div>
+        {suggestion && suggestion.recentAvg > 0 ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <PButton sm onClick={onApply} disabled={!r.teamId}>
+              Set velocity to {suggestion.recentAvg}
+            </PButton>
+            <span style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)', lineHeight: 1.4 }}>
+              ~{suggestion.recentAvg} pts / sprint, the average delivered over the last {suggestion.sampleSize} elapsed
+              sprint{suggestion.sampleSize !== 1 ? 's' : ''}. Attainment then measures against it.
+            </span>
+          </div>
+        ) : (
+          <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.5 }}>
+            Set a team velocity to measure attainment.
+          </span>
+        )}
       </div>
     );
   }

@@ -4,6 +4,7 @@
 
 import type { Release } from '../types';
 import { buildShareUrl, MAX_SAFE_URL_LENGTH } from '../lib/shareRelease';
+import { selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { Icon } from './Icon';
 import { PButton } from './primitives';
@@ -36,10 +37,11 @@ async function copyToClipboard(text: string): Promise<void> {
  */
 export function useShareReleaseLink(release: Release): (() => void) | null {
   const { notify } = useApp();
+  const team = useStore((s) => selTeam(s, release.teamId));
   if (!release.connector) return null;
 
   return async () => {
-    const result = buildShareUrl(release, window.location.origin);
+    const result = buildShareUrl(release, window.location.origin, team);
     if (!result.ok) {
       notify(
         result.reason === 'too-long'

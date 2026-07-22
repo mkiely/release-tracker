@@ -723,6 +723,27 @@ describe('velocityAttainment', () => {
     expect(v.verdict).toBe('none');
   });
 
+  it("reports no-baseline when sprints have elapsed but the team velocity is unset", () => {
+    // Connector default: sprints have run, but velocity is still 0 → no planned total.
+    const r = mkRelease();
+    const items = [item('e1', 'Complete', 12), item('e2', 'Complete', 8)];
+    const v = velocityAttainment(r, team(4, 0), items, today);
+    expect(elapsedSprints(r, today)).toHaveLength(2); // sprints DID elapse
+    expect(v.totalPlanned).toBe(0);
+    expect(v.totalActual).toBe(20); // delivery is still measured
+    expect(v.attainmentPct).toBeNull();
+    expect(v.verdict).toBe('no-baseline'); // not the misleading 'none'
+  });
+
+  it('treats a frozen plannedVelocity of 0 as no baseline, re-deriving live', () => {
+    // A sprint stamped 0 while the velocity was unset must not stay trapped at 0
+    // once a real velocity is set — plannedVel re-derives it.
+    const r = mkRelease();
+    r.sprints[0].plannedVelocity = 0; // stale zero baseline
+    const v = velocityAttainment(r, team(1, 40), [item('e1', 'Complete', 40)], today);
+    expect(v.perSprint[0].planned).toBe(40); // re-derived from the now-set velocity, not 0
+  });
+
   it('reads a frozen plannedVelocity baseline instead of the live derivation', () => {
     const r = mkRelease();
     // Freeze e1 at 40 (its commitment); leave e2 live.
