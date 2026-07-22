@@ -12,6 +12,7 @@ import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import type { SharePayload } from '../lib/shareRelease';
 import { DirtyDot } from '../components/DirtyDot';
 import { RichTextEditor } from '../components/RichTextEditor';
+import { linkClipboard } from '../lib/copyLink';
 import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
@@ -828,6 +829,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const r = useStore((s) => (it ? selRelease(s, it.releaseId) : undefined));
   const team = useStore((s) => (r ? selTeam(s, r.teamId) : undefined));
   const meta = useConnectorMeta(r?.connector?.type);
+  const { notify } = useApp();
 
   const [subject, setSubject] = useState(it ? it.subject : '');
   const [desc, setDesc] = useState(it ? it.description : '');
@@ -923,6 +925,30 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
     onClose();
   };
 
+  // Copy a clickable link to the item's backend record: a rich text/html anchor
+  // (label = key + subject) with a text/plain fallback, so a paste lands as a live
+  // link in docs/chat and as readable text everywhere else. Falls back to writeText
+  // where ClipboardItem is unavailable.
+  const copyLink = async () => {
+    if (!it.externalUrl) return;
+    const { html, text } = linkClipboard(it.key, it.subject, it.externalUrl);
+    try {
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([text], { type: 'text/plain' }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+      notify('Link copied');
+    } catch {
+      notify('Copy failed');
+    }
+  };
+
   // Connector context banner — rendered in the footer (left of the buttons) so it
   // doesn't eat vertical space the description can use.
   const bannerStyle = {
@@ -1005,6 +1031,23 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
               {Icon.external}
               Open in {meta?.label ?? 'external'}
             </a>
+          )}
+          {it.externalUrl && (
+            <button
+              type="button"
+              onClick={copyLink}
+              title={`Copy a link to ${it.key} (${it.key} ${it.subject})`}
+              aria-label={`Copy a link to ${it.key}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer',
+                fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-accent)',
+                background: 'var(--rt-fill)', border: '1.5px solid var(--rt-line)',
+                borderRadius: 5, padding: '2px 8px',
+              }}
+            >
+              {Icon.link}
+              Copy link
+            </button>
           )}
         </span>
       }

@@ -143,7 +143,7 @@ export function seed(): AppState {
           subjIdx[streamName]++;
           items.push({
             id: uid('it'), releaseId: 'rel_demo', workStreamId: wsId(streamName), sprintId,
-            key: `ORN-${keyN++}`, subject, description: '', status, points: PT_POOL[ptI++ % PT_POOL.length], externalId: null,
+            key: `ORN-${keyN++}`, subject, description: '', descriptionFormat: 'html', status, points: PT_POOL[ptI++ % PT_POOL.length], externalId: null,
             assignedMemberId: coreMembers[memberIdx++ % coreMembers.length].id,
             build: null, externalUrl: null, dirtyFields: [], itemType: null,
           });
@@ -164,7 +164,7 @@ export function seed(): AppState {
     items.push({
       id: uid('it'), releaseId: 'rel_demo', workStreamId: wsId(stream),
       sprintId: demo.sprints[sprintIdx].id,
-      key: `ORN-${keyN++}`, subject, description: '', status,
+      key: `ORN-${keyN++}`, subject, description: '', descriptionFormat: 'html', status,
       points: pts, externalId: null,
       assignedMemberId: coreMembers[memberIdx++ % coreMembers.length].id,
       build: 'Orion 1.5', externalUrl: null, dirtyFields: [], itemType: null,
@@ -177,7 +177,7 @@ export function seed(): AppState {
       id: uid('it'), releaseId: 'rel_demo', workStreamId: null,
       sprintId: demo.sprints[2].id,
       key: `ORN-${keyN++}`, subject: 'Define third-party cookie deprecation plan',
-      description: 'Cross-cutting concern; stream TBD once owner is identified.',
+      description: 'Cross-cutting concern; stream TBD once owner is identified.', descriptionFormat: 'html',
       status: 'Not Started', points: 3, externalId: null,
       assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], itemType: null,
     },
@@ -185,7 +185,7 @@ export function seed(): AppState {
       id: uid('it'), releaseId: 'rel_demo', workStreamId: null,
       sprintId: demo.sprints[3].id,
       key: `ORN-${keyN++}`, subject: 'Security audit findings — triage and assign',
-      description: 'Raw findings from pentest; stream assignment pending review.',
+      description: 'Raw findings from pentest; stream assignment pending review.', descriptionFormat: 'html',
       status: 'In Progress', points: 5, externalId: null,
       assignedMemberId: coreMembers[0].id, build: null, externalUrl: null, dirtyFields: [], itemType: null,
     },
@@ -193,13 +193,15 @@ export function seed(): AppState {
       id: uid('it'), releaseId: 'rel_demo', workStreamId: null,
       sprintId: null,
       key: `ORN-${keyN++}`, subject: 'Migrate internal tooling to new auth provider',
-      description: 'Backlog item; not yet assigned to a stream or sprint.',
+      description: 'Backlog item; not yet assigned to a stream or sprint.', descriptionFormat: 'html',
       status: 'Not Started', points: 2, externalId: null,
       assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], itemType: null,
     },
   );
 
-  // HTML-description item — exercises the .prose renderer in WorkItemDetailModal
+  // Rich HTML showcase item — headings, lists, code, blockquote, table. All Orion
+  // items are 'html' (above) so any one opens the rich-text editor; this one carries
+  // real formatting to exercise the RichTextEditor's rendering + toolbar in the modal.
   items.push({
     id: uid('it'), releaseId: 'rel_demo', workStreamId: wsId('Checkout API'),
     sprintId: demo.sprints[3].id,
@@ -241,7 +243,7 @@ export function seed(): AppState {
   </tbody>
 </table>`,
     descriptionFormat: 'html',
-    status: 'Not Started', points: 5, externalId: 'EXT-SSO-001',
+    status: 'Not Started', points: 5, externalId: null,
     assignedMemberId: coreMembers[1].id, build: null, externalUrl: null, dirtyFields: [], itemType: null,
   });
 

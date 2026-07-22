@@ -60,21 +60,25 @@ describe('seed', () => {
     expect(unknown).toHaveLength(0);
   });
 
-  it('seeds exactly one HTML-description item on the demo release', () => {
+  it('marks every demo (local) work item as HTML so the rich-text editor surfaces on any item', () => {
     const { items } = seed();
-    const htmlItems = items.filter((i) => i.releaseId === 'rel_demo' && i.descriptionFormat === 'html');
-    expect(htmlItems).toHaveLength(1);
+    const demoItems = items.filter((i) => i.releaseId === 'rel_demo');
+    expect(demoItems.length).toBeGreaterThan(0);
+    expect(demoItems.every((i) => i.descriptionFormat === 'html')).toBe(true);
   });
 
-  it('HTML-description item has a non-empty description, a non-null externalId, and valid sprint placement', () => {
+  it('the rich HTML showcase item is a local (editable) item with real formatting and valid sprint placement', () => {
     const { releases, items } = seed();
-    const htmlItem = items.find((i) => i.descriptionFormat === 'html')!;
-    expect(htmlItem).toBeDefined();
-    expect(htmlItem.description).toBeTruthy();
-    expect(htmlItem.externalId).not.toBeNull();
-    const release = releases.find((r) => r.id === htmlItem.releaseId)!;
-    if (htmlItem.sprintId !== null) {
-      expect(release.sprints.find((s) => s.id === htmlItem.sprintId)).toBeDefined();
+    const showcase = items.find((i) => i.subject === 'SSO login via identity provider')!;
+    expect(showcase).toBeDefined();
+    expect(showcase.descriptionFormat).toBe('html');
+    expect(showcase.description).toContain('<h3>');
+    // Local item → not synced → the modal renders the editor editable (toolbar shows).
+    expect(showcase.externalId).toBeNull();
+    const release = releases.find((r) => r.id === showcase.releaseId)!;
+    expect(release.connector).toBeNull();
+    if (showcase.sprintId !== null) {
+      expect(release.sprints.find((s) => s.id === showcase.sprintId)).toBeDefined();
     }
   });
 
