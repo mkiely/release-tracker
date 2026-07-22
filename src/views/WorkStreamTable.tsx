@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { WorkStreamViewProps } from '../hooks/useWorkStreamView';
 import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
@@ -6,12 +6,13 @@ import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
 import type { Member, Sprint, WorkItem } from '../types';
 import { fmtShort } from '../lib/dates';
-import { sumPoints } from '../lib/derive';
+import { streamCodeFreezeChip, sumPoints } from '../lib/derive';
 import { NewItemButton, PushButton, SyncButton, TopBar } from '../components/chrome';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { EmptyState } from '../components/EmptyState';
+import { EventBadge } from '../components/badges';
 import { Icon } from '../components/Icon';
-import { Drag, useDrag } from '../components/dnd';
+import { Drag, useDrag, useDragAutoScroll } from '../components/dnd';
 import { IconButton } from '../components/primitives';
 import { TeamLink } from '../components/TeamLink';
 import { StreamAttrSummary } from '../components/StreamAttrSummary';
@@ -19,8 +20,9 @@ import { statusVars } from '../components/statusVars';
 import { TableFacetBar } from './SprintTable';
 import { getActions } from '../store/store';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
-import { ResizeHandle } from './ResizeHandle';
 import { ItemRow } from './ItemRow';
+import { HeaderCell } from './HeaderCell';
+import { sortItems, nextSort, type ItemSort, type SortCtx } from './itemSort';
 import styles from './SprintTable.module.css';
 
 // ── Sprint section ────────────────────────────────────────────────────────
@@ -28,9 +30,12 @@ import styles from './SprintTable.module.css';
 function SprintSection({
   sp,
   isActive,
-  items,
+  items: rawItems,
   members,
   attrColumns,
+  sort,
+  sortCtx,
+  freezeChip,
   notify,
   onOpenItem,
 }: {
@@ -39,20 +44,50 @@ function SprintSection({
   items: WorkItem[];
   members: Member[];
   attrColumns: AttrColumn[];
+  sort: ItemSort | null;
+  sortCtx: SortCtx;
+  /** This stream's code-freeze marker, when its effective freeze falls in this sprint. */
+  freezeChip: ReturnType<typeof streamCodeFreezeChip>;
   notify: (msg: string) => void;
   onOpenItem: (id: string) => void;
 }) {
+  const items = sortItems(rawItems, sort, sortCtx);
   const pts = sumPoints(items);
   const sv = statusVars('In Progress');
   const draggingItem = useDrag();
   const [over, setOver] = useState(false);
-  const canDrop = !!draggingItem && draggingItem.sprintId !== sp.id;
+
+  // Highlight state is driven by an enter/leave depth counter rather than
+  // inspecting `relatedTarget`: during a real drag the browser fires bubbling
+  // dragenter/dragleave for every child row the pointer crosses, and reports a
+  // null `relatedTarget` often enough that a `contains()` check flickers the
+  // highlight off mid-drop. Counting enters vs leaves keeps `over` true until
+  // the pointer has truly left the whole band. See useDragAutoScroll for the
+  // scroll-to-far-sprint half of the reliability fix.
+  const dragDepth = useRef(0);
+
+  // Reset when any drag ends (dropped elsewhere, or cancelled) so a stray
+  // enter without a matching leave can't leave the band stuck highlighted.
+  useEffect(() => {
+    if (!draggingItem) {
+      dragDepth.current = 0;
+      setOver(false);
+    }
+  }, [draggingItem]);
 
   return (
     <div
       className={styles.section}
       data-over={over || undefined}
       style={over ? { background: 'var(--rt-fill)' } : undefined}
+      onDragEnter={(e) => {
+        const it = Drag.get();
+        if (it && it.sprintId !== sp.id) {
+          e.preventDefault();
+          dragDepth.current += 1;
+          if (!over) setOver(true);
+        }
+      }}
       onDragOver={(e) => {
         const it = Drag.get();
         if (it && it.sprintId !== sp.id) {
@@ -61,8 +96,12 @@ function SprintSection({
           if (!over) setOver(true);
         }
       }}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(false);
+      onDragLeave={() => {
+        dragDepth.current -= 1;
+        if (dragDepth.current <= 0) {
+          dragDepth.current = 0;
+          setOver(false);
+        }
       }}
       onDrop={(e) => {
         const it = Drag.get();
@@ -71,6 +110,7 @@ function SprintSection({
           getActions().moveItemToSprint(it.id, sp.id);
           notify(`Moved ${it.key} → ${sp.name}`);
         }
+        dragDepth.current = 0;
         setOver(false);
         Drag.end();
       }}
@@ -116,9 +156,11 @@ function SprintSection({
         <div className={styles.sectionMeta}>
           {items.length} item{items.length !== 1 ? 's' : ''} · {pts} pts
         </div>
-        {canDrop && (
-          <div style={{ marginTop: 4, fontSize: 'var(--rt-fs-micro)', fontWeight: 'var(--rt-fw-bold)', color: over ? 'var(--rt-st-ac-text)' : 'var(--rt-t3)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-            {over ? 'Drop to move here' : 'Drop to reassign'}
+        {freezeChip && (
+          <div style={{ marginTop: 4 }}>
+            <EventBadge date={fmtShort(freezeChip.dateISO)} critical>
+              {freezeChip.label}
+            </EventBadge>
           </div>
         )}
       </div>
@@ -126,6 +168,11 @@ function SprintSection({
         {items.map((it) => (
           <ItemRow key={it.id} item={it} members={members} attrColumns={attrColumns} onOpen={() => onOpenItem(it.id)} />
         ))}
+        {items.length === 0 && (
+          <div className="card dash" style={{ padding: '9px 12px', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-sm)' }}>
+            No items
+          </div>
+        )}
       </div>
     </div>
   );
@@ -136,38 +183,31 @@ function SprintSection({
 function ColHeaders({
   attrColumns,
   containerRef,
+  sort,
+  onSort,
 }: {
   attrColumns: AttrColumn[];
   containerRef: RefObject<HTMLElement | null>;
+  sort: ItemSort | null;
+  onSort: (col: string) => void;
 }) {
+  const hp = { sort, onSort, containerRef };
   return (
     <div className={styles.colHeaders}>
       <div className={styles.colHeaderLeft}>
         <span className={styles.colHeaderLabel}>Sprint</span>
       </div>
       <div className={styles.colHeaderRight}>
-        <div className={`${styles.colKey} ${styles.colHeaderLabel}`}>Key</div>
-        <div className={`${styles.colType} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-          Type
-          <ResizeHandle col="type" containerRef={containerRef} />
-        </div>
-        <div className={`${styles.colPts} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-          Pts
-          <ResizeHandle col="pts" containerRef={containerRef} />
-        </div>
-        <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`}>Assignee</div>
-        <div className={`${styles.colStatus} ${styles.colHeaderLabel}`}>Status</div>
-        <div className={`${styles.colBuild} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-          Build
-          <ResizeHandle col="build" containerRef={containerRef} />
-        </div>
+        <HeaderCell {...hp} colClass={styles.colKey} label="Key" sortCol="key" />
+        <HeaderCell {...hp} colClass={styles.colType} label="Type" sortCol="type" resizeCol="type" />
+        <HeaderCell {...hp} colClass={styles.colPts} label="Pts" sortCol="pts" resizeCol="pts" />
+        <HeaderCell {...hp} colClass={styles.colAssignee} label="Assignee" sortCol="assignee" />
+        <HeaderCell {...hp} colClass={styles.colStatus} label="Status" sortCol="status" />
+        <HeaderCell {...hp} colClass={styles.colBuild} label="Build" sortCol="build" resizeCol="build" />
         {attrColumns.map((c) => (
-          <div key={c.key} className={`${styles.colAttr} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-            {c.label}
-            <ResizeHandle col="attr" containerRef={containerRef} />
-          </div>
+          <HeaderCell {...hp} key={c.key} colClass={styles.colAttr} label={c.label} sortCol={`attr:${c.key}`} resizeCol="attr" />
         ))}
-        <div className={`${styles.colTitle} ${styles.colHeaderLabel}`}>Title</div>
+        <HeaderCell {...hp} colClass={styles.colTitle} label="Title" sortCol="title" />
       </div>
     </div>
   );
@@ -206,10 +246,23 @@ export function WorkStreamTable({
   const presentation = usePresentationMode();
   useFitColumns(bodyRef, itemTableColumns(filteredItems), [itemColumnsDep(filteredItems), presentation]);
   useColumnWidths(bodyRef);
+  // Keep far-off sprint bands reachable while dragging in this scrolling list.
+  useDragAutoScroll(bodyRef);
 
-  const sprintSections = r.sprints
-    .map((sp) => ({ sp, items: filteredItems.filter((i) => i.sprintId === sp.id) }))
-    .filter((s) => s.items.length > 0);
+  // Column sorting applies within each sprint section — grouping itself always wins.
+  const [sort, setSort] = useState<ItemSort | null>(null);
+  const onSort = (col: string) => setSort((cur) => nextSort(cur, col));
+  const sortCtx: SortCtx = {
+    memberName: (id) => (id ? (members.find((m) => m.id === id)?.name ?? '') : ''),
+    sprintOrder: () => 0, // no Sprint column in this table — never invoked
+    streamName: () => '', // no Work Stream column in this table — never invoked
+    attrCell: (item, key) => attrCols.find((c) => c.key === key)?.cell(item) ?? '',
+  };
+
+  // Every release sprint gets a section — including ones with no items yet from
+  // this stream — so each is a valid drop target (dragging in from another sprint
+  // must be able to land on a currently-empty one, not just ones already populated).
+  const sprintSections = r.sprints.map((sp) => ({ sp, items: filteredItems.filter((i) => i.sprintId === sp.id) }));
 
   const backlogItems = filteredItems.filter((i) => i.sprintId === null);
 
@@ -276,7 +329,7 @@ export function WorkStreamTable({
       <TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />
 
       <div className={styles.body} ref={bodyRef}>
-        <ColHeaders attrColumns={attrCols} containerRef={bodyRef} />
+        <ColHeaders attrColumns={attrCols} containerRef={bodyRef} sort={sort} onSort={onSort} />
 
         {filteredItems.length === 0 ? (
           <EmptyState>
@@ -292,6 +345,9 @@ export function WorkStreamTable({
                 items={items}
                 members={members}
                 attrColumns={attrCols}
+                sort={sort}
+                sortCtx={sortCtx}
+                freezeChip={streamCodeFreezeChip(r, sp, ws)}
                 notify={notify}
                 onOpenItem={onOpenItem}
               />
@@ -303,7 +359,7 @@ export function WorkStreamTable({
                   <div className={styles.sectionMeta}>{backlogItems.length} item{backlogItems.length !== 1 ? 's' : ''}</div>
                 </div>
                 <div className={styles.sectionRight}>
-                  {backlogItems.map((it) => (
+                  {sortItems(backlogItems, sort, sortCtx).map((it) => (
                     <ItemRow key={it.id} item={it} members={members} attrColumns={attrCols} onOpen={() => onOpenItem(it.id)} />
                   ))}
                 </div>

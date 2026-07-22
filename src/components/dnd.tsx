@@ -1,11 +1,12 @@
 // Native HTML5 drag-and-drop of work items between sprints + the shared
 // capacity meter.
 
-import { useEffect, useReducer, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useReducer, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import type { Release, Sprint, Team, WorkItem } from '../types';
 import { fmtShort } from '../lib/dates';
-import { sprintVel, sumPoints } from '../lib/derive';
+import { sprintVel, sumPoints, type EventChip } from '../lib/derive';
 import { getActions } from '../store/store';
+import { EventBadge } from './badges';
 import styles from './dnd.module.css';
 
 // ── external drag store so any drop target can react to an in-flight drag ──
@@ -33,6 +34,45 @@ export function useDrag(): WorkItem | null {
   const [, force] = useReducer((x: number) => x + 1, 0);
   useEffect(() => Drag.sub(force), []);
   return Drag.get();
+}
+
+/**
+ * Continuously scrolls `ref`'s element while a work-item drag is in flight and
+ * the pointer is near its top/bottom edge. Native HTML5 auto-scroll only nudges
+ * when the pointer keeps moving, so dragging an item to a far-off sprint in a
+ * tall, vertically-scrolling list (the work-stream table) stalls at the edge.
+ * A rAF loop reading the last drag pointer position scrolls even while the
+ * pointer is held still, so far drop targets stay reachable.
+ */
+export function useDragAutoScroll(ref: RefObject<HTMLElement | null>) {
+  const dragging = useDrag();
+  const pointerY = useRef(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!dragging || !el) return;
+    let raf = 0;
+    const MARGIN = 72; // px band at each edge where scrolling kicks in
+    const MAX_SPEED = 16; // px per frame at the very edge
+    const onDragOver = (e: DragEvent) => { pointerY.current = e.clientY; };
+    const tick = () => {
+      const rect = el.getBoundingClientRect();
+      const y = pointerY.current;
+      if (y > 0) {
+        if (y < rect.top + MARGIN) {
+          el.scrollTop -= ((rect.top + MARGIN - y) / MARGIN) * MAX_SPEED;
+        } else if (y > rect.bottom - MARGIN) {
+          el.scrollTop += ((y - (rect.bottom - MARGIN)) / MARGIN) * MAX_SPEED;
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    document.addEventListener('dragover', onDragOver);
+    raf = requestAnimationFrame(tick);
+    return () => {
+      document.removeEventListener('dragover', onDragOver);
+      cancelAnimationFrame(raf);
+    };
+  }, [dragging, ref]);
 }
 
 // Creates a styled key-badge ghost for table-row drag operations.
@@ -193,6 +233,7 @@ export function StreamSprintColumn({
   streamItems,
   allItems,
   isCur,
+  freezeChip,
   notify,
   renderCard,
 }: {
@@ -201,6 +242,8 @@ export function StreamSprintColumn({
   streamItems: WorkItem[];
   allItems: WorkItem[];
   isCur: boolean;
+  /** This stream's code-freeze marker, when its effective freeze falls in this sprint. */
+  freezeChip?: EventChip | null;
   notify: (msg: string) => void;
   renderCard: (it: WorkItem) => ReactNode;
 }) {
@@ -224,6 +267,13 @@ export function StreamSprintColumn({
         <span className={styles.columnHeaderMeta}>
           this stream · {streamPts} pts · {streamItems.length}
         </span>
+        {freezeChip && (
+          <div style={{ alignSelf: 'flex-start' }}>
+            <EventBadge date={fmtShort(freezeChip.dateISO)} critical>
+              {freezeChip.label}
+            </EventBadge>
+          </div>
+        )}
       </div>
       <div
         className={over ? `${styles.dropZone} ${styles.dropZoneOver}` : styles.dropZone}
