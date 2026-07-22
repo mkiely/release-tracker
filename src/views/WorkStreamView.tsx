@@ -1,4 +1,5 @@
 import type { WorkStreamViewProps } from '../hooks/useWorkStreamView';
+import { streamCodeFreezeChip } from '../lib/derive';
 import { NewItemButton, PushButton, SyncButton, TopBar } from '../components/chrome';
 import { ShareButton } from '../components/ShareButton';
 import { Breadcrumb } from '../components/Breadcrumb';
@@ -123,6 +124,7 @@ export function WorkStreamView({
                 isCur={sp.id === activeSprintId}
                 streamItems={filteredItems.filter((i) => i.sprintId === sp.id)}
                 allItems={allItems}
+                freezeChip={streamCodeFreezeChip(r, sp, ws)}
                 notify={notify}
                 renderCard={(it) => (
                   <WorkItemCard

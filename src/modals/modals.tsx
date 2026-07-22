@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { LOCAL_ITEM_TYPES, STATUSES, type AttrValue, type Member, type Status } from '../types';
 import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
-import { capPct, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
+import { capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
 import { attributeFields, CANONICAL_FIELDS, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type CanonicalView, type EditConcept } from '../lib/connectorFields';
@@ -243,18 +243,22 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
     existing && existing.engineersRequired != null ? String(existing.engineersRequired) : '',
   );
   const [muted, setMuted] = useState(existing ? existing.planningMuted : false);
+  const [codeFreeze, setCodeFreeze] = useState(existing?.codeFreezeISO ?? '');
   const parseEngineers = (): number | null => {
     const n = Number(engineers);
     return engineers.trim() && Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
   };
   const save = () => {
     if (!name.trim()) return;
+    const codeFreezeISO = codeFreeze || null;
     if (editing && wsId) {
-      getActions().updateWorkStream(releaseId, wsId, { name: name.trim(), engineersRequired: parseEngineers(), planningMuted: muted });
+      getActions().updateWorkStream(releaseId, wsId, { name: name.trim(), engineersRequired: parseEngineers(), planningMuted: muted, codeFreezeISO });
     } else {
       const ws = getActions().createWorkStream(releaseId, name.trim());
       const er = parseEngineers();
-      if (ws && (er != null || muted)) getActions().updateWorkStream(releaseId, ws.id, { engineersRequired: er, planningMuted: muted });
+      if (ws && (er != null || muted || codeFreezeISO)) {
+        getActions().updateWorkStream(releaseId, ws.id, { engineersRequired: er, planningMuted: muted, codeFreezeISO });
+      }
     }
     onClose();
   };
@@ -315,6 +319,17 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
           </span>
         </label>
       </PField>
+      <PField
+        label="Code freeze override"
+        hint={r ? `leave blank to inherit ${fmtShort(effectiveCodeFreeze(r))} from the release` : 'leave blank to inherit the release date'}
+      >
+        <PInput
+          type="date"
+          value={codeFreeze}
+          min={r?.sprints.length ? r.sprints[0].startISO : undefined}
+          onChange={(e) => setCodeFreeze(e.target.value)}
+        />
+      </PField>
       <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
         {nameLocked
           ? "This stream's name is managed by the connector. Engineers required is kept locally and survives sync."
@@ -344,7 +359,8 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
   const items = allItems.filter((i) => i.releaseId === releaseId);
   const streamItems = items.filter((i) => i.workStreamId === wsId);
   const health = streamHealth(streamItems);
-  const ctx = releaseCapacity(r, team);
+  const today = todayISO();
+  const ctx = releaseCapacity(r, team, today, effectiveStreamCodeFreeze(r, ws));
   const contention = streamContention(
     r.workStreams
       .filter((w) => w.engineersRequired != null && streamHealth(items.filter((i) => i.workStreamId === w.id)).remainingPts > 0)
@@ -355,7 +371,6 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
   const v = verdictVars(forecast.verdict);
 
   const series = r.sprints.map((sp) => sumPoints(streamItems.filter((i) => i.sprintId === sp.id)));
-  const today = todayISO();
   const friRaw = r.sprints.findIndex((sp) => sp.endISO >= today);
   const firstRemainingIndex = friRaw < 0 ? r.sprints.length : friRaw;
   const activeIndex = r.sprints.findIndex((sp) => between(today, sp.startISO, sp.endISO));
@@ -434,6 +449,10 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
       {canForecast && (
         <div className="card" style={{ background: 'var(--rt-bg)', padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
           <span className="tag" style={{ marginBottom: 2 }}>The calculation</span>
+          <Row
+            k="Code freeze"
+            v={`${fmtShort(effectiveStreamCodeFreeze(r, ws))}${ws.codeFreezeISO != null ? ' (stream override)' : ' (release default)'}`}
+          />
           <Row k="Remaining points" v={`${health.remainingPts} pts`} />
           <Row k="Engineers required" v={`${ws.engineersRequired}`} />
           <Row k="Per-engineer capacity" v={`${n1(ctx.perEngineerCap)} pts (over ${ctx.remainingSprintCount} sprint${ctx.remainingSprintCount !== 1 ? 's' : ''})`} />
@@ -526,6 +545,70 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
             </>
           ) : (
             'That date is outside the release range.'
+          )}
+        </span>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Code freeze modal (release-level code check-in deadline) ───────────
+export function CodeFreezeModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
+  const r = useStore((s) => selRelease(s, releaseId))!;
+  const isOverride = r.codeFreezeISO != null;
+  const [date, setDate] = useState(effectiveCodeFreeze(r));
+  const sp = date ? r.sprints.find((s) => between(date, s.startISO, s.endISO)) : null;
+
+  const save = () => {
+    if (!date) return;
+    getActions().setCodeFreeze(releaseId, date);
+    onClose();
+  };
+  const useDefault = () => {
+    getActions().setCodeFreeze(releaseId, null);
+    onClose();
+  };
+
+  const minDate = r.sprints.length ? r.sprints[0].startISO : undefined;
+
+  return (
+    <Modal
+      title="Code freeze"
+      icon={Icon.snowflake}
+      onClose={onClose}
+      width={460}
+      footer={
+        <>
+          {isOverride && (
+            <PButton variant="subtle" onClick={useDefault} style={{ marginRight: 'auto' }}>
+              Use default (last sprint end)
+            </PButton>
+          )}
+          <PButton variant="subtle" onClick={onClose}>
+            Cancel
+          </PButton>
+          <PButton onClick={save} disabled={!date}>
+            Save
+          </PButton>
+        </>
+      }
+    >
+      <PField label="Code check-in deadline" hint="defaults to the release's last sprint end when not set explicitly">
+        <PInput autoFocus type="date" value={date} min={minDate} onChange={(e) => setDate(e.target.value)} />
+      </PField>
+      <div className="card" style={{ background: 'var(--rt-bg)', padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ width: 9, height: 9, borderRadius: 2, background: sp ? 'var(--rt-st-wn-dot)' : 'var(--rt-line-strong)', flex: '0 0 auto' }} />
+        <span style={{ fontSize: 'var(--rt-fs-base)', color: 'var(--rt-t2)', lineHeight: 1.45 }}>
+          {!date ? (
+            'Pick the date code must be checked in for this release.'
+          ) : sp ? (
+            <>
+              Falls inside <strong style={{ color: 'var(--rt-ink)' }}>{sp.name}</strong> ({fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}) — it'll
+              show as a critical chip on that sprint and cap forward capacity for streams still working past it. Individual
+              work streams can override this in their own settings.
+            </>
+          ) : (
+            "That date falls outside the release's current sprints."
           )}
         </span>
       </div>

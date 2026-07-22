@@ -21,6 +21,13 @@
   flex: 0 0 auto;
 }
 
+/* Warning icon for the critical (code-freeze) variant — replaces the plain flag. */
+.warnIcon {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
 .text {
   white-space: nowrap;
   flex: 0 0 auto;

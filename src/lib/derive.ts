@@ -1,6 +1,6 @@
 // Pure derivations — ported verbatim from proto-store.jsx. Unit-tested.
 
-import { STATUSES, type Release, type Sprint, type StatusSeg, type Team, type WorkItem } from '../types';
+import { STATUSES, type Release, type Sprint, type StatusSeg, type Team, type WorkItem, type WorkStream } from '../types';
 import { between, todayISO, workdaysInRange } from './dates';
 
 /** Full capacity in person-days: contributing members × the sprint's actual business days. */
@@ -37,6 +37,42 @@ export const eventsIn = (release: Release, sp: Sprint) =>
   release.events
     .filter((e) => between(e.dateISO, sp.startISO, sp.endISO))
     .sort((a, b) => (a.dateISO < b.dateISO ? -1 : 1));
+
+/** Calendar chip shown on a sprint row/header — either a stored ReleaseEvent or the
+ *  app-derived code-freeze marker (see CODE_FREEZE_CHIP_ID). `critical` drives the
+ *  warning tone so the freeze reads as more consequential than a routine milestone;
+ *  unlike a real ReleaseEvent it isn't user-editable from the chip — the code freeze
+ *  has its own dedicated editor (release settings / work-stream override). */
+export interface EventChip {
+  id: string;
+  label: string;
+  dateISO: string;
+  critical?: boolean;
+}
+
+/** Sentinel id for the synthesized code-freeze chip — not a real ReleaseEvent. */
+export const CODE_FREEZE_CHIP_ID = 'code-freeze';
+
+/** eventsIn, plus a synthesized 'Code freeze' chip when the release's effective
+ *  freeze date (see effectiveCodeFreeze) falls inside this sprint's range. */
+export const sprintEventChips = (release: Release, sp: Sprint): EventChip[] => {
+  const real = eventsIn(release, sp);
+  const freeze = effectiveCodeFreeze(release);
+  if (!between(freeze, sp.startISO, sp.endISO)) return real;
+  const chip: EventChip = { id: CODE_FREEZE_CHIP_ID, label: 'Code freeze', dateISO: freeze, critical: true };
+  return [...real, chip].sort((a, b) => (a.dateISO < b.dateISO ? -1 : 1));
+};
+
+/** The code-freeze chip for one work stream in a sprint — its own override wins
+ *  (see effectiveStreamCodeFreeze), else the release's. Drives the freeze marker in
+ *  the work-stream views, which show one stream's own deadline rather than the
+ *  release's events. `ws` is null for the Unassigned bucket. Returns null when the
+ *  effective freeze doesn't fall inside this sprint's range. */
+export const streamCodeFreezeChip = (release: Release, sp: Sprint, ws: WorkStream | null): EventChip | null => {
+  const freeze = effectiveStreamCodeFreeze(release, ws);
+  if (!between(freeze, sp.startISO, sp.endISO)) return null;
+  return { id: CODE_FREEZE_CHIP_ID, label: 'Code freeze', dateISO: freeze, critical: true };
+};
 
 /** Per-status counts (non-zero only) for the segmented status bar. */
 export const statusSegs = (items: WorkItem[]): StatusSeg[] =>
@@ -86,27 +122,60 @@ export function streamHealth(items: WorkItem[]): StreamHealth {
 
 export type HealthVerdict = 'on-track' | 'at-risk' | 'complete' | 'unconfigured' | 'unestimated';
 
-/** Sprints whose range hasn't fully elapsed (endISO >= today). The active sprint is
- *  included; fully-past sprints are excluded — encoding the "past sprints are
- *  complete" domain rule. ISO date strings compare lexically. */
-export const remainingSprints = (release: Release, today: string = todayISO()): Sprint[] =>
-  release.sprints.filter((s) => s.endISO >= today);
+/** Effective code check-in deadline for the release: an explicit codeFreezeISO wins;
+ *  otherwise it defaults to the last sprint's end (no artificial cutoff). */
+export const effectiveCodeFreeze = (release: Release): string =>
+  release.codeFreezeISO ?? release.sprints[release.sprints.length - 1]?.endISO ?? release.startISO;
+
+/** Effective code freeze for one work stream: its own override wins (when set),
+ *  else the release's effective freeze. `ws` is null for the Unassigned bucket. */
+export const effectiveStreamCodeFreeze = (release: Release, ws: WorkStream | null): string =>
+  ws?.codeFreezeISO ?? effectiveCodeFreeze(release);
+
+/** Sprints whose range hasn't fully elapsed (endISO >= today) AND that start on or
+ *  before the code freeze (no work can land in a sprint that starts after it). The
+ *  active sprint is included; fully-past sprints are excluded — encoding the "past
+ *  sprints are complete" domain rule. ISO date strings compare lexically. */
+export const remainingSprints = (
+  release: Release,
+  today: string = todayISO(),
+  freezeISO: string = effectiveCodeFreeze(release),
+): Sprint[] => release.sprints.filter((s) => s.endISO >= today && s.startISO <= freezeISO);
+
+/** Fraction of a sprint's capacity that lands before the code freeze: 1 for sprints
+ *  ending on/before it, 0 for ones starting after it (already excluded upstream by
+ *  remainingSprints, but kept total here for safety), and prorated by workdays for
+ *  the one sprint the freeze date falls inside. */
+const sprintFreezeFactor = (sprint: Sprint, freezeISO: string): number => {
+  if (sprint.endISO <= freezeISO) return 1;
+  if (sprint.startISO > freezeISO) return 0;
+  const total = workdaysInRange(sprint.startISO, sprint.endISO);
+  return total > 0 ? workdaysInRange(sprint.startISO, freezeISO) / total : 0;
+};
 
 export interface ReleaseCapacity {
   remainingSprintCount: number;
-  /** Σ sprintVel over remaining sprints — capacity-adjusted (respects each sprint's daysOff). */
+  /** Σ sprintVel over remaining sprints — capacity-adjusted (respects each sprint's
+   *  daysOff and, for the sprint the code freeze falls inside, prorated to only the
+   *  portion of it before the freeze). */
   teamRemainingCap: number;
   contributingCount: number;
   /** Points one engineer can deliver across the remaining sprints. 0-safe. */
   perEngineerCap: number;
 }
 
-/** Remaining team capacity for a release, split per contributing engineer. Engineers
- *  are assumed interchangeable; per-engineer velocity = team velocity ÷ contributing
+/** Remaining team capacity for a release (or one work stream's effective freeze,
+ *  when it overrides the release's), split per contributing engineer. Engineers are
+ *  assumed interchangeable; per-engineer velocity = team velocity ÷ contributing
  *  members. Future sprints use their own daysOff (0 unless set). */
-export const releaseCapacity = (release: Release, team: Team | undefined, today: string = todayISO()): ReleaseCapacity => {
-  const rem = remainingSprints(release, today);
-  const teamRemainingCap = rem.reduce((a, sp) => a + sprintVel(team, sp, sp.daysOff), 0);
+export const releaseCapacity = (
+  release: Release,
+  team: Team | undefined,
+  today: string = todayISO(),
+  freezeISO: string = effectiveCodeFreeze(release),
+): ReleaseCapacity => {
+  const rem = remainingSprints(release, today, freezeISO);
+  const teamRemainingCap = rem.reduce((a, sp) => a + sprintVel(team, sp, sp.daysOff) * sprintFreezeFactor(sp, freezeISO), 0);
   const contributingCount = team ? team.members.filter((m) => !m.nonContributing).length : 0;
   const perEngineerCap = contributingCount > 0 ? teamRemainingCap / contributingCount : 0;
   return { remainingSprintCount: rem.length, teamRemainingCap, contributingCount, perEngineerCap };

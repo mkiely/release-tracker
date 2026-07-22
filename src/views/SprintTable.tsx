@@ -1,4 +1,4 @@
-import { Fragment, useRef } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import type { GroupBy, SprintViewProps, StreamColumn, StatusColumn } from '../hooks/useSprintView';
 import { isAnyFacetActive, type FacetGroup } from '../lib/facets';
 import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
@@ -19,8 +19,9 @@ import { TeamLink } from '../components/TeamLink';
 import { statusVars } from '../components/statusVars';
 import type { Member, Status } from '../types';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
-import { ResizeHandle } from './ResizeHandle';
 import { ItemRow } from './ItemRow';
+import { HeaderCell } from './HeaderCell';
+import { sortItems, nextSort, type ItemSort, type SortCtx } from './itemSort';
 import styles from './SprintTable.module.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -50,11 +51,16 @@ function ColHeaders({
   groupBy,
   attrColumns,
   containerRef,
+  sort,
+  onSort,
 }: {
   groupBy: GroupBy;
   attrColumns: AttrColumn[];
   containerRef: React.RefObject<HTMLElement | null>;
+  sort: ItemSort | null;
+  onSort: (col: string) => void;
 }) {
+  const hp = { sort, onSort, containerRef };
   return (
     <div className={styles.colHeaders}>
       <div className={styles.colHeaderLeft}>
@@ -63,34 +69,19 @@ function ColHeaders({
         </span>
       </div>
       <div className={styles.colHeaderRight}>
-        <div className={`${styles.colKey} ${styles.colHeaderLabel}`}>Key</div>
-        <div className={`${styles.colType} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-          Type
-          <ResizeHandle col="type" containerRef={containerRef} />
-        </div>
-        <div className={`${styles.colPts} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-          Pts
-          <ResizeHandle col="pts" containerRef={containerRef} />
-        </div>
+        <HeaderCell {...hp} colClass={styles.colKey} label="Key" sortCol="key" />
+        <HeaderCell {...hp} colClass={styles.colType} label="Type" sortCol="type" resizeCol="type" />
+        <HeaderCell {...hp} colClass={styles.colPts} label="Pts" sortCol="pts" resizeCol="pts" />
         <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`}></div>
-        <div className={`${styles.colStatus} ${styles.colHeaderLabel}`}>Status</div>
-        <div className={`${styles.colBuild} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-          Build
-          <ResizeHandle col="build" containerRef={containerRef} />
-        </div>
+        <HeaderCell {...hp} colClass={styles.colStatus} label="Status" sortCol="status" />
+        <HeaderCell {...hp} colClass={styles.colBuild} label="Build" sortCol="build" resizeCol="build" />
         {attrColumns.map((c) => (
-          <div key={c.key} className={`${styles.colAttr} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-            {c.label}
-            <ResizeHandle col="attr" containerRef={containerRef} />
-          </div>
+          <HeaderCell {...hp} key={c.key} colClass={styles.colAttr} label={c.label} sortCol={`attr:${c.key}`} resizeCol="attr" />
         ))}
         {groupBy === 'status' && (
-          <div className={`${styles.colWorkStream} ${styles.colHeaderLabel} ${styles.resizeTarget}`}>
-            Work Stream
-            <ResizeHandle col="workstream" containerRef={containerRef} />
-          </div>
+          <HeaderCell {...hp} colClass={styles.colWorkStream} label="Work Stream" sortCol="workstream" resizeCol="workstream" />
         )}
-        <div className={`${styles.colTitle} ${styles.colHeaderLabel}`}>Title</div>
+        <HeaderCell {...hp} colClass={styles.colTitle} label="Title" sortCol="title" />
       </div>
     </div>
   );
@@ -100,16 +91,21 @@ function StreamSection({
   col,
   members,
   attrColumns,
+  sort,
+  sortCtx,
   onOpenItem,
   onNavigateToStream,
 }: {
   col: StreamColumn;
   members: Member[];
   attrColumns: AttrColumn[];
+  sort: ItemSort | null;
+  sortCtx: SortCtx;
   onOpenItem: (id: string) => void;
   onNavigateToStream: (wsId: string) => void;
 }) {
   const pts = sumPoints(col.items);
+  const items = sortItems(col.items, sort, sortCtx);
   return (
     <div className={styles.section}>
       <div className={styles.sectionLeft}>
@@ -122,11 +118,11 @@ function StreamSection({
           <span style={{ color: 'var(--rt-t3)', display: 'flex', flexShrink: 0 }}>{Icon.chevRight}</span>
         </div>
         <div className={styles.sectionMeta}>
-          {col.items.length} item{col.items.length !== 1 ? 's' : ''} · {pts} pts
+          {items.length} item{items.length !== 1 ? 's' : ''} · {pts} pts
         </div>
       </div>
       <div className={styles.sectionRight}>
-        {col.items.map((it) => (
+        {items.map((it) => (
           <ItemRow
             key={it.id}
             item={it}
@@ -145,16 +141,21 @@ function StatusSection({
   workStreams,
   members,
   attrColumns,
+  sort,
+  sortCtx,
   onOpenItem,
 }: {
   col: StatusColumn;
   workStreams: SprintViewProps['release']['workStreams'];
   members: Member[];
   attrColumns: AttrColumn[];
+  sort: ItemSort | null;
+  sortCtx: SortCtx;
   onOpenItem: (id: string) => void;
 }) {
   const sv = statusVars(col.status);
   const pts = sumPoints(col.items);
+  const items = sortItems(col.items, sort, sortCtx);
   return (
     <div className={styles.section}>
       <div
@@ -166,11 +167,11 @@ function StatusSection({
           {col.status}
         </div>
         <div className={styles.sectionMeta}>
-          {col.items.length} item{col.items.length !== 1 ? 's' : ''} · {pts} pts
+          {items.length} item{items.length !== 1 ? 's' : ''} · {pts} pts
         </div>
       </div>
       <div className={styles.sectionRight}>
-        {col.items.map((it) => {
+        {items.map((it) => {
           const ws = it.workStreamId
             ? workStreams.find((w) => w.id === it.workStreamId)
             : undefined;
@@ -330,6 +331,18 @@ export function SprintTable({
   useFitColumns(bodyRef, itemTableColumns(filteredItems), [itemColumnsDep(filteredItems), presentation]);
   useColumnWidths(bodyRef);
 
+  // Column sorting applies within each existing grouping (stream/status section) —
+  // grouping itself always wins, matching the backlog/unassigned tables.
+  const [sort, setSort] = useState<ItemSort | null>(null);
+  const onSort = (col: string) => setSort((cur) => nextSort(cur, col));
+  const streamNameById = new Map(r.workStreams.map((ws) => [ws.id, ws.name]));
+  const sortCtx: SortCtx = {
+    memberName: (id) => (id ? (members.find((m) => m.id === id)?.name ?? '') : ''),
+    sprintOrder: () => 0, // no Sprint column in this table — never invoked
+    streamName: (id) => (id ? (streamNameById.get(id) ?? '') : ''),
+    attrCell: (item, key) => attrCols.find((c) => c.key === key)?.cell(item) ?? '',
+  };
+
   // status cols reordered for table view
   const orderedStatusCols = TABLE_STATUS_ORDER
     .map((s) => statusCols.find((c) => c.status === s)!)
@@ -384,7 +397,7 @@ export function SprintTable({
               {totalPts > vel ? ` · over by ${totalPts - vel}` : ''}
             </span>
             {evts.map((e) => (
-              <EventBadge key={e.id} date={fmtShort(e.dateISO)} onClick={() => onOpenEvent(e.id)}>
+              <EventBadge key={e.id} date={fmtShort(e.dateISO)} critical={e.critical} onClick={() => onOpenEvent(e.id)}>
                 {e.label}
               </EventBadge>
             ))}
@@ -405,7 +418,7 @@ export function SprintTable({
       <TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />
 
       <div className={styles.body} ref={bodyRef}>
-        <ColHeaders groupBy={groupBy} attrColumns={attrCols} containerRef={bodyRef} />
+        <ColHeaders groupBy={groupBy} attrColumns={attrCols} containerRef={bodyRef} sort={sort} onSort={onSort} />
 
         {filteredItems.length === 0 ? (
           <EmptyState>
@@ -419,6 +432,8 @@ export function SprintTable({
                 col={col}
                 members={members}
                 attrColumns={attrCols}
+                sort={sort}
+                sortCtx={sortCtx}
                 onOpenItem={onOpenItem}
                 onNavigateToStream={onNavigateToStream}
               />
@@ -432,7 +447,7 @@ export function SprintTable({
                   </div>
                 </div>
                 <div className={styles.sectionRight}>
-                  {unassignedItems.map((it) => (
+                  {sortItems(unassignedItems, sort, sortCtx).map((it) => (
                     <ItemRow
                       key={it.id}
                       item={it}
@@ -453,6 +468,8 @@ export function SprintTable({
               workStreams={r.workStreams}
               members={members}
               attrColumns={attrCols}
+              sort={sort}
+              sortCtx={sortCtx}
               onOpenItem={onOpenItem}
             />
           ))

@@ -4,11 +4,21 @@
 // it. Ported from proto-app.jsx; algorithm per the handoff README.
 
 import { useLayoutEffect, useRef, useState } from 'react';
-import type { ReleaseEvent } from '../types';
+import type { EventChip } from '../lib/derive';
 import { fmtShort } from '../lib/dates';
 import { EventBadge } from './badges';
 
-export function EventStrip({ events, align = 'flex-start', onEventClick }: { events: ReleaseEvent[]; align?: 'flex-start' | 'flex-end'; onEventClick?: (eventId: string) => void }) {
+export function EventStrip({
+  events,
+  align = 'flex-start',
+  onEventClick,
+}: {
+  events: EventChip[];
+  align?: 'flex-start' | 'flex-end';
+  /** Not applied to the critical (code-freeze) chip — EventBadge ignores onClick
+   *  for it, since it isn't a real ReleaseEvent and isn't editable from the chip. */
+  onEventClick?: (eventId: string) => void;
+}) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const widthsRef = useRef<number[]>([]);
   const [vis, setVis] = useState(events.length);
@@ -67,7 +77,7 @@ export function EventStrip({ events, align = 'flex-start', onEventClick }: { eve
         }}
       >
         {events.map((e) => (
-          <EventBadge key={e.id} date={fmtShort(e.dateISO)} onClick={onEventClick ? () => onEventClick(e.id) : undefined}>
+          <EventBadge key={e.id} date={fmtShort(e.dateISO)} critical={e.critical} onClick={onEventClick ? () => onEventClick(e.id) : undefined}>
             {e.label}
           </EventBadge>
         ))}
@@ -75,7 +85,7 @@ export function EventStrip({ events, align = 'flex-start', onEventClick }: { eve
       {/* visible run */}
       <div style={{ display: 'flex', gap: 5, alignItems: 'center', minWidth: 0 }}>
         {events.slice(0, vis).map((e) => (
-          <EventBadge key={e.id} date={fmtShort(e.dateISO)} onClick={onEventClick ? () => onEventClick(e.id) : undefined}>
+          <EventBadge key={e.id} date={fmtShort(e.dateISO)} critical={e.critical} onClick={onEventClick ? () => onEventClick(e.id) : undefined}>
             {e.label}
           </EventBadge>
         ))}

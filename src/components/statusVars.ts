@@ -18,6 +18,12 @@ export function statusVars(s: Status) {
   };
 }
 
+/** Warning tone — amber, distinct from every status hue (incl. Blocked's red).
+ *  Reserved for the code-freeze chip: a deadline, not an error/blocked state. */
+export function warningVars() {
+  return { dot: 'var(--rt-st-wn-dot)', soft: 'var(--rt-st-wn-soft)', text: 'var(--rt-st-wn-text)' };
+}
+
 /** Health-verdict styling, reusing the status color tokens. `tone` lets non-status
  *  consumers (charts) pick a color without re-deriving the mapping. */
 export function verdictVars(v: HealthVerdict): { label: string; tone: 'ok' | 'risk' | 'muted'; dot: string; soft: string; text: string } {

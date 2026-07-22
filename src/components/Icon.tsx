@@ -36,4 +36,11 @@ export const Icon: Record<string, ReactElement> = {
   alert: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2.2 14.5 13.3H1.5z"/><path d="M8 6.4v3.1"/><path d="M8 11.4h.01"/></svg>,
   // Presentation mode — a screen/monitor (enlarges text for shared meeting tabs)
   present: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="12" height="8" rx="1.4"/><path d="M6 13.6h4M8 11v2.6"/></svg>,
+  // Rich-text toolbar
+  bold: <svg width="13" height="13" viewBox="0 0 16 16"><text x="3" y="12.5" fontSize="13" fontWeight="800" fontFamily="Georgia, serif" fill="currentColor">B</text></svg>,
+  italic: <svg width="13" height="13" viewBox="0 0 16 16"><text x="4.2" y="12.5" fontSize="13" fontStyle="italic" fontFamily="Georgia, serif" fill="currentColor">I</text></svg>,
+  bulletList: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"><path d="M6.2 4.2h7.4M6.2 8h7.4M6.2 11.8h7.4"/><circle cx="2.6" cy="4.2" r="1" fill="currentColor" stroke="none"/><circle cx="2.6" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="2.6" cy="11.8" r="1" fill="currentColor" stroke="none"/></svg>,
+  orderedList: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"><path d="M6.2 4.2h7.4M6.2 8h7.4M6.2 11.8h7.4"/><text x="0.6" y="5.4" fontSize="4.4" fontFamily="ui-monospace, monospace" fill="currentColor">1</text><text x="0.6" y="9.2" fontSize="4.4" fontFamily="ui-monospace, monospace" fill="currentColor">2</text><text x="0.6" y="13" fontSize="4.4" fontFamily="ui-monospace, monospace" fill="currentColor">3</text></svg>,
+  // Code freeze — a snowflake, for the critical calendar chip + its edit action
+  snowflake: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M8 1.8v12.4"/><path d="M2.4 4.9l11.2 6.2"/><path d="M13.6 4.9 2.4 11.1"/></svg>,
 };

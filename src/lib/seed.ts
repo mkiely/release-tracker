@@ -112,12 +112,12 @@ export function seed(): AppState {
     events: [
       { id: uid('ev'), label: 'Kickoff', dateISO: addDays(demoStart, 0), externalId: null },
       { id: uid('ev'), label: 'Design review', dateISO: addDays(demoStart, 32), externalId: null },
-      { id: uid('ev'), label: 'Code freeze', dateISO: addDays(demoStart, 53), externalId: null },
       { id: uid('ev'), label: 'Demo', dateISO: addDays(demoStart, 67), externalId: null },
       { id: uid('ev'), label: 'Beta cut', dateISO: addDays(demoStart, 81), externalId: null },
       { id: uid('ev'), label: 'GA', dateISO: addDays(demoStart, 110), externalId: null },
     ],
     sprints: buildSprints(demoStart, { 3: 5, 5: 10, 7: 5 }),
+    codeFreezeISO: addDays(demoStart, 53),
     externalId: null,
     connector: null,
     sync: null,
@@ -284,11 +284,11 @@ export function seed(): AppState {
       { id: uid('ev'), label: 'Alpha',              dateISO: addDays(nexusStart, 37),  externalId: 'NXS-EV-2' },
       { id: uid('ev'), label: 'Integration lock',   dateISO: addDays(nexusStart, 65),  externalId: 'NXS-EV-3' },
       { id: uid('ev'), label: 'Load test complete', dateISO: addDays(nexusStart, 86),  externalId: 'NXS-EV-4' },
-      { id: uid('ev'), label: 'Code freeze',        dateISO: addDays(nexusStart, 96),  externalId: 'NXS-EV-5' },
       { id: uid('ev'), label: 'RC cut',             dateISO: addDays(nexusStart, 104), externalId: 'NXS-EV-6' },
       { id: uid('ev'), label: 'GA',                 dateISO: addDays(nexusStart, 114), externalId: 'NXS-EV-7' },
     ],
     sprints: nexusSprints,
+    codeFreezeISO: addDays(nexusStart, 96),
     externalId: 'NEXUS',
     connector: { type: 'acme', config: { projectKey: 'NXS', boardId: '88', fixVersion: '1.0', siteUrl: 'acme.atlassian.net' } },
     sync: { lastISO: `${addDays(today, -1)}T09:30:00.000Z`, state: 'ok', message: null },
@@ -362,6 +362,59 @@ export function seed(): AppState {
       itemType: { id: 'acme_task', label: 'Task' },
     });
   });
+
+  // HTML-description items on Nexus — exercise the tiptap renderer/editor on a
+  // connector release too (not just the Orion example above), across two streams
+  // and a different mix of formatting (table vs. blockquote-led, headings vs. flat).
+  items.push(
+    {
+      id: uid('it'), releaseId: 'rel_nexus', workStreamId: nxsWsId('API Gateway'),
+      sprintId: nexusActiveSprint.id,
+      key: `NXS-${nxsKeyN}`, subject: 'Per-tenant rate limiting on the edge',
+      description: `<h3>Overview</h3>
+<p>Move rate limiting from the origin services to the edge gateway, keyed per tenant rather than per IP. Limits are configurable per plan tier and enforced with a sliding window.</p>
+<h3>Acceptance criteria</h3>
+<ul>
+  <li>Default limits: <code>100 req/min</code> (free), <code>1000 req/min</code> (pro), <code>unlimited</code> (enterprise)</li>
+  <li>Exceeding the limit returns <code>429</code> with a <code>Retry-After</code> header</li>
+  <li>Limit overrides can be set per tenant without a deploy</li>
+  <li>Existing per-IP limiting stays as a fallback for unauthenticated routes</li>
+</ul>
+<h3>Rollout plan</h3>
+<table>
+  <thead><tr><th>Phase</th><th>Scope</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Shadow mode — log would-be <code>429</code>s, enforce nothing</td></tr>
+    <tr><td>2</td><td>Enforce for free tier only</td></tr>
+    <tr><td>3</td><td>Enforce for all tiers</td></tr>
+  </tbody>
+</table>
+<blockquote>Coordinate phase 3 timing with <strong>Reporting &amp; Analytics</strong> — their nightly export job runs near the free-tier ceiling for a few large tenants.</blockquote>`,
+      descriptionFormat: 'html',
+      status: 'In Progress', points: 5, externalId: `NXS-${nxsKeyN}`, externalUrl: acmeUrl(`NXS-${nxsKeyN++}`),
+      assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
+      build: null, dirtyFields: [],
+      itemType: { id: 'acme_story', label: 'Story' },
+    },
+    {
+      id: uid('it'), releaseId: 'rel_nexus', workStreamId: nxsWsId('Reporting & Analytics'),
+      sprintId: nexusSprints[4].id,
+      key: `NXS-${nxsKeyN}`, subject: 'Nightly export job — timezone-correct day boundaries',
+      description: `<p>The nightly export currently buckets events by <em>UTC</em> day, which splits a customer's "today" across two files for every timezone west of UTC. Rebucket using each tenant's configured reporting timezone instead.</p>
+<ol>
+  <li>Read <code>tenant.reportingTz</code> (falls back to <code>UTC</code> if unset)</li>
+  <li>Compute day boundaries in that zone, not the export job's host zone</li>
+  <li>Backfill the last <code>7</code> days once the fix ships</li>
+</ol>
+<p>Watch for <strong>DST transitions</strong> — a reporting day can be 23 or 25 hours long twice a year.</p>
+<blockquote>See the <a href="#">timezone handling doc</a> from the Data Ingestion stream — they solved the same problem for the raw event pipeline.</blockquote>`,
+      descriptionFormat: 'html',
+      status: 'Not Started', points: 3, externalId: `NXS-${nxsKeyN}`, externalUrl: acmeUrl(`NXS-${nxsKeyN++}`),
+      assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
+      build: null, dirtyFields: [],
+      itemType: { id: 'acme_bug', label: 'Bug' },
+    },
+  );
 
   // Attach the synced baseline to connector-sourced items so pending-push previews
   // and reverts have a value to diverge from. Local items have no baseline.

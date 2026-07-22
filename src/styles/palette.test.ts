@@ -13,7 +13,7 @@ const CSS = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'tokens.c
 /** Below this, two colors read as "the same color" at chip size. */
 const MIN_DELTA_E = 15;
 
-const SLOTS = { ns: 'Not Started', ac: 'In Progress', ur: 'Under Review', bl: 'Blocked', co: 'Complete' };
+const SLOTS = { ns: 'Not Started', ac: 'In Progress', ur: 'Under Review', bl: 'Blocked', co: 'Complete', wn: 'Warning' };
 
 // ── CIEDE2000 ─────────────────────────────────────────────────────────────
 function hexToRgb(h: string): [number, number, number] {

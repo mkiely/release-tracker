@@ -2,7 +2,7 @@
 // modal switch at the bottom of proto-app.jsx's App().
 
 import type { ModalSpec } from '../app-context';
-import { ConfirmModal, EventModal, LoadShareModal, PushReviewModal, SprintModal, StreamHealthModal, TeamModal, WorkItemDetailModal, WorkItemModal, WorkStreamModal } from './modals';
+import { CodeFreezeModal, ConfirmModal, EventModal, LoadShareModal, PushReviewModal, SprintModal, StreamHealthModal, TeamModal, WorkItemDetailModal, WorkItemModal, WorkStreamModal } from './modals';
 import { ConnectorItemModal } from './ConnectorItemModal';
 import { MetricsModal } from './MetricsModal';
 
@@ -19,6 +19,8 @@ export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose
       return <MetricsModal releaseId={modal.releaseId} section={modal.section} onClose={onClose} />;
     case 'event':
       return <EventModal releaseId={modal.releaseId} eventId={modal.eventId} onClose={onClose} />;
+    case 'codeFreeze':
+      return <CodeFreezeModal releaseId={modal.releaseId} onClose={onClose} />;
     case 'sprint':
       return <SprintModal releaseId={modal.releaseId} sprintId={modal.sprintId} onClose={onClose} />;
     case 'item':

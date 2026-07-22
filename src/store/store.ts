@@ -308,6 +308,19 @@ export function migrate(p: AppState): AppState | null {
       })),
     };
   }
+  // v21 → v22: releases gain codeFreezeISO (default null = last-sprint default,
+  // no artificial cutoff); work streams gain an optional per-stream override.
+  if (s.version === 21) {
+    s = {
+      ...s,
+      version: 22,
+      releases: s.releases.map((r) => ({
+        ...r,
+        codeFreezeISO: (r as any).codeFreezeISO ?? null,
+        workStreams: r.workStreams.map((ws) => ({ ...ws, codeFreezeISO: (ws as any).codeFreezeISO ?? null })),
+      })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -386,8 +399,11 @@ interface Actions {
    *  arrive on the recipient's first sync. The team arrives from the connector too. */
   importSharedRelease: (payload: SharePayload) => Release;
   deleteRelease: (id: string) => void;
+  /** Sets/clears the release's code check-in deadline. null = defaults to the last
+   *  sprint's endISO (see derive.effectiveCodeFreeze). */
+  setCodeFreeze: (releaseId: string, codeFreezeISO: string | null) => void;
   createWorkStream: (releaseId: string, name: string) => WorkStream | null;
-  updateWorkStream: (releaseId: string, wsId: string, patch: Partial<Pick<WorkStream, 'name' | 'engineersRequired' | 'planningMuted'>>) => void;
+  updateWorkStream: (releaseId: string, wsId: string, patch: Partial<Pick<WorkStream, 'name' | 'engineersRequired' | 'planningMuted' | 'codeFreezeISO'>>) => void;
   createEvent: (releaseId: string, input: { label: string; dateISO: string }) => void;
   updateEvent: (releaseId: string, eventId: string, patch: Partial<Pick<ReleaseEvent, 'label' | 'dateISO'>>) => void;
   deleteEvent: (releaseId: string, eventId: string) => void;
@@ -489,6 +505,7 @@ export const useStore = create<StoreState>((set, get) => {
         // Connector releases get their sprints from the external system on first
         // sync; local releases build a uniform grid of `len`-day sprints.
         sprints: connector ? [] : buildSprints(start, {}, sprintCount, len),
+        codeFreezeISO: null,
         externalId: null,
         connector: connector ?? null,
         sync: null,
@@ -540,6 +557,7 @@ export const useStore = create<StoreState>((set, get) => {
           externalId: s.externalId ?? null,
           plannedVelocity: null,
         })),
+        codeFreezeISO: null,
         externalId: null,
         connector: payload.connector,
         sync: null,
@@ -555,6 +573,12 @@ export const useStore = create<StoreState>((set, get) => {
       commit((d) => {
         d.releases = d.releases.filter((r) => r.id !== id);
         d.items = d.items.filter((i) => i.releaseId !== id);
+      });
+    },
+
+    setCodeFreeze: (releaseId, codeFreezeISO) => {
+      commit((d) => {
+        d.releases = d.releases.map((r) => (r.id === releaseId ? { ...r, codeFreezeISO } : r));
       });
     },
 

@@ -25,6 +25,7 @@ const connectorRelease = (overrides: Partial<Release> = {}): Release => ({
     { id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 3, externalId: 'JIRA-S1', plannedVelocity: null },
     { id: 'sp2', name: 'Sprint 2', startISO: '2026-04-27', endISO: '2026-05-10', daysOff: 0, externalId: 'JIRA-S2', plannedVelocity: null },
   ],
+  codeFreezeISO: null,
   externalId: null,
   connector: { type: 'acme', config: { project: 'ATL', board: '42' } },
   sync: null,

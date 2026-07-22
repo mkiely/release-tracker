@@ -1,9 +1,48 @@
 import { useEffect } from 'react';
-import { EditorContent, useEditor } from '@tiptap/react';
+import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { DOMParser as PMDOMParser } from '@tiptap/pm/model';
 import { markdownToHtml, looksLikeMarkdown } from '../lib/markdown';
+import { Icon } from './Icon';
+import { IconButton } from './primitives';
 import styles from './RichTextEditor.module.css';
+
+/** The basic-minimum formatting toolbar: bold/italic + the two list types. Marks
+ *  and nodes it drives all come from StarterKit already loaded below — no new
+ *  extensions. Markdown shortcuts (`**bold**`, `- `, `1. `) keep working alongside it. */
+function Toolbar({ editor }: { editor: Editor }) {
+  // Prevent the mousedown's default focus/blur dance from collapsing the editor's
+  // selection before the click's command runs.
+  const guard = (e: React.MouseEvent) => e.preventDefault();
+  return (
+    <div className={styles.toolbar} onMouseDown={guard}>
+      <IconButton
+        icon={Icon.bold}
+        title="Bold (Ctrl/Cmd+B)"
+        active={editor.isActive('bold')}
+        onClick={() => editor.chain().focus().toggleBold().run()}
+      />
+      <IconButton
+        icon={Icon.italic}
+        title="Italic (Ctrl/Cmd+I)"
+        active={editor.isActive('italic')}
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+      />
+      <IconButton
+        icon={Icon.bulletList}
+        title="Bulleted list"
+        active={editor.isActive('bulletList')}
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+      />
+      <IconButton
+        icon={Icon.orderedList}
+        title="Numbered list"
+        active={editor.isActive('orderedList')}
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+      />
+    </div>
+  );
+}
 
 // Connector HTML often uses <p><br></p> as a blank-line separator. TipTap
 // parses the <br> as a hard break node, which then gets a second ProseMirror
@@ -71,5 +110,12 @@ export function RichTextEditor({
     }
   }, [editor, value]);
 
-  return <EditorContent editor={editor} className={editable ? styles.box : `${styles.box} ${styles.readOnly}`} />;
+  return (
+    <div className={editable ? styles.box : `${styles.box} ${styles.readOnly}`}>
+      {editable && editor && <Toolbar editor={editor} />}
+      <div className={styles.editorScroll}>
+        <EditorContent editor={editor} />
+      </div>
+    </div>
+  );
 }

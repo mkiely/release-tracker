@@ -14,7 +14,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 21;
+export const SCHEMA_VERSION = 22;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog, its
  *  status vocabulary (native workflow states mapped to canonical categories),
@@ -84,6 +84,10 @@ export interface WorkStream {
   /** Connector vocabulary values keyed by FieldSpec.key (see WorkItem.attributes).
    *  Absence means none. Connector-owned: external wins on sync. */
   attributes?: Record<string, AttrValue>;
+  /** App-owned enrichment: overrides the release's code freeze for this stream alone
+   *  (e.g. an infra stream that must lock down ahead of feature streams). null/unset =
+   *  inherits Release.codeFreezeISO. Survives connector sync. See derive.effectiveCodeFreeze. */
+  codeFreezeISO?: string | null;
 }
 
 /** A dated milestone on the release calendar (e.g. code freeze). Rendered on the
@@ -147,6 +151,12 @@ export interface Release {
   workStreams: WorkStream[];
   events: ReleaseEvent[];
   sprints: Sprint[];
+  /** App-owned code check-in deadline. null = defaults to the last sprint's endISO
+   *  (no artificial cutoff). Feeds the capacity-fit forecast/burndown (see
+   *  derive.effectiveCodeFreeze) and renders as a critical-tone calendar chip on the
+   *  sprint whose range contains it. Individual work streams may override via
+   *  WorkStream.codeFreezeISO. */
+  codeFreezeISO: string | null;
   externalId: string | null;
   connector: ReleaseConnector | null;
   sync: SyncStatus | null;

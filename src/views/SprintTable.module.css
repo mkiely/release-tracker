@@ -262,6 +262,10 @@
   cursor: pointer;
   min-height: 36px;
   transition: background 80ms;
+  /* The whole row is the drag handle — without this, starting a drag from over
+     any text cell (title, key, etc.) begins a native text selection instead. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .itemRow:last-child {
