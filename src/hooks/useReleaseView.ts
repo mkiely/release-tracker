@@ -163,7 +163,13 @@ export function useReleaseView(): ReleaseViewProps | null {
   );
   const isStreamFiltered = isAnyFacetActive(streamFacetGroups);
   const facetsActive = isStreamFiltered && axis === 'stream';
-  const streams = facetsActive ? applyFacets(r.workStreams, streamFacetGroups) : r.workStreams;
+  // Default stream order is alphabetical (case-insensitive) so a release with many
+  // streams stays scannable; the unassigned bucket (ws: null) is appended after
+  // these everywhere it appears, so it always sorts to the bottom. Copy before
+  // sorting — r.workStreams is shared store state.
+  const streams = [...(facetsActive ? applyFacets(r.workStreams, streamFacetGroups) : r.workStreams)].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+  );
 
   const dateRange = last
     ? `${fmtShort(r.startISO)} – ${fmtShort(last.endISO)}, ${dOf(last.endISO).getFullYear()}`
