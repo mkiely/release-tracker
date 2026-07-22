@@ -103,7 +103,7 @@ export function releaseToTSV(
 
     // Effective freeze date for this stream: its own override wins, else the release's.
     // Surfaces the cutoff the forecast/runway lines above are already computed against.
-    const freezeLine = `Code freeze: ${fmtShort(effectiveStreamCodeFreeze(release, ws))}${ws?.codeFreezeISO ? ' (stream override)' : ''}`;
+    const freezeLine = `Code freeze: ${fmtShort(effectiveStreamCodeFreeze(release, ws ?? null))}${ws?.codeFreezeISO ? ' (stream override)' : ''}`;
 
     let forecastLine = `Forecast: ${forecast.verdict}`;
     if (forecast.verdict === 'at-risk') {
