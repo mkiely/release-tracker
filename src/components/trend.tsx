@@ -1,4 +1,4 @@
-import { statusVars } from './statusVars';
+import { statusVars, warningVars } from './statusVars';
 import styles from './trend.module.css';
 
 /**
@@ -43,9 +43,12 @@ export function Sparkline({
 /**
  * Large capacity-burndown for the health detail modal. Faint bars show planned
  * points per sprint across the whole release (the work distribution); the bold line
- * burns the remaining work down by the stream's effective per-sprint capacity over
- * the remaining sprints. Where it reaches zero is the projected finish; if it ends
- * above zero, that gap is the shortfall. No charting kit — same SVG idiom as Sparkline.
+ * burns the remaining work down by the stream's effective capacity — spread over the
+ * sprints *up to the code freeze*, since that is the window the capacity model is
+ * computed over. Where the line reaches zero (if before the freeze) is the projected
+ * finish; if it ends above zero at the freeze, that gap is the shortfall. The freeze
+ * is drawn as an amber marker (matching the freeze chip elsewhere), and sprints past
+ * it are faded — no work can land there. No charting kit — same SVG idiom as Sparkline.
  *
  * The x-axis is sprint *assignment*, not completion history (none exists) — an
  * approximation the caller should label.
@@ -53,6 +56,7 @@ export function Sparkline({
 export function StreamBurnChart({
   series,
   firstRemainingIndex,
+  freezeX,
   activeIndex,
   remainingPts,
   effectiveCap,
@@ -60,6 +64,10 @@ export function StreamBurnChart({
 }: {
   series: number[];
   firstRemainingIndex: number;
+  /** Fractional sprint-index position of the (effective) code freeze — the burn's right
+   *  boundary and where the amber marker is drawn. Pass series.length when the freeze is
+   *  at/after the last sprint's end (no artificial cutoff). See derive.freezeSprintX. */
+  freezeX: number;
   activeIndex: number;
   remainingPts: number;
   effectiveCap: number;
@@ -77,38 +85,40 @@ export function StreamBurnChart({
   const bw = plotW / n;
   const yMax = Math.max(1, ...series, remainingPts, effectiveCap);
   const yOf = (v: number) => padT + plotH - (Math.max(0, v) / yMax) * plotH;
-  const xOf = (i: number) => padL + i * bw; // left edge of sprint band i
+  const xOf = (i: number) => padL + i * bw; // left edge of sprint band i (i may be fractional)
 
-  const lineColor = tone === 'risk' ? statusVars('Blocked').dot : statusVars('Complete').dot;
+  const okColor = statusVars('Complete').dot;
+  const riskColor = statusVars('Blocked').dot;
+  const freezeColor = warningVars().dot;
+  const lineColor = tone === 'risk' ? riskColor : okColor;
 
-  // Burndown of remaining work over the remaining sprints.
-  const remCount = Math.max(0, n - firstRemainingIndex);
-  const perStep = remCount > 0 ? effectiveCap / remCount : 0;
-  const burn: { x: number; y: number; v: number }[] = [];
-  for (let k = 0; k <= remCount; k++) {
-    const v = remainingPts - perStep * k;
-    burn.push({ x: xOf(firstRemainingIndex + k), y: yOf(v), v });
-  }
-  const endVal = burn.length ? burn[burn.length - 1].v : remainingPts;
-  const finishX = (() => {
-    // x where the burndown crosses zero, if it does within the window.
-    if (perStep <= 0) return null;
-    const k = remainingPts / perStep;
-    return k <= remCount ? xOf(firstRemainingIndex + k) : null;
-  })();
+  // Burn: remaining work drawn down by the stream's effective capacity, from the current
+  // sprint to the code freeze. Capacity accrues at a constant rate, so the burn is a
+  // straight segment. Bounding it at the freeze (not the last sprint) is the whole point:
+  // effectiveCap only covers pre-freeze sprints, so the line must reach its shortfall/finish
+  // exactly at the freeze. Guard the start so a freeze before "today" still yields a segment.
+  const xStart = xOf(Math.min(firstRemainingIndex, freezeX));
+  const xFreeze = xOf(freezeX);
+  const span = Math.max(0, xFreeze - xStart);
+  const endVal = remainingPts - effectiveCap; // work still unburned at the freeze (>0 = shortfall)
+  // x where the burn crosses zero within [xStart, xFreeze], if the capacity gets there.
+  const finishX = effectiveCap > 0 && remainingPts <= effectiveCap ? xStart + (remainingPts / effectiveCap) * span : null;
+  const burnStart = { x: xStart, y: yOf(remainingPts) };
+  const burnEnd = finishX !== null ? { x: finishX, y: yOf(0) } : { x: xFreeze, y: yOf(Math.max(0, endVal)) };
 
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Remaining work vs capacity by sprint" style={{ display: 'block' }}>
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Remaining work vs capacity by sprint, bounded by the code freeze" style={{ display: 'block' }}>
       {/* baseline + gridline at remainingPts */}
       <line x1={padL} y1={yOf(0)} x2={W - padR} y2={yOf(0)} stroke="var(--rt-line-strong)" strokeWidth={1} />
       <line x1={padL} y1={yOf(remainingPts)} x2={W - padR} y2={yOf(remainingPts)} stroke="var(--rt-line)" strokeWidth={1} strokeDasharray="3 3" />
       <text x={padL - 6} y={yOf(remainingPts) + 3} textAnchor="end" fontSize={9} fill="var(--rt-t3)">{remainingPts}</text>
       <text x={padL - 6} y={yOf(0) + 3} textAnchor="end" fontSize={9} fill="var(--rt-t3)">0</text>
 
-      {/* faint planned-points bars per sprint */}
+      {/* faint planned-points bars per sprint; sprints past the freeze are faded (no work lands there) */}
       {series.map((v, i) => {
         const h = (v / yMax) * plotH;
         const remaining = i >= firstRemainingIndex;
+        const postFreeze = i >= freezeX; // band starts on/after the freeze
         return (
           <rect
             key={i}
@@ -118,29 +128,30 @@ export function StreamBurnChart({
             height={Math.max(0, h)}
             rx={2}
             fill={remaining ? 'var(--rt-fill)' : 'var(--rt-line)'}
+            opacity={postFreeze ? 0.35 : 1}
             stroke={i === activeIndex ? 'var(--rt-st-ac-dot)' : 'none'}
             strokeWidth={i === activeIndex ? 1.25 : 0}
           />
         );
       })}
 
-      {/* shortfall gap (work left unburned at the end) */}
-      {endVal > 0.5 && burn.length > 0 && (
-        <line
-          x1={burn[burn.length - 1].x}
-          y1={yOf(0)}
-          x2={burn[burn.length - 1].x}
-          y2={yOf(endVal)}
-          stroke={statusVars('Blocked').dot}
-          strokeWidth={3}
-          strokeLinecap="round"
-        />
+      {/* code-freeze marker — the burn's boundary; amber, matching the freeze chip */}
+      {freezeX < n && (
+        <>
+          <line x1={xFreeze} y1={padT} x2={xFreeze} y2={yOf(0)} stroke={freezeColor} strokeWidth={1.5} strokeDasharray="4 3" />
+          <text x={Math.min(xFreeze + 4, W - padR)} y={padT + 8} textAnchor={xFreeze > W - padR - 40 ? 'end' : 'start'} fontSize={9} fill={freezeColor}>Freeze</text>
+        </>
+      )}
+
+      {/* shortfall gap (work left unburned at the freeze) */}
+      {finishX === null && endVal > 0.5 && (
+        <line x1={burnEnd.x} y1={yOf(0)} x2={burnEnd.x} y2={yOf(endVal)} stroke={riskColor} strokeWidth={3} strokeLinecap="round" />
       )}
 
       {/* capacity burndown line */}
-      {burn.length > 1 && (
+      {span > 0 && (
         <polyline
-          points={burn.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}
+          points={`${burnStart.x.toFixed(1)},${burnStart.y.toFixed(1)} ${burnEnd.x.toFixed(1)},${burnEnd.y.toFixed(1)}`}
           fill="none"
           stroke={lineColor}
           strokeWidth={2}
@@ -148,19 +159,19 @@ export function StreamBurnChart({
           strokeLinecap="round"
         />
       )}
-      {burn.length > 0 && <circle cx={burn[0].x} cy={burn[0].y} r={3} fill={lineColor} />}
+      <circle cx={burnStart.x} cy={burnStart.y} r={3} fill={lineColor} />
 
-      {/* projected finish marker */}
+      {/* projected finish marker (only when the burn reaches zero before the freeze) */}
       {finishX !== null && (
         <>
-          <line x1={finishX} y1={padT} x2={finishX} y2={yOf(0)} stroke={statusVars('Complete').dot} strokeWidth={1} strokeDasharray="2 3" />
-          <circle cx={finishX} cy={yOf(0)} r={3} fill={statusVars('Complete').dot} />
+          <line x1={finishX} y1={padT} x2={finishX} y2={yOf(0)} stroke={okColor} strokeWidth={1} strokeDasharray="2 3" />
+          <circle cx={finishX} cy={yOf(0)} r={3} fill={okColor} />
         </>
       )}
 
       {/* sprint ticks */}
       {series.map((_, i) => (
-        <text key={i} x={xOf(i) + bw / 2} y={H - 9} textAnchor="middle" fontSize={9} fill={i >= firstRemainingIndex ? 'var(--rt-t2)' : 'var(--rt-t3)'}>
+        <text key={i} x={xOf(i) + bw / 2} y={H - 9} textAnchor="middle" fontSize={9} fill={i >= freezeX ? 'var(--rt-t3)' : i >= firstRemainingIndex ? 'var(--rt-t2)' : 'var(--rt-t3)'}>
           {i + 1}
         </text>
       ))}

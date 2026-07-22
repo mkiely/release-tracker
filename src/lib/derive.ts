@@ -132,6 +132,24 @@ export const effectiveCodeFreeze = (release: Release): string =>
 export const effectiveStreamCodeFreeze = (release: Release, ws: WorkStream | null): string =>
   ws?.codeFreezeISO ?? effectiveCodeFreeze(release);
 
+/** Fractional sprint-index x-position of a date across a release's sprints, for the
+ *  burndown chart's freeze marker and burn boundary: `i` at the left edge of sprint i,
+ *  `i + f` a fraction f (by workdays, mirroring sprintFreezeFactor) into sprint i, and
+ *  `sprints.length` at/after the last sprint's end. Keeps the drawn freeze line sitting
+ *  exactly where the capacity model cuts the freeze sprint. */
+export const freezeSprintX = (sprints: Sprint[], dateISO: string): number => {
+  for (let i = 0; i < sprints.length; i++) {
+    const sp = sprints[i];
+    if (dateISO < sp.startISO) return i;
+    if (dateISO <= sp.endISO) {
+      const total = workdaysInRange(sp.startISO, sp.endISO);
+      const frac = total > 0 ? workdaysInRange(sp.startISO, dateISO) / total : 0;
+      return i + Math.min(1, Math.max(0, frac));
+    }
+  }
+  return sprints.length;
+};
+
 /** Sprints whose range hasn't fully elapsed (endISO >= today) AND that start on or
  *  before the code freeze (no work can land in a sprint that starts after it). The
  *  active sprint is included; fully-past sprints are excluded — encoding the "past
@@ -180,6 +198,20 @@ export const releaseCapacity = (
   const perEngineerCap = contributingCount > 0 ? teamRemainingCap / contributingCount : 0;
   return { remainingSprintCount: rem.length, teamRemainingCap, contributingCount, perEngineerCap };
 };
+
+/** Remaining capacity for ONE stream, honoring its code-freeze override (falls back to
+ *  the release's freeze when unset). `baseCtx` is the release-level capacity to reuse for
+ *  the common no-override case, so we only recompute when a stream truly overrides. `ws`
+ *  null → Unassigned (no override). The single source of the per-stream capacity window,
+ *  shared by every forecast/runway consumer so a stream reads the same everywhere. */
+export const streamCapacityCtx = (
+  release: Release,
+  team: Team | undefined,
+  ws: WorkStream | null,
+  baseCtx: ReleaseCapacity,
+  today: string = todayISO(),
+): ReleaseCapacity =>
+  ws?.codeFreezeISO != null ? releaseCapacity(release, team, today, effectiveStreamCodeFreeze(release, ws)) : baseCtx;
 
 export interface StreamContention {
   /** Σ engineersRequired over streams that still have remaining work. */

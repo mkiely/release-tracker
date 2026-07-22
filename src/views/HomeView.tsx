@@ -149,7 +149,7 @@ export function HomeView({
             </PField>
             {!meta && (
               <div style={{ display: 'flex', gap: 12 }}>
-                <PField label="Number of sprints" hint="default is 8" style={{ flex: 1 }}>
+                <PField label="Number of sprints" style={{ flex: 1 }}>
                   <PInput
                     type="number"
                     value={sprintCount}
