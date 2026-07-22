@@ -9,7 +9,7 @@ import { Icon } from './Icon';
 import { SegBar } from './badges';
 import { statusVars } from './statusVars';
 import { IconButton, PButton } from './primitives';
-import { ShareButton } from './ShareButton';
+import { ShareMenu } from './ShareMenu';
 import { SegmentedToggle } from './SegmentedToggle';
 import { TeamLink } from './TeamLink';
 import { VDivider } from './VDivider';
@@ -90,6 +90,7 @@ type ReleaseChromeProps = Pick<
   | 'onExport'
   | 'onNewEvent'
   | 'onNewStream'
+  | 'onEditCodeFreeze'
   | 'onSync'
   | 'onPush'
 > & { children: ReactNode };
@@ -124,6 +125,7 @@ export function ReleaseChrome({
   onExport,
   onNewEvent,
   onNewStream,
+  onEditCodeFreeze,
   onSync,
   onPush,
   children,
@@ -202,14 +204,14 @@ export function ReleaseChrome({
           <PButton variant="subtle" sm icon={Icon.backlog} onClick={onNavigateToBacklog} title="All incomplete work in this release">
             Backlog
           </PButton>
-          <ShareButton release={r} />
+          <ShareMenu release={r} onExport={onExport} />
           <PushButton release={r} onPush={onPush} />
           <SyncButton release={r} onSync={onSync} />
-          <PButton variant="subtle" sm icon={Icon.copy} onClick={onExport}>
-            Export TSV
-          </PButton>
           <PButton variant="subtle" sm icon={Icon.event} onClick={onNewEvent}>
             New event
+          </PButton>
+          <PButton variant="subtle" sm icon={Icon.snowflake} onClick={onEditCodeFreeze}>
+            Code freeze
           </PButton>
           {!r.connector && (
             <PButton sm icon={Icon.plus} onClick={onNewStream}>

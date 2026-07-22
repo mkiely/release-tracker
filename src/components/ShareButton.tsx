@@ -28,11 +28,17 @@ async function copyToClipboard(text: string): Promise<void> {
   }
 }
 
-export function ShareButton({ release }: { release: Release }) {
+/**
+ * The share-link action for a release, or `null` when there's nothing to share
+ * (local releases have no connector config to hand off). Extracted so both the
+ * standalone {@link ShareButton} and the grouped Share menu drive the same copy
+ * flow instead of duplicating it.
+ */
+export function useShareReleaseLink(release: Release): (() => void) | null {
   const { notify } = useApp();
   if (!release.connector) return null;
 
-  const onShare = async () => {
+  return async () => {
     const result = buildShareUrl(release, window.location.origin);
     if (!result.ok) {
       notify(
@@ -45,6 +51,11 @@ export function ShareButton({ release }: { release: Release }) {
     await copyToClipboard(result.url);
     notify('Share link copied — the recipient confirms, then syncs to fetch data');
   };
+}
+
+export function ShareButton({ release }: { release: Release }) {
+  const onShare = useShareReleaseLink(release);
+  if (!onShare) return null;
 
   return (
     <PButton variant="subtle" sm icon={Icon.link} onClick={onShare} title="Copy a link to this release’s configuration and metadata">
