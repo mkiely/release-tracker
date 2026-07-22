@@ -12,6 +12,7 @@ import type { Release, Team, WorkItem } from '../types';
 import { todayISO } from '../lib/dates';
 import {
   releaseCapacity,
+  streamCapacityCtx,
   streamContention,
   streamHealth,
   streamRunway,
@@ -220,7 +221,10 @@ function buildRunwayRows(r: Release, team: Team | undefined, items: WorkItem[]) 
     const itemsBeyondNext = streamItems.filter(
       (i) => i.status !== 'Complete' && i.sprintId != null && (sprintIndexById.get(i.sprintId) ?? -1) >= beyondNextThreshold,
     ).length;
-    return { ws, runway: streamRunway(health, ws.engineersRequired, ctx, contention, { itemsBeyondNext, muted: ws.planningMuted }) };
+    // Honor a stream's own code-freeze override so its runway matches the overview
+    // row and the health modal (all three route through streamCapacityCtx).
+    const streamCtx = streamCapacityCtx(r, team, ws, ctx, today);
+    return { ws, runway: streamRunway(health, ws.engineersRequired, streamCtx, contention, { itemsBeyondNext, muted: ws.planningMuted }) };
   });
 }
 

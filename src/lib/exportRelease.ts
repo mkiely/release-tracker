@@ -15,6 +15,7 @@ import {
   eventsIn,
   releaseCapacity,
   sprintVel,
+  streamCapacityCtx,
   streamContention,
   streamForecast,
   streamHealth,
@@ -92,8 +93,10 @@ export function releaseToTSV(
     const h = wsId ? (streamHealthMap.get(wsId)?.health ?? streamHealth([])) : unassignedHealth;
     const ws = wsId ? release.workStreams.find((w) => w.id === wsId) : null;
     const engReq = ws?.engineersRequired ?? null;
-    const forecast = streamForecast(h, engReq, ctx, contention);
-    const runway = streamRunway(h, engReq, ctx, contention, { itemsBeyondNext: itemsBeyondNextFor(its), muted });
+    // Per-stream freeze override → per-stream capacity window, matching the app views.
+    const streamCtx = streamCapacityCtx(release, team, ws ?? null, ctx, today);
+    const forecast = streamForecast(h, engReq, streamCtx, contention);
+    const runway = streamRunway(h, engReq, streamCtx, contention, { itemsBeyondNext: itemsBeyondNextFor(its), muted });
 
     const healthLine = `${h.itemCount} items · ${h.pct}% done (${h.donePts}/${h.totalPts}pt) · ${h.remainingPts}pt rem${h.blockedPts > 0 ? ` · ${h.blockedPts}pt blocked` : ''}`;
 

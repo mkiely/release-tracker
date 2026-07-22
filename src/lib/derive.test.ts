@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSprint, capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, fullCap, groupItemsByStream, plannedVel, releaseCapacity, remainingSprints, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
+import { activeSprint, capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, freezeSprintX, fullCap, groupItemsByStream, plannedVel, releaseCapacity, remainingSprints, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
 import type { Release, Sprint, Team, WorkItem, WorkStream } from '../types';
 
@@ -427,6 +427,54 @@ describe('forward capacity-fit health', () => {
         const ctx = releaseCapacity(r, team(1, 100), before, streamFreeze);
         expect(ctx.remainingSprintCount).toBe(2); // stream's own freeze reaches through sp2
         expect(ctx.teamRemainingCap).toBe(200);
+      });
+    });
+
+    describe('freezeSprintX', () => {
+      const sprints = [sp1, sp2];
+
+      it('is the left edge (index) when the date precedes all sprints', () => {
+        expect(freezeSprintX(sprints, before)).toBe(0);
+      });
+
+      it('prorates within the straddling sprint, mirroring the capacity factor', () => {
+        // Same proration releaseCapacity uses for the sprint the freeze falls inside.
+        const expected = workdaysInRange(sp1.startISO, '2026-04-20') / workdaysInRange(sp1.startISO, sp1.endISO);
+        expect(freezeSprintX(sprints, '2026-04-20')).toBeCloseTo(0 + expected); // 0.6 into sprint 0
+      });
+
+      it('offsets by the sprint index for a date in a later sprint', () => {
+        const frac = workdaysInRange(sp2.startISO, '2026-05-03') / workdaysInRange(sp2.startISO, sp2.endISO);
+        expect(freezeSprintX(sprints, '2026-05-03')).toBeCloseTo(1 + frac); // 1.5 — halfway through sprint 1
+      });
+
+      it('is sprints.length when the date is at/after the last sprint end (no cutoff)', () => {
+        expect(freezeSprintX(sprints, sp2.endISO)).toBe(2);
+        expect(freezeSprintX(sprints, '2026-06-01')).toBe(2);
+      });
+    });
+
+    describe('streamCapacityCtx', () => {
+      it('reuses the base capacity (identity) when the stream has no override', () => {
+        const r = freezeRelease('2026-04-20');
+        const base = releaseCapacity(r, team(1, 100), before);
+        expect(streamCapacityCtx(r, team(1, 100), ws(null), base, before)).toBe(base);
+      });
+
+      it('reuses the base capacity for the Unassigned bucket (ws null)', () => {
+        const r = freezeRelease('2026-04-20');
+        const base = releaseCapacity(r, team(1, 100), before);
+        expect(streamCapacityCtx(r, team(1, 100), null, base, before)).toBe(base);
+      });
+
+      it("recomputes against the stream's own freeze when it overrides", () => {
+        const r = freezeRelease('2026-04-20'); // release freeze excludes sp2
+        const base = releaseCapacity(r, team(1, 100), before);
+        expect(base.remainingSprintCount).toBe(1);
+        const streamCtx = streamCapacityCtx(r, team(1, 100), ws('2026-05-10'), base, before);
+        expect(streamCtx).not.toBe(base);
+        expect(streamCtx.remainingSprintCount).toBe(2); // stream freeze reaches through sp2
+        expect(streamCtx.teamRemainingCap).toBe(200);
       });
     });
   });

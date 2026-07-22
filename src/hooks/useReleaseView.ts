@@ -7,7 +7,7 @@ import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
 import { useApp } from '../app-context';
 import { dOf, fmtShort, todayISO } from '../lib/dates';
-import { activeSprint, effectiveStreamCodeFreeze, sprintEventChips, releaseCapacity, sprintVel, statusSegs, streamContention, streamForecast, streamHealth, streamRunway, sumPoints, velocityAttainment, type EventChip, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
+import { activeSprint, CODE_FREEZE_CHIP_ID, sprintEventChips, releaseCapacity, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, sumPoints, velocityAttainment, type EventChip, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
 import { connectorLabel } from '../sync/client';
 import type { MetricsSection } from '../modals/MetricsModal';
 import type { RowData, RowMetrics } from '../lib/rowData';
@@ -256,8 +256,8 @@ export function useReleaseView(): ReleaseViewProps | null {
 
   const streamRows: StreamRowData[] = streamInputs.map(({ ws, items: streamItems, series, health }) => {
     // Most streams inherit the release's code freeze, so they share `ctx`; a stream
-    // with its own override needs its own capacity window computed against that date.
-    const streamCtx = ws?.codeFreezeISO != null ? releaseCapacity(r, team, today, effectiveStreamCodeFreeze(r, ws)) : ctx;
+    // with its own override gets its own capacity window (streamCapacityCtx centralizes this).
+    const streamCtx = streamCapacityCtx(r, team, ws, ctx, today);
     return {
       ws,
       itemCount: streamItems.length,
@@ -340,7 +340,10 @@ export function useReleaseView(): ReleaseViewProps | null {
     onExport,
     onNewEvent: () => openModal({ type: 'event', releaseId: id }),
     onNewStream: () => openModal({ type: 'stream', releaseId: id }),
-    onOpenEvent: (eventId) => openModal({ type: 'event', releaseId: id, eventId }),
+    onOpenEvent: (eventId) =>
+      eventId === CODE_FREEZE_CHIP_ID
+        ? openModal({ type: 'codeFreeze', releaseId: id })
+        : openModal({ type: 'event', releaseId: id, eventId }),
     onEditCodeFreeze: () => openModal({ type: 'codeFreeze', releaseId: id }),
     onSync: () => onSync(id),
     onPush: () => onPush(id),

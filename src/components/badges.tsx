@@ -8,8 +8,8 @@ import styles from './badges.module.css';
  *  truncated to `max` chars with the full text in a tooltip. `critical` gives it
  *  a warning visual semantic — the Blocked status tone plus the app's alert-triangle
  *  icon (same language as the release's other warning chips) instead of the plain
- *  flag — reserved for the code-freeze marker, which also never takes `onClick`:
- *  unlike a real event it isn't editable from the chip. */
+ *  flag — reserved for the code-freeze marker. Its `onClick` (when provided by the
+ *  caller) opens the dedicated code-freeze editor rather than the plain event modal. */
 export function EventBadge({
   children,
   date,
@@ -30,9 +30,9 @@ export function EventBadge({
     <span
       className={styles.badge}
       title={full || undefined}
-      onClick={!critical && onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
+      onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
       style={{
-        cursor: !critical && onClick ? 'pointer' : undefined,
+        cursor: onClick ? 'pointer' : undefined,
         ...(critical ? { borderColor: cv.soft, background: cv.soft, color: cv.text } : undefined),
       }}
     >

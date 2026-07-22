@@ -55,7 +55,7 @@ function F3SprintRow({
             </>
           )}
           {events.map((e) => (
-            <EventBadge key={e.id} date={fmtShort(e.dateISO)} onClick={() => onOpenEvent(e.id)}>
+            <EventBadge key={e.id} date={fmtShort(e.dateISO)} critical={e.critical} onClick={() => onOpenEvent(e.id)}>
               {e.label}
             </EventBadge>
           ))}

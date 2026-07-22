@@ -15,8 +15,8 @@ export function EventStrip({
 }: {
   events: EventChip[];
   align?: 'flex-start' | 'flex-end';
-  /** Not applied to the critical (code-freeze) chip — EventBadge ignores onClick
-   *  for it, since it isn't a real ReleaseEvent and isn't editable from the chip. */
+  /** Called with the chip's id on click, for both real events and the
+   *  code-freeze chip — callers route CODE_FREEZE_CHIP_ID to the freeze editor. */
   onEventClick?: (eventId: string) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);

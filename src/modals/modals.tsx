@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { LOCAL_ITEM_TYPES, STATUSES, type AttrValue, type Member, type Status } from '../types';
 import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
-import { capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
+import { capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, freezeSprintX, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
 import { attributeFields, CANONICAL_FIELDS, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type CanonicalView, type EditConcept } from '../lib/connectorFields';
@@ -19,7 +19,7 @@ import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextare
 import { SegBar } from '../components/badges';
 import { StreamBurnChart } from '../components/trend';
 import { VerdictBadge } from '../components/VerdictLine';
-import { statusVars, verdictVars } from '../components/statusVars';
+import { statusVars, verdictVars, warningVars } from '../components/statusVars';
 
 // ── Confirm / danger modal ─────────────────────────────────────────────
 export function ConfirmModal({
@@ -375,6 +375,7 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
   const friRaw = r.sprints.findIndex((sp) => sp.endISO >= today);
   const firstRemainingIndex = friRaw < 0 ? r.sprints.length : friRaw;
   const activeIndex = r.sprints.findIndex((sp) => between(today, sp.startISO, sp.endISO));
+  const freezeX = freezeSprintX(r.sprints, effectiveStreamCodeFreeze(r, ws));
 
   const n1 = (x: number) => (Math.round(x * 10) / 10).toString();
   const shortfall = forecast.shortfallPts;
@@ -426,6 +427,7 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
           <StreamBurnChart
             series={series}
             firstRemainingIndex={firstRemainingIndex}
+            freezeX={freezeX}
             activeIndex={activeIndex}
             remainingPts={health.remainingPts}
             effectiveCap={forecast.effectiveCap}
@@ -433,7 +435,8 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
           />
           <span style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)', lineHeight: 1.4 }}>
             Bars show planned points per sprint (x-axis = sprint assignment, not completion history — an approximation).
-            The line burns the remaining {health.remainingPts} pts down by the stream's capacity; where it reaches zero is the projected finish.
+            The line burns the remaining {health.remainingPts} pts down by the stream's capacity up to the amber <strong style={{ color: warningVars().dot }}>code freeze</strong>;
+            where it reaches zero is the projected finish, and any gap at the freeze is the shortfall. Sprints past the freeze are faded — no work can land there.
           </span>
         </div>
       ) : (
