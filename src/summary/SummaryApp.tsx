@@ -59,52 +59,109 @@ function useLibrary(): SnapshotPayload[] {
   return listSummaries();
 }
 
+/** Pull the encoded snapshot value out of a pasted string — a full summary URL
+ *  (`…#s=<value>`), a bare fragment, or the raw encoded value on its own. */
+function extractEncoded(input: string): string {
+  const t = input.trim();
+  const m = t.match(/[#?&]s=([^&\s]+)/);
+  return m ? m[1] : t;
+}
+
+/** Paste a summary link (or just its encoded value) to load it without navigating —
+ *  the escape hatch when a link is too long for the browser's address bar. */
+function PasteLoader({ onLoad }: { onLoad: (p: SnapshotPayload) => void }) {
+  const [value, setValue] = useState('');
+  const [error, setError] = useState(false);
+
+  const submit = () => {
+    const payload = decodeSnapshot(extractEncoded(value));
+    if (!payload) {
+      setError(true);
+      return;
+    }
+    setValue('');
+    setError(false);
+    onLoad(payload);
+  };
+
+  return (
+    <div className={`card ${styles.pasteBox}`}>
+      <span className="tag">Load from a link</span>
+      <p className={styles.pasteHint}>
+        Paste a summary link — or just its encoded value — to open it here. Useful when a link is too long for the
+        browser’s address bar.
+      </p>
+      <textarea
+        className={styles.pasteArea}
+        value={value}
+        rows={3}
+        spellCheck={false}
+        placeholder="https://…/summary.html#s=…   or the raw encoded value"
+        onChange={(e) => {
+          setValue(e.target.value);
+          if (error) setError(false);
+        }}
+      />
+      {error && <span className={styles.pasteError}>That doesn’t look like a valid summary link.</span>}
+      <button type="button" className={styles.pasteBtn} onClick={submit} disabled={!value.trim()}>
+        Load summary
+      </button>
+    </div>
+  );
+}
+
 function LibraryIndex({ onOpen }: { onOpen: (id: string) => void }) {
   const summaries = useLibrary();
-
-  if (summaries.length === 0) {
-    return (
-      <div className={styles.empty}>
-        <span className={styles.emptyTitle}>No summaries yet</span>
-        <span>Open a summary link to view it here. Summaries you open are remembered on this device.</span>
-      </div>
-    );
-  }
+  const handleLoad = (p: SnapshotPayload) => {
+    rememberSummary(p);
+    bumpLibrary();
+    onOpen(p.summaryId);
+  };
 
   return (
     <>
-      <div className={styles.header}>
-        <h1 className="t-title">Release summaries</h1>
-        <div className={styles.headerMeta}>Remembered on this device · newest first</div>
-      </div>
-      <div className={styles.libList}>
-        {summaries.map((s) => (
-          <div key={s.summaryId} className={`card ${styles.libRow}`} onClick={() => onOpen(s.summaryId)}>
-            <div className={styles.libMain}>
-              <span className={styles.libName}>{s.name}</span>
-              <span className={styles.libSub}>
-                {s.teamName ? `${s.teamName} · ` : ''}
-                {s.dateRange} · generated {fmtLong(s.generatedAtISO.slice(0, 10))}
-              </span>
-            </div>
-            <div className={styles.libRight}>
-              <span className={styles.libPct}>{s.overall.completionPct}%</span>
-              <button
-                type="button"
-                className={styles.forget}
-                title="Forget this summary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  forgetSummary(s.summaryId);
-                  bumpLibrary();
-                }}
-              >
-                {Icon.trash}
-              </button>
-            </div>
+      {summaries.length === 0 ? (
+        <div className={styles.empty}>
+          <span className={styles.emptyTitle}>No summaries yet</span>
+          <span>Open a summary link to view it here. Summaries you open are remembered on this device.</span>
+        </div>
+      ) : (
+        <>
+          <div className={styles.header}>
+            <h1 className="t-title">Release summaries</h1>
+            <div className={styles.headerMeta}>Remembered on this device · newest first</div>
           </div>
-        ))}
-      </div>
+          <div className={styles.libList}>
+            {summaries.map((s) => (
+              <div key={s.summaryId} className={`card ${styles.libRow}`} onClick={() => onOpen(s.summaryId)}>
+                <div className={styles.libMain}>
+                  <span className={styles.libName}>{s.name}</span>
+                  <span className={styles.libSub}>
+                    {s.teamName ? `${s.teamName} · ` : ''}
+                    {s.dateRange} · generated {fmtLong(s.generatedAtISO.slice(0, 10))}
+                  </span>
+                </div>
+                <div className={styles.libRight}>
+                  <span className={styles.libPct}>{s.overall.completionPct}%</span>
+                  <button
+                    type="button"
+                    className={styles.forget}
+                    title="Forget this summary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      forgetSummary(s.summaryId);
+                      bumpLibrary();
+                    }}
+                  >
+                    {Icon.trash}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      <PasteLoader onLoad={handleLoad} />
     </>
   );
 }

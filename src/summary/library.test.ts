@@ -12,6 +12,7 @@ const snap = (id: string, generatedAtISO: string, name = id): SnapshotPayload =>
     teamName: null,
     dateRange: '',
     connectorLabel: null,
+    contributingMembers: [],
     overall: {
       totalItems: 0,
       totalPts: 0,
