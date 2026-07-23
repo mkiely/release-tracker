@@ -33,10 +33,22 @@ function StatusLegend({ streams }: { streams: SnapshotStream[] }) {
   );
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
+type Tone = 'ok' | 'warn' | 'risk' | 'neutral';
+
+/** Value color per health tone, reusing the app's status tokens (green/amber/red). */
+const TONE_COLOR: Record<Tone, string | undefined> = {
+  ok: 'var(--rt-st-co-text)',
+  warn: 'var(--rt-st-wn-text)',
+  risk: 'var(--rt-st-bl-text)',
+  neutral: undefined,
+};
+
+function Stat({ value, label, tone = 'neutral' }: { value: string; label: string; tone?: Tone }) {
   return (
-    <div className={`card ${styles.stat}`}>
-      <span className={styles.statVal}>{value}</span>
+    <div className={`card ${styles.stat}`} data-tone={tone}>
+      <span className={styles.statVal} style={{ color: TONE_COLOR[tone] }}>
+        {value}
+      </span>
       <span className={styles.statLabel}>{label}</span>
     </div>
   );
@@ -48,10 +60,89 @@ function velocityLabel(v: SnapshotPayload['velocity']): string {
   return `${v.attainmentPct}%`;
 }
 
+/** Health tone for the velocity-attainment stat. */
+function velocityTone(v: SnapshotPayload['velocity']): Tone {
+  if (v.verdict === 'under') return 'risk';
+  if (v.verdict === 'on-track') return 'ok';
+  return 'neutral'; // none / no-baseline — nothing to grade yet
+}
+
+/** Release capacity analysis — the highest-level signal, shown first: how the
+ *  streams with work left collectively demand engineers vs. the team's headcount,
+ *  and (when over-allocated) how each stream's effective staffing is scaled down. */
+function ReleaseCapacity({ cap, teamName }: { cap: SnapshotPayload['capacity']; teamName: string | null }) {
+  const team = teamName ?? 'the team';
+  const over = cap.overAllocated;
+  return (
+    <>
+      <h2 className={styles.sectionTitle}>Release capacity</h2>
+      <div className={`card ${styles.capCard} ${over ? styles.capRisk : styles.capOk}`}>
+        <div className={styles.capHead}>
+          <span className={over ? styles.capBadgeRisk : styles.capBadgeOk}>
+            {over ? 'Over capacity' : 'Within capacity'}
+          </span>
+          <span className={styles.capNumsLg}>
+            {cap.totalRequired} required / {cap.contributingCount} available
+          </span>
+        </div>
+        <div className={styles.capLede}>
+          {over ? (
+            <>
+              The streams with work remaining collectively need{' '}
+              <strong>{cap.totalRequired} engineers</strong>, but {team} has only{' '}
+              <strong>{cap.contributingCount} contributing</strong> — over by <strong>{cap.over}</strong>. No one can be
+              on everything at once, so each stream is effectively staffed at{' '}
+              <strong>{Math.round(cap.scale * 100)}%</strong> and its forecast reflects that.
+            </>
+          ) : (
+            <>
+              The streams with work remaining need <strong>{cap.totalRequired} engineer{cap.totalRequired === 1 ? '' : 's'}</strong>,
+              and {team} has <strong>{cap.contributingCount} contributing</strong>
+              {cap.headroom > 0 ? (
+                <> — <strong>{cap.headroom}</strong> to spare.</>
+              ) : (
+                <> — fully allocated, with no contention.</>
+              )}{' '}
+              Each stream can be staffed at its full request.
+            </>
+          )}
+        </div>
+        {cap.activeStreams.length > 0 && (
+          <div className={styles.capTable}>
+            <div className={`${styles.capRow} ${styles.capRowHead}`}>
+              <span>Stream</span>
+              <span>Requested</span>
+              <span>{over ? 'Effective' : 'Points left'}</span>
+            </div>
+            {cap.activeStreams.map((s, i) => (
+              <div key={i} className={styles.capRow}>
+                <span className={styles.capStreamName}>{s.name}</span>
+                <span className={styles.capNum}>{s.engineersRequired} eng</span>
+                <span className={styles.capNum}>
+                  {over ? (
+                    <>
+                      <span style={{ color: 'var(--rt-st-wn-text)' }}>{s.effectiveEngineers} eng</span>{' '}
+                      <span className={styles.dim}>· {s.remainingPts} pts left</span>
+                    </>
+                  ) : (
+                    `${s.remainingPts} pts left`
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 /** One stream's state — verdict, progress, the plain-language "why", and meta.
  *  No chart: the burndown lives in its own section further down. */
 function StreamStatusCard({ s }: { s: SnapshotStream }) {
   const blocked = s.segs.find((x) => x.k === 'Blocked')?.v ?? 0;
+  const doneItems = s.doneItems ?? 0; // v1 payloads lack it
+  const openItems = Math.max(0, s.itemCount - doneItems);
   return (
     <div className={`card ${styles.streamCard}`}>
       <div className={styles.streamHead}>
@@ -71,22 +162,23 @@ function StreamStatusCard({ s }: { s: SnapshotStream }) {
         </div>
       )}
 
+      {s.itemCount > 0 && (
+        <div className={styles.streamProgress}>
+          <span className="tag">Work items</span>
+          <span className={styles.progNums}>
+            {doneItems} done · {openItems} open
+          </span>
+        </div>
+      )}
+
       <div className={styles.why}>{s.forecast.summary}</div>
 
       <div className={styles.streamMeta}>
         <RunwayBadge verdict={s.runway.verdict} />
-        <span>
-          {s.itemCount} item{s.itemCount === 1 ? '' : 's'}
-        </span>
-        {s.engineersRequired != null && (
-          <>
-            <span className={styles.dot}>·</span>
-            <span>{s.engineersRequired} eng required</span>
-          </>
-        )}
+        {s.engineersRequired != null && <span>{s.engineersRequired} eng required</span>}
         {blocked > 0 && (
           <>
-            <span className={styles.dot}>·</span>
+            {s.engineersRequired != null && <span className={styles.dot}>·</span>}
             <span style={{ color: 'var(--rt-st-bl-text)' }}>{blocked} blocked</span>
           </>
         )}
@@ -178,18 +270,29 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
       </div>
 
       <span className={styles.frozen} title="A point-in-time snapshot. It does not update on its own.">
-        {Icon.snowflake} Point-in-time summary · generated {generatedOn(snapshot.generatedAtISO)} · no work-item detail
+        {Icon.snowflake} Point-in-time summary · generated {generatedOn(snapshot.generatedAtISO)} · localy only view no backend
       </span>
 
       <div className={styles.stats}>
         <Stat value={`${o.completionPct}%`} label="Release complete" />
         <Stat value={`${o.donePts} / ${o.totalPts}`} label="Points done / total" />
-        <Stat value={velocityLabel(snapshot.velocity)} label="Velocity attainment" />
-        <Stat value={String(o.teamVelocity)} label="Team velocity (pts/sprint)" />
-        <Stat value={`${o.engineersRequiredTotal} / ${o.contributingCount}`} label="Engineers req / available" />
+        <Stat value={velocityLabel(snapshot.velocity)} label="Velocity attainment" tone={velocityTone(snapshot.velocity)} />
+        <Stat
+          value={String(o.teamVelocity)}
+          label="Team velocity (pts/sprint)"
+          tone={snapshot.velocity.suggestion?.meaningful ? 'warn' : 'neutral'}
+        />
+        <Stat
+          value={`${o.engineersRequiredTotal} / ${o.contributingCount}`}
+          label="Engineers req / available"
+          tone={o.overAllocated ? 'risk' : 'ok'}
+        />
       </div>
 
-      {/* 1 · Work-stream status — the state of each stream, up front. */}
+      {/* 1 · Release capacity — the highest-level signal, first. */}
+      {snapshot.capacity && <ReleaseCapacity cap={snapshot.capacity} teamName={snapshot.teamName} />}
+
+      {/* 2 · Work-stream status. */}
       <h2 className={styles.sectionTitle}>Work stream status</h2>
       <div className={styles.streamGrid}>
         {snapshot.streams.map((s, i) => (
@@ -198,7 +301,7 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
       </div>
       <StatusLegend streams={snapshot.streams} />
 
-      {/* 2 · Sprints. */}
+      {/* 3 · Sprints. */}
       <h2 className={styles.sectionTitle}>Sprints</h2>
       <div className={styles.sprintList}>
         {snapshot.sprints.map((sp, i) => {
@@ -244,7 +347,7 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
         })}
       </div>
 
-      {/* 3 · Work-stream burndown charts. */}
+      {/* 4 · Work-stream burndown charts. */}
       {chartStreams.length > 0 && (
         <>
           <h2 className={styles.sectionTitle}>Work stream burndown</h2>
@@ -260,7 +363,7 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
         </>
       )}
 
-      {/* 4 · Velocity. */}
+      {/* 5 · Velocity. */}
       {snapshot.velocity.series.length > 0 && (
         <>
           <h2 className={styles.sectionTitle}>Velocity</h2>

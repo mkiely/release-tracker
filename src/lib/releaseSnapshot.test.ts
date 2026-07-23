@@ -139,6 +139,51 @@ describe('buildSnapshot', () => {
     expect(late.velocity.suggestion!.currentVelocity).toBe(40);
   });
 
+  it('counts completed vs. total work items per stream', () => {
+    const snap = buildSnapshot(
+      release(),
+      team(),
+      [
+        item({ workStreamId: 'ws_pay', status: 'Complete' }),
+        item({ workStreamId: 'ws_pay', status: 'In Progress' }),
+        item({ workStreamId: 'ws_pay', status: 'Blocked' }),
+      ],
+      { now: NOW },
+    );
+    const pay = snap.streams.find((s) => s.name === 'Payments')!;
+    expect(pay.itemCount).toBe(3);
+    expect(pay.doneItems).toBe(1); // 2 open
+  });
+
+  it('reports release capacity and strips the per-stream overbook restatement', () => {
+    // Two streams each want 2 engineers (total 4) with work left, but the team has
+    // only 2 contributing → over-allocated, effective staffing scaled to 50%.
+    const overRel = release({
+      workStreams: [
+        { id: 'ws_pay', name: 'Payments', externalId: null, engineersRequired: 2, build: null, externalUrl: null, planningMuted: false },
+        { id: 'ws_auth', name: 'Auth', externalId: null, engineersRequired: 2, build: null, externalUrl: null, planningMuted: false },
+      ],
+    });
+    const snap = buildSnapshot(
+      overRel,
+      team(),
+      [item({ workStreamId: 'ws_pay', points: 20 }), item({ workStreamId: 'ws_auth', points: 20 })],
+      { now: NOW },
+    );
+    expect(snap.capacity.overAllocated).toBe(true);
+    expect(snap.capacity.totalRequired).toBe(4);
+    expect(snap.capacity.contributingCount).toBe(2);
+    expect(snap.capacity.over).toBe(2);
+    expect(snap.capacity.scale).toBeCloseTo(0.5);
+    expect(snap.capacity.activeStreams).toHaveLength(2);
+    expect(snap.capacity.activeStreams[0].effectiveEngineers).toBeCloseTo(1);
+
+    // The redundant "· team overbooked (…)" clause is gone from each stream's why-line.
+    for (const s of snap.streams) {
+      expect(s.forecast.summary).not.toMatch(/team overbooked/);
+    }
+  });
+
   it('works for a local (non-connector) release', () => {
     const snap = buildSnapshot(release({ connector: null }), team(), [item()], { now: NOW });
     expect(snap.connectorLabel).toBeNull();

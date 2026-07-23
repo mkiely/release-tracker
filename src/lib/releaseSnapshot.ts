@@ -47,8 +47,10 @@ export const SNAPSHOT_PARAM = 's';
  */
 export const MAX_SNAPSHOT_URL_LENGTH = 8000;
 
-/** Schema version for the snapshot payload, so a future shape change is detectable. */
-export const SNAPSHOT_VERSION = 1;
+/** Schema version for the snapshot payload, so a future shape change is detectable.
+ *  v2 adds the release `capacity` block and per-stream `doneItems`; a v1 payload
+ *  still decodes (the viewer guards the capacity section and defaults doneItems). */
+export const SNAPSHOT_VERSION = 2;
 
 /** One sprint's precomputed row in a snapshot. */
 export interface SnapshotSprint {
@@ -75,6 +77,8 @@ export interface SnapshotSprint {
 export interface SnapshotStream {
   name: string;
   itemCount: number;
+  /** Completed work items (open = itemCount − doneItems). */
+  doneItems: number;
   totalPts: number;
   donePts: number;
   pct: number;
@@ -125,6 +129,30 @@ export interface SnapshotPayload {
     overAllocated: boolean;
     runwayAlarmCount: number;
   };
+  /** Release-level capacity analysis — the highest-level insight, shown first.
+   *  Mirrors the app's Capacity metric: how the streams with remaining work
+   *  collectively demand engineers against the team's contributing headcount, and
+   *  (when over-allocated) how each stream's effective staffing is scaled down. */
+  capacity: {
+    contributingCount: number;
+    totalRequired: number;
+    overAllocated: boolean;
+    /** contention.scale — the fraction each over-allocated stream is staffed at. */
+    scale: number;
+    /** totalRequired − contributingCount when over (0 otherwise). */
+    over: number;
+    /** contributingCount − totalRequired when within capacity (0 otherwise). */
+    headroom: number;
+    remainingSprintCount: number;
+    /** The contending streams: those with a configured engineer count and work left. */
+    activeStreams: {
+      name: string;
+      engineersRequired: number;
+      remainingPts: number;
+      /** engineersRequired × scale — realistic staffing under contention. */
+      effectiveEngineers: number;
+    }[];
+  };
   velocity: {
     verdict: VelocityAttainment['verdict'];
     totalPlanned: number;
@@ -151,6 +179,13 @@ export interface BuildSnapshotOptions {
 /** Alphabetical (case-insensitive) stream order, matching the release view. */
 function byName(a: WorkStream, b: WorkStream): number {
   return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+}
+
+/** Remove streamForecast's trailing "· team overbooked (N req / M avail)" clause.
+ *  The release capacity section states the over-allocation once, so repeating it on
+ *  every stream's why-line is redundant. Matches the exact suffix derive.ts appends. */
+function stripOverbook(summary: string): string {
+  return summary.replace(/\s*·\s*team overbooked \([^)]*\)\s*$/, '');
 }
 
 /**
@@ -245,13 +280,17 @@ export function buildSnapshot(
     return {
       name: ws ? ws.name : 'Unassigned',
       itemCount: streamItems.length,
+      doneItems: streamItems.filter((i) => i.status === 'Complete').length,
       totalPts: health.totalPts,
       donePts: health.donePts,
       pct: health.pct,
       segs: statusSegs(streamItems),
       series,
       engineersRequired: ws ? ws.engineersRequired : null,
-      forecast: { verdict: forecast.verdict, summary: forecast.summary },
+      // The over-allocation is stated once, up front, in the release capacity section —
+      // strip the per-stream "· team overbooked (…)" restatement so it isn't repeated
+      // on every card.
+      forecast: { verdict: forecast.verdict, summary: stripOverbook(forecast.summary) },
       runway: { verdict: runway.verdict, alarm: runway.alarm, summary: runway.summary },
       burn: canForecast
         ? {
@@ -273,6 +312,21 @@ export function buildSnapshot(
   const velocity = velocityAttainment(release, team, items, today);
   const runwayAlarmCount = outStreams.filter((s) => s.runway.alarm).length;
 
+  // Contending streams: those with a configured engineer count and work remaining —
+  // exactly the ones that feed streamContention above. effectiveEngineers reflects
+  // the scale-down when the release is over-allocated.
+  const activeStreams = streamInputs
+    .filter((s) => s.ws && s.ws.engineersRequired != null && s.health.remainingPts > 0)
+    .map((s) => ({
+      name: s.ws!.name,
+      engineersRequired: s.ws!.engineersRequired!,
+      remainingPts: s.health.remainingPts,
+      effectiveEngineers: Math.round(s.ws!.engineersRequired! * contention.scale * 10) / 10,
+    }))
+    .sort((a, b) => b.engineersRequired - a.engineersRequired);
+  const over = Math.max(0, contention.totalRequired - ctx.contributingCount);
+  const headroom = Math.max(0, ctx.contributingCount - contention.totalRequired);
+
   return {
     v: SNAPSHOT_VERSION,
     summaryId: release.id,
@@ -291,6 +345,16 @@ export function buildSnapshot(
       engineersRequiredTotal: contention.totalRequired,
       overAllocated: contention.overAllocated,
       runwayAlarmCount,
+    },
+    capacity: {
+      contributingCount: ctx.contributingCount,
+      totalRequired: contention.totalRequired,
+      overAllocated: contention.overAllocated,
+      scale: contention.scale,
+      over,
+      headroom,
+      remainingSprintCount: ctx.remainingSprintCount,
+      activeStreams,
     },
     velocity: {
       verdict: velocity.verdict,
