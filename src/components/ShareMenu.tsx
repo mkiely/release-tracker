@@ -2,6 +2,7 @@ import type { Release } from '../types';
 import { Icon } from './Icon';
 import { Menu } from './Menu';
 import { useShareReleaseLink } from './ShareButton';
+import { useSummaryLink } from './SummaryLinkButton';
 
 /**
  * The "get data out" group in the release-view header: the connector share link
@@ -11,6 +12,7 @@ import { useShareReleaseLink } from './ShareButton';
  */
 export function ShareMenu({ release, onExport }: { release: Release; onExport: () => void }) {
   const onShare = useShareReleaseLink(release);
+  const onSummary = useSummaryLink(release);
   return (
     <Menu
       label="Share"
@@ -24,6 +26,13 @@ export function ShareMenu({ release, onExport }: { release: Release; onExport: (
           onSelect: onShare ?? (() => {}),
           visible: !!onShare,
           title: 'Copy a link to this release’s configuration and metadata',
+        },
+        {
+          key: 'summary',
+          label: 'Copy summary link',
+          icon: Icon.present,
+          onSelect: onSummary,
+          title: 'Copy a self-contained executive summary link — frozen analysis, no work-item detail',
         },
         {
           key: 'export',
