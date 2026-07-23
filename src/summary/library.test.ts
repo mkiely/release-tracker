@@ -23,7 +23,7 @@ const snap = (id: string, generatedAtISO: string, name = id): SnapshotPayload =>
       overAllocated: false,
       runwayAlarmCount: 0,
     },
-    velocity: { verdict: 'none', totalPlanned: 0, totalActual: 0, attainmentPct: null, series: [] },
+    velocity: { verdict: 'none', totalPlanned: 0, totalActual: 0, attainmentPct: null, series: [], suggestion: null },
     sprints: [],
     streams: [],
   }) satisfies SnapshotPayload;

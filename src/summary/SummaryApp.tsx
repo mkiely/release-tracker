@@ -137,7 +137,7 @@ export function SummaryApp() {
   const current = openId ? summaries.find((s) => s.summaryId === openId) ?? null : null;
 
   return (
-    <div className={styles.page}>
+    <div className={`wf ${styles.page}`}>
       <div className={styles.topbar}>
         <span className={styles.brand}>{Icon.release} Release Tracker · Summary</span>
         <ThemeToggle />

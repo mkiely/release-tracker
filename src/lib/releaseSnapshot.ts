@@ -16,7 +16,7 @@
 // if the viewer is hosted somewhere with request logging.
 
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
-import type { HealthVerdict, RunwayVerdict, StreamHealth, VelocityAttainment } from './derive';
+import type { HealthVerdict, RunwayVerdict, StreamHealth, VelocityAttainment, VelocitySuggestion } from './derive';
 import {
   effectiveStreamCodeFreeze,
   freezeSprintX,
@@ -31,6 +31,7 @@ import {
   streamRunway,
   sumPoints,
   velocityAttainment,
+  velocitySuggestion,
 } from './derive';
 import { between, dOf, fmtShort, todayISO } from './dates';
 import type { Release, StatusSeg, Team, WorkItem, WorkStream } from '../types';
@@ -131,6 +132,9 @@ export interface SnapshotPayload {
     attainmentPct: number | null;
     /** Delivered-vs-planned per elapsed sprint, for the velocity trend chart. */
     series: { label: string; planned: number; actual: number }[];
+    /** Recommended velocity change from recent delivery, or null when no sprint has
+     *  elapsed. The viewer surfaces it read-only (it can't mutate the team). */
+    suggestion: VelocitySuggestion | null;
   };
   sprints: SnapshotSprint[];
   streams: SnapshotStream[];
@@ -298,6 +302,7 @@ export function buildSnapshot(
         planned: s.planned,
         actual: s.actual,
       })),
+      suggestion: velocitySuggestion(release, team, items, 3, today),
     },
     sprints,
     streams: outStreams,

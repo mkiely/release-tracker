@@ -15,7 +15,7 @@ function generatedOn(iso: string): string {
 
 const STATUS_ORDER: Status[] = ['Not Started', 'In Progress', 'Under Review', 'Blocked', 'Complete'];
 
-/** Legend mapping status colors, shown once under the stream board. */
+/** Legend mapping status colors, shown once under the stream status board. */
 function StatusLegend({ streams }: { streams: SnapshotStream[] }) {
   const present = new Set<Status>();
   for (const s of streams) for (const seg of s.segs) present.add(seg.k);
@@ -48,8 +48,10 @@ function velocityLabel(v: SnapshotPayload['velocity']): string {
   return `${v.attainmentPct}%`;
 }
 
-function StreamCard({ s }: { s: SnapshotStream }) {
-  const seg = s.segs.reduce<Record<string, number>>((a, x) => ({ ...a, [x.k]: x.v }), {});
+/** One stream's state — verdict, progress, the plain-language "why", and meta.
+ *  No chart: the burndown lives in its own section further down. */
+function StreamStatusCard({ s }: { s: SnapshotStream }) {
+  const blocked = s.segs.find((x) => x.k === 'Blocked')?.v ?? 0;
   return (
     <div className={`card ${styles.streamCard}`}>
       <div className={styles.streamHead}>
@@ -71,36 +73,80 @@ function StreamCard({ s }: { s: SnapshotStream }) {
 
       <div className={styles.why}>{s.forecast.summary}</div>
 
-      {s.burn && (
-        <div className={`card ${styles.chartCard}`} style={{ background: 'var(--rt-bg)' }}>
-          <span className="tag">Remaining work burndown vs capacity</span>
-          <StreamBurnChart
-            series={s.burn.series}
-            firstRemainingIndex={s.burn.firstRemainingIndex}
-            freezeX={s.burn.freezeX}
-            activeIndex={s.burn.activeIndex}
-            remainingPts={s.burn.remainingPts}
-            effectiveCap={s.burn.effectiveCap}
-            tone={s.burn.tone}
-          />
-        </div>
-      )}
-
       <div className={styles.streamMeta}>
         <RunwayBadge verdict={s.runway.verdict} />
-        <span>{s.itemCount} item{s.itemCount === 1 ? '' : 's'}</span>
+        <span>
+          {s.itemCount} item{s.itemCount === 1 ? '' : 's'}
+        </span>
         {s.engineersRequired != null && (
           <>
             <span className={styles.dot}>·</span>
             <span>{s.engineersRequired} eng required</span>
           </>
         )}
-        {seg['Blocked'] ? (
+        {blocked > 0 && (
           <>
             <span className={styles.dot}>·</span>
-            <span style={{ color: 'var(--rt-st-bl-text)' }}>{seg['Blocked']} blocked</span>
+            <span style={{ color: 'var(--rt-st-bl-text)' }}>{blocked} blocked</span>
           </>
-        ) : null}
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** One stream's remaining-work burndown vs. capacity. Rendered only for streams
+ *  that can be forecast (an engineer count and estimated work). */
+function StreamChartCard({ s }: { s: SnapshotStream }) {
+  if (!s.burn) return null;
+  return (
+    <div className={`card ${styles.chartCard}`}>
+      <div className={styles.chartHead}>
+        <span className={styles.streamName}>{s.name}</span>
+        <VerdictBadge verdict={s.forecast.verdict} />
+      </div>
+      <StreamBurnChart
+        series={s.burn.series}
+        firstRemainingIndex={s.burn.firstRemainingIndex}
+        freezeX={s.burn.freezeX}
+        activeIndex={s.burn.activeIndex}
+        remainingPts={s.burn.remainingPts}
+        effectiveCap={s.burn.effectiveCap}
+        tone={s.burn.tone}
+      />
+    </div>
+  );
+}
+
+/** The velocity-modification recommendation, when recent delivery diverges enough
+ *  from the set velocity to warrant a change. Read-only — the viewer can't apply it. */
+function VelocityRecommendation({ v, teamName }: { v: SnapshotPayload['velocity']; teamName: string | null }) {
+  const s = v.suggestion;
+  if (!s) return null;
+  const team = teamName ?? 'The team';
+
+  // No velocity baseline yet, but recent delivery gives one to seed from.
+  if (v.verdict === 'no-baseline' && s.recentAvg > 0) {
+    return (
+      <div className={`card ${styles.reco}`}>
+        <span className="tag">Recommendation</span>
+        <div className={styles.recoBody}>
+          {team} has no velocity set. Recent delivery averages{' '}
+          <strong>~{s.recentAvg} pts</strong> over the last {s.sampleSize} elapsed sprint
+          {s.sampleSize !== 1 ? 's' : ''} — a reasonable starting velocity.
+        </div>
+      </div>
+    );
+  }
+
+  if (!s.meaningful) return null;
+  return (
+    <div className={`card ${styles.reco}`}>
+      <span className="tag">Recommendation</span>
+      <div className={styles.recoBody}>
+        The last {s.sampleSize} sprint{s.sampleSize !== 1 ? 's' : ''} delivered ~<strong>{s.recentAvg} pts</strong> on
+        average against a set velocity of <strong>{s.currentVelocity}</strong> — consider{' '}
+        {s.delta < 0 ? 'lowering' : 'raising'} {team}’s velocity toward <strong>{s.recentAvg}</strong>.
       </div>
     </div>
   );
@@ -108,6 +154,8 @@ function StreamCard({ s }: { s: SnapshotStream }) {
 
 export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; onBack: () => void }) {
   const o = snapshot.overall;
+  const chartStreams = snapshot.streams.filter((s) => s.burn);
+
   return (
     <>
       <button type="button" className={styles.linkBtn} onClick={onBack}>
@@ -141,22 +189,16 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
         <Stat value={`${o.engineersRequiredTotal} / ${o.contributingCount}`} label="Engineers req / available" />
       </div>
 
-      {snapshot.velocity.series.length > 0 && (
-        <>
-          <h2 className={styles.sectionTitle}>Velocity</h2>
-          <div className={`card ${styles.chartCard}`}>
-            <span className="tag">Delivered vs. planned per elapsed sprint</span>
-            <VelocityTrendChart
-              series={snapshot.velocity.series}
-              tone={snapshot.velocity.verdict === 'under' ? 'under' : 'ok'}
-            />
-            <span className={styles.caption}>
-              Faint bars are each sprint's planned velocity (capacity-adjusted); bold bars + line are points completed.
-            </span>
-          </div>
-        </>
-      )}
+      {/* 1 · Work-stream status — the state of each stream, up front. */}
+      <h2 className={styles.sectionTitle}>Work stream status</h2>
+      <div className={styles.streamGrid}>
+        {snapshot.streams.map((s, i) => (
+          <StreamStatusCard key={i} s={s} />
+        ))}
+      </div>
+      <StatusLegend streams={snapshot.streams} />
 
+      {/* 2 · Sprints. */}
       <h2 className={styles.sectionTitle}>Sprints</h2>
       <div className={styles.sprintList}>
         {snapshot.sprints.map((sp, i) => {
@@ -202,13 +244,39 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
         })}
       </div>
 
-      <h2 className={styles.sectionTitle}>Work streams</h2>
-      <div className={styles.streamGrid}>
-        {snapshot.streams.map((s, i) => (
-          <StreamCard key={i} s={s} />
-        ))}
-      </div>
-      <StatusLegend streams={snapshot.streams} />
+      {/* 3 · Work-stream burndown charts. */}
+      {chartStreams.length > 0 && (
+        <>
+          <h2 className={styles.sectionTitle}>Work stream burndown</h2>
+          <p className={styles.caption} style={{ marginTop: -8 }}>
+            Remaining work burned down by each stream’s capacity, up to its code freeze. Where the line reaches zero is
+            the projected finish; a gap at the freeze is the shortfall.
+          </p>
+          <div className={styles.streamGrid}>
+            {chartStreams.map((s, i) => (
+              <StreamChartCard key={i} s={s} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* 4 · Velocity. */}
+      {snapshot.velocity.series.length > 0 && (
+        <>
+          <h2 className={styles.sectionTitle}>Velocity</h2>
+          <div className={`card ${styles.chartCard}`}>
+            <span className="tag">Delivered vs. planned per elapsed sprint</span>
+            <VelocityTrendChart
+              series={snapshot.velocity.series}
+              tone={snapshot.velocity.verdict === 'under' ? 'under' : 'ok'}
+            />
+            <span className={styles.caption}>
+              Faint bars are each sprint's planned velocity (capacity-adjusted); bold bars + line are points completed.
+            </span>
+          </div>
+          <VelocityRecommendation v={snapshot.velocity} teamName={snapshot.teamName} />
+        </>
+      )}
     </>
   );
 }
