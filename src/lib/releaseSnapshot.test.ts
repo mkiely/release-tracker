@@ -184,6 +184,26 @@ describe('buildSnapshot', () => {
     }
   });
 
+  it('respects visibleStreamIds — the active stream facets — like the TSV export', () => {
+    const items = [
+      item({ workStreamId: 'ws_pay', status: 'Complete', points: 5 }),
+      item({ workStreamId: 'ws_auth', status: 'In Progress', points: 8 }),
+      item({ workStreamId: null, build: null, points: 2 }), // unassigned, never filtered
+    ];
+    // Only the Payments stream is visible (e.g. build facet hides Auth).
+    const snap = buildSnapshot(release(), team(), items, { now: NOW, visibleStreamIds: new Set(['ws_pay']) });
+
+    const streamNames = snap.streams.map((s) => s.name);
+    expect(streamNames).toContain('Payments');
+    expect(streamNames).not.toContain('Auth'); // hidden stream dropped
+    expect(streamNames).toContain('Unassigned'); // bucket survives the filter
+
+    // Overall completion is scoped to visible streams (+ unassigned): 5 done of 7 pts,
+    // the Auth stream's 8 points are excluded.
+    expect(snap.overall.totalPts).toBe(7);
+    expect(snap.overall.donePts).toBe(5);
+  });
+
   it('works for a local (non-connector) release', () => {
     const snap = buildSnapshot(release({ connector: null }), team(), [item()], { now: NOW });
     expect(snap.connectorLabel).toBeNull();

@@ -36,8 +36,14 @@ async function copyToClipboard(text: string): Promise<void> {
   }
 }
 
-/** Returns a copy-summary-link action for a release. Always available. */
-export function useSummaryLink(release: Release): () => void {
+/**
+ * Returns a copy-summary-link action for a release. Always available.
+ *
+ * `visibleStreamIds` mirrors the release view's active stream facets (build +
+ * connector-declared) so the summary respects the same filter the Export TSV action
+ * does — pass it when facets are active, omit for the full release.
+ */
+export function useSummaryLink(release: Release, visibleStreamIds?: ReadonlySet<string> | null): () => void {
   const { notify } = useApp();
   const st = useStore();
   const team = selTeam(st, release.teamId);
@@ -45,7 +51,7 @@ export function useSummaryLink(release: Release): () => void {
   return async () => {
     const items = st.items.filter((i) => i.releaseId === release.id);
     const label = release.connector ? connectorLabel(release.connector.type) : null;
-    const result = buildSnapshotUrl(release, team, items, summaryBase(), { connectorLabel: label });
+    const result = buildSnapshotUrl(release, team, items, summaryBase(), { connectorLabel: label, visibleStreamIds });
     if (!result.ok) {
       notify(`Summary link too large (${result.length} chars, max ${MAX_SNAPSHOT_URL_LENGTH}) — too many sprints or streams to summarize by link`);
       return;

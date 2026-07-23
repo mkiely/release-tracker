@@ -130,6 +130,10 @@ export interface ReleaseViewProps {
   /** Opens the consolidated Metrics modal, optionally at a given section. */
   onOpenMetrics: (section?: MetricsSection) => void;
   onExport: () => void;
+  /** Ids of the streams currently visible under the active stream facets, or undefined
+   *  when no facet is active (all streams). Shared by Export TSV and the summary link
+   *  so both reflect the same on-screen filter. */
+  visibleStreamIds: ReadonlySet<string> | undefined;
   onNewEvent: () => void;
   onNewStream: () => void;
   onOpenEvent: (eventId: string) => void;
@@ -297,8 +301,12 @@ export function useReleaseView(): ReleaseViewProps | null {
     };
   });
 
+  // The on-screen stream set under the active facets — shared by Export TSV and the
+  // summary link so both reflect the same filter. Undefined = no facet active (all).
+  const visibleStreamIds = facetsActive ? new Set(streams.map((ws) => ws.id)) : undefined;
+
   const onExport = async () => {
-    const tsv = releaseToTSV(st, id, facetsActive ? new Set(streams.map((ws) => ws.id)) : undefined);
+    const tsv = releaseToTSV(st, id, visibleStreamIds);
     try {
       await navigator.clipboard.writeText(tsv);
     } catch {
@@ -349,6 +357,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
     onOpenMetrics: (section) => openModal({ type: 'metrics', releaseId: id, section }),
     onExport,
+    visibleStreamIds,
     onNewEvent: () => openModal({ type: 'event', releaseId: id }),
     onNewStream: () => openModal({ type: 'stream', releaseId: id }),
     onOpenEvent: (eventId) =>

@@ -10,9 +10,18 @@ import { useSummaryLink } from './SummaryLinkButton';
  * (no share link) the group falls back to a plain `Export TSV` button — the
  * collapse-to-flat behaviour lives in {@link Menu}.
  */
-export function ShareMenu({ release, onExport }: { release: Release; onExport: () => void }) {
+export function ShareMenu({
+  release,
+  onExport,
+  visibleStreamIds,
+}: {
+  release: Release;
+  onExport: () => void;
+  /** Active stream facets, so the summary link respects the same filter as Export TSV. */
+  visibleStreamIds?: ReadonlySet<string> | null;
+}) {
   const onShare = useShareReleaseLink(release);
-  const onSummary = useSummaryLink(release);
+  const onSummary = useSummaryLink(release, visibleStreamIds);
   return (
     <Menu
       label="Share"
