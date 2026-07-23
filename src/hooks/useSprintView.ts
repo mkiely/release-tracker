@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { SprintGroupByStore, useSprintGroupBy } from '../store/sprintGroupBy';
 import { selRelease, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { activeSprint, capPct, sprintEventChips, sprintVel, sumPoints, type EventChip } from '../lib/derive';
@@ -8,7 +8,8 @@ import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
 import { STATUSES, type Release, type Sprint, type Status, type Team, type WorkItem, type WorkStream } from '../types';
 
-export type GroupBy = 'stream' | 'status';
+export type { SprintGroupBy as GroupBy } from '../store/sprintGroupBy';
+import type { SprintGroupBy as GroupBy } from '../store/sprintGroupBy';
 
 export interface StreamColumn {
   ws: WorkStream;
@@ -61,7 +62,7 @@ export function useSprintView(): SprintViewProps | null {
   const { openModal, onSync, onPush, notify } = useApp();
   const { id = '', sprintId = '' } = useParams();
 
-  const [groupBy, setGroupBy] = useState<GroupBy>('stream');
+  const groupBy = useSprintGroupBy();
   const facetState = useFacetSelections(sprintId);
 
   const r = selRelease(st, id);
@@ -124,7 +125,7 @@ export function useSprintView(): SprintViewProps | null {
     onNewItem: () => openModal({ type: r.connector ? 'connectorItem' : 'item', releaseId: id, presetSprintId: sp.id }),
     onOpenItem: (itemId) => openModal({ type: 'itemDetail', itemId }),
     onOpenEvent: (eventId) => openModal({ type: 'event', releaseId: id, eventId }),
-    onSetGroupBy: setGroupBy,
+    onSetGroupBy: SprintGroupByStore.set,
     onToggleFacet: facetState.toggle,
     onClearFilters: facetState.clear,
     onSync: () => onSync(id),

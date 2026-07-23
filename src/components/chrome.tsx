@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { THEMES, ThemeStore, useTheme } from '../store/theme';
 import { ViewModeStore, useViewMode } from '../store/viewMode';
+import { TEXT_SCALES, TextScaleStore, useTextScale } from '../store/textScale';
 import { PresentationStore, usePresentationMode } from '../store/presentationMode';
 import type { Release } from '../types';
 import { selDirtyCount, useStore } from '../store/store';
@@ -29,6 +30,7 @@ function ThemeSwatch({ bg, dot, size = 14 }: { bg: string; dot: string; size?: n
 export function SettingsPanel() {
   const theme = useTheme();
   const viewMode = useViewMode();
+  const textScale = useTextScale();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const firstRef = useRef<HTMLButtonElement>(null);
@@ -87,6 +89,23 @@ export function SettingsPanel() {
                   className={`${styles.paletteOption} ${isActive ? styles.paletteOptionActive : ''}`}
                 >
                   <span style={{ flex: 1 }}>{v === 'cards' ? 'Cards' : 'Table'}</span>
+                  {isActive && <span style={{ color: 'var(--rt-t2)' }}>{Icon.check}</span>}
+                </button>
+              );
+            })}
+          </div>
+          <div className={styles.settingsDivider} />
+          <div className={styles.settingsSection}>
+            <div className={styles.settingsSectionLabel}>Text size</div>
+            {TEXT_SCALES.map((s) => {
+              const isActive = textScale === s.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => TextScaleStore.set(s.id)}
+                  className={`${styles.paletteOption} ${isActive ? styles.paletteOptionActive : ''}`}
+                >
+                  <span style={{ flex: 1 }}>{s.label}</span>
                   {isActive && <span style={{ color: 'var(--rt-t2)' }}>{Icon.check}</span>}
                 </button>
               );
