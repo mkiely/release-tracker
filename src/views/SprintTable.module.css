@@ -172,7 +172,7 @@
 }
 
 .colHeaderLeft {
-  width: 280px;
+  width: calc(280px * var(--rt-type-scale));
   flex-shrink: 0;
   padding: 6px 20px;
   border-right: 1px solid var(--rt-line);
@@ -207,7 +207,7 @@
 }
 
 .sectionLeft {
-  width: 280px;
+  width: calc(280px * var(--rt-type-scale));
   flex-shrink: 0;
   padding: 14px 20px;
   border-right: 1px solid var(--rt-line);
@@ -278,8 +278,9 @@
 
 /* ── Column cells (shared by header + item rows) ─────────────────────────── */
 .colKey {
-  /* Width is fit-to-content via useFitColumns (full key, never truncated). */
-  width: var(--rt-col-key, 98px);
+  /* Width is fit-to-content via useFitColumns (full key, never truncated).
+     Stored in scale-1 base px; * --rt-type-scale renders it at the text scale. */
+  width: calc(var(--rt-col-key, 98px) * var(--rt-type-scale));
   flex-shrink: 0;
   padding: 0 10px 0 14px;
   font-family: var(--rt-mono);
@@ -304,7 +305,7 @@
 }
 
 .colType {
-  width: var(--rt-col-type, 100px);
+  width: calc(var(--rt-col-type, 100px) * var(--rt-type-scale));
   flex-shrink: 0;
   padding: 0 8px;
   display: flex;
@@ -328,7 +329,7 @@
 }
 
 .colPts {
-  width: var(--rt-col-pts, 40px);
+  width: calc(var(--rt-col-pts, 40px) * var(--rt-type-scale));
   flex-shrink: 0;
   padding: 0 10px 0 4px;
   font-family: var(--rt-mono);
@@ -338,7 +339,9 @@
 }
 
 .colAssignee {
-  width: 65px;
+  /* Not resizable; fixed base width for the avatar + "Assignee" header, scaled
+     with the type ramp so the header can't overflow into Pts/Status at larger text. */
+  width: calc(65px * var(--rt-type-scale));
   flex-shrink: 0;
   padding: 0 8px;
   display: flex;
@@ -347,8 +350,8 @@
 }
 
 .colStatus {
-  /* Fit-to-content via useFitColumns, capped at 200px (the `max`). */
-  width: var(--rt-col-status, 200px);
+  /* Fit-to-content via useFitColumns, capped at 200px base (the `max`). */
+  width: calc(var(--rt-col-status, 200px) * var(--rt-type-scale));
   flex-shrink: 0;
   min-width: 0;
   overflow: hidden;
@@ -358,7 +361,7 @@
 }
 
 .colWorkStream {
-  width: var(--rt-col-workstream, 130px);
+  width: calc(var(--rt-col-workstream, 130px) * var(--rt-type-scale));
   flex-shrink: 0;
   min-width: 0;
   padding: 0 10px 0 8px;
@@ -367,7 +370,7 @@
 }
 
 .colSprint {
-  width: var(--rt-col-sprint, 130px);
+  width: calc(var(--rt-col-sprint, 130px) * var(--rt-type-scale));
   flex-shrink: 0;
   padding: 0 10px 0 8px;
   font-size: var(--rt-fs-sm);
@@ -378,7 +381,7 @@
 }
 
 .colBuild {
-  width: var(--rt-col-build, 120px);
+  width: calc(var(--rt-col-build, 120px) * var(--rt-type-scale));
   flex-shrink: 0;
   padding: 0 10px 0 8px;
   font-size: var(--rt-fs-sm);
@@ -394,7 +397,7 @@
 
 /* Vocabulary (connector-declared) columns — one class fits all attribute kinds. */
 .colAttr {
-  width: var(--rt-col-attr, 104px);
+  width: calc(var(--rt-col-attr, 104px) * var(--rt-type-scale));
   flex-shrink: 0;
   padding: 0 10px 0 8px;
   font-size: var(--rt-fs-sm);

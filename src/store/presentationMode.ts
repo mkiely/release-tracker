@@ -1,12 +1,15 @@
 // Presentation-mode store — a persistent global toggle that enlarges all UI text
 // for readability when the app is shared in a meeting tab (e.g. Google Meet),
-// without the presenter having to zoom the browser. It drives the typography
-// system's single --rt-type-scale lever (see tokens.css), so every --rt-fs-* size
-// scales proportionally. Mirrors the ViewMode/Theme external-store pattern.
+// without the presenter having to zoom the browser. It's a temporary bump layered
+// on top of the baseline text-size preference: the actual --rt-type-scale value is
+// owned and applied by textScale.ts, which multiplies the baseline by
+// PRESENTATION_SCALE while this toggle is on. Here we only track the flag, mark
+// <html> with data-presentation, and notify — textScale subscribes to re-apply.
+// Mirrors the ViewMode/Theme external-store pattern.
 
 import { useSyncExternalStore } from 'react';
 
-/** Type scale applied while presentation mode is on (1 = normal). */
+/** Multiplier applied to the baseline text scale while presentation mode is on. */
 export const PRESENTATION_SCALE = 1.2;
 
 const KEY = 'release-tracker:presentation';
@@ -21,10 +24,9 @@ try {
 
 const apply = (on: boolean) => {
   if (typeof document === 'undefined') return;
-  const root = document.documentElement;
-  if (on) root.style.setProperty('--rt-type-scale', String(PRESENTATION_SCALE));
-  else root.style.removeProperty('--rt-type-scale');
-  root.setAttribute('data-presentation', on ? 'on' : 'off');
+  // The --rt-type-scale value itself is set by textScale.ts (which composes this
+  // bump with the baseline preference); here we only reflect the flag onto <html>.
+  document.documentElement.setAttribute('data-presentation', on ? 'on' : 'off');
 };
 apply(current);
 

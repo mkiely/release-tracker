@@ -13,6 +13,11 @@ import type { MetricsSection } from '../modals/MetricsModal';
 import type { RowData, RowMetrics } from '../lib/rowData';
 import type { Release, Sprint, StatusSeg, Team, WorkItem, WorkStream } from '../types';
 
+/** Facet keys whose selection persists per release (survives navigation/reload).
+ *  The build filter is the sticky one; every other facet stays ephemeral. Stable
+ *  module-level reference so it doesn't re-trigger useFacetSelections' re-seed. */
+const RELEASE_PERSIST_FACETS = ['build'] as const;
+
 /** Counts items by their work-item-type label, preserving first-seen order. Untyped items are skipped. */
 function typeCounts(items: WorkItem[]): { label: string; n: number }[] {
   const order: string[] = [];
@@ -140,7 +145,7 @@ export function useReleaseView(): ReleaseViewProps | null {
   const { openModal, onSync, onPush, notify } = useApp();
   const { id = '' } = useParams();
   const axis = useAxisMode();
-  const facetState = useFacetSelections(id);
+  const facetState = useFacetSelections(id, RELEASE_PERSIST_FACETS);
 
   const r = selRelease(st, id);
   if (!r) return null;
