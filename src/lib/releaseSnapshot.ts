@@ -174,6 +174,14 @@ export interface SnapshotPayload {
 export interface BuildSnapshotOptions {
   connectorLabel?: string | null;
   now?: string;
+  /** Restrict the snapshot to these work-stream ids — the release view's active
+   *  stream facets (build + connector-declared), mirroring what {@link releaseToTSV}
+   *  does for the export. Streams outside the set are dropped from the per-stream
+   *  sections, the capacity/contention math, and the release-level completion
+   *  rollup, so the summary reflects exactly what's on screen. Team-level metrics
+   *  (sprint capacity/velocity, velocity attainment) stay unfiltered. Null/undefined
+   *  = every stream. The Unassigned bucket is never stream-filtered. */
+  visibleStreamIds?: ReadonlySet<string> | null;
 }
 
 /** Alphabetical (case-insensitive) stream order, matching the release view. */
@@ -213,7 +221,10 @@ export function buildSnapshot(
     ? `${fmtShort(release.startISO)} – ${fmtShort(last.endISO)}, ${dOf(last.endISO).getFullYear()}`
     : `${fmtShort(release.startISO)}, ${dOf(release.startISO).getFullYear()}`;
 
-  const streams = [...release.workStreams].sort(byName);
+  // Active stream facets (build + connector-declared): drop hidden streams from the
+  // per-stream sections and the contention math, exactly as the TSV export does.
+  const visible = opts.visibleStreamIds ?? null;
+  const streams = [...release.workStreams].filter((ws) => !visible || visible.has(ws.id)).sort(byName);
   const unassigned = items.filter((i) => i.workStreamId === null && i.build === null);
 
   // Points-per-sprint series for each stream (and the unassigned bucket), sliced
@@ -308,7 +319,11 @@ export function buildSnapshot(
   });
 
   // ── Release-level rollups ────────────────────────────────────────────────
-  const releaseHealth = streamHealth(items);
+  // Completion is scoped to the visible streams (+ the never-filtered Unassigned
+  // bucket) so the headline agrees with the streams shown. Velocity below stays
+  // team-level and unfiltered — it measures the team's throughput, not a stream.
+  const scopedItems = visible ? items.filter((i) => i.workStreamId === null || visible.has(i.workStreamId)) : items;
+  const releaseHealth = streamHealth(scopedItems);
   const velocity = velocityAttainment(release, team, items, today);
   const runwayAlarmCount = outStreams.filter((s) => s.runway.alarm).length;
 
@@ -336,7 +351,7 @@ export function buildSnapshot(
     dateRange,
     connectorLabel: opts.connectorLabel ?? null,
     overall: {
-      totalItems: items.length,
+      totalItems: scopedItems.length,
       totalPts: releaseHealth.totalPts,
       donePts: releaseHealth.donePts,
       completionPct: releaseHealth.pct,

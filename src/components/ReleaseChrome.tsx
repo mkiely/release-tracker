@@ -88,6 +88,7 @@ type ReleaseChromeProps = Pick<
   | 'onToggleStreamFacet'
   | 'onClearStreamFacets'
   | 'onExport'
+  | 'visibleStreamIds'
   | 'onNewEvent'
   | 'onNewStream'
   | 'onEditCodeFreeze'
@@ -123,6 +124,7 @@ export function ReleaseChrome({
   onToggleStreamFacet,
   onClearStreamFacets,
   onExport,
+  visibleStreamIds,
   onNewEvent,
   onNewStream,
   onEditCodeFreeze,
@@ -204,7 +206,7 @@ export function ReleaseChrome({
           <PButton variant="subtle" sm icon={Icon.backlog} onClick={onNavigateToBacklog} title="All incomplete work in this release">
             Backlog
           </PButton>
-          <ShareMenu release={r} onExport={onExport} />
+          <ShareMenu release={r} onExport={onExport} visibleStreamIds={visibleStreamIds} />
           <PushButton release={r} onPush={onPush} />
           <SyncButton release={r} onSync={onSync} />
           <PButton variant="subtle" sm icon={Icon.event} onClick={onNewEvent}>
