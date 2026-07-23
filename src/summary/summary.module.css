@@ -1,0 +1,206 @@
+/* Standalone executive-summary viewer layout. Uses the app's design tokens
+   (--rt-*) and global classes (.card, .tag, .t-*) so a snapshot reads like the
+   app it came from, without pulling in any app state. */
+
+.page {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 28px 24px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--rt-t3);
+  font-size: var(--rt-fs-xs);
+  font-weight: var(--rt-fw-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1.5px solid var(--rt-line);
+  background: var(--rt-surface);
+  color: var(--rt-t2);
+  cursor: pointer;
+}
+.iconBtn:hover { background: var(--rt-fill); }
+
+.linkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  color: var(--rt-t2);
+  cursor: pointer;
+  font-size: var(--rt-fs-sm);
+  font-weight: var(--rt-fw-semibold);
+}
+.linkBtn:hover { color: var(--rt-ink); }
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.headerMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--rt-t2);
+  font-size: var(--rt-fs-sm);
+}
+.dot { color: var(--rt-line); }
+
+.frozen {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  border: 1.5px solid var(--rt-line);
+  background: var(--rt-fill);
+  color: var(--rt-t3);
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-medium);
+  align-self: flex-start;
+}
+
+/* Stat row */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+}
+.statVal {
+  font-family: var(--rt-mono);
+  font-weight: var(--rt-fw-bold);
+  font-size: var(--rt-fs-xl);
+  color: var(--rt-ink);
+  line-height: 1;
+}
+.statLabel { font-size: var(--rt-fs-micro); color: var(--rt-t3); font-weight: var(--rt-fw-medium); }
+
+.sectionTitle {
+  font-size: var(--rt-fs-md);
+  font-weight: var(--rt-fw-bold);
+  color: var(--rt-ink);
+  margin: 4px 0 -4px;
+}
+
+.chartCard {
+  padding: 14px 14px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.caption { font-size: var(--rt-fs-micro); color: var(--rt-t3); line-height: 1.4; }
+
+/* Sprint board — uniform-height rows */
+.sprintList { display: flex; flex-direction: column; gap: 8px; }
+.sprintRow {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.2fr) minmax(120px, 1fr) minmax(160px, 1.4fr) minmax(120px, 1.6fr);
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+}
+.sprintRow.active { border-color: var(--rt-st-ac-dot); background: var(--rt-st-ac-soft); }
+.sprintRow.past { opacity: 0.72; }
+.sprintName { font-weight: var(--rt-fw-semibold); color: var(--rt-ink); font-size: var(--rt-fs-sm); }
+.sprintDates { font-size: var(--rt-fs-micro); color: var(--rt-t3); }
+.capWrap { display: flex; flex-direction: column; gap: 5px; }
+.capBar { height: 8px; border-radius: 5px; background: var(--rt-fill); overflow: hidden; }
+.capFill { height: 100%; border-radius: 5px; }
+.capNums { font-family: var(--rt-mono); font-size: var(--rt-fs-micro); color: var(--rt-t3); }
+.events { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.evChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-medium);
+  background: var(--rt-fill);
+  color: var(--rt-t2);
+  white-space: nowrap;
+}
+
+/* Work-stream cards */
+.streamGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+.streamCard { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.streamHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.streamName { font-weight: var(--rt-fw-heading); color: var(--rt-ink); font-size: var(--rt-fs-md); }
+.streamProgress { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.progNums { font-family: var(--rt-mono); font-size: var(--rt-fs-micro); color: var(--rt-t3); }
+.why { font-size: var(--rt-fs-sm); color: var(--rt-t2); line-height: 1.45; }
+.streamMeta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: var(--rt-fs-micro); color: var(--rt-t3); }
+
+.legend { display: flex; gap: 12px; flex-wrap: wrap; }
+.legendItem { display: inline-flex; align-items: center; gap: 6px; font-size: var(--rt-fs-micro); color: var(--rt-t3); }
+.legendDot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* Library index */
+.libList { display: flex; flex-direction: column; gap: 10px; }
+.libRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+.libRow:hover { border-color: var(--rt-st-ac-dot); }
+.libMain { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.libName { font-weight: var(--rt-fw-semibold); color: var(--rt-ink); font-size: var(--rt-fs-md); }
+.libSub { font-size: var(--rt-fs-micro); color: var(--rt-t3); }
+.libRight { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.libPct { font-family: var(--rt-mono); font-weight: var(--rt-fw-bold); color: var(--rt-ink); }
+.forget {
+  background: none; border: none; cursor: pointer; color: var(--rt-t3);
+  display: inline-flex; padding: 6px; border-radius: 7px;
+}
+.forget:hover { color: var(--rt-st-bl-text); background: var(--rt-fill); }
+
+.empty {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--rt-t3);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+.emptyTitle { font-size: var(--rt-fs-lg); font-weight: var(--rt-fw-heading); color: var(--rt-t2); }
