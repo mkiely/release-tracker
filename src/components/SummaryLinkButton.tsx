@@ -8,12 +8,36 @@ import { connectorLabel } from '../sync/client';
 import { selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
 
-/** Base URL the standalone summary viewer is published at. Defaults to the current
- *  origin (works in dev and same-origin deploys); override with VITE_SUMMARY_BASE
- *  to point links at a separately-hosted viewer (e.g. a GitHub Page). */
+/**
+ * Runtime config the host may inject into the served page, so a single prebuilt,
+ * connector-agnostic `dist/` can be pointed at any viewer host without a rebuild.
+ * work-truck sets this from a serve-time flag (e.g. `--summary-base=…`), typically via
+ * an inline script in the served `index.html`:
+ *
+ *   <script>window.__RELEASE_TRACKER__ = { summaryBase: "https://org.github.io/repo" }</script>
+ *
+ * How the global gets set (inline script, a `config.js` loaded before the bundle, a
+ * templated placeholder) is the host's choice — the app only reads it.
+ */
+interface RuntimeConfig {
+  summaryBase?: string;
+}
+
+function runtimeConfig(): RuntimeConfig | undefined {
+  return (globalThis as typeof globalThis & { __RELEASE_TRACKER__?: RuntimeConfig }).__RELEASE_TRACKER__;
+}
+
+/**
+ * Base URL the standalone summary viewer is published at, resolved in priority order:
+ *   1. runtime config injected by the host at serve time (window.__RELEASE_TRACKER__.summaryBase),
+ *   2. the build-time VITE_SUMMARY_BASE (baked deploys),
+ *   3. the current origin (dev / same-origin).
+ * Runtime wins so the value is a deployment concern, not a build constant.
+ */
 function summaryBase(): string {
-  const configured = import.meta.env.VITE_SUMMARY_BASE as string | undefined;
-  return (configured && configured.trim()) || window.location.origin;
+  const runtime = runtimeConfig()?.summaryBase?.trim();
+  const built = (import.meta.env.VITE_SUMMARY_BASE as string | undefined)?.trim();
+  return runtime || built || window.location.origin;
 }
 
 /** Copy `text` to the clipboard, falling back to a hidden textarea + execCommand
