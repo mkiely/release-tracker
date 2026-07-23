@@ -48,9 +48,10 @@ export const SNAPSHOT_PARAM = 's';
 export const MAX_SNAPSHOT_URL_LENGTH = 8000;
 
 /** Schema version for the snapshot payload, so a future shape change is detectable.
- *  v2 adds the release `capacity` block and per-stream `doneItems`; a v1 payload
- *  still decodes (the viewer guards the capacity section and defaults doneItems). */
-export const SNAPSHOT_VERSION = 2;
+ *  v2 adds the release `capacity` block and per-stream `doneItems`; v3 adds
+ *  `contributingMembers` and a per-capacity-row `verdict`. Older payloads still
+ *  decode — the viewer guards the added fields and defaults them. */
+export const SNAPSHOT_VERSION = 3;
 
 /** One sprint's precomputed row in a snapshot. */
 export interface SnapshotSprint {
@@ -117,6 +118,9 @@ export interface SnapshotPayload {
   teamName: string | null;
   dateRange: string;
   connectorLabel: string | null;
+  /** Names of the team's contributing members (nonContributing excluded), for the
+   *  comma-delimited roster shown up top. Empty when the release has no bound team. */
+  contributingMembers: string[];
   overall: {
     totalItems: number;
     totalPts: number;
@@ -151,6 +155,9 @@ export interface SnapshotPayload {
       remainingPts: number;
       /** engineersRequired × scale — realistic staffing under contention. */
       effectiveEngineers: number;
+      /** Forward capacity-fit verdict, so the highest-visibility capacity rows carry
+       *  the same at-risk/on-track chip as the status cards below. */
+      verdict: HealthVerdict;
     }[];
   };
   velocity: {
@@ -280,13 +287,20 @@ export function buildSnapshot(
   const activeIndex = release.sprints.findIndex((sp) => between(today, sp.startISO, sp.endISO));
   const friClamped = firstRemainingIndex < 0 ? release.sprints.length : firstRemainingIndex;
 
-  const outStreams: SnapshotStream[] = streamInputs.map(({ ws, items: streamItems, series, health }) => {
+  // Compute each stream's forecast + runway once, so both the per-stream sections
+  // and the capacity table (which needs the same verdict chip) read from one source.
+  const computed = streamInputs.map((si) => {
+    const { ws, health } = si;
     const streamCtx = streamCapacityCtx(release, team, ws, ctx, today);
     const forecast = streamForecast(health, ws ? ws.engineersRequired : null, streamCtx, contention);
     const runway = streamRunway(health, ws ? ws.engineersRequired : null, streamCtx, contention, {
-      itemsBeyondNext: itemsBeyondNextFor(streamItems),
+      itemsBeyondNext: itemsBeyondNextFor(si.items),
       muted: ws ? ws.planningMuted : false,
     });
+    return { ...si, forecast, runway };
+  });
+
+  const outStreams: SnapshotStream[] = computed.map(({ ws, items: streamItems, series, health, forecast, runway }) => {
     const canForecast = (ws ? ws.engineersRequired : null) != null && health.totalPts > 0;
     return {
       name: ws ? ws.name : 'Unassigned',
@@ -329,18 +343,21 @@ export function buildSnapshot(
 
   // Contending streams: those with a configured engineer count and work remaining —
   // exactly the ones that feed streamContention above. effectiveEngineers reflects
-  // the scale-down when the release is over-allocated.
-  const activeStreams = streamInputs
-    .filter((s) => s.ws && s.ws.engineersRequired != null && s.health.remainingPts > 0)
-    .map((s) => ({
-      name: s.ws!.name,
-      engineersRequired: s.ws!.engineersRequired!,
-      remainingPts: s.health.remainingPts,
-      effectiveEngineers: Math.round(s.ws!.engineersRequired! * contention.scale * 10) / 10,
+  // the scale-down when the release is over-allocated; verdict is the same chip the
+  // status card shows, surfaced here for the above-the-fold capacity table.
+  const activeStreams = computed
+    .filter((c) => c.ws && c.ws.engineersRequired != null && c.health.remainingPts > 0)
+    .map((c) => ({
+      name: c.ws!.name,
+      engineersRequired: c.ws!.engineersRequired!,
+      remainingPts: c.health.remainingPts,
+      effectiveEngineers: Math.round(c.ws!.engineersRequired! * contention.scale * 10) / 10,
+      verdict: c.forecast.verdict,
     }))
     .sort((a, b) => b.engineersRequired - a.engineersRequired);
   const over = Math.max(0, contention.totalRequired - ctx.contributingCount);
   const headroom = Math.max(0, ctx.contributingCount - contention.totalRequired);
+  const contributingMembers = team ? team.members.filter((m) => !m.nonContributing).map((m) => m.name) : [];
 
   return {
     v: SNAPSHOT_VERSION,
@@ -350,6 +367,7 @@ export function buildSnapshot(
     teamName: team ? team.name : null,
     dateRange,
     connectorLabel: opts.connectorLabel ?? null,
+    contributingMembers,
     overall: {
       totalItems: scopedItems.length,
       totalPts: releaseHealth.totalPts,

@@ -177,6 +177,11 @@ describe('buildSnapshot', () => {
     expect(snap.capacity.scale).toBeCloseTo(0.5);
     expect(snap.capacity.activeStreams).toHaveLength(2);
     expect(snap.capacity.activeStreams[0].effectiveEngineers).toBeCloseTo(1);
+    // Each capacity row carries the same forecast verdict as its status card.
+    for (const a of snap.capacity.activeStreams) {
+      const card = snap.streams.find((s) => s.name === a.name)!;
+      expect(a.verdict).toBe(card.forecast.verdict);
+    }
 
     // The redundant "· team overbooked (…)" clause is gone from each stream's why-line.
     for (const s of snap.streams) {
@@ -202,6 +207,18 @@ describe('buildSnapshot', () => {
     // the Auth stream's 8 points are excluded.
     expect(snap.overall.totalPts).toBe(7);
     expect(snap.overall.donePts).toBe(5);
+  });
+
+  it('lists the contributing team members, excluding non-contributors', () => {
+    const t = team({
+      members: [
+        { id: 'm1', name: 'Ada', externalId: null, nonContributing: false },
+        { id: 'm2', name: 'Pete', externalId: null, nonContributing: false },
+        { id: 'm3', name: 'Morgan (EM)', externalId: null, nonContributing: true },
+      ],
+    });
+    const snap = buildSnapshot(release(), t, [item()], { now: NOW });
+    expect(snap.contributingMembers).toEqual(['Ada', 'Pete']);
   });
 
   it('works for a local (non-connector) release', () => {

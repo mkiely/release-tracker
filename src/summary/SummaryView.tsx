@@ -116,7 +116,10 @@ function ReleaseCapacity({ cap, teamName }: { cap: SnapshotPayload['capacity']; 
             </div>
             {cap.activeStreams.map((s, i) => (
               <div key={i} className={styles.capRow}>
-                <span className={styles.capStreamName}>{s.name}</span>
+                <span className={styles.capStreamCell}>
+                  <span className={styles.capStreamName}>{s.name}</span>
+                  {s.verdict && <VerdictBadge verdict={s.verdict} />}
+                </span>
                 <span className={styles.capNum}>{s.engineersRequired} eng</span>
                 <span className={styles.capNum}>
                   {over ? (
@@ -135,6 +138,15 @@ function ReleaseCapacity({ cap, teamName }: { cap: SnapshotPayload['capacity']; 
       </div>
     </>
   );
+}
+
+/** Split a forecast "why" line into its clauses (comma / middot separated) so it
+ *  renders as scannable bullets instead of one dense run-on string. */
+function whyLines(summary: string): string[] {
+  return summary
+    .split(/\s*[,·]\s*/)
+    .map((t) => t.trim())
+    .filter(Boolean);
 }
 
 /** One stream's state — verdict, progress, the plain-language "why", and meta.
@@ -171,7 +183,18 @@ function StreamStatusCard({ s }: { s: SnapshotStream }) {
         </div>
       )}
 
-      <div className={styles.why}>{s.forecast.summary}</div>
+      {(() => {
+        const lines = whyLines(s.forecast.summary);
+        return lines.length > 1 ? (
+          <ul className={styles.whyList}>
+            {lines.map((l, i) => (
+              <li key={i}>{l}</li>
+            ))}
+          </ul>
+        ) : (
+          <div className={styles.why}>{s.forecast.summary}</div>
+        );
+      })()}
 
       <div className={styles.streamMeta}>
         <RunwayBadge verdict={s.runway.verdict} />
@@ -270,8 +293,15 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
       </div>
 
       <span className={styles.frozen} title="A point-in-time snapshot. It does not update on its own.">
-        {Icon.snowflake} Point-in-time summary · generated {generatedOn(snapshot.generatedAtISO)} · localy only view no backend
+        {Icon.snowflake} Point-in-time summary · generated {generatedOn(snapshot.generatedAtISO)} · local only view - no backend data calls
       </span>
+
+      {snapshot.contributingMembers && snapshot.contributingMembers.length > 0 && (
+        <p className={styles.contributors}>
+          <span className={styles.contributorsLabel}>Contributing team</span>
+          {snapshot.contributingMembers.join(', ')}
+        </p>
+      )}
 
       <div className={styles.stats}>
         <Stat value={`${o.completionPct}%`} label="Release complete" />
