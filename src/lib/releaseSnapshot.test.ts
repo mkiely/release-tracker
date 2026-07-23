@@ -123,6 +123,22 @@ describe('buildSnapshot', () => {
     expect(noUnassigned.streams.map((s) => s.name)).not.toContain('Unassigned');
   });
 
+  it('embeds a velocity suggestion computed from recent delivery', () => {
+    // NOW (2026-04-20) sits in Sprint 1, so no sprint has fully elapsed → null.
+    const early = buildSnapshot(release(), team(), [item()], { now: NOW });
+    expect(early.velocity.suggestion).toBeNull();
+
+    // A date past both sprints makes them elapsed, so a suggestion is produced.
+    const late = buildSnapshot(
+      release(),
+      team({ velocity: 40 }),
+      [item({ sprintId: 'sp1', status: 'Complete', points: 8 })],
+      { now: '2026-05-20' },
+    );
+    expect(late.velocity.suggestion).not.toBeNull();
+    expect(late.velocity.suggestion!.currentVelocity).toBe(40);
+  });
+
   it('works for a local (non-connector) release', () => {
     const snap = buildSnapshot(release({ connector: null }), team(), [item()], { now: NOW });
     expect(snap.connectorLabel).toBeNull();

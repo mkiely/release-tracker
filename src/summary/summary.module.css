@@ -121,7 +121,25 @@
   flex-direction: column;
   gap: 6px;
 }
+.chartHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 2px;
+}
 .caption { font-size: var(--rt-fs-micro); color: var(--rt-t3); line-height: 1.4; }
+
+/* Velocity recommendation */
+.reco {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-color: var(--rt-st-ac-dot);
+}
+.recoBody { font-size: var(--rt-fs-sm); color: var(--rt-t2); line-height: 1.5; }
+.recoBody strong { color: var(--rt-ink); }
 
 /* Sprint board — uniform-height rows */
 .sprintList { display: flex; flex-direction: column; gap: 8px; }
