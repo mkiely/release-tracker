@@ -354,7 +354,11 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
                   />
                 </div>
                 <span className={styles.capNums}>
-                  {sp.planned} / {sp.vel} pts{sp.daysOff > 0 ? ` · ${sp.daysOff}d off` : ''}
+                  {sp.planned} / {sp.vel} pts
+                  {sp.daysOff > 0 &&
+                    (sp.capacityPct != null
+                      ? ` · ${sp.daysOff} days off — effective capacity ${sp.capacityPct}%`
+                      : ` · ${sp.daysOff}d off`)}
                 </span>
               </div>
               <div className={styles.sprintDates}>
