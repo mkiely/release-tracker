@@ -84,6 +84,9 @@ describe('buildSnapshot', () => {
     expect(snap.sprints).toHaveLength(2);
     expect(snap.sprints[0].isActive).toBe(true); // NOW is inside Sprint 1
     expect(snap.sprints[1].isActive).toBe(false);
+    // Sprint 1 has days off → effective capacity below 100; Sprint 2 has none → 100.
+    expect(snap.sprints[0].capacityPct).toBeLessThan(100);
+    expect(snap.sprints[1].capacityPct).toBe(100);
     // Streams are alphabetical: Auth before Payments.
     expect(snap.streams.map((s) => s.name)).toEqual(['Auth', 'Payments']);
     expect(snap.overall.totalItems).toBe(3);

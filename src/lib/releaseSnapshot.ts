@@ -18,6 +18,7 @@
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
 import type { HealthVerdict, RunwayVerdict, StreamHealth, VelocityAttainment, VelocitySuggestion } from './derive';
 import {
+  capPct,
   effectiveStreamCodeFreeze,
   freezeSprintX,
   releaseCapacity,
@@ -51,7 +52,7 @@ export const MAX_SNAPSHOT_URL_LENGTH = 8000;
  *  v2 adds the release `capacity` block and per-stream `doneItems`; v3 adds
  *  `contributingMembers` and a per-capacity-row `verdict`. Older payloads still
  *  decode — the viewer guards the added fields and defaults them. */
-export const SNAPSHOT_VERSION = 3;
+export const SNAPSHOT_VERSION = 4;
 
 /** One sprint's precomputed row in a snapshot. */
 export interface SnapshotSprint {
@@ -69,6 +70,9 @@ export interface SnapshotSprint {
   /** Points completed in the sprint (meaningful once past). */
   donePts: number;
   daysOff: number;
+  /** Effective capacity after days off, 0–100 (100 when no days off). Spelled out in
+   *  the viewer so the reduction isn't inferred from the abbreviated day count. */
+  capacityPct: number;
   itemCount: number;
   events: { label: string; dateISO: string; critical: boolean }[];
 }
@@ -257,6 +261,7 @@ export function buildSnapshot(
       planned: sumPoints(spItems),
       donePts: sumPoints(spItems.filter((i) => i.status === 'Complete')),
       daysOff: sp.daysOff,
+      capacityPct: Math.round(capPct(team, sp, sp.daysOff) * 100),
       itemCount: spItems.length,
       events: sprintEventChips(release, sp).map((e) => ({ label: e.label, dateISO: e.dateISO, critical: !!e.critical })),
     };
