@@ -270,6 +270,12 @@
 .streamCard { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .streamHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .streamName { font-weight: var(--rt-fw-heading); color: var(--rt-ink); font-size: var(--rt-fs-md); }
+.streamLink {
+  display: inline-flex; align-items: center; gap: 5px; min-width: 0;
+  color: inherit; text-decoration: none;
+}
+.streamLink:hover .streamName { text-decoration: underline; text-underline-offset: 2px; }
+.streamLink svg { width: 13px; height: 13px; flex-shrink: 0; color: var(--rt-accent); }
 .streamProgress { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .progNums { font-family: var(--rt-mono); font-size: var(--rt-fs-micro); color: var(--rt-t3); }
 .why { font-size: var(--rt-fs-sm); color: var(--rt-t2); line-height: 1.45; }

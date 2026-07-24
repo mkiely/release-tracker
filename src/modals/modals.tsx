@@ -1203,6 +1203,8 @@ export function PushReviewModal({
 
   const sprintName = (id: string | null): string =>
     id == null ? 'No sprint' : (r.sprints.find((s) => s.id === id)?.name ?? 'Unknown sprint');
+  const streamName = (id: string | null): string =>
+    id == null ? 'No stream' : (r.workStreams.find((w) => w.id === id)?.name ?? 'Unknown stream');
   const statusVocab = meta?.statuses?.length ? meta.statuses : (r.catalog?.statuses ?? []);
   const valueText = (d: PushItemPreview['diffs'][number], v: AttrValue): string => {
     if (d.field === 'sprint') return sprintName(v as string | null);
@@ -1216,7 +1218,10 @@ export function PushReviewModal({
   };
 
   const previews = buildPushPreview(items, meta?.itemTypes);
-  const total = previews.length;
+  // Queued creates (pendingCreate) ride the same push. They have no old→new diff — the
+  // whole item is new — so they render as their own row kind above the edits.
+  const creates = items.filter((i) => i.pendingCreate);
+  const total = previews.length + creates.length;
 
   const doPush = async () => {
     if (busy || total === 0) return;
@@ -1262,10 +1267,61 @@ export function PushReviewModal({
         <>
           <div style={{ marginBottom: 12, fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 'var(--rt-lh-normal)' }}>
             {total} item{total !== 1 ? 's' : ''} will be written back to{' '}
-            <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>{r.name}</strong>. Review each change, or
-            remove one to revert it to its synced value.
+            <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>{r.name}</strong>
+            {creates.length > 0 && (
+              <> — including <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>{creates.length} new item{creates.length !== 1 ? 's' : ''}</strong> to create</>
+            )}
+            . Review each change, or remove one to drop it from the push.
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '52vh', overflowY: 'auto' }}>
+            {creates.map((c) => (
+              <div
+                key={c.id}
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 12,
+                  padding: '10px 12px',
+                  border: '1.5px solid var(--rt-line)', borderRadius: 9, background: 'var(--rt-paper)',
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span
+                      style={{
+                        fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)',
+                        color: statusVars('In Progress').text, background: statusVars('In Progress').soft,
+                        padding: '2px 6px', borderRadius: 5, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.04em',
+                      }}
+                    >
+                      New
+                    </span>
+                    {c.itemType && (
+                      <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', flexShrink: 0 }}>{c.itemType.label}</span>
+                    )}
+                    <span
+                      title={c.subject}
+                      style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t1)', fontWeight: 'var(--rt-fw-semibold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    >
+                      {c.subject}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 14px', fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)' }}>
+                    <span><span style={{ color: 'var(--rt-t3)' }}>Stream</span> {streamName(c.workStreamId)}</span>
+                    <span><span style={{ color: 'var(--rt-t3)' }}>Sprint</span> {sprintName(c.sprintId)}</span>
+                    {c.points != null && <span><span style={{ color: 'var(--rt-t3)' }}>Points</span> {c.points}</span>}
+                  </div>
+                </div>
+                <PButton
+                  variant="subtle"
+                  sm
+                  onClick={() => getActions().discardPendingCreate(c.id)}
+                  disabled={busy}
+                  title="Remove this queued item from the push"
+                  style={{ flexShrink: 0 }}
+                >
+                  Remove
+                </PButton>
+              </div>
+            ))}
             {previews.map((p) => (
               <div
                 key={p.itemId}

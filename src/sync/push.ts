@@ -5,6 +5,7 @@
 // connector's itemTypes catalog via the canonical-field registry: canonical fields
 // map to their named wire slots, writeable vocabulary keys ride in fields.attributes.
 
+import type { CreateItemRequest } from '@release-tracker/sync-contract';
 import type { AttrValue, Member, WorkItem, Sprint, WorkStream } from '../types';
 import type { ConnectorItemType, FieldSpec, PushItemChange } from './schema';
 import { CANONICAL_BY_FIELD, itemTypeFor, writeableAttributeFields, writeableLocalFieldsForItem } from '../lib/connectorFields';
@@ -76,6 +77,51 @@ export function buildPushPreview(items: WorkItem[], types: ConnectorItemType[] |
   }
 
   return previews;
+}
+
+/** Create-item request body minus `connector` (the caller supplies that) — the same
+ *  shape the sync client's `createItem` accepts. Kept here (not imported from the
+ *  client) so this pure module stays free of the client/fixtures layer. */
+export type CreateItemBody = Omit<CreateItemRequest, 'connector'>;
+
+/**
+ * Derive a create request from a locally-queued (`pendingCreate`) work item — the
+ * deferred counterpart to {@link buildPushChanges}. Mirrors what the create modal
+ * used to send at save time, but read from the live item so edits made before the
+ * push are reflected: creatable ref fields resolve to external ids, other creatable
+ * fields (subject/description/points/status, plus vocabulary) go in `fields` keyed
+ * by their FieldSpec.key. Pure. An item whose type isn't in the catalog yields an
+ * empty request (nothing creatable is known).
+ */
+export function buildCreateRequest(
+  item: WorkItem,
+  refs: PushRefs,
+  types: ConnectorItemType[] | undefined,
+): CreateItemBody {
+  const type = itemTypeFor(item.itemType?.id, types);
+  const extBy = (entities: { id: string; externalId: string | null }[], localId: string | null) =>
+    localId != null ? (entities.find((e) => e.id === localId)?.externalId ?? null) : null;
+
+  let extWorkStreamId: string | null = null;
+  let extSprintId: string | null = null;
+  let extAssigneeId: string | null = null;
+  const fields: Record<string, unknown> = {};
+
+  for (const f of (type?.fields ?? []).filter((f) => f.creatable)) {
+    if (f.kind === 'ref') {
+      if (f.target === 'workStream') extWorkStreamId = extBy(refs.workStreams, item.workStreamId);
+      else if (f.target === 'sprint') extSprintId = extBy(refs.sprints, item.sprintId);
+      else if (f.target === 'member') extAssigneeId = extBy(refs.members, item.assignedMemberId);
+      continue;
+    }
+    if (f.role === 'subject') fields[f.key] = item.subject;
+    else if (f.role === 'description') fields[f.key] = item.description;
+    else if (f.role === 'points') fields[f.key] = item.points;
+    else if (f.role === 'status' || f.enumRef === 'status') fields[f.key] = item.status;
+    else fields[f.key] = item.attributes?.[f.key] ?? null;
+  }
+
+  return { type: item.itemType?.id ?? '', extWorkStreamId, extSprintId, extAssigneeId, fields };
 }
 
 /**

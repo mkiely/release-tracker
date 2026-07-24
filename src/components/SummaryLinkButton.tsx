@@ -3,7 +3,7 @@
 // self-contained, frozen analysis with no connector dependency.
 
 import type { Release } from '../types';
-import { buildSnapshotUrl, MAX_SNAPSHOT_URL_LENGTH } from '../lib/releaseSnapshot';
+import { buildSnapshotUrl } from '../lib/releaseSnapshot';
 import { connectorLabel } from '../sync/client';
 import { selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
@@ -77,7 +77,11 @@ export function useSummaryLink(release: Release, visibleStreamIds?: ReadonlySet<
     const label = release.connector ? connectorLabel(release.connector.type) : null;
     const result = buildSnapshotUrl(release, team, items, summaryBase(), { connectorLabel: label, visibleStreamIds });
     if (!result.ok) {
-      notify(`Summary link too large (${result.length} chars, max ${MAX_SNAPSHOT_URL_LENGTH}) — too many sprints or streams to summarize by link`);
+      // Too long for the address bar — copy the raw encoded value instead. The viewer's
+      // "Load from a link" box accepts a bare encoded value, so the recipient pastes it
+      // there rather than opening a (truncatable) link.
+      await copyToClipboard(result.encoded);
+      notify('Summary too large for a link — encoded value copied. Open summary.html and paste it into “Load from a link”.');
       return;
     }
     await copyToClipboard(result.url);

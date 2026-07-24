@@ -15,6 +15,26 @@ function generatedOn(iso: string): string {
 
 const STATUS_ORDER: Status[] = ['Not Started', 'In Progress', 'Under Review', 'Blocked', 'Complete'];
 
+/** A work stream's name — an external-link to the connector's stream when the
+ *  snapshot carries one (`externalUrl`), plain text otherwise. Opening the link is
+ *  a plain new-tab navigation, not a backend data call, so it keeps the viewer's
+ *  "local only" promise. Pre-v5 payloads have no `externalUrl` and render as text. */
+function StreamName({ s }: { s: SnapshotStream }) {
+  if (!s.externalUrl) return <span className={styles.streamName}>{s.name}</span>;
+  return (
+    <a
+      className={styles.streamLink}
+      href={s.externalUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Open this work stream in the external system (new tab)"
+    >
+      <span className={styles.streamName}>{s.name}</span>
+      {Icon.external}
+    </a>
+  );
+}
+
 /** Legend mapping status colors, shown once under the stream status board. */
 function StatusLegend({ streams }: { streams: SnapshotStream[] }) {
   const present = new Set<Status>();
@@ -158,7 +178,7 @@ function StreamStatusCard({ s }: { s: SnapshotStream }) {
   return (
     <div className={`card ${styles.streamCard}`}>
       <div className={styles.streamHead}>
-        <span className={styles.streamName}>{s.name}</span>
+        <StreamName s={s} />
         <VerdictBadge verdict={s.forecast.verdict} />
       </div>
 
@@ -217,7 +237,7 @@ function StreamChartCard({ s }: { s: SnapshotStream }) {
   return (
     <div className={`card ${styles.chartCard}`}>
       <div className={styles.chartHead}>
-        <span className={styles.streamName}>{s.name}</span>
+        <StreamName s={s} />
         <VerdictBadge verdict={s.forecast.verdict} />
       </div>
       <StreamBurnChart

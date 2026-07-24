@@ -50,9 +50,10 @@ export const MAX_SNAPSHOT_URL_LENGTH = 8000;
 
 /** Schema version for the snapshot payload, so a future shape change is detectable.
  *  v2 adds the release `capacity` block and per-stream `doneItems`; v3 adds
- *  `contributingMembers` and a per-capacity-row `verdict`. Older payloads still
- *  decode — the viewer guards the added fields and defaults them. */
-export const SNAPSHOT_VERSION = 4;
+ *  `contributingMembers` and a per-capacity-row `verdict`; v5 adds per-stream
+ *  `externalUrl` (connector deep link). Older payloads still decode — the viewer
+ *  guards the added fields and defaults them. */
+export const SNAPSHOT_VERSION = 5;
 
 /** One sprint's precomputed row in a snapshot. */
 export interface SnapshotSprint {
@@ -81,6 +82,10 @@ export interface SnapshotSprint {
  *  items — the structural guarantee that no work-item detail travels. */
 export interface SnapshotStream {
   name: string;
+  /** Connector deep link to this stream in the external system, or null for local
+   *  streams / non-connector releases. Rendered as an external-link on the name.
+   *  Absent on pre-v5 payloads — the viewer guards it. */
+  externalUrl: string | null;
   itemCount: number;
   /** Completed work items (open = itemCount − doneItems). */
   doneItems: number;
@@ -309,6 +314,7 @@ export function buildSnapshot(
     const canForecast = (ws ? ws.engineersRequired : null) != null && health.totalPts > 0;
     return {
       name: ws ? ws.name : 'Unassigned',
+      externalUrl: ws ? ws.externalUrl : null,
       itemCount: streamItems.length,
       doneItems: streamItems.filter((i) => i.status === 'Complete').length,
       totalPts: health.totalPts,
@@ -439,15 +445,18 @@ export function decodeSnapshot(encoded: string): SnapshotPayload | null {
   }
 }
 
-/** Result of attempting to build a snapshot link. */
+/** Result of attempting to build a snapshot link. On `too-long`, the raw `encoded`
+ *  value is still returned so the caller can offer it via the viewer's manual paste
+ *  loader (which accepts a bare encoded value) rather than a copy-pasteable URL. */
 export type SnapshotLinkResult =
   | { ok: true; url: string; payload: SnapshotPayload }
-  | { ok: false; reason: 'too-long'; length: number };
+  | { ok: false; reason: 'too-long'; length: number; encoded: string };
 
 /**
  * Build the absolute summary-viewer URL for a release. `base` is the published
  * viewer origin+path (e.g. `https://user.github.io/release-tracker`); the payload
- * rides in the hash. Reports `too-long` rather than producing a truncatable link.
+ * rides in the hash. Reports `too-long` (with the encoded value) rather than
+ * producing a truncatable link.
  */
 export function buildSnapshotUrl(
   release: Release,
@@ -457,8 +466,9 @@ export function buildSnapshotUrl(
   opts: BuildSnapshotOptions = {},
 ): SnapshotLinkResult {
   const payload = buildSnapshot(release, team, items, opts);
+  const encoded = encodeSnapshot(payload);
   const trimmed = base.replace(/\/+$/, '');
-  const url = `${trimmed}/summary.html#${SNAPSHOT_PARAM}=${encodeSnapshot(payload)}`;
-  if (url.length > MAX_SNAPSHOT_URL_LENGTH) return { ok: false, reason: 'too-long', length: url.length };
+  const url = `${trimmed}/summary.html#${SNAPSHOT_PARAM}=${encoded}`;
+  if (url.length > MAX_SNAPSHOT_URL_LENGTH) return { ok: false, reason: 'too-long', length: url.length, encoded };
   return { ok: true, url, payload };
 }
