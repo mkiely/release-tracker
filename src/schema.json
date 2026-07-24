@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "25.0.0",
+  "version": "26.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -104,9 +104,10 @@
           "minimum": 0,
           "description": "App-owned enrichment: engineers the stream needs to progress. Drives the capacity-fit health forecast. Survives connector sync. Null when not configured."
         },
-        "planningMuted": {
-          "type": "boolean",
-          "description": "App-owned enrichment: the user has muted the planning-runway proactive-creation alarm for this stream (e.g. tickets deferred while research is pending). Silences the alarm only — the stream still reads as un-judgeable, never green, when it has unclaimed runway. Survives connector sync. Defaults to false."
+        "planningState": {
+          "type": "string",
+          "enum": ["open", "deferred", "complete"],
+          "description": "App-owned enrichment: the stream's planning posture, driving how the planning-runway signal reads. 'open' (default) = planning in progress, unclaimed reserved capacity flags under-planned and can raise the alarm. 'deferred' = tickets intentionally not written yet (research pending): silences the alarm only, still un-judgeable/under-planned, never green. 'complete' = scope fully defined, created work is the whole scope: under-planned/alarm suppressed and leftover reserved capacity reads as OVER-reservation (engineers held beyond scope). Survives connector sync."
         },
         "build": {
           "type": ["string", "null"],
@@ -126,7 +127,7 @@
           "description": "App-owned enrichment: overrides the release's code freeze for this stream alone (e.g. an infra stream that must lock down ahead of feature streams). Optional — absence/null means it inherits Release.codeFreezeISO. Survives connector sync."
         }
       },
-      "required": ["id", "name", "externalId", "engineersRequired", "planningMuted", "build", "externalUrl"],
+      "required": ["id", "name", "externalId", "engineersRequired", "planningState", "build", "externalUrl"],
       "additionalProperties": false
     },
     "Sprint": {
@@ -564,7 +565,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 25,
+      "value": 26,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {

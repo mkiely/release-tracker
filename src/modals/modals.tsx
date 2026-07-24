@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { LOCAL_ITEM_TYPES, STATUSES, type AttrValue, type Member, type Status } from '../types';
 import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
-import { capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, freezeSprintX, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
+import { capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, freezeSprintX, fullCap, releaseCapacity, remainingByFreeze, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
 import { attributeFields, CANONICAL_FIELDS, canonicalChanged, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type CanonicalView, type EditConcept } from '../lib/connectorFields';
@@ -244,7 +244,7 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
   const [engineers, setEngineers] = useState(
     existing && existing.engineersRequired != null ? String(existing.engineersRequired) : '',
   );
-  const [muted, setMuted] = useState(existing ? existing.planningMuted : false);
+  const [muted, setMuted] = useState(existing ? existing.planningState === 'deferred' : false);
   const [codeFreeze, setCodeFreeze] = useState(existing?.codeFreezeISO ?? '');
   const parseEngineers = (): number | null => {
     const n = Number(engineers);
@@ -254,12 +254,12 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
     if (!name.trim()) return;
     const codeFreezeISO = codeFreeze || null;
     if (editing && wsId) {
-      getActions().updateWorkStream(releaseId, wsId, { name: name.trim(), engineersRequired: parseEngineers(), planningMuted: muted, codeFreezeISO });
+      getActions().updateWorkStream(releaseId, wsId, { name: name.trim(), engineersRequired: parseEngineers(), planningState: muted ? 'deferred' : 'open', codeFreezeISO });
     } else {
       const ws = getActions().createWorkStream(releaseId, name.trim());
       const er = parseEngineers();
       if (ws && (er != null || muted || codeFreezeISO)) {
-        getActions().updateWorkStream(releaseId, ws.id, { engineersRequired: er, planningMuted: muted, codeFreezeISO });
+        getActions().updateWorkStream(releaseId, ws.id, { engineersRequired: er, planningState: muted ? 'deferred' : 'open', codeFreezeISO });
       }
     }
     onClose();
@@ -369,7 +369,8 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
       .map((w) => w.engineersRequired!),
     ctx.contributingCount,
   );
-  const forecast = streamForecast(health, ws.engineersRequired, ctx, contention);
+  const { preFreezePts } = remainingByFreeze(streamItems, r.sprints, effectiveStreamCodeFreeze(r, ws));
+  const forecast = streamForecast(health, ws.engineersRequired, ctx, contention, preFreezePts);
   const v = verdictVars(forecast.verdict);
 
   const series = r.sprints.map((sp) => sumPoints(streamItems.filter((i) => i.sprintId === sp.id)));

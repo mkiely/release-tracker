@@ -176,6 +176,40 @@ const sprintFreezeFactor = (sprint: Sprint, freezeISO: string): number => {
   return total > 0 ? workdaysInRange(sprint.startISO, freezeISO) / total : 0;
 };
 
+export interface RemainingSplit {
+  /** Not-Complete points that, as scheduled, land on/before the freeze: items in a
+   *  sprint starting on/before it, plus unassigned (null-sprint) items — the work that
+   *  competes for the pre-freeze capacity window and is measured for capacity fit. */
+  preFreezePts: number;
+  /** Not-Complete points parked in sprints that start AFTER the freeze — scheduled
+   *  work that won't land by the freeze as things stand. Surfaced as a callout rather
+   *  than folded into the fit math. */
+  postFreezePts: number;
+}
+
+/** Split a stream's remaining (not-Complete) points into pre- vs post-freeze by each
+ *  item's sprint start relative to `freezeISO`, using the same boundary as
+ *  remainingSprints (a sprint counts as pre-freeze when it starts on/before the freeze).
+ *  Unassigned (null-sprint) items count as pre-freeze — they still need to land. This
+ *  is what keeps the capacity-fit forecast from measuring deliberately post-freeze work
+ *  against the pre-freeze window (which over-flagged at-risk). Pure. */
+export const remainingByFreeze = (
+  items: WorkItem[],
+  sprints: Sprint[],
+  freezeISO: string,
+): RemainingSplit => {
+  let preFreezePts = 0;
+  let postFreezePts = 0;
+  for (const i of items) {
+    if (i.status === 'Complete') continue;
+    const pts = i.points ?? 0;
+    const sp = i.sprintId != null ? sprints.find((s) => s.id === i.sprintId) : undefined;
+    if (sp && sp.startISO > freezeISO) postFreezePts += pts;
+    else preFreezePts += pts;
+  }
+  return { preFreezePts, postFreezePts };
+};
+
 export interface ReleaseCapacity {
   remainingSprintCount: number;
   /** Σ sprintVel over remaining sprints — capacity-adjusted (respects each sprint's
@@ -238,7 +272,14 @@ export const streamContention = (activeEngineerCounts: number[], contributingCou
 
 export interface StreamForecast {
   verdict: HealthVerdict;
+  /** Remaining (not-Complete) points measured for capacity fit — the PRE-freeze
+   *  portion when a split is supplied, else all remaining points. Post-freeze work is
+   *  reported separately in `postFreezeRemainingPts`. */
   remainingPts: number;
+  /** Not-Complete points scheduled into sprints after the (effective) freeze — work
+   *  that, as planned, won't land by then. Kept out of the fit math and surfaced as a
+   *  callout. 0 when nothing is parked past the freeze (or no split was supplied). */
+  postFreezeRemainingPts: number;
   engineersRequired: number | null;
   remainingSprintCount: number;
   perEngineerCap: number;
@@ -269,10 +310,17 @@ export function streamForecast(
   engineersRequired: number | null,
   ctx: ReleaseCapacity,
   contention: StreamContention,
+  remainingPreFreezePts: number = health.remainingPts,
 ): StreamForecast {
-  const remainingPts = health.remainingPts;
+  // The fit math runs on PRE-freeze remaining work only (default: all remaining, when
+  // no split is supplied). Post-freeze work is scheduled past the deadline and can't
+  // land by it, so it rides as a callout rather than inflating the capacity shortfall.
+  const remainingPts = remainingPreFreezePts;
+  const postFreezeRemainingPts = Math.max(0, health.remainingPts - remainingPts);
+  const postNote = postFreezeRemainingPts > 0 ? ` \xb7 ${r0(postFreezeRemainingPts)} pts scheduled after freeze` : '';
   const base = {
     remainingPts,
+    postFreezeRemainingPts,
     engineersRequired,
     remainingSprintCount: ctx.remainingSprintCount,
     perEngineerCap: ctx.perEngineerCap,
@@ -290,7 +338,9 @@ export function streamForecast(
   if (engineersRequired == null) {
     return { ...base, ...inert, verdict: 'unconfigured', summary: 'Set engineers required to assess capacity fit' };
   }
-  if (remainingPts === 0) {
+  // "Complete" is a fact about ALL remaining work, not just the pre-freeze slice — a
+  // stream with work parked after the freeze isn't done.
+  if (health.remainingPts === 0) {
     return { ...base, ...inert, verdict: 'complete', effectiveEngineers: engineersRequired, summary: 'All work complete' };
   }
 
@@ -308,16 +358,20 @@ export function streamForecast(
 
   const overbook = contended ? ` \xb7 team overbooked (${contention.totalRequired} req / ${ctx.contributingCount} avail)` : '';
   let summary: string;
-  if (ctx.remainingSprintCount === 0) {
-    summary = `${remainingPts} pts left, no sprints remaining → won't land`;
+  if (remainingPts === 0) {
+    // All remaining work is parked after the freeze — nothing is due before it, so the
+    // pre-freeze window fits trivially. The callout carries the real story.
+    summary = `Nothing due before freeze${postNote}`;
+  } else if (ctx.remainingSprintCount === 0) {
+    summary = `${remainingPts} pts left, no sprints remaining → won't land${postNote}`;
   } else if (!Number.isFinite(runwaySprints)) {
-    summary = `${remainingPts} pts left, no forward capacity (check team velocity)`;
+    summary = `${remainingPts} pts left, no forward capacity (check team velocity)${postNote}`;
   } else if (verdict === 'on-track') {
-    summary = `${remainingPts} pts left \xb7 ${engineersRequired} eng \xd7 ~${r0(perSprintRate)} pts/sprint \xd7 ${ctx.remainingSprintCount} = ${r0(effectiveCap)} cap → fits${overbook}`;
+    summary = `${remainingPts} pts left \xb7 ${engineersRequired} eng \xd7 ~${r0(perSprintRate)} pts/sprint \xd7 ${ctx.remainingSprintCount} = ${r0(effectiveCap)} cap → fits${overbook}${postNote}`;
   } else {
     const short = Math.max(1, Math.ceil(sprintsShort));
     const rem = ctx.remainingSprintCount;
-    summary = `${remainingPts} pts left, ~${runwaySprints.toFixed(1)} sprints required at ${engineersRequired} eng → short by ~${short} sprint${short !== 1 ? 's' : ''} (${rem} sprint${rem === 1 ? ' remains' : 's remain'})${overbook}`;
+    summary = `${remainingPts} pts left, ~${runwaySprints.toFixed(1)} sprints required at ${engineersRequired} eng → short by ~${short} sprint${short !== 1 ? 's' : ''} (${rem} sprint${rem === 1 ? ' remains' : 's remain'})${overbook}${postNote}`;
   }
 
   return { ...base, verdict, nominalCap, effectiveEngineers, effectiveCap, shortfallPts, runwaySprints, sprintsShort, contended, summary };
@@ -388,7 +442,7 @@ export function streamRunway(
   engineersRequired: number | null,
   ctx: ReleaseCapacity,
   contention: StreamContention,
-  opts: { itemsBeyondNext: number; muted: boolean },
+  opts: { itemsBeyondNext: number; muted: boolean; remainingPreFreezePts?: number },
 ): StreamRunway {
   const { itemsBeyondNext, muted } = opts;
   const contended = contention.overAllocated;
@@ -420,7 +474,10 @@ export function streamRunway(
   // matching streamForecast.effectiveCap. When the release is overbooked this shrinks,
   // so "unclaimed runway" reflects capacity the team can REALISTICALLY give the stream.
   const availableCap = engineersRequired * contention.scale * ctx.perEngineerCap;
-  const createdRemainingPts = health.remainingPts;
+  // Only pre-freeze remaining work competes for the reserved (pre-freeze) window;
+  // work parked after the freeze mustn't mask an under-planned window (default: all
+  // remaining, when no split is supplied).
+  const createdRemainingPts = opts.remainingPreFreezePts ?? health.remainingPts;
   const unclaimedRunway = Math.max(0, availableCap - createdRemainingPts);
   const perSprintHeld = availableCap / ctx.remainingSprintCount;
   const unclaimedSprints = perSprintHeld > 0 ? unclaimedRunway / perSprintHeld : 0;

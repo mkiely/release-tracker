@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSprint, capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, freezeSprintX, fullCap, groupItemsByStream, plannedVel, releaseCapacity, remainingSprints, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
+import { activeSprint, capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, freezeSprintX, fullCap, groupItemsByStream, plannedVel, releaseCapacity, remainingByFreeze, remainingSprints, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
 import type { Release, Sprint, Team, WorkItem, WorkStream } from '../types';
 
@@ -373,7 +373,7 @@ describe('forward capacity-fit health', () => {
       externalId: null, connector: null, sync: null, sprintLengthDays: 14,
     });
     const ws = (codeFreezeISO?: string | null): WorkStream => ({
-      id: 'ws', name: 'W', externalId: null, engineersRequired: null, planningMuted: false, build: null, externalUrl: null, codeFreezeISO,
+      id: 'ws', name: 'W', externalId: null, engineersRequired: null, planningState: 'open', build: null, externalUrl: null, codeFreezeISO,
     });
     const before = '2026-04-01'; // "today" earlier than both sprints — both are remaining
 
@@ -652,6 +652,72 @@ describe('forward capacity-fit health', () => {
       expect(r.verdict).not.toBe('under-planned');
       // Without contention the same stream WOULD look under-planned (nominal 60 vs 35).
       expect(streamRunway(estimated(35), 2, ctx(), noContention, opts()).verdict).toBe('under-planned');
+    });
+  });
+
+  describe('remainingByFreeze', () => {
+    // Two future sprints; the freeze falls between them, so f1 is pre-freeze and f2 post.
+    const rel = calRelease();
+    const sprints = rel.sprints; // [past, active, f1, f2]
+    const freeze = sprints[2].endISO; // end of f1 → f2 starts after it
+    const item = (sprintId: string | null, status: WorkItem['status'], points: number): WorkItem => ({
+      id: Math.random().toString(), releaseId: 'r', workStreamId: 'w', sprintId,
+      key: 'K', subject: 's', description: '', status, points,
+      externalId: null, assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], itemType: null,
+    });
+
+    it('buckets not-Complete points by sprint start vs the freeze', () => {
+      const split = remainingByFreeze([item('f1', 'Not Started', 5), item('f2', 'Not Started', 8)], sprints, freeze);
+      expect(split.preFreezePts).toBe(5);
+      expect(split.postFreezePts).toBe(8);
+    });
+
+    it('counts unassigned (null-sprint) items as pre-freeze', () => {
+      const split = remainingByFreeze([item(null, 'Not Started', 3)], sprints, freeze);
+      expect(split).toEqual({ preFreezePts: 3, postFreezePts: 0 });
+    });
+
+    it('excludes Complete items from both buckets', () => {
+      const split = remainingByFreeze([item('f1', 'Complete', 5), item('f2', 'Complete', 8)], sprints, freeze);
+      expect(split).toEqual({ preFreezePts: 0, postFreezePts: 0 });
+    });
+  });
+
+  describe('freeze split feeds forecast + runway', () => {
+    const ctx = () => releaseCapacity(calRelease(), team(4, 40)); // perEngineerCap 30, 3 sprints
+    const noContention = streamContention([], 4);
+    const estimated = (remainingPts: number, donePts = 0, itemCount = 3): StreamHealth =>
+      ({ itemCount, totalPts: remainingPts + donePts, donePts, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
+
+    it('forecast: post-freeze work does not inflate the at-risk shortfall', () => {
+      // 80 pts remaining but only 50 land before the freeze; cap 60. Measured on the
+      // pre-freeze 50 → on-track, with the 30 post-freeze pts called out separately.
+      const f = streamForecast(estimated(80), 2, ctx(), noContention, /* preFreeze */ 50);
+      expect(f.verdict).toBe('on-track');
+      expect(f.remainingPts).toBe(50);
+      expect(f.postFreezeRemainingPts).toBe(30);
+      expect(f.summary).toContain('30 pts scheduled after freeze');
+    });
+
+    it('forecast: without the split the same work reads at-risk (regression guard)', () => {
+      const f = streamForecast(estimated(80), 2, ctx(), noContention); // no split → all 80 measured
+      expect(f.verdict).toBe('at-risk');
+      expect(f.postFreezeRemainingPts).toBe(0);
+    });
+
+    it('forecast: all-post-freeze work reads "nothing due before freeze"', () => {
+      const f = streamForecast(estimated(40), 2, ctx(), noContention, /* preFreeze */ 0);
+      expect(f.verdict).toBe('on-track');
+      expect(f.summary).toContain('Nothing due before freeze');
+      expect(f.summary).toContain('40 pts scheduled after freeze');
+    });
+
+    it('runway: post-freeze created work does not mask an under-planned window', () => {
+      // availableCap 60; 60 pts created but only 10 pre-freeze → 50 unclaimed → under-planned.
+      const r = streamRunway(estimated(60), 2, ctx(), noContention, { itemsBeyondNext: 0, muted: false, remainingPreFreezePts: 10 });
+      expect(r.verdict).toBe('under-planned');
+      expect(r.createdRemainingPts).toBe(10);
+      expect(r.unclaimedRunway).toBe(50);
     });
   });
 });

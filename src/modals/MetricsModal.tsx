@@ -11,7 +11,9 @@ import { useState, type ReactNode } from 'react';
 import type { Release, Team, WorkItem } from '../types';
 import { todayISO } from '../lib/dates';
 import {
+  effectiveStreamCodeFreeze,
   releaseCapacity,
+  remainingByFreeze,
   streamCapacityCtx,
   streamContention,
   streamHealth,
@@ -256,7 +258,8 @@ function buildRunwayRows(r: Release, team: Team | undefined, items: WorkItem[]) 
     // Honor a stream's own code-freeze override so its runway matches the overview
     // row and the health modal (all three route through streamCapacityCtx).
     const streamCtx = streamCapacityCtx(r, team, ws, ctx, today);
-    return { ws, runway: streamRunway(health, ws.engineersRequired, streamCtx, contention, { itemsBeyondNext, muted: ws.planningMuted }) };
+    const { preFreezePts } = remainingByFreeze(streamItems, r.sprints, effectiveStreamCodeFreeze(r, ws));
+    return { ws, runway: streamRunway(health, ws.engineersRequired, streamCtx, contention, { itemsBeyondNext, muted: ws.planningState === 'deferred', remainingPreFreezePts: preFreezePts }) };
   });
 }
 
@@ -308,7 +311,7 @@ function RunwaySection({ r, team, items }: SectionProps) {
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 'var(--rt-fs-sm)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-ink)' }}>{ws.name}</span>
                   <RunwayBadge verdict={runway.verdict} />
-                  {ws.planningMuted && (
+                  {ws.planningState === 'deferred' && (
                     <span className="tag" style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>muted</span>
                   )}
                 </span>

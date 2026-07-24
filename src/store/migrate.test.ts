@@ -553,14 +553,14 @@ describe('migrate — v19 → current', () => {
     expect(migrate(v19() as any)?.version).toBe(SCHEMA_VERSION);
   });
 
-  it('adds planningMuted: false to work streams that lack it', () => {
+  it('an unmuted v19 stream ends up planningState: open', () => {
     const next = migrate(v19() as any)!;
-    expect(next.releases[0].workStreams[0].planningMuted).toBe(false);
+    expect(next.releases[0].workStreams[0].planningState).toBe('open');
   });
 
-  it('preserves an existing planningMuted: true', () => {
+  it('a v19 planningMuted: true stream ends up planningState: deferred', () => {
     const next = migrate(v19({ planningMuted: true }) as any)!;
-    expect(next.releases[0].workStreams[0].planningMuted).toBe(true);
+    expect(next.releases[0].workStreams[0].planningState).toBe('deferred');
   });
 });
 
@@ -654,6 +654,31 @@ describe('migrate — v24 → current', () => {
   it('leaves autoSyncMinutes unset (off by default)', () => {
     const next = migrate(v24() as any)!;
     expect(next.releases[0].autoSyncMinutes ?? null).toBeNull();
+  });
+});
+
+describe('migrate — v25 → current', () => {
+  const v25 = (planningMuted: boolean) => ({
+    version: 25,
+    teams: [],
+    releases: [{ id: 'r1', name: 'R', startISO: '2026-04-13', teamId: 't1', workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: 2, planningMuted, build: null, externalUrl: null, attributes: {}, codeFreezeISO: null }], events: [], sprints: [], codeFreezeISO: null, externalId: null, connector: null, sync: null, sprintLengthDays: 14 }],
+    items: [],
+    meta: { lastSyncISO: null },
+  });
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v25(false) as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('maps planningMuted: false → planningState: open', () => {
+    const next = migrate(v25(false) as any)!;
+    expect(next.releases[0].workStreams[0].planningState).toBe('open');
+    expect((next.releases[0].workStreams[0] as any).planningMuted).toBeUndefined();
+  });
+
+  it('maps planningMuted: true → planningState: deferred', () => {
+    const next = migrate(v25(true) as any)!;
+    expect(next.releases[0].workStreams[0].planningState).toBe('deferred');
   });
 });
 

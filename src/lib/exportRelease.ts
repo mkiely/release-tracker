@@ -15,6 +15,7 @@ import {
   effectiveStreamCodeFreeze,
   eventsIn,
   releaseCapacity,
+  remainingByFreeze,
   sprintVel,
   streamCapacityCtx,
   streamContention,
@@ -96,8 +97,9 @@ export function releaseToTSV(
     const engReq = ws?.engineersRequired ?? null;
     // Per-stream freeze override → per-stream capacity window, matching the app views.
     const streamCtx = streamCapacityCtx(release, team, ws ?? null, ctx, today);
-    const forecast = streamForecast(h, engReq, streamCtx, contention);
-    const runway = streamRunway(h, engReq, streamCtx, contention, { itemsBeyondNext: itemsBeyondNextFor(its), muted });
+    const { preFreezePts } = remainingByFreeze(its, release.sprints, effectiveStreamCodeFreeze(release, ws ?? null));
+    const forecast = streamForecast(h, engReq, streamCtx, contention, preFreezePts);
+    const runway = streamRunway(h, engReq, streamCtx, contention, { itemsBeyondNext: itemsBeyondNextFor(its), muted, remainingPreFreezePts: preFreezePts });
 
     const healthLine = `${h.itemCount} items · ${h.pct}% done (${h.donePts}/${h.totalPts}pt) · ${h.remainingPts}pt rem${h.blockedPts > 0 ? ` · ${h.blockedPts}pt blocked` : ''}`;
 
@@ -137,7 +139,7 @@ export function releaseToTSV(
   ];
 
   const streamsToExport: Array<{ name: string; matchId: string | null; muted: boolean }> = [
-    ...visibleWorkStreams.map((ws) => ({ name: ws.name, matchId: ws.id, muted: ws.planningMuted })),
+    ...visibleWorkStreams.map((ws) => ({ name: ws.name, matchId: ws.id, muted: ws.planningState === 'deferred' })),
   ];
   const unassignedInRelease = state.items.filter((i) => i.releaseId === releaseId && i.workStreamId === null);
   if (unassignedInRelease.length > 0) {
