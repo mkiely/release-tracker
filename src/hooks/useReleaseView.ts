@@ -7,7 +7,7 @@ import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
 import { useApp } from '../app-context';
 import { dOf, fmtShort, todayISO } from '../lib/dates';
-import { activeSprint, CODE_FREEZE_CHIP_ID, sprintEventChips, effectiveStreamCodeFreeze, releaseCapacity, remainingByFreeze, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, sumPoints, velocityAttainment, type EventChip, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
+import { activeSprint, CODE_FREEZE_CHIP_ID, sprintEventChips, effectiveStreamCodeFreeze, releaseCapacity, remainingByFreeze, reservationBalance, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, sumPoints, velocityAttainment, type EventChip, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
 import { connectorLabel } from '../sync/client';
 import type { MetricsSection } from '../modals/MetricsModal';
 import type { RowData, RowMetrics } from '../lib/rowData';
@@ -109,6 +109,10 @@ export interface ReleaseViewProps {
   /** How many visible streams are firing the planning-runway under-planned alarm.
    *  Feeds the Metrics chip's at-a-glance status. */
   runwayAlarmCount: number;
+  /** A rebalancing suggestion when scope-complete streams hold reserved capacity that
+   *  could cover at-risk streams' shortfall, else null. A SOFT signal — it does not
+   *  count toward the Metrics chip's red issue tally. */
+  reservationRebalance: string | null;
   /** Stream-level facets (build + connector-declared), applied on the stream axis
    *  only — the sprint axis always shows every stream's lanes. */
   streamFacetGroups: FacetGroup<WorkStream>[];
@@ -286,7 +290,7 @@ export function useReleaseView(): ReleaseViewProps | null {
       forecast: streamForecast(health, ws ? ws.engineersRequired : null, streamCtx, contention, preFreezePts),
       runway: streamRunway(health, ws ? ws.engineersRequired : null, streamCtx, contention, {
         itemsBeyondNext: itemsBeyondNextFor(streamItems),
-        muted: ws ? ws.planningState === 'deferred' : false,
+        planningState: ws ? ws.planningState : 'open',
         remainingPreFreezePts: preFreezePts,
       }),
       lane: r.sprints.map((sp, sprintIndex) => {
@@ -346,6 +350,18 @@ export function useReleaseView(): ReleaseViewProps | null {
     engineersRequiredTotal: contention.totalRequired,
     contributingCount: ctx.contributingCount,
     runwayAlarmCount: streamRows.filter((row) => row.runway.alarm).length,
+    reservationRebalance: (() => {
+      const bal = reservationBalance(
+        streamRows.map((row) => ({
+          name: row.ws ? row.ws.name : 'Unassigned',
+          shortfallPts: row.forecast.shortfallPts,
+          atRisk: row.forecast.verdict === 'at-risk',
+          overReservedPts: row.runway.overReservedPts,
+          perEngineerCap: row.runway.perEngineerCap,
+        })),
+      );
+      return bal.rebalanceable ? bal.summary : null;
+    })(),
     streamFacetGroups,
     isStreamFiltered,
     hiddenStreamCount: r.workStreams.length - streams.length,

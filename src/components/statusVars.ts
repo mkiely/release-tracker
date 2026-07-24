@@ -41,6 +41,11 @@ export function verdictVars(v: HealthVerdict): { label: string; tone: 'ok' | 'ri
  *  un-judgeable verdicts read muted (a number you can't stand a green behind);
  *  under-planned reads as a risk tone; planned/complete read ok. */
 export function runwayVars(v: RunwayVerdict): { label: string; tone: 'ok' | 'risk' | 'muted'; dot: string; soft: string; text: string } {
+  // Over-reserved is an advisory (engineers held beyond a completed scope), not a
+  // failure — an amber "attention" tone, distinct from under-planned's red risk.
+  if (v === 'over-reserved') {
+    return { label: 'Over-reserved', tone: 'risk', ...warningVars() };
+  }
   const map = {
     'planned':        { label: 'Planned',        tone: 'ok' as const,    status: 'Complete' as const },
     'complete':       { label: 'Complete',       tone: 'ok' as const,    status: 'Complete' as const },

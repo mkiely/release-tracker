@@ -307,7 +307,7 @@ export function buildSnapshot(
     const forecast = streamForecast(health, ws ? ws.engineersRequired : null, streamCtx, contention, preFreezePts);
     const runway = streamRunway(health, ws ? ws.engineersRequired : null, streamCtx, contention, {
       itemsBeyondNext: itemsBeyondNextFor(si.items),
-      muted: ws ? ws.planningState === 'deferred' : false,
+      planningState: ws ? ws.planningState : 'open',
       remainingPreFreezePts: preFreezePts,
     });
     return { ...si, forecast, runway };

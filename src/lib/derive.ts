@@ -1,6 +1,6 @@
 // Pure derivations — ported verbatim from proto-store.jsx. Unit-tested.
 
-import { STATUSES, type Release, type Sprint, type StatusSeg, type Team, type WorkItem, type WorkStream } from '../types';
+import { STATUSES, type PlanningState, type Release, type Sprint, type StatusSeg, type Team, type WorkItem, type WorkStream } from '../types';
 import { between, todayISO, workdaysInRange } from './dates';
 
 /** Full capacity in person-days: contributing members × the sprint's actual business days. */
@@ -390,7 +390,8 @@ export type RunwayVerdict =
   | 'unestimated' // items exist but none carry points (un-judgeable)
   | 'unconfigured' // engineersRequired unset — can't size the held capacity (un-judgeable)
   | 'complete' // no remaining sprints — nothing left to plan forward
-  | 'under-planned' // held capacity materially exceeds created remaining work
+  | 'under-planned' // held capacity materially exceeds created remaining work (planning still open)
+  | 'over-reserved' // planning is COMPLETE, yet reserved engineers exceed the defined scope
   | 'planned'; // created work reasonably fills the held capacity
 
 export interface StreamRunway {
@@ -411,9 +412,20 @@ export interface StreamRunway {
   unclaimedRunway: number;
   /** unclaimedRunway expressed in sprints of this stream's own held capacity. */
   unclaimedSprints: number;
+  /** unclaimedRunway when the verdict is `over-reserved` (planning complete, capacity
+   *  held beyond the defined scope), else 0 — the points a scope-complete stream could
+   *  give back. Feeds the release-level reservationBalance roll-up. */
+  overReservedPts: number;
+  /** perEngineerCap for this stream's window, so the roll-up can convert points of
+   *  slack/shortfall into engineer-equivalents. 0 when there's no forward capacity. */
+  perEngineerCap: number;
   /** Not-Complete items planned into a sprint beyond the next one (proactive-planning signal). */
   itemsBeyondNext: number;
-  /** User muted the proactive-creation alarm (e.g. research pending). Never promotes to green. */
+  /** The stream's planning posture (see WorkStream.planningState) — drives whether
+   *  unclaimed capacity reads as under-planned (open), muted (deferred), or
+   *  over-reserved (complete). */
+  planningState: PlanningState;
+  /** User muted the proactive-creation alarm (planningState === 'deferred'). Never promotes to green. */
   muted: boolean;
   /** Under-planned AND nothing created beyond the next sprint AND not muted — the "only one sprint ahead" smell. */
   alarm: boolean;
@@ -434,32 +446,45 @@ const RUNWAY_SPRINT_TOLERANCE = 1;
  * reads at-risk on the forecast and simply "not under-planned" here, rather than
  * paradoxically holding "unclaimed" capacity the team can't actually provide).
  * `contention` is the release-level parallelism check; `itemsBeyondNext` and
- * `muted` come from the caller. Un-judgeable gates run first, mirroring
+ * `planningState` come from the caller. Un-judgeable gates run first, mirroring
  * streamForecast — an empty or unestimated stream reads "can't tell", never green.
+ *
+ * `planningState` shapes how unclaimed capacity reads: `'open'` → under-planned (+
+ * proactive-creation alarm); `'deferred'` → same but the alarm is muted; `'complete'`
+ * → the created work IS the whole scope, so unclaimed capacity is OVER-reservation
+ * (engineers held beyond the defined scope) rather than a planning gap.
  */
 export function streamRunway(
   health: StreamHealth,
   engineersRequired: number | null,
   ctx: ReleaseCapacity,
   contention: StreamContention,
-  opts: { itemsBeyondNext: number; muted: boolean; remainingPreFreezePts?: number },
+  opts: { itemsBeyondNext: number; planningState: PlanningState; remainingPreFreezePts?: number },
 ): StreamRunway {
-  const { itemsBeyondNext, muted } = opts;
+  const { itemsBeyondNext, planningState } = opts;
+  const muted = planningState === 'deferred';
+  const scopeComplete = planningState === 'complete';
   const contended = contention.overAllocated;
   const base = {
     engineersRequired,
     remainingSprintCount: ctx.remainingSprintCount,
+    overReservedPts: 0,
+    perEngineerCap: ctx.perEngineerCap,
     itemsBeyondNext,
+    planningState,
     muted,
     contended,
   };
   const inert = { availableCap: 0, createdRemainingPts: health.remainingPts, unclaimedRunway: 0, unclaimedSprints: 0, alarm: false };
 
-  if (health.itemCount === 0) {
+  // A scope-complete stream can legitimately have no/unestimated items (it's declaring
+  // "this is all the work"), so it skips the "unplanned" gate and flows to the
+  // reservation check below — where held-but-unbacked capacity reads as over-reserved.
+  if (health.itemCount === 0 && !scopeComplete) {
     const held = engineersRequired != null ? ` (${r0(engineersRequired * contention.scale * ctx.perEngineerCap)} pts reserved)` : '';
     return { ...base, ...inert, verdict: 'unplanned', judgeable: false, summary: `Nothing created${held} — unassessable until work is planned` };
   }
-  if (health.totalPts === 0) {
+  if (health.itemCount > 0 && health.totalPts === 0) {
     const n = health.itemCount;
     return { ...base, ...inert, verdict: 'unestimated', judgeable: false, summary: `${n} item${n === 1 ? '' : 's'} not yet estimated — can't tell if reserved capacity is filled` };
   }
@@ -481,25 +506,111 @@ export function streamRunway(
   const unclaimedRunway = Math.max(0, availableCap - createdRemainingPts);
   const perSprintHeld = availableCap / ctx.remainingSprintCount;
   const unclaimedSprints = perSprintHeld > 0 ? unclaimedRunway / perSprintHeld : 0;
+  const materialSlack = unclaimedSprints > RUNWAY_SPRINT_TOLERANCE;
 
-  const underPlanned = unclaimedSprints > RUNWAY_SPRINT_TOLERANCE;
-  const verdict: RunwayVerdict = underPlanned ? 'under-planned' : 'planned';
-  // The "only planning one sprint ahead" smell: holding 2+ sprints of capacity
-  // with nothing created beyond the next sprint. Mute silences the alarm only —
-  // the verdict stays under-planned (never promoted to green).
-  const alarm = underPlanned && itemsBeyondNext === 0 && ctx.remainingSprintCount > 1 && !muted;
-
+  let verdict: RunwayVerdict;
+  let alarm = false;
   let summary: string;
-  if (verdict === 'under-planned') {
-    summary = `~${r0(unclaimedRunway)} pts over ${ctx.remainingSprintCount} sprint${ctx.remainingSprintCount === 1 ? '' : 's'} remaining at ${engineersRequired} eng capacity remaining`;
-    if (alarm) summary += ' \xb7 nothing created beyond the next sprint';
-    else if (muted && itemsBeyondNext === 0 && ctx.remainingSprintCount > 1) summary += ' \xb7 alarm muted (planning deferred)';
-    else if (contended) summary += ' \xb7 capacity scaled for team overbooking';
+
+  if (scopeComplete) {
+    // Planning is done — the created work is the whole scope. Leftover reserved
+    // capacity is over-reservation (engineers held beyond what the scope needs), not a
+    // planning gap. Never alarms; the release-level roll-up turns it into a rebalancing
+    // suggestion.
+    verdict = materialSlack ? 'over-reserved' : 'planned';
+    if (verdict === 'over-reserved') {
+      const backing = createdRemainingPts / perSprintHeld; // sprints of work the reservation actually has
+      summary = `Scope complete: ~${r0(unclaimedRunway)} pts of reserved capacity beyond defined scope (${engineersRequired} eng holds ~${ctx.remainingSprintCount} sprint${ctx.remainingSprintCount === 1 ? '' : 's'}, scope needs ~${backing.toFixed(1)})`;
+    } else {
+      summary = 'Scope complete: reserved capacity matches defined work';
+    }
   } else {
-    summary = unclaimedRunway > 0 ? `Reserved capacity is planned (~${r0(unclaimedRunway)} pts headroom)` : 'Reserved capacity fully planned';
+    const underPlanned = materialSlack;
+    verdict = underPlanned ? 'under-planned' : 'planned';
+    // The "only planning one sprint ahead" smell: holding 2+ sprints of capacity
+    // with nothing created beyond the next sprint. Mute silences the alarm only —
+    // the verdict stays under-planned (never promoted to green).
+    alarm = underPlanned && itemsBeyondNext === 0 && ctx.remainingSprintCount > 1 && !muted;
+    if (underPlanned) {
+      summary = `~${r0(unclaimedRunway)} pts over ${ctx.remainingSprintCount} sprint${ctx.remainingSprintCount === 1 ? '' : 's'} remaining at ${engineersRequired} eng capacity remaining`;
+      if (alarm) summary += ' \xb7 nothing created beyond the next sprint';
+      else if (muted && itemsBeyondNext === 0 && ctx.remainingSprintCount > 1) summary += ' \xb7 alarm muted (planning deferred)';
+      else if (contended) summary += ' \xb7 capacity scaled for team overbooking';
+    } else {
+      summary = unclaimedRunway > 0 ? `Reserved capacity is planned (~${r0(unclaimedRunway)} pts headroom)` : 'Reserved capacity fully planned';
+    }
   }
 
-  return { ...base, verdict, judgeable: true, availableCap, createdRemainingPts, unclaimedRunway, unclaimedSprints, alarm, summary };
+  const overReservedPts = verdict === 'over-reserved' ? unclaimedRunway : 0;
+  return { ...base, verdict, judgeable: true, availableCap, createdRemainingPts, unclaimedRunway, unclaimedSprints, overReservedPts, alarm, summary };
+}
+
+// ── Reservation balance (work vs engineers assigned) ────────────────────────
+// The release-level pairing of the two per-stream signals: streams that are at-risk
+// (too much work for their reserved engineers) against streams that are over-reserved
+// (scope complete, engineers held beyond the defined work). When both exist, reserved
+// engineers could move from the latter to the former — a rebalancing suggestion, not
+// an alarm. Only scope-complete slack counts as movable: an open stream's "unclaimed"
+// capacity might just be tickets not written yet, so it isn't offered up.
+
+export interface ReservationInput {
+  name: string;
+  /** streamForecast.shortfallPts (counted only when the stream is at-risk). */
+  shortfallPts: number;
+  atRisk: boolean;
+  /** streamRunway.overReservedPts (non-zero only for scope-complete streams). */
+  overReservedPts: number;
+  /** Per-engineer capacity for the stream's window, to convert points ↔ engineers. */
+  perEngineerCap: number;
+}
+
+export interface ReservationBalance {
+  /** Σ engineer-equivalents of over-reserved capacity across scope-complete streams. */
+  overReservedEngineers: number;
+  /** Σ engineer-equivalents of shortfall across at-risk streams. */
+  shortEngineers: number;
+  /** Stream names contributing over-reservation / shortfall, largest first. */
+  overReservedStreams: string[];
+  shortStreams: string[];
+  /** Meaningful slack exists that could cover meaningful shortfall. */
+  rebalanceable: boolean;
+  /** Plain-language rebalancing suggestion, or '' when there's nothing to suggest. */
+  summary: string;
+}
+
+/** ~half an engineer of slack AND shortfall before a rebalance is worth surfacing. */
+const RESERVATION_ENGINEER_TOLERANCE = 0.5;
+
+/** Pair over-reserved (scope-complete) streams against at-risk ones to spot reserved
+ *  engineers that could be redeployed. Pure; callers supply per-stream forecast/runway
+ *  figures. Engineer-equivalents use each stream's own perEngineerCap (freeze overrides
+ *  can differ), so points are converted per-stream before summing. */
+export function reservationBalance(streams: ReservationInput[]): ReservationBalance {
+  const toEng = (pts: number, cap: number) => (cap > 0 ? pts / cap : 0);
+  const over = streams
+    .map((s) => ({ name: s.name, eng: toEng(s.overReservedPts, s.perEngineerCap) }))
+    .filter((s) => s.eng > 0)
+    .sort((a, b) => b.eng - a.eng);
+  const short = streams
+    .map((s) => ({ name: s.name, eng: s.atRisk ? toEng(Math.max(0, s.shortfallPts), s.perEngineerCap) : 0 }))
+    .filter((s) => s.eng > 0)
+    .sort((a, b) => b.eng - a.eng);
+  const overReservedEngineers = over.reduce((a, s) => a + s.eng, 0);
+  const shortEngineers = short.reduce((a, s) => a + s.eng, 0);
+  const rebalanceable =
+    overReservedEngineers >= RESERVATION_ENGINEER_TOLERANCE && shortEngineers >= RESERVATION_ENGINEER_TOLERANCE;
+  const movable = Math.min(overReservedEngineers, shortEngineers);
+  const summary = rebalanceable
+    ? `~${movable.toFixed(1)} eng could shift from ${over.map((s) => s.name).join(', ')} (scope complete) to ${short.map((s) => s.name).join(', ')} (at risk)`
+    : '';
+  return {
+    overReservedEngineers,
+    shortEngineers,
+    overReservedStreams: over.map((s) => s.name),
+    shortStreams: short.map((s) => s.name),
+    rebalanceable,
+    summary,
+  };
 }
 
 // ── Velocity attainment ─────────────────────────────────────────────────────

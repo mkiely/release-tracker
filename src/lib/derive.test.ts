@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSprint, capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, freezeSprintX, fullCap, groupItemsByStream, plannedVel, releaseCapacity, remainingByFreeze, remainingSprints, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
+import { activeSprint, capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, freezeSprintX, fullCap, groupItemsByStream, plannedVel, releaseCapacity, remainingByFreeze, remainingSprints, reservationBalance, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
 import type { Release, Sprint, Team, WorkItem, WorkStream } from '../types';
 
@@ -564,7 +564,7 @@ describe('forward capacity-fit health', () => {
   describe('streamRunway', () => {
     const ctx = () => releaseCapacity(calRelease(), team(4, 40)); // perEngineerCap 30, 3 remaining sprints
     const noContention = streamContention([], 4); // scale 1 → effective cap == nominal
-    const opts = (over: Partial<{ itemsBeyondNext: number; muted: boolean }> = {}) => ({ itemsBeyondNext: 2, muted: false, ...over });
+    const opts = (over: Partial<{ itemsBeyondNext: number; planningState: 'open' | 'deferred' | 'complete' }> = {}) => ({ itemsBeyondNext: 2, planningState: 'open' as const, ...over });
     // A fully-estimated health with custom remaining (totalPts == remaining + done).
     const estimated = (remainingPts: number, donePts = 0, itemCount = 3): StreamHealth =>
       ({ itemCount, totalPts: remainingPts + donePts, donePts, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
@@ -617,8 +617,8 @@ describe('forward capacity-fit health', () => {
       expect(r.alarm).toBe(false);
     });
 
-    it('mute silences the alarm but never promotes to green', () => {
-      const r = streamRunway(estimated(10), 2, ctx(), noContention, opts({ itemsBeyondNext: 0, muted: true }));
+    it('deferred (mute) silences the alarm but never promotes to green', () => {
+      const r = streamRunway(estimated(10), 2, ctx(), noContention, opts({ itemsBeyondNext: 0, planningState: 'deferred' }));
       expect(r.verdict).toBe('under-planned'); // still flagged, not planned/green
       expect(r.alarm).toBe(false);
       expect(r.summary).toContain('muted');
@@ -714,10 +714,77 @@ describe('forward capacity-fit health', () => {
 
     it('runway: post-freeze created work does not mask an under-planned window', () => {
       // availableCap 60; 60 pts created but only 10 pre-freeze → 50 unclaimed → under-planned.
-      const r = streamRunway(estimated(60), 2, ctx(), noContention, { itemsBeyondNext: 0, muted: false, remainingPreFreezePts: 10 });
+      const r = streamRunway(estimated(60), 2, ctx(), noContention, { itemsBeyondNext: 0, planningState: 'open', remainingPreFreezePts: 10 });
       expect(r.verdict).toBe('under-planned');
       expect(r.createdRemainingPts).toBe(10);
       expect(r.unclaimedRunway).toBe(50);
+    });
+  });
+
+  describe('scope-complete → over-reserved', () => {
+    const ctx = () => releaseCapacity(calRelease(), team(4, 40)); // perEngineerCap 30, 3 sprints
+    const noContention = streamContention([], 4);
+    const estimated = (remainingPts: number, donePts = 0, itemCount = 3): StreamHealth =>
+      ({ itemCount, totalPts: remainingPts + donePts, donePts, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
+    const opts = (planningState: 'open' | 'deferred' | 'complete', over = {}) => ({ itemsBeyondNext: 0, planningState, ...over });
+
+    it('reads over-reserved (not under-planned) when scope is complete and capacity is slack', () => {
+      // availableCap 60; scope 10 → 50 unclaimed. Open would be under-planned; complete → over-reserved.
+      const r = streamRunway(estimated(10), 2, ctx(), noContention, opts('complete'));
+      expect(r.verdict).toBe('over-reserved');
+      expect(r.overReservedPts).toBe(50);
+      expect(r.alarm).toBe(false);
+      expect(r.summary).toContain('Scope complete');
+    });
+
+    it('reads planned (green) when scope is complete and capacity matches', () => {
+      const r = streamRunway(estimated(55), 2, ctx(), noContention, opts('complete'));
+      expect(r.verdict).toBe('planned');
+      expect(r.overReservedPts).toBe(0);
+    });
+
+    it('a scope-complete stream with no items is over-reserved, not unplanned', () => {
+      const r = streamRunway(estimated(0, 0, 0), 2, ctx(), noContention, opts('complete'));
+      expect(r.verdict).toBe('over-reserved');
+      expect(r.overReservedPts).toBe(60);
+      expect(r.judgeable).toBe(true);
+    });
+
+    it('the same empty stream while open is unplanned (un-judgeable)', () => {
+      const r = streamRunway(estimated(0, 0, 0), 2, ctx(), noContention, opts('open'));
+      expect(r.verdict).toBe('unplanned');
+      expect(r.judgeable).toBe(false);
+    });
+  });
+
+  describe('reservationBalance', () => {
+    it('suggests moving reserved engineers from scope-complete slack to at-risk shortfall', () => {
+      const bal = reservationBalance([
+        { name: 'Infra', shortfallPts: 0, atRisk: false, overReservedPts: 60, perEngineerCap: 30 }, // 2 eng slack
+        { name: 'Checkout', shortfallPts: 30, atRisk: true, overReservedPts: 0, perEngineerCap: 30 }, // 1 eng short
+      ]);
+      expect(bal.overReservedEngineers).toBeCloseTo(2);
+      expect(bal.shortEngineers).toBeCloseTo(1);
+      expect(bal.rebalanceable).toBe(true);
+      expect(bal.summary).toContain('Infra');
+      expect(bal.summary).toContain('Checkout');
+      expect(bal.summary).toContain('1.0 eng'); // movable = min(2, 1)
+    });
+
+    it('is not rebalanceable when there is slack but no at-risk shortfall', () => {
+      const bal = reservationBalance([
+        { name: 'Infra', shortfallPts: 0, atRisk: false, overReservedPts: 60, perEngineerCap: 30 },
+      ]);
+      expect(bal.rebalanceable).toBe(false);
+      expect(bal.summary).toBe('');
+    });
+
+    it('ignores at-risk shortfall below half an engineer', () => {
+      const bal = reservationBalance([
+        { name: 'Infra', shortfallPts: 0, atRisk: false, overReservedPts: 60, perEngineerCap: 30 },
+        { name: 'Tiny', shortfallPts: 3, atRisk: true, overReservedPts: 0, perEngineerCap: 30 }, // 0.1 eng
+      ]);
+      expect(bal.rebalanceable).toBe(false);
     });
   });
 });
