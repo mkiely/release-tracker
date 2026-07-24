@@ -156,3 +156,46 @@
   font-weight: var(--rt-fw-semibold);
   color: var(--rt-t2);
 }
+
+/* Auto-sync cadence picker — a subtle, compact control beside the Sync button. */
+.autoSync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px 0 10px;
+  border: 1.5px solid var(--rt-line);
+  border-radius: 8px;
+  background: var(--rt-fill);
+  color: var(--rt-t2);
+  font-size: var(--rt-fs-sm);
+  white-space: nowrap;
+}
+
+.autoSyncLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--rt-t3);
+}
+
+.autoSyncLabel svg {
+  width: 13px;
+  height: 13px;
+}
+
+.autoSyncSelect {
+  border: none;
+  background: transparent;
+  color: var(--rt-t1);
+  font: inherit;
+  font-weight: var(--rt-fw-medium);
+  cursor: pointer;
+  padding: 2px 2px;
+  border-radius: 5px;
+}
+
+.autoSyncSelect:focus-visible {
+  outline: 2px solid var(--rt-accent);
+  outline-offset: 1px;
+}

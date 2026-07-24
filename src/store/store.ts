@@ -7,6 +7,7 @@ import {
   SCHEMA_VERSION,
   SPRINT_LEN_DAYS,
   type AppState,
+  type AttrValue,
   type ItemType,
   type Member,
   type Release,
@@ -24,9 +25,9 @@ import { buildSprints, dOf, todayISO, uid } from '../lib/dates';
 import { sprintVel } from '../lib/derive';
 import { seed } from '../lib/seed';
 import { applyCreatedItem, applySync } from '../sync/applySync';
-import { buildPushChanges } from '../sync/push';
+import { buildCreateRequest, buildPushChanges } from '../sync/push';
 import { allWriteableLocalFields, canonicalBaseline, writeableLocalFieldsForItem } from '../lib/connectorFields';
-import { syncClient, SyncValidationError, type CreateItemInput } from '../sync/client';
+import { syncClient } from '../sync/client';
 import type { PushResult, SyncResult } from '../sync/schema';
 import type { SharePayload } from '../lib/shareRelease';
 
@@ -40,11 +41,22 @@ export type PushOutcome =
   | { ok: true; result: PushResult }
   | { ok: false; reason: 'no-connector' | 'nothing-to-push' | 'error'; message: string };
 
-/** Result of creating an item on a connector release. `validation` failures carry
- *  the service's field-keyed errors so the form can mark the offending inputs. */
-export type CreateItemOutcome =
-  | { ok: true; item: WorkItem }
-  | { ok: false; reason: 'no-connector' | 'validation' | 'error'; message: string; fieldErrors?: { field: string; message: string }[] };
+/** A locally-assembled connector item to queue for creation. Carries LOCAL ref ids
+ *  and canonical/vocabulary values; the external ids and wire `fields` are derived
+ *  at push time (see push.ts `buildCreateRequest`), so edits made before the push
+ *  are reflected. The create modal validates these client-side before queuing. */
+export interface ConnectorItemDraft {
+  itemType: ItemType;
+  workStreamId: string | null;
+  sprintId: string | null;
+  assignedMemberId: string | null;
+  subject: string;
+  description: string;
+  descriptionFormat: 'text' | 'html';
+  status: Status;
+  points: number | null;
+  attributes: Record<string, AttrValue>;
+}
 
 export const LS_KEY = 'release-tracker:v1';
 
@@ -327,6 +339,20 @@ export function migrate(p: AppState): AppState | null {
   if (s.version === 22) {
     s = { ...s, version: 23 };
   }
+  // v23 → v24: work items gain `pendingCreate` (a connector item queued for creation
+  // on the next push). Existing items are all already-created or local, so backfill false.
+  if (s.version === 23) {
+    s = {
+      ...s,
+      version: 24,
+      items: s.items.map((i) => ({ ...i, pendingCreate: (i as any).pendingCreate ?? false })),
+    };
+  }
+  // v24 → v25: releases gain optional `autoSyncMinutes` (background sync cadence).
+  // Default is off; nothing to backfill — a pure version bump (absence = off).
+  if (s.version === 24) {
+    s = { ...s, version: 25 };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -415,6 +441,9 @@ interface Actions {
   /** Sets/clears the release's code check-in deadline. null = defaults to the last
    *  sprint's endISO (see derive.effectiveCodeFreeze). */
   setCodeFreeze: (releaseId: string, codeFreezeISO: string | null) => void;
+  /** Set (or clear) a connector release's background auto-sync cadence. `minutes`
+   *  <= 0 or null turns it off. No-op for Local releases in practice (they never sync). */
+  setAutoSync: (releaseId: string, minutes: number | null) => void;
   createWorkStream: (releaseId: string, name: string) => WorkStream | null;
   updateWorkStream: (releaseId: string, wsId: string, patch: Partial<Pick<WorkStream, 'name' | 'engineersRequired' | 'planningMuted' | 'codeFreezeISO'>>) => void;
   createEvent: (releaseId: string, input: { label: string; dateISO: string }) => void;
@@ -430,9 +459,14 @@ interface Actions {
   moveItemToSprint: (id: string, sprintId: string | null) => void;
   /** Discard an item's pending push: restore its dirty writeable fields to the last synced value. No-op without a synced baseline. */
   revertItem: (id: string) => void;
-  /** Create a work item on a connector release via the sync service, then reconcile
-   *  the returned item into local state as a synced item. No-op for Local releases. */
-  createConnectorItem: (releaseId: string, req: CreateItemInput) => Promise<CreateItemOutcome>;
+  /** Queue a work item for creation on a connector release: builds a local
+   *  `pendingCreate` item shown immediately on the board and sent to the external
+   *  system on the next Push (not on save). Returns the queued item, or null for
+   *  Local releases / missing release. */
+  createConnectorItem: (releaseId: string, draft: ConnectorItemDraft) => WorkItem | null;
+  /** Discard a queued (`pendingCreate`) item before it's pushed — the create-side
+   *  counterpart to {@link revertItem}. No-op for already-created or non-pending items. */
+  discardPendingCreate: (id: string) => void;
   /** Pull from this release's connector and upsert the result. No-op for Local releases. */
   syncRelease: (releaseId: string) => Promise<SyncOutcome>;
   /** Push locally-dirty writeable fields back to the external system. */
@@ -598,6 +632,14 @@ export const useStore = create<StoreState>((set, get) => {
       });
     },
 
+    setAutoSync: (releaseId, minutes) => {
+      commit((d) => {
+        d.releases = d.releases.map((r) =>
+          r.id === releaseId ? { ...r, autoSyncMinutes: minutes && minutes > 0 ? minutes : null } : r,
+        );
+      });
+    },
+
     createWorkStream: (releaseId, name) => {
       if (!release(releaseId)) return null;
       const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null, planningMuted: false, build: null, externalUrl: null, attributes: {} };
@@ -741,29 +783,42 @@ export const useStore = create<StoreState>((set, get) => {
       });
     },
 
-    createConnectorItem: async (releaseId, req) => {
+    createConnectorItem: (releaseId, draft) => {
       const r = release(releaseId);
-      if (!r) return { ok: false, reason: 'error', message: 'Release not found' };
-      if (!r.connector) return { ok: false, reason: 'no-connector', message: 'Release is not connected' };
+      if (!r || !r.connector) return null;
+      // Local-only: a pendingCreate placeholder shown at once and sent on the next
+      // Push. externalId/key are assigned at reconcile time; until then the key is a
+      // provisional local ref so the board and push preview have something to show.
+      const prefix = (r.name.match(/[A-Za-z]/g) || ['I']).slice(0, 3).join('').toUpperCase();
+      const count = get().items.filter((i) => i.releaseId === releaseId).length;
+      const it: WorkItem = {
+        id: uid('it'),
+        releaseId,
+        workStreamId: draft.workStreamId,
+        sprintId: draft.sprintId,
+        key: `${prefix}-new-${count + 1}`,
+        subject: draft.subject || 'Untitled item',
+        description: draft.description || '',
+        descriptionFormat: draft.descriptionFormat,
+        status: draft.status,
+        points: draft.points ?? null,
+        externalId: null,
+        assignedMemberId: draft.assignedMemberId ?? null,
+        build: null,
+        externalUrl: null,
+        dirtyFields: [],
+        syncedValues: null,
+        itemType: draft.itemType,
+        statusNative: null,
+        attributes: draft.attributes,
+        pendingCreate: true,
+      };
+      commit((d) => { d.items = [...d.items, it]; });
+      return it;
+    },
 
-      try {
-        // The connector's writeable fields drive the created item's dirty baseline.
-        const connectors = await syncClient.listConnectors();
-        const meta = connectors.find((c) => c.type === r.connector!.type);
-        const writeableItemFields = [...allWriteableLocalFields(meta?.itemTypes)];
-
-        const mapped = await syncClient.createItem(r.connector, req);
-        const { next, item, warning } = applyCreatedItem(snapshot(get()), releaseId, mapped, writeableItemFields);
-        if (!item) return { ok: false, reason: 'error', message: warning ?? 'Created item could not be placed' };
-        persist(next);
-        set({ ...next });
-        return { ok: true, item };
-      } catch (e) {
-        if (e instanceof SyncValidationError) {
-          return { ok: false, reason: 'validation', message: e.message, fieldErrors: e.fieldErrors };
-        }
-        return { ok: false, reason: 'error', message: e instanceof Error ? e.message : String(e) };
-      }
+    discardPendingCreate: (id) => {
+      commit((d) => { d.items = d.items.filter((i) => !(i.id === id && i.pendingCreate)); });
     },
 
     syncRelease: async (releaseId) => {
@@ -821,43 +876,91 @@ export const useStore = create<StoreState>((set, get) => {
       const r = release(releaseId);
       if (!r) return { ok: false, reason: 'error', message: 'Release not found' };
       if (!r.connector) return { ok: false, reason: 'no-connector', message: 'Release is not connected' };
+      const connector = r.connector;
 
       const stamp = () => new Date().toISOString();
       try {
         const connectors = await syncClient.listConnectors();
-        const meta = connectors.find((c) => c.type === r.connector!.type);
+        const meta = connectors.find((c) => c.type === connector.type);
+        const members = get().teams.find((t) => t.id === r.teamId)?.members ?? [];
+        const refs = { sprints: r.sprints, workStreams: r.workStreams, members };
 
-        const releaseItems = get().items.filter((i) => i.releaseId === releaseId && i.externalId !== null && i.dirtyFields.length > 0);
-        if (releaseItems.length === 0) {
+        // The push queue has two kinds of work: edits to already-synced items, and
+        // items created locally but not yet sent (pendingCreate).
+        const dirtyItems = get().items.filter((i) => i.releaseId === releaseId && i.externalId !== null && i.dirtyFields.length > 0);
+        const pendingItems = get().items.filter((i) => i.releaseId === releaseId && i.pendingCreate);
+        const changes = buildPushChanges(dirtyItems, refs, meta?.itemTypes);
+
+        if (changes.length === 0 && pendingItems.length === 0) {
           return { ok: false, reason: 'nothing-to-push', message: 'No pending changes to push' };
         }
 
-        const members = get().teams.find((t) => t.id === r.teamId)?.members ?? [];
-        const changes = buildPushChanges(releaseItems, { sprints: r.sprints, workStreams: r.workStreams, members }, meta?.itemTypes);
-        if (changes.length === 0) {
-          return { ok: false, reason: 'nothing-to-push', message: 'No writeable changes to push' };
+        // 1) Edits — one batched push; clear dirtyFields and advance the synced
+        // baseline on success (the external system now matches).
+        let pushed = 0;
+        if (changes.length > 0) {
+          const result = await syncClient.push(connector, changes);
+          pushed = result.pushed;
+          const pushedExternalIds = new Set(changes.map((c) => c.externalId));
+          commit((d) => {
+            d.items = d.items.map((i) => {
+              if (!(i.releaseId === releaseId && i.externalId && pushedExternalIds.has(i.externalId))) return i;
+              const baseline = canonicalBaseline(i, writeableLocalFieldsForItem(i, meta?.itemTypes), i.attributes);
+              return { ...i, dirtyFields: [], syncedValues: baseline };
+            });
+          });
         }
 
-        const result = await syncClient.push(r.connector, changes);
-        const at = stamp();
+        // 2) Queued creates — send each, then swap the placeholder for the reconciled
+        // synced item (matched by the assigned externalId). A failed create leaves its
+        // placeholder queued so nothing is lost.
+        const writeableItemFields = [...allWriteableLocalFields(meta?.itemTypes)];
+        let created = 0;
+        const createErrors: string[] = [];
+        for (const p of pendingItems) {
+          try {
+            const mapped = await syncClient.createItem(connector, buildCreateRequest(p, refs, meta?.itemTypes));
+            const base = snapshot(get());
+            const withoutPlaceholder = { ...base, items: base.items.filter((i) => i.id !== p.id) };
+            const { next, item, warning } = applyCreatedItem(withoutPlaceholder, releaseId, mapped, writeableItemFields);
+            if (!item) {
+              createErrors.push(warning ?? `Could not place created item ${p.key}`);
+              continue; // placeholder stays (base still holds it) — don't drop the queued create
+            }
+            persist(next);
+            set({ ...next });
+            created++;
+          } catch (e) {
+            createErrors.push(`${p.subject}: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
 
-        // Clear dirtyFields on successfully pushed items, and advance the synced
-        // baseline to the just-pushed values (the external system now matches).
-        const pushedExternalIds = new Set(changes.map((c) => c.externalId));
+        const at = stamp();
+        const parts: string[] = [];
+        if (pushed > 0) parts.push(`${pushed} change${pushed !== 1 ? 's' : ''} pushed`);
+        if (created > 0) parts.push(`${created} created`);
+        const summary = parts.join(', ') || 'Nothing pushed';
         commit((d) => {
-          d.items = d.items.map((i) => {
-            if (!(i.releaseId === releaseId && i.externalId && pushedExternalIds.has(i.externalId))) return i;
-            const baseline = canonicalBaseline(i, writeableLocalFieldsForItem(i, meta?.itemTypes), i.attributes);
-            return { ...i, dirtyFields: [], syncedValues: baseline };
-          });
           d.releases = d.releases.map((rel) =>
             rel.id === releaseId
-              ? { ...rel, sync: { lastISO: at, state: 'ok' as const, message: `Pushed ${result.pushed} change${result.pushed !== 1 ? 's' : ''}` } }
+              ? {
+                  ...rel,
+                  sync: {
+                    lastISO: at,
+                    state: createErrors.length ? ('error' as const) : ('ok' as const),
+                    message: createErrors.length ? createErrors.join('; ') : summary,
+                  },
+                }
               : rel,
           );
         });
 
-        return { ok: true, result };
+        // A total failure (nothing pushed, nothing created, only errors) is reported as
+        // an error; partial success still returns ok with the failure count/messages.
+        if (createErrors.length > 0 && pushed === 0 && created === 0) {
+          return { ok: false, reason: 'error', message: createErrors.join('; ') };
+        }
+        return { ok: true, result: { pushed: pushed + created, failed: createErrors.length, errors: createErrors } };
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
         commit((d) => {
@@ -901,8 +1004,11 @@ export const selBacklogItems = (s: AppState, releaseId: string): WorkItem[] =>
 export const selItem = (s: AppState, id: string): WorkItem | undefined =>
   s.items.find((i) => i.id === id);
 
-/** Count of dirty (pending push) synced items for a release. */
+/** Count of items in the push queue for a release: dirty synced items (edits) plus
+ *  locally-queued creates (`pendingCreate`). Drives the Push button's count/visibility. */
 export const selDirtyCount = (s: AppState, releaseId: string): number =>
-  s.items.filter((i) => i.releaseId === releaseId && i.externalId !== null && i.dirtyFields.length > 0).length;
+  s.items.filter(
+    (i) => i.releaseId === releaseId && ((i.externalId !== null && i.dirtyFields.length > 0) || i.pendingCreate),
+  ).length;
 
 export type { Member };

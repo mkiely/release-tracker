@@ -617,6 +617,46 @@ describe('migrate — v21 → current', () => {
   });
 });
 
+describe('migrate — v23 → current', () => {
+  const v23 = () => ({
+    version: 23,
+    teams: [],
+    releases: [],
+    meta: { lastSyncISO: null },
+    items: [
+      { id: 'it1', releaseId: 'r1', workStreamId: null, sprintId: null, key: 'K-1', subject: 'S', description: '', status: 'Not Started', points: null, externalId: 'EXT-1', assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], itemType: null },
+    ],
+  });
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v23() as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('backfills pendingCreate: false on existing items', () => {
+    const next = migrate(v23() as any)!;
+    expect(next.items[0].pendingCreate).toBe(false);
+  });
+});
+
+describe('migrate — v24 → current', () => {
+  const v24 = () => ({
+    version: 24,
+    teams: [],
+    releases: [{ id: 'r1', name: 'R', startISO: '2026-04-13', teamId: 't1', workStreams: [], events: [], sprints: [], codeFreezeISO: null, externalId: null, connector: { type: 'acme', config: {} }, sync: null, sprintLengthDays: 14 }],
+    items: [],
+    meta: { lastSyncISO: null },
+  });
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v24() as any)?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('leaves autoSyncMinutes unset (off by default)', () => {
+    const next = migrate(v24() as any)!;
+    expect(next.releases[0].autoSyncMinutes ?? null).toBeNull();
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

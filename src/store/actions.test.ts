@@ -20,11 +20,12 @@ vi.mock('../sync/client', async (importOriginal) => {
       validate: vi.fn(),
       sync: vi.fn(),
       push: vi.fn(),
+      createItem: vi.fn(),
     },
   };
 });
 
-import { getActions, getState, useStore } from './store';
+import { getActions, getState, selDirtyCount, useStore } from './store';
 import { syncClient } from '../sync/client';
 
 const client = syncClient as unknown as {
@@ -32,6 +33,7 @@ const client = syncClient as unknown as {
   validate: ReturnType<typeof vi.fn>;
   sync: ReturnType<typeof vi.fn>;
   push: ReturnType<typeof vi.fn>;
+  createItem: ReturnType<typeof vi.fn>;
 };
 
 const A = getActions; // shorthand: A() → the live actions object
@@ -403,5 +405,129 @@ describe('pushRelease', () => {
     expect(getState().releases[0].sync?.state).toBe('error');
     // dirtyFields are left intact for retry.
     expect(getState().items.find((i) => i.id === itemId)?.dirtyFields).toEqual(['points']);
+  });
+});
+
+// A creatable Story type: subject + points are creatable, plus the sprint ref.
+const creatableStory: ConnectorItemType = {
+  id: 'acme_story',
+  label: 'Story',
+  fields: [
+    { key: 'subject', kind: 'string', role: 'subject', creatable: true },
+    { key: 'points', kind: 'number', role: 'points', creatable: true },
+    { key: 'sprint', kind: 'ref', target: 'sprint', creatable: true },
+  ],
+};
+
+const draft = (over: Record<string, unknown> = {}) => ({
+  itemType: { id: 'acme_story', label: 'Story' },
+  workStreamId: null,
+  sprintId: null,
+  assignedMemberId: null,
+  subject: 'New thing',
+  description: '',
+  descriptionFormat: 'text' as const,
+  status: 'Not Started' as const,
+  points: 5,
+  attributes: {},
+  ...over,
+});
+
+describe('createConnectorItem (queue for push)', () => {
+  const connectorRelease = () =>
+    A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'acme', config: {} } });
+
+  it('creates a local pendingCreate item without hitting the network', () => {
+    const r = connectorRelease();
+    const it = A().createConnectorItem(r.id, draft())!;
+    expect(it).not.toBeNull();
+    expect(it.pendingCreate).toBe(true);
+    expect(it.externalId).toBeNull();
+    expect(it.subject).toBe('New thing');
+    expect(client.createItem).not.toHaveBeenCalled();
+    expect(getState().items).toHaveLength(1);
+  });
+
+  it('counts pending creates in the release dirty count', () => {
+    const r = connectorRelease();
+    A().createConnectorItem(r.id, draft());
+    expect(selDirtyCount(getState(), r.id)).toBe(1);
+  });
+
+  it('returns null for a local (non-connector) release', () => {
+    const t = A().createTeam({ name: 'T', velocity: 20, members: [] });
+    const r = A().createRelease({ name: 'Local', startISO: '2026-04-13', teamId: t.id });
+    expect(A().createConnectorItem(r.id, draft())).toBeNull();
+  });
+
+  it('discardPendingCreate removes a queued item; leaves already-created items alone', () => {
+    const r = connectorRelease();
+    const it = A().createConnectorItem(r.id, draft())!;
+    A().discardPendingCreate(it.id);
+    expect(getState().items).toHaveLength(0);
+    // A synced (non-pending) item is untouched by discard.
+    const synced = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'S' })!;
+    A().updateItem(synced.id, { externalId: 'EXT-9', pendingCreate: false });
+    A().discardPendingCreate(synced.id);
+    expect(getState().items.find((i) => i.id === synced.id)).toBeDefined();
+  });
+});
+
+describe('setAutoSync', () => {
+  it('sets and clears the release auto-sync cadence', () => {
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'acme', config: {} } });
+    A().setAutoSync(r.id, 30);
+    expect(getState().releases[0].autoSyncMinutes).toBe(30);
+    A().setAutoSync(r.id, 0); // 0 turns it off
+    expect(getState().releases[0].autoSyncMinutes).toBeNull();
+    A().setAutoSync(r.id, 60);
+    expect(getState().releases[0].autoSyncMinutes).toBe(60);
+    A().setAutoSync(r.id, null);
+    expect(getState().releases[0].autoSyncMinutes).toBeNull();
+  });
+});
+
+describe('pushRelease (flush queued creates)', () => {
+  const connectorRelease = () =>
+    A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'acme', config: {} } });
+
+  const createdMapped = (over: Record<string, unknown> = {}) => ({
+    externalId: 'EXT-900', extWorkStreamId: null, extSprintId: null, extAssigneeId: null,
+    fields: { key: 'ORI-900', subject: 'New thing', description: '', status: 'Not Started', points: 5, itemType: { id: 'acme_story', label: 'Story' } },
+    ...over,
+  });
+
+  it('sends each queued create and reconciles it into a synced item', async () => {
+    client.listConnectors.mockResolvedValue([acmeMeta({ itemTypes: [creatableStory] })]);
+    client.createItem.mockResolvedValue(createdMapped());
+    const r = connectorRelease();
+    A().createConnectorItem(r.id, draft());
+
+    const out = await A().pushRelease(r.id);
+
+    expect(out.ok).toBe(true);
+    expect(client.createItem).toHaveBeenCalledOnce();
+    const items = getState().items;
+    expect(items).toHaveLength(1);
+    // The placeholder is gone; the reconciled item is a real synced item.
+    expect(items[0].pendingCreate).toBeFalsy();
+    expect(items[0].externalId).toBe('EXT-900');
+    expect(items[0].key).toBe('ORI-900');
+    expect(selDirtyCount(getState(), r.id)).toBe(0);
+  });
+
+  it('leaves the queued item in place and reports an error when the create fails', async () => {
+    client.listConnectors.mockResolvedValue([acmeMeta({ itemTypes: [creatableStory] })]);
+    client.createItem.mockRejectedValue(new Error('422 bad field'));
+    const r = connectorRelease();
+    A().createConnectorItem(r.id, draft());
+
+    const out = await A().pushRelease(r.id);
+
+    expect(out).toMatchObject({ ok: false, reason: 'error' });
+    const items = getState().items;
+    expect(items).toHaveLength(1);
+    expect(items[0].pendingCreate).toBe(true); // still queued for retry
+    expect(getState().releases[0].sync?.state).toBe('error');
   });
 });

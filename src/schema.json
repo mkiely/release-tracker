@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "23.0.0",
+  "version": "25.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -395,6 +395,10 @@
             { "type": "null" }
           ],
           "description": "The item's native workflow state (denormalized id + label, mirrors itemType). `status` carries this state's canonical category — what all derivations compute over; this adds the backend's real state for display/edit. Pushable (as statusId) when the item type declares a writeable status field. Null/absent for local items or backends without a richer workflow."
+        },
+        "pendingCreate": {
+          "type": "boolean",
+          "description": "A locally-created item on a connector release not yet created in the external system: it sits in the push queue (with externalId null) and is sent via the connector's create endpoint on the next Push, then reconciled into a synced item (externalId assigned, flag cleared). False/absent for synced items and items on local releases. Optional — absence implies false."
         }
       },
       "required": ["id", "releaseId", "workStreamId", "sprintId", "key", "subject", "description", "status", "points", "externalId", "assignedMemberId", "build", "externalUrl", "dirtyFields", "itemType"],
@@ -467,6 +471,13 @@
             { "type": "null" }
           ],
           "description": "Last-known sync state for this release. Null for local releases or before the first sync has run."
+        },
+        "autoSyncMinutes": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "null" }
+          ],
+          "description": "Background auto-sync cadence in minutes for a connector release: while the release is open, a sync runs every N minutes. Null/absent (default) = no auto-sync (manual only). The UI offers 10/30/60; any positive number is honored. App-owned; ignored for Local releases."
         },
         "sprintLengthDays": {
           "type": "number",
@@ -553,7 +564,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 23,
+      "value": 25,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {

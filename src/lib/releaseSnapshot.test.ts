@@ -94,6 +94,18 @@ describe('buildSnapshot', () => {
     expect(snap.overall.donePts).toBe(3);
   });
 
+  it('carries each stream\'s connector deep link (externalUrl)', () => {
+    const rel = release({
+      workStreams: [
+        { id: 'ws_pay', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: 'https://acme.example/epic/1', planningMuted: false },
+        { id: 'ws_auth', name: 'Auth', externalId: 'EPIC-2', engineersRequired: null, build: null, externalUrl: null, planningMuted: false },
+      ],
+    });
+    const snap = buildSnapshot(rel, team(), [item()], { now: NOW });
+    expect(snap.streams.find((s) => s.name === 'Payments')!.externalUrl).toBe('https://acme.example/epic/1');
+    expect(snap.streams.find((s) => s.name === 'Auth')!.externalUrl).toBeNull();
+  });
+
   it('carries per-status counts, never item identity fields', () => {
     const items = [
       item({ status: 'Complete', subject: 'LEAKY SUBJECT', key: 'LEAK-1', description: 'LEAKY DESC' }),
@@ -280,9 +292,23 @@ describe('buildSnapshotUrl', () => {
     if (!res.ok) {
       expect(res.reason).toBe('too-long');
       expect(res.length).toBeGreaterThan(MAX_SNAPSHOT_URL_LENGTH);
+      // The raw encoded value is still returned so the too-long path can copy it for
+      // the viewer's manual paste loader; it must decode back to the same release.
+      expect(decodeSnapshot(res.encoded)?.summaryId).toBe('rel_atlas');
     } else {
       // Aggregation keeps this well under the cap — that's the point.
       expect(res.url.length).toBeLessThan(MAX_SNAPSHOT_URL_LENGTH);
+    }
+  });
+
+  it('returns the encoded value on too-long (for the manual paste loader)', () => {
+    // Force the length branch deterministically with an oversized base.
+    const longBase = `https://x.example/${'p'.repeat(MAX_SNAPSHOT_URL_LENGTH)}`;
+    const res = buildSnapshotUrl(release(), team(), [item()], longBase, { now: NOW });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.reason).toBe('too-long');
+      expect(decodeSnapshot(res.encoded)?.summaryId).toBe('rel_atlas');
     }
   });
 });

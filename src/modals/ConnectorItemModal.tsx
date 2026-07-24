@@ -5,8 +5,9 @@
 // externalIds and the item is created through the sync service.
 
 import { useMemo, useState } from 'react';
+import type { AttrValue, Status } from '../types';
 import type { ConnectorItemType, FieldSpec } from '../sync/schema';
-import { connectorCreateTypes } from '../sync/client';
+import { connectorCreateTypes, connectorLabel } from '../sync/client';
 import { validateFields, type FieldValues } from '../lib/createFields';
 import { getActions, selRelease, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
@@ -64,11 +65,6 @@ export function ConnectorItemModal({
   }
 
   const [showErrors, setShowErrors] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
-  // Field-keyed 422 errors from the service — the validation authority. Rendered
-  // inline under the offending inputs, like client-side validation.
-  const [serverFieldErrors, setServerFieldErrors] = useState<Record<string, string>>({});
 
   if (!r) {
     return (
@@ -92,57 +88,59 @@ export function ConnectorItemModal({
   const isValid = Object.keys(errors).length === 0;
   const set = (key: string, v: FieldValues[string]) => setValues((prev) => ({ ...prev, [key]: v }));
 
-  const refExternalId = (field: FieldSpec, localId: FieldValues[string]): string | null => {
-    if (!localId) return null;
-    const id = String(localId);
-    if (field.target === 'workStream') return r.workStreams.find((w) => w.id === id)?.externalId ?? null;
-    if (field.target === 'sprint') return r.sprints.find((s) => s.id === id)?.externalId ?? null;
-    if (field.target === 'member') return team?.members.find((m) => m.id === id)?.externalId ?? null;
-    return null;
-  };
+  // The item isn't sent now — it's queued. Map the form's LOCAL selections + values
+  // into a draft; external ids and the wire payload are derived at push time from the
+  // (possibly edited) item, so this stays free of external-id resolution.
+  const localId = (v: FieldValues[string]): string | null => (v == null || v === '' ? null : String(v));
 
-  const submit = async () => {
+  const submit = () => {
     if (!isValid) {
       setShowErrors(true);
       return;
     }
-    setBusy(true);
-    setServerError(null);
-    setServerFieldErrors({});
 
-    let extWorkStreamId: string | null = null;
-    let extSprintId: string | null = null;
-    let extAssigneeId: string | null = null;
-    const fields: Record<string, unknown> = {};
+    let workStreamId: string | null = null;
+    let sprintId: string | null = null;
+    let assignedMemberId: string | null = null;
+    let subject = '';
+    let description = '';
+    let points: number | null = null;
+    let status: Status = 'Not Started';
+    let descriptionFormat: 'text' | 'html' = 'text';
+    const attributes: Record<string, AttrValue> = {};
+
     for (const f of createFields) {
       const v = values[f.key];
-      if (f.kind === 'ref' && f.target === 'workStream') extWorkStreamId = refExternalId(f, v);
-      else if (f.kind === 'ref' && f.target === 'sprint') extSprintId = refExternalId(f, v);
-      else if (f.kind === 'ref' && f.target === 'member') extAssigneeId = refExternalId(f, v);
-      else if (f.kind === 'number') fields[f.key] = v == null ? null : Number(v);
-      else if (v != null && v !== '') fields[f.key] = v;
+      if (f.kind === 'ref' && f.target === 'workStream') workStreamId = localId(v);
+      else if (f.kind === 'ref' && f.target === 'sprint') sprintId = localId(v);
+      else if (f.kind === 'ref' && f.target === 'member') assignedMemberId = localId(v);
+      else if (f.role === 'subject') subject = v == null ? '' : String(v);
+      else if (f.role === 'description') {
+        description = v == null ? '' : String(v);
+        descriptionFormat = f.format === 'html' ? 'html' : 'text';
+      } else if (f.role === 'points') points = v == null || v === '' ? null : Number(v);
+      else if (f.role === 'status' || f.enumRef === 'status') status = (v as Status) ?? 'Not Started';
+      else if (v != null && v !== '') attributes[f.key] = v as AttrValue;
     }
 
-    const outcome = await getActions().createConnectorItem(releaseId, {
-      type: selectedType.id,
-      extWorkStreamId,
-      extSprintId,
-      extAssigneeId,
-      fields,
+    const item = getActions().createConnectorItem(releaseId, {
+      itemType: { id: selectedType.id, label: selectedType.label },
+      workStreamId,
+      sprintId,
+      assignedMemberId,
+      subject,
+      description,
+      descriptionFormat,
+      status,
+      points,
+      attributes,
     });
-    setBusy(false);
-    if (outcome.ok) {
-      notify(`Created ${outcome.item.key}`);
-      onClose();
-    } else {
-      const byField = Object.fromEntries((outcome.fieldErrors ?? []).map((fe) => [fe.field, fe.message]));
-      setServerFieldErrors(byField);
-      // Keep the footer summary only when there's nothing to pin to a field.
-      setServerError(Object.keys(byField).length > 0 ? null : outcome.message);
-    }
+    if (item) notify('Queued for push — send it with Push');
+    onClose();
   };
 
   const ctx = { workStreams: r.workStreams, sprints: r.sprints, members: team?.members ?? [] };
+  const connectorName = r.connector ? connectorLabel(r.connector.type) : 'the external system';
 
   return (
     <Modal
@@ -152,16 +150,14 @@ export function ConnectorItemModal({
       width="var(--rt-modal-w-work-item)"
       footer={
         <>
-          {serverError && (
-            <span style={{ marginRight: 'auto', fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-st-bl-text)' }}>
-              {serverError}
-            </span>
-          )}
+          <span style={{ marginRight: 'auto', fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>
+            Added to the push queue — created in {connectorName} on the next Push.
+          </span>
           <PButton variant="subtle" onClick={onClose}>
             Cancel
           </PButton>
-          <PButton onClick={submit} disabled={busy || (showErrors && !isValid)}>
-            {busy ? 'Creating…' : 'Create work item'}
+          <PButton onClick={submit} disabled={showErrors && !isValid}>
+            Add to push queue
           </PButton>
         </>
       }
@@ -179,19 +175,10 @@ export function ConnectorItemModal({
       )}
 
       {createFields.map((f) => {
-        const fieldError = (showErrors && errors[f.key]) || serverFieldErrors[f.key];
+        const fieldError = showErrors ? errors[f.key] : undefined;
         return (
           <PField key={f.key} label={f.label ?? f.key} hint={f.required ? undefined : 'optional'}>
-            <FieldControl
-              field={f}
-              value={values[f.key]}
-              onChange={(v) => {
-                set(f.key, v);
-                // Editing a field clears its server verdict (it'll be re-checked on submit).
-                if (serverFieldErrors[f.key]) setServerFieldErrors(({ [f.key]: _, ...rest }) => rest);
-              }}
-              ctx={ctx}
-            />
+            <FieldControl field={f} value={values[f.key]} onChange={(v) => set(f.key, v)} ctx={ctx} />
             {fieldError && (
               <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-st-bl-text)', marginTop: 2 }}>{fieldError}</span>
             )}

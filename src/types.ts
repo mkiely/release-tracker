@@ -14,7 +14,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 25;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog, its
  *  status vocabulary (native workflow states mapped to canonical categories),
@@ -160,6 +160,11 @@ export interface Release {
   externalId: string | null;
   connector: ReleaseConnector | null;
   sync: SyncStatus | null;
+  /** Auto-sync cadence in minutes for a connector release: while the release is open,
+   *  a background sync runs every N minutes. null/absent (the default) = no auto-sync;
+   *  the user syncs manually. Only 10/30/60 are offered in the UI, but any positive
+   *  number is honored. App-owned; ignored for Local releases (they never sync). */
+  autoSyncMinutes?: number | null;
   /** Calendar length (in days) of every sprint in this release. Uniform across the
    *  release and fixed at creation — not editable. For local releases this drives
    *  buildSprints; for connector releases sprints come from the external system and
@@ -237,6 +242,15 @@ export interface WorkItem {
    * Absence means none. Connector-owned: external wins on sync.
    */
   attributes?: Record<string, AttrValue>;
+  /**
+   * A locally-created item on a connector release that has NOT yet been created in
+   * the external system — it lives in the push queue and is sent (via the connector's
+   * create endpoint) on the next Push, then reconciled into a synced item
+   * (externalId assigned, flag cleared). Always false/absent for synced items and for
+   * items on local releases (those are simply local, never pushed). See push.ts
+   * `buildCreateRequest` and the store's `pushRelease` flush.
+   */
+  pendingCreate?: boolean;
 }
 
 /** The entire persisted application state — the single object the store holds

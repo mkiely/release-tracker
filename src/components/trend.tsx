@@ -1,6 +1,11 @@
 import { statusVars, warningVars } from './statusVars';
 import styles from './trend.module.css';
 
+/** Ellipsize an axis label to a max character budget (keeps at least one char). */
+function truncLabel(s: string, max: number): string {
+  return s.length <= max ? s : `${s.slice(0, Math.max(1, max - 1))}…`;
+}
+
 /**
  * Trend of a series across the release; the highlighted index is dotted.
  * Defaults to the compact inline size; pass `width`/`height` for a larger
@@ -197,11 +202,20 @@ export function VelocityTrendChart({
   const padL = 28;
   const padR = 12;
   const padT = 14;
-  const padB = 24;
   const n = Math.max(1, series.length);
   const plotW = W - padL - padR;
-  const plotH = H - padT - padB;
   const bw = plotW / n;
+
+  // Approx label width at fontSize 9. When a label wouldn't fit its band flat (many
+  // sprints → narrow bands, or long custom sprint names), rotate every label so they
+  // don't overlap, and reserve more bottom padding for the diagonal run.
+  const CHAR_W = 5.2;
+  const flatBudget = Math.max(3, Math.floor(bw / CHAR_W));
+  const rotate = bw < 30 || series.some((s) => s.label.length > flatBudget);
+  const labelBudget = rotate ? 14 : flatBudget;
+  const padB = rotate ? 44 : 24;
+  const plotH = H - padT - padB;
+
   const yMax = Math.max(1, ...series.flatMap((s) => [s.planned, s.actual]));
   const yOf = (v: number) => padT + plotH - (Math.max(0, v) / yMax) * plotH;
   const xMid = (i: number) => padL + i * bw + bw / 2;
@@ -226,7 +240,24 @@ export function VelocityTrendChart({
             <rect x={cx - pw / 2} y={yOf(s.planned)} width={pw} height={Math.max(0, yOf(0) - yOf(s.planned))} rx={2} fill="var(--rt-line)" />
             {/* actual (bold, narrow, on top) */}
             <rect x={cx - aw / 2} y={yOf(s.actual)} width={aw} height={Math.max(0, yOf(0) - yOf(s.actual))} rx={2} fill={actualColor} />
-            <text x={cx} y={H - 8} textAnchor="middle" fontSize={9} fill="var(--rt-t3)">{s.label}</text>
+            {rotate ? (
+              <text
+                x={cx}
+                y={H - padB + 12}
+                textAnchor="end"
+                transform={`rotate(-40 ${cx} ${H - padB + 12})`}
+                fontSize={9}
+                fill="var(--rt-t3)"
+              >
+                {truncLabel(s.label, labelBudget)}
+                {s.label.length > labelBudget && <title>{s.label}</title>}
+              </text>
+            ) : (
+              <text x={cx} y={H - 8} textAnchor="middle" fontSize={9} fill="var(--rt-t3)">
+                {truncLabel(s.label, labelBudget)}
+                {s.label.length > labelBudget && <title>{s.label}</title>}
+              </text>
+            )}
           </g>
         );
       })}

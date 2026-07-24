@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPushChanges, buildPushPreview, type PushRefs } from './push';
+import { buildCreateRequest, buildPushChanges, buildPushPreview, type PushRefs } from './push';
 import type { Member, Sprint, WorkItem, WorkStream } from '../types';
 import type { ConnectorItemType } from './schema';
 
@@ -298,5 +298,63 @@ describe('buildPushPreview', () => {
     expect(p.diffs).toHaveLength(1);
     expect(p.diffs[0]).toMatchObject({ field: 'severity', label: 'Severity', from: 'low', to: 'critical' });
     expect(p.diffs[0].spec?.options?.map((o) => o.value)).toContain('critical');
+  });
+});
+
+describe('buildCreateRequest', () => {
+  // A creatable type covering every field kind: refs, canonical roles, status, vocab.
+  const createType: ConnectorItemType = {
+    id: 'story',
+    label: 'Story',
+    fields: [
+      { key: 'summary', kind: 'string', role: 'subject', creatable: true },
+      { key: 'body', kind: 'string', role: 'description', creatable: true, format: 'html' },
+      { key: 'points', kind: 'number', role: 'points', creatable: true },
+      { key: 'state', kind: 'enum', enumRef: 'status', creatable: true },
+      { key: 'epic', kind: 'ref', target: 'workStream', creatable: true },
+      { key: 'iteration', kind: 'ref', target: 'sprint', creatable: true },
+      { key: 'owner', kind: 'ref', target: 'member', creatable: true },
+      { key: 'severity', kind: 'enum', creatable: true, options: [{ value: 'low', label: 'Low' }] },
+      { key: 'internal', kind: 'string', creatable: false },
+    ],
+  };
+  const refs = pushRefs(
+    [sprint('sp_1', 'JSPR-1')],
+    [stream('ws_1', 'EPIC-1')],
+    [member('m_1', 'USR-1')],
+  );
+
+  it('derives external ids and wire fields from a pending item', () => {
+    const it = item({
+      pendingCreate: true, externalId: null, itemType: { id: 'story', label: 'Story' },
+      workStreamId: 'ws_1', sprintId: 'sp_1', assignedMemberId: 'm_1',
+      subject: 'Add SSO', description: '<p>hi</p>', points: 8, status: 'Blocked',
+      attributes: { severity: 'low' },
+    });
+    const req = buildCreateRequest(it, refs, [createType]);
+    expect(req.type).toBe('story');
+    expect(req.extWorkStreamId).toBe('EPIC-1');
+    expect(req.extSprintId).toBe('JSPR-1');
+    expect(req.extAssigneeId).toBe('USR-1');
+    expect(req.fields).toMatchObject({ summary: 'Add SSO', body: '<p>hi</p>', points: 8, state: 'Blocked', severity: 'low' });
+    // Non-creatable fields never travel.
+    expect(req.fields).not.toHaveProperty('internal');
+  });
+
+  it('leaves refs null when the local entity has no external id or is unset', () => {
+    const it = item({
+      pendingCreate: true, externalId: null, itemType: { id: 'story', label: 'Story' },
+      workStreamId: 'ws_local', sprintId: null, assignedMemberId: null, attributes: {},
+    });
+    const req = buildCreateRequest(it, refs, [createType]);
+    expect(req.extWorkStreamId).toBeNull(); // ws_local not in refs
+    expect(req.extSprintId).toBeNull();
+    expect(req.extAssigneeId).toBeNull();
+  });
+
+  it('yields an empty field set when the type is unknown to the catalog', () => {
+    const it = item({ pendingCreate: true, externalId: null, itemType: { id: 'nope', label: 'X' }, attributes: {} });
+    const req = buildCreateRequest(it, refs, [createType]);
+    expect(req.fields).toEqual({});
   });
 });

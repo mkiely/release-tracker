@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { ReleaseViewProps, WorkStreamBadgeData } from '../hooks/useReleaseView';
 import type { StatusSeg } from '../types';
 import { missingCapabilities } from '../lib/connectorFields';
-import { PushButton, SyncButton } from './chrome';
+import { AutoSyncControl, PushButton, SyncButton } from './chrome';
 import { FacetBar } from './FacetBar';
 import { ScreenScaffold } from './ScreenScaffold';
 import { Icon } from './Icon';
@@ -14,6 +14,7 @@ import { SegmentedToggle } from './SegmentedToggle';
 import { TeamLink } from './TeamLink';
 import { VDivider } from './VDivider';
 import { AxisModeStore, useAxisMode, type AxisMode } from '../store/axisMode';
+import { useAutoSync } from '../hooks/useAutoSync';
 import styles from './ReleaseChrome.module.css';
 
 /** One pill in the work-streams strip. Identical for assigned and unassigned lanes. */
@@ -133,6 +134,8 @@ export function ReleaseChrome({
   children,
 }: ReleaseChromeProps) {
   const axis = useAxisMode();
+  // Background auto-sync while this release is open, at its configured cadence (off by default).
+  useAutoSync(r);
   // Capability handshake verdict, from the release's catalog snapshot: which
   // semantic concepts this connector can't express (degraded app features).
   const degraded = missingCapabilities(r.catalog?.itemTypes);
@@ -209,6 +212,7 @@ export function ReleaseChrome({
           <ShareMenu release={r} onExport={onExport} visibleStreamIds={visibleStreamIds} />
           <PushButton release={r} onPush={onPush} />
           <SyncButton release={r} onSync={onSync} />
+          <AutoSyncControl release={r} />
           <PButton variant="subtle" sm icon={Icon.event} onClick={onNewEvent}>
             New event
           </PButton>
