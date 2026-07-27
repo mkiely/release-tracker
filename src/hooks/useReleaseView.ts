@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAxisMode } from '../store/axisMode';
+import { ExportScopePrefs, type ExportScope } from '../store/exportScope';
+import { scopeLabel, scopeStreamIds } from '../lib/exportScope';
 import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } from '../store/store';
 import { releaseToTSV } from '../lib/exportRelease';
 import { applyFacets, buildFacetGroups, buildStreamFacet, catalogStreamFacets, isAnyFacetActive } from '../lib/facets';
@@ -135,9 +138,15 @@ export interface ReleaseViewProps {
   onOpenMetrics: (section?: MetricsSection) => void;
   onExport: () => void;
   /** Ids of the streams currently visible under the active stream facets, or undefined
-   *  when no facet is active (all streams). Shared by Export TSV and the summary link
-   *  so both reflect the same on-screen filter. */
-  visibleStreamIds: ReadonlySet<string> | undefined;
+   *  when no facet is active. This is what the VIEW shows — it is deliberately no
+   *  longer what Export/Summary emit (see exportScope), because facets only apply on
+   *  the stream axis and the export must not change when the axis toggle does. */
+  facetVisibleStreamIds: ReadonlySet<string> | undefined;
+  /** Explicit scope for the two data actions, chosen in the Share menu. */
+  exportScope: ExportScope;
+  onSetExportScope: (scope: ExportScope) => void;
+  /** Stream ids the current export scope selects; undefined = every stream. */
+  exportStreamIds: ReadonlySet<string> | undefined;
   onNewEvent: () => void;
   onNewStream: () => void;
   onOpenEvent: (eventId: string) => void;
@@ -160,6 +169,9 @@ export function useReleaseView(): ReleaseViewProps | null {
   const { id = '' } = useParams();
   const axis = useAxisMode();
   const facetState = useFacetSelections(id, RELEASE_PERSIST_FACETS);
+  // Export scope lives in localStorage, not the store, so a write needs an explicit
+  // nudge to re-render. Kept before any early return so hook order stays stable.
+  const [, setScopeTick] = useState(0);
 
   const r = selRelease(st, id);
   if (!r) return null;
@@ -317,10 +329,17 @@ export function useReleaseView(): ReleaseViewProps | null {
 
   // The on-screen stream set under the active facets — shared by Export TSV and the
   // summary link so both reflect the same filter. Undefined = no facet active (all).
-  const visibleStreamIds = facetsActive ? new Set(streams.map((ws) => ws.id)) : undefined;
+  const facetVisibleStreamIds = facetsActive ? new Set(streams.map((ws) => ws.id)) : undefined;
+
+  // What LEAVES the app is an explicit choice, not a by-product of the view's
+  // filters. Default is the current build; the 'filters' option is only honoured
+  // while facets are actually active.
+  const exportScope = ExportScopePrefs.get(id, facetsActive);
+  const exportStreamIds = scopeStreamIds(exportScope, r.workStreams, facetVisibleStreamIds);
+  const exportStreamCount = exportStreamIds ? exportStreamIds.size : r.workStreams.length;
 
   const onExport = async () => {
-    const tsv = releaseToTSV(st, id, visibleStreamIds);
+    const tsv = releaseToTSV(st, id, exportStreamIds);
     try {
       await navigator.clipboard.writeText(tsv);
     } catch {
@@ -336,7 +355,7 @@ export function useReleaseView(): ReleaseViewProps | null {
         document.body.removeChild(ta);
       }
     }
-    notify('Release copied as TSV — paste into a sheet');
+    notify(`Release copied as TSV — ${scopeLabel(exportScope, exportStreamCount)}`);
   };
 
   return {
@@ -383,7 +402,14 @@ export function useReleaseView(): ReleaseViewProps | null {
     onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
     onOpenMetrics: (section) => openModal({ type: 'metrics', releaseId: id, section }),
     onExport,
-    visibleStreamIds,
+    facetVisibleStreamIds,
+    exportScope,
+    exportStreamIds,
+    onSetExportScope: (scope) => {
+      ExportScopePrefs.set(id, scope);
+      // Preference lives outside the store, so nudge React to re-read it.
+      setScopeTick((n) => n + 1);
+    },
     onNewEvent: () => openModal({ type: 'event', releaseId: id }),
     onNewStream: () => openModal({ type: 'stream', releaseId: id }),
     onOpenEvent: (eventId) =>
