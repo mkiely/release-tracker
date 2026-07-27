@@ -142,7 +142,10 @@ type ReleaseChromeProps = Pick<
   | 'onToggleStreamFacet'
   | 'onClearStreamFacets'
   | 'onExport'
-  | 'visibleStreamIds'
+  | 'facetVisibleStreamIds'
+  | 'exportScope'
+  | 'onSetExportScope'
+  | 'exportStreamIds'
   | 'onNewEvent'
   | 'onNewStream'
   | 'onEditCodeFreeze'
@@ -181,7 +184,10 @@ export function ReleaseChrome({
   onToggleStreamFacet,
   onClearStreamFacets,
   onExport,
-  visibleStreamIds,
+  facetVisibleStreamIds,
+  exportScope,
+  onSetExportScope,
+  exportStreamIds,
   onNewEvent,
   onNewStream,
   onEditCodeFreeze,
@@ -310,7 +316,16 @@ export function ReleaseChrome({
           {/* Exchange — data in from the connector, data out to people. */}
           <span className={chromeStyles.actionZone}>
             <SyncMenu release={r} onSync={onSync} onPush={onPush} />
-            <ShareMenu release={r} onExport={onExport} visibleStreamIds={visibleStreamIds} />
+            <ShareMenu
+              release={r}
+              onExport={onExport}
+              workStreams={r.workStreams}
+              facetVisibleStreamIds={facetVisibleStreamIds}
+              facetsActive={!!facetVisibleStreamIds}
+              scope={exportScope}
+              onSetScope={onSetExportScope}
+              exportStreamIds={exportStreamIds}
+            />
           </span>
           <VDivider />
           {/* Add — creation only, not release configuration. First zone to shed its

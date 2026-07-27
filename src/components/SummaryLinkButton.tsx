@@ -85,6 +85,7 @@ export function useSummaryLink(release: Release, visibleStreamIds?: ReadonlySet<
       return;
     }
     await copyToClipboard(result.url);
-    notify('Summary link copied — a frozen, read-only view with no work-item detail');
+    const scoped = visibleStreamIds ? ` · ${visibleStreamIds.size} stream${visibleStreamIds.size === 1 ? '' : 's'}` : '';
+    notify(`Summary link copied — a frozen, read-only view with no work-item detail${scoped}`);
   };
 }
