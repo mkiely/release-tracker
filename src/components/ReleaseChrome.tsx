@@ -7,7 +7,7 @@ import { FacetBar } from './FacetBar';
 import { ScreenScaffold } from './ScreenScaffold';
 import { Icon } from './Icon';
 import { SegBar } from './badges';
-import { statusVars } from './statusVars';
+import { statusVars, warningVars } from './statusVars';
 import { IconButton, PButton } from './primitives';
 import { ShareMenu } from './ShareMenu';
 import { SegmentedToggle } from './SegmentedToggle';
@@ -83,6 +83,7 @@ type ReleaseChromeProps = Pick<
   | 'velocity'
   | 'overAllocated'
   | 'runwayAlarmCount'
+  | 'reservationRebalance'
   | 'streamFacetGroups'
   | 'isStreamFiltered'
   | 'hiddenStreamCount'
@@ -119,6 +120,7 @@ export function ReleaseChrome({
   velocity,
   overAllocated,
   runwayAlarmCount,
+  reservationRebalance,
   streamFacetGroups,
   isStreamFiltered,
   hiddenStreamCount,
@@ -147,8 +149,14 @@ export function ReleaseChrome({
   if (velocity.verdict === 'under') metricsIssues.push(`Velocity ${velocity.attainmentPct}%`);
   if (runwayAlarmCount > 0) metricsIssues.push(`${runwayAlarmCount} stream${runwayAlarmCount === 1 ? '' : 's'} under-planned`);
   const metricsBad = metricsIssues.length > 0;
-  const metricsSection: 'velocity' | 'capacity' | 'runway' = overAllocated ? 'capacity' : runwayAlarmCount > 0 ? 'runway' : 'velocity';
-  const metricsTitle = metricsBad ? metricsIssues.join(' · ') : 'Release analysis — velocity, capacity, planning runway';
+  // Over-reservation is a soft rebalancing suggestion — it tints the chip amber but
+  // does NOT add to the red issue tally (which is for problems, not opportunities).
+  const metricsSoft = !metricsBad && !!reservationRebalance;
+  const metricsSection: 'velocity' | 'capacity' | 'runway' =
+    overAllocated ? 'capacity' : runwayAlarmCount > 0 || reservationRebalance ? 'runway' : 'velocity';
+  const metricsTitle = metricsBad
+    ? metricsIssues.join(' · ') + (reservationRebalance ? ` · ${reservationRebalance}` : '')
+    : reservationRebalance ?? 'Release analysis — velocity, capacity, planning runway';
   return (
     <ScreenScaffold
       left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
@@ -169,9 +177,9 @@ export function ReleaseChrome({
             className={`tag ${metricsBad ? styles.overTag : styles.allocTag}`}
             onClick={() => onOpenMetrics(metricsSection)}
             title={metricsTitle}
-            style={metricsBad ? { color: statusVars('Blocked').dot } : undefined}
+            style={metricsBad ? { color: statusVars('Blocked').dot } : metricsSoft ? { color: warningVars().dot } : undefined}
           >
-            {metricsBad ? Icon.alert : Icon.sprint}
+            {metricsBad || metricsSoft ? Icon.alert : Icon.sprint}
             Release analysis
             {metricsBad && (
               <span

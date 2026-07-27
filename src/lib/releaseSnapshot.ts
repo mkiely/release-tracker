@@ -22,6 +22,7 @@ import {
   effectiveStreamCodeFreeze,
   freezeSprintX,
   releaseCapacity,
+  remainingByFreeze,
   sprintEventChips,
   sprintVel,
   statusSegs,
@@ -302,10 +303,12 @@ export function buildSnapshot(
   const computed = streamInputs.map((si) => {
     const { ws, health } = si;
     const streamCtx = streamCapacityCtx(release, team, ws, ctx, today);
-    const forecast = streamForecast(health, ws ? ws.engineersRequired : null, streamCtx, contention);
+    const { preFreezePts } = remainingByFreeze(si.items, release.sprints, effectiveStreamCodeFreeze(release, ws));
+    const forecast = streamForecast(health, ws ? ws.engineersRequired : null, streamCtx, contention, preFreezePts);
     const runway = streamRunway(health, ws ? ws.engineersRequired : null, streamCtx, contention, {
       itemsBeyondNext: itemsBeyondNextFor(si.items),
-      muted: ws ? ws.planningMuted : false,
+      planningState: ws ? ws.planningState : 'open',
+      remainingPreFreezePts: preFreezePts,
     });
     return { ...si, forecast, runway };
   });

@@ -9,12 +9,13 @@
 // Multi-line cells use RFC 4180 quoting ("..." with embedded \n) which Google
 // Sheets honours when pasting from the clipboard.
 
-import type { AppState, WorkItem } from '../types';
+import type { AppState, PlanningState, WorkItem } from '../types';
 import { fmtShort, todayISO } from './dates';
 import {
   effectiveStreamCodeFreeze,
   eventsIn,
   releaseCapacity,
+  remainingByFreeze,
   sprintVel,
   streamCapacityCtx,
   streamContention,
@@ -89,15 +90,16 @@ export function releaseToTSV(
     its.filter((i) => i.status !== 'Complete' && i.sprintId != null && (sprintIndexById.get(i.sprintId) ?? -1) >= beyondNextThreshold).length;
 
   /** Multi-line string for the stream header cell: name + compact metric lines. */
-  const streamHeaderCell = (wsId: string | null, name: string, muted: boolean): string => {
+  const streamHeaderCell = (wsId: string | null, name: string, planningState: PlanningState): string => {
     const its = wsId ? (streamHealthMap.get(wsId)?.items ?? []) : unassignedItems;
     const h = wsId ? (streamHealthMap.get(wsId)?.health ?? streamHealth([])) : unassignedHealth;
     const ws = wsId ? release.workStreams.find((w) => w.id === wsId) : null;
     const engReq = ws?.engineersRequired ?? null;
     // Per-stream freeze override → per-stream capacity window, matching the app views.
     const streamCtx = streamCapacityCtx(release, team, ws ?? null, ctx, today);
-    const forecast = streamForecast(h, engReq, streamCtx, contention);
-    const runway = streamRunway(h, engReq, streamCtx, contention, { itemsBeyondNext: itemsBeyondNextFor(its), muted });
+    const { preFreezePts } = remainingByFreeze(its, release.sprints, effectiveStreamCodeFreeze(release, ws ?? null));
+    const forecast = streamForecast(h, engReq, streamCtx, contention, preFreezePts);
+    const runway = streamRunway(h, engReq, streamCtx, contention, { itemsBeyondNext: itemsBeyondNextFor(its), planningState, remainingPreFreezePts: preFreezePts });
 
     const healthLine = `${h.itemCount} items · ${h.pct}% done (${h.donePts}/${h.totalPts}pt) · ${h.remainingPts}pt rem${h.blockedPts > 0 ? ` · ${h.blockedPts}pt blocked` : ''}`;
 
@@ -118,6 +120,8 @@ export function releaseToTSV(
     if (runway.verdict === 'under-planned') {
       runwayLine += ` — ~${Math.round(runway.unclaimedRunway)}pt unclaimed`;
       if (runway.alarm) runwayLine += ' ⚠';
+    } else if (runway.verdict === 'over-reserved') {
+      runwayLine += ` — ~${Math.round(runway.overReservedPts)}pt beyond scope`;
     } else if (runway.verdict === 'unconfigured') {
       runwayLine += ' — set eng. required';
     } else if (runway.verdict === 'unplanned') {
@@ -136,19 +140,19 @@ export function releaseToTSV(
     serializeRow(['Planned', ...sprints.map((s) => String(sumPoints(state.items.filter((i) => i.releaseId === releaseId && i.sprintId === s.id))))]),
   ];
 
-  const streamsToExport: Array<{ name: string; matchId: string | null; muted: boolean }> = [
-    ...visibleWorkStreams.map((ws) => ({ name: ws.name, matchId: ws.id, muted: ws.planningMuted })),
+  const streamsToExport: Array<{ name: string; matchId: string | null; planningState: PlanningState }> = [
+    ...visibleWorkStreams.map((ws) => ({ name: ws.name, matchId: ws.id, planningState: ws.planningState })),
   ];
   const unassignedInRelease = state.items.filter((i) => i.releaseId === releaseId && i.workStreamId === null);
   if (unassignedInRelease.length > 0) {
     // Catch-all for every streamless item (native and carried-in alike), so the
     // export stays complete — broader than the app's Unassigned view, hence the label.
-    streamsToExport.push({ name: 'No stream', matchId: null, muted: false });
+    streamsToExport.push({ name: 'No stream', matchId: null, planningState: 'open' });
   }
 
-  for (const { name, matchId, muted } of streamsToExport) {
+  for (const { name, matchId, planningState } of streamsToExport) {
     // Stream header row: multi-line stats cell in col 0, sprint columns empty.
-    outputRows.push(serializeRow([streamHeaderCell(matchId, name, muted), ...emptySprints]));
+    outputRows.push(serializeRow([streamHeaderCell(matchId, name, planningState), ...emptySprints]));
 
     // Collect items grouped by sprint.
     const bySprint = new Map<string, WorkItem[]>(sprints.map((s) => [s.id, []]));

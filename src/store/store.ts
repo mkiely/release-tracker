@@ -353,6 +353,22 @@ export function migrate(p: AppState): AppState | null {
   if (s.version === 24) {
     s = { ...s, version: 25 };
   }
+  // v25 → v26: work streams' boolean `planningMuted` becomes the three-state
+  // `planningState`. muted → 'deferred' (alarm silenced, still under-planned);
+  // unmuted → 'open' (default). The new 'complete' state is only ever set by the user.
+  if (s.version === 25) {
+    s = {
+      ...s,
+      version: 26,
+      releases: s.releases.map((r) => ({
+        ...r,
+        workStreams: r.workStreams.map((ws) => {
+          const { planningMuted, ...rest } = ws as WorkStream & { planningMuted?: boolean };
+          return { ...rest, planningState: planningMuted ? 'deferred' : 'open' };
+        }),
+      })),
+    };
+  }
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -445,7 +461,7 @@ interface Actions {
    *  <= 0 or null turns it off. No-op for Local releases in practice (they never sync). */
   setAutoSync: (releaseId: string, minutes: number | null) => void;
   createWorkStream: (releaseId: string, name: string) => WorkStream | null;
-  updateWorkStream: (releaseId: string, wsId: string, patch: Partial<Pick<WorkStream, 'name' | 'engineersRequired' | 'planningMuted' | 'codeFreezeISO'>>) => void;
+  updateWorkStream: (releaseId: string, wsId: string, patch: Partial<Pick<WorkStream, 'name' | 'engineersRequired' | 'planningState' | 'codeFreezeISO'>>) => void;
   createEvent: (releaseId: string, input: { label: string; dateISO: string }) => void;
   updateEvent: (releaseId: string, eventId: string, patch: Partial<Pick<ReleaseEvent, 'label' | 'dateISO'>>) => void;
   deleteEvent: (releaseId: string, eventId: string) => void;
@@ -582,7 +598,7 @@ export const useStore = create<StoreState>((set, get) => {
             name: '',
             externalId: ws.externalId,
             engineersRequired: ws.engineersRequired ?? null,
-            planningMuted: false,
+            planningState: 'open',
             build: null,
             externalUrl: null,
             attributes: {},
@@ -642,7 +658,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     createWorkStream: (releaseId, name) => {
       if (!release(releaseId)) return null;
-      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null, planningMuted: false, build: null, externalUrl: null, attributes: {} };
+      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null, planningState: 'open', build: null, externalUrl: null, attributes: {} };
       commit((d) => {
         d.releases = d.releases.map((r) =>
           r.id === releaseId ? { ...r, workStreams: [...r.workStreams, ws] } : r,

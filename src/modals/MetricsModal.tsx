@@ -11,9 +11,13 @@ import { useState, type ReactNode } from 'react';
 import type { Release, Team, WorkItem } from '../types';
 import { todayISO } from '../lib/dates';
 import {
+  effectiveStreamCodeFreeze,
   releaseCapacity,
+  remainingByFreeze,
+  reservationBalance,
   streamCapacityCtx,
   streamContention,
+  streamForecast,
   streamHealth,
   streamRunway,
   velocityAttainment,
@@ -26,7 +30,7 @@ import { Modal, PButton } from '../components/primitives';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { VelocityTrendChart } from '../components/trend';
 import { RunwayBadge } from '../components/VerdictLine';
-import { statusVars } from '../components/statusVars';
+import { statusVars, warningVars } from '../components/statusVars';
 import { Row } from './modals';
 
 export type MetricsSection = 'velocity' | 'capacity' | 'runway';
@@ -256,26 +260,46 @@ function buildRunwayRows(r: Release, team: Team | undefined, items: WorkItem[]) 
     // Honor a stream's own code-freeze override so its runway matches the overview
     // row and the health modal (all three route through streamCapacityCtx).
     const streamCtx = streamCapacityCtx(r, team, ws, ctx, today);
-    return { ws, runway: streamRunway(health, ws.engineersRequired, streamCtx, contention, { itemsBeyondNext, muted: ws.planningMuted }) };
+    const { preFreezePts } = remainingByFreeze(streamItems, r.sprints, effectiveStreamCodeFreeze(r, ws));
+    const forecast = streamForecast(health, ws.engineersRequired, streamCtx, contention, preFreezePts);
+    const runway = streamRunway(health, ws.engineersRequired, streamCtx, contention, { itemsBeyondNext, planningState: ws.planningState, remainingPreFreezePts: preFreezePts });
+    return { ws, runway, forecast };
   });
+}
+
+/** Release-level reservation balance: pair over-reserved (scope-complete) streams
+ *  against at-risk ones to spot reserved engineers that could be redeployed. */
+function runwayReservation(r: Release, team: Team | undefined, items: WorkItem[]) {
+  return reservationBalance(
+    buildRunwayRows(r, team, items).map(({ ws, forecast, runway }) => ({
+      name: ws.name,
+      shortfallPts: forecast.shortfallPts,
+      atRisk: forecast.verdict === 'at-risk',
+      overReservedPts: runway.overReservedPts,
+      perEngineerCap: runway.perEngineerCap,
+    })),
+  );
 }
 
 function RunwaySection({ r, team, items }: SectionProps) {
   const { openModal } = useApp();
   const rows = buildRunwayRows(r, team, items);
 
-  // Order by urgency: alarms first, then other under-planned, then the rest.
-  const rank = (x: (typeof rows)[number]) => (x.runway.alarm ? 0 : x.runway.verdict === 'under-planned' ? 1 : 2);
+  // Order by urgency: alarms → under-planned → over-reserved → the rest.
+  const rank = (x: (typeof rows)[number]) =>
+    x.runway.alarm ? 0 : x.runway.verdict === 'under-planned' ? 1 : x.runway.verdict === 'over-reserved' ? 2 : 3;
   const ordered = [...rows].sort((a, b) => rank(a) - rank(b));
   const alarms = rows.filter((x) => x.runway.alarm).length;
   const alertTone = statusVars('Blocked');
+  const warnTone = warningVars();
+  const balance = runwayReservation(r, team, items);
 
   return (
     <>
       <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
         Forward planning health: is enough work <em>created</em> to fill the capacity each stream is holding for the
         remaining sprints? A large unclaimed runway means a stream is under-planned — and, until work is created, can't be
-        measured at all.
+        measured at all. A stream marked <em>scope complete</em> flips that reading: leftover capacity is over-reservation.
       </div>
 
       {alarms > 0 && (
@@ -283,6 +307,15 @@ function RunwaySection({ r, team, items }: SectionProps) {
           <span style={{ display: 'inline-flex', color: alertTone.text }}>{Icon.alert}</span>
           <span style={{ fontSize: 'var(--rt-fs-sm)', color: alertTone.text, lineHeight: 1.45 }}>
             {alarms} stream{alarms === 1 ? '' : 's'} {alarms === 1 ? 'holds' : 'hold'} capacity but {alarms === 1 ? 'has' : 'have'} nothing created beyond the next sprint.
+          </span>
+        </div>
+      )}
+
+      {balance.rebalanceable && (
+        <div className="card" style={{ background: warnTone.soft, border: `1.5px solid ${warnTone.soft}`, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 9 }}>
+          <span style={{ display: 'inline-flex', color: warnTone.text }}>{Icon.alert}</span>
+          <span style={{ fontSize: 'var(--rt-fs-sm)', color: warnTone.text, lineHeight: 1.45 }}>
+            {balance.summary}.
           </span>
         </div>
       )}
@@ -297,7 +330,7 @@ function RunwaySection({ r, team, items }: SectionProps) {
               key={ws.id}
               type="button"
               onClick={() => openModal({ type: 'stream', releaseId: r.id, wsId: ws.id })}
-              title="Edit this stream — set engineers required or mute its alarm"
+              title="Edit this stream — set engineers required or its planning status"
               style={{
                 appearance: 'none', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer',
                 display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 4px',
@@ -308,8 +341,11 @@ function RunwaySection({ r, team, items }: SectionProps) {
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 'var(--rt-fs-sm)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-ink)' }}>{ws.name}</span>
                   <RunwayBadge verdict={runway.verdict} />
-                  {ws.planningMuted && (
+                  {ws.planningState === 'deferred' && (
                     <span className="tag" style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>muted</span>
+                  )}
+                  {ws.planningState === 'complete' && (
+                    <span className="tag" style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>scope complete</span>
                   )}
                 </span>
                 <span style={{ fontSize: 'var(--rt-fs-xs)', color: runway.alarm ? alertTone.text : 'var(--rt-t3)', lineHeight: 1.4 }}>
@@ -323,9 +359,11 @@ function RunwaySection({ r, team, items }: SectionProps) {
       </div>
 
       <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.5 }}>
-        Reserved capacity = engineers required × per-engineer velocity over the remaining sprints. A stream with no items, no
-        estimates, or no engineer count reads as <strong style={{ color: 'var(--rt-t2)' }}>un-judgeable</strong> — never on-track —
-        because there's nothing to measure yet. Muting a stream silences its alarm (e.g. research pending) but keeps it un-judgeable.
+        Reserved capacity = engineers required × per-engineer velocity over the remaining sprints, up to each stream's code
+        freeze. A stream with no items, no estimates, or no engineer count reads as <strong style={{ color: 'var(--rt-t2)' }}>un-judgeable</strong> —
+        never on-track — because there's nothing to measure yet. <strong style={{ color: 'var(--rt-t2)' }}>Deferred</strong> silences the
+        alarm (research pending) but keeps a stream un-judgeable; <strong style={{ color: 'var(--rt-t2)' }}>scope complete</strong> treats
+        the created work as the whole scope, so leftover capacity reads as over-reserved and can be offered to at-risk streams.
       </div>
     </>
   );

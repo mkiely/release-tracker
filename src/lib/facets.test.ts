@@ -32,7 +32,7 @@ const item = (over: Partial<WorkItem> = {}): WorkItem =>
 
 const stream = (over: Partial<WorkStream> = {}): WorkStream => ({
   id: 'ws1', name: 'API', externalId: null, engineersRequired: null,
-  planningMuted: false, build: null, externalUrl: null, attributes: {},
+  planningState: 'open', build: null, externalUrl: null, attributes: {},
   ...over,
 });
 

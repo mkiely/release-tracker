@@ -76,7 +76,7 @@ describe('attributeColumns', () => {
 describe('streamAttributeColumns', () => {
   const stream = (attributes: WorkStream['attributes']): WorkStream => ({
     id: 'ws_1', name: 'API', externalId: null, engineersRequired: null,
-    planningMuted: false, build: null, externalUrl: null, attributes,
+    planningState: 'open', build: null, externalUrl: null, attributes,
   });
 
   it('projects vocabulary stream fields flat, skipping non-attribute shapes', () => {

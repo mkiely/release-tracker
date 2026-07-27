@@ -1,9 +1,9 @@
 // Interactive modals wired to the store — ported from proto-modals.jsx.
 
 import { useState, type ReactNode } from 'react';
-import { LOCAL_ITEM_TYPES, STATUSES, type AttrValue, type Member, type Status } from '../types';
+import { LOCAL_ITEM_TYPES, STATUSES, type AttrValue, type Member, type PlanningState, type Status } from '../types';
 import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
-import { capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, freezeSprintX, fullCap, releaseCapacity, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
+import { capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, freezeSprintX, fullCap, releaseCapacity, remainingByFreeze, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
 import { attributeFields, CANONICAL_FIELDS, canonicalChanged, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type CanonicalView, type EditConcept } from '../lib/connectorFields';
@@ -18,6 +18,7 @@ import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
 import { SegBar } from '../components/badges';
+import { SegmentedToggle } from '../components/SegmentedToggle';
 import { StreamBurnChart } from '../components/trend';
 import { VerdictBadge } from '../components/VerdictLine';
 import { statusVars, verdictVars, warningVars } from '../components/statusVars';
@@ -244,7 +245,7 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
   const [engineers, setEngineers] = useState(
     existing && existing.engineersRequired != null ? String(existing.engineersRequired) : '',
   );
-  const [muted, setMuted] = useState(existing ? existing.planningMuted : false);
+  const [planning, setPlanning] = useState<PlanningState>(existing ? existing.planningState : 'open');
   const [codeFreeze, setCodeFreeze] = useState(existing?.codeFreezeISO ?? '');
   const parseEngineers = (): number | null => {
     const n = Number(engineers);
@@ -254,12 +255,12 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
     if (!name.trim()) return;
     const codeFreezeISO = codeFreeze || null;
     if (editing && wsId) {
-      getActions().updateWorkStream(releaseId, wsId, { name: name.trim(), engineersRequired: parseEngineers(), planningMuted: muted, codeFreezeISO });
+      getActions().updateWorkStream(releaseId, wsId, { name: name.trim(), engineersRequired: parseEngineers(), planningState: planning, codeFreezeISO });
     } else {
       const ws = getActions().createWorkStream(releaseId, name.trim());
       const er = parseEngineers();
-      if (ws && (er != null || muted || codeFreezeISO)) {
-        getActions().updateWorkStream(releaseId, ws.id, { engineersRequired: er, planningMuted: muted, codeFreezeISO });
+      if (ws && (er != null || planning !== 'open' || codeFreezeISO)) {
+        getActions().updateWorkStream(releaseId, ws.id, { engineersRequired: er, planningState: planning, codeFreezeISO });
       }
     }
     onClose();
@@ -307,19 +308,24 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
           }}
         />
       </PField>
-      <PField label="Planning runway alarm">
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={muted}
-            onChange={(e) => setMuted(e.target.checked)}
-            style={{ marginTop: 2 }}
-          />
-          <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)', lineHeight: 1.45 }}>
-            Mute the under-planned alarm (tickets intentionally deferred, e.g. research pending).
-            The stream still reads as un-judgeable, not on-track — muting only silences the nudge.
-          </span>
-        </label>
+      <PField label="Planning status">
+        <SegmentedToggle
+          value={planning}
+          onChange={setPlanning}
+          ariaLabel="Planning status"
+          options={[
+            { value: 'open', label: 'Open', title: 'Planning in progress — under-planned capacity is flagged and can raise the alarm' },
+            { value: 'deferred', label: 'Deferred', title: 'Tickets intentionally not written yet (e.g. research pending) — mutes the alarm only' },
+            { value: 'complete', label: 'Scope complete', title: 'All work is defined — reserved capacity beyond the scope reads as over-reservation' },
+          ]}
+        />
+        <span style={{ display: 'block', marginTop: 6, fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.45 }}>
+          {planning === 'open'
+            ? 'Planning in progress. Reserved capacity with little created work flags as under-planned.'
+            : planning === 'deferred'
+              ? 'Alarm muted (tickets deferred, e.g. research pending). Still reads un-judgeable, never on-track.'
+              : 'Scope is fully defined — the created work is the whole scope. Reserved engineers beyond it read as over-reserved and feed the rebalancing suggestion.'}
+        </span>
       </PField>
       <PField
         label="Code freeze override"
@@ -369,7 +375,8 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
       .map((w) => w.engineersRequired!),
     ctx.contributingCount,
   );
-  const forecast = streamForecast(health, ws.engineersRequired, ctx, contention);
+  const { preFreezePts } = remainingByFreeze(streamItems, r.sprints, effectiveStreamCodeFreeze(r, ws));
+  const forecast = streamForecast(health, ws.engineersRequired, ctx, contention, preFreezePts);
   const v = verdictVars(forecast.verdict);
 
   const series = r.sprints.map((sp) => sumPoints(streamItems.filter((i) => i.sprintId === sp.id)));

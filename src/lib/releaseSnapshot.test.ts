@@ -18,8 +18,8 @@ const release = (overrides: Partial<Release> = {}): Release => ({
   startISO: '2026-04-13',
   teamId: 'team_atlas',
   workStreams: [
-    { id: 'ws_pay', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: null, planningMuted: false },
-    { id: 'ws_auth', name: 'Auth', externalId: 'EPIC-2', engineersRequired: null, build: null, externalUrl: null, planningMuted: false },
+    { id: 'ws_pay', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: null, planningState: 'open' },
+    { id: 'ws_auth', name: 'Auth', externalId: 'EPIC-2', engineersRequired: null, build: null, externalUrl: null, planningState: 'open' },
   ],
   events: [{ id: 'ev1', label: 'GA', dateISO: '2026-04-24', externalId: null }],
   sprints: [
@@ -97,8 +97,8 @@ describe('buildSnapshot', () => {
   it('carries each stream\'s connector deep link (externalUrl)', () => {
     const rel = release({
       workStreams: [
-        { id: 'ws_pay', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: 'https://acme.example/epic/1', planningMuted: false },
-        { id: 'ws_auth', name: 'Auth', externalId: 'EPIC-2', engineersRequired: null, build: null, externalUrl: null, planningMuted: false },
+        { id: 'ws_pay', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: 'https://acme.example/epic/1', planningState: 'open' },
+        { id: 'ws_auth', name: 'Auth', externalId: 'EPIC-2', engineersRequired: null, build: null, externalUrl: null, planningState: 'open' },
       ],
     });
     const snap = buildSnapshot(rel, team(), [item()], { now: NOW });
@@ -175,8 +175,8 @@ describe('buildSnapshot', () => {
     // only 2 contributing → over-allocated, effective staffing scaled to 50%.
     const overRel = release({
       workStreams: [
-        { id: 'ws_pay', name: 'Payments', externalId: null, engineersRequired: 2, build: null, externalUrl: null, planningMuted: false },
-        { id: 'ws_auth', name: 'Auth', externalId: null, engineersRequired: 2, build: null, externalUrl: null, planningMuted: false },
+        { id: 'ws_pay', name: 'Payments', externalId: null, engineersRequired: 2, build: null, externalUrl: null, planningState: 'open' },
+        { id: 'ws_auth', name: 'Auth', externalId: null, engineersRequired: 2, build: null, externalUrl: null, planningState: 'open' },
       ],
     });
     const snap = buildSnapshot(

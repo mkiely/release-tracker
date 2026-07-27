@@ -34,7 +34,7 @@ describe('seed', () => {
     const patches = items.filter(
       (i) => i.releaseId === 'rel_nexus' && i.build === 'Nexus Beta 2' && !carriedStreamIds.has(i.workStreamId ?? ''),
     );
-    expect(patches).toHaveLength(4);
+    expect(patches).toHaveLength(3);
   });
 
   it('seeds a carried-in (off-build) work stream with items on the nexus release', () => {

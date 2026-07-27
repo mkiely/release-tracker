@@ -14,7 +14,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 25;
+export const SCHEMA_VERSION = 26;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog, its
  *  status vocabulary (native workflow states mapped to canonical categories),
@@ -58,6 +58,9 @@ export interface Team {
   externalId: string | null;
 }
 
+/** A work stream's planning posture — see WorkStream.planningState. */
+export type PlanningState = 'open' | 'deferred' | 'complete';
+
 export interface WorkStream {
   id: string;
   name: string;
@@ -66,12 +69,19 @@ export interface WorkStream {
    *  capacity-fit health forecast. Survives connector sync (sync only owns name).
    *  null = not yet configured. */
   engineersRequired: number | null;
-  /** App-owned enrichment: the user has muted the planning-runway proactive-creation
-   *  alarm for this stream (e.g. tickets intentionally deferred while research is
-   *  pending). Silences the alarm only — the stream still reads as un-judgeable, never
-   *  green, when it has unclaimed runway (see derive.streamRunway). Survives connector
-   *  sync. Defaults to false. */
-  planningMuted: boolean;
+  /** App-owned enrichment: the stream's planning posture, driving how the
+   *  planning-runway signal reads (see derive.streamRunway):
+   *  - `'open'` (default) — planning is in progress; unclaimed reserved capacity flags
+   *    as under-planned and can raise the proactive-creation alarm.
+   *  - `'deferred'` — tickets intentionally not written yet (e.g. research pending):
+   *    silences the alarm only; the stream still reads un-judgeable/under-planned,
+   *    never green (the "we know, later" mute).
+   *  - `'complete'` — scope is fully defined; the created work IS the whole scope, so
+   *    under-planned/alarm are suppressed. Leftover reserved capacity is reinterpreted
+   *    as OVER-reservation (engineers held beyond defined scope — see the over-reserved
+   *    verdict + release-level rebalancing roll-up).
+   *  Survives connector sync (sync only owns name). */
+  planningState: PlanningState;
   /** Connector-owned provenance: the build/release this stream was carried in from,
    *  when it differs from this release. null = native to this release. Drives the
    *  "on-build only" lens (hide carried-in streams). Mirrors WorkItem.build; set by
