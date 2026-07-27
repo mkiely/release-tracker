@@ -7,7 +7,7 @@ import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
 import { useApp } from '../app-context';
 import { dOf, fmtShort, todayISO } from '../lib/dates';
-import { activeSprint, CODE_FREEZE_CHIP_ID, sprintEventChips, effectiveStreamCodeFreeze, releaseCapacity, remainingByFreeze, reservationBalance, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, sumPoints, velocityAttainment, type EventChip, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
+import { activeSprint, CODE_FREEZE_CHIP_ID, sprintEventChips, effectiveCodeFreeze, effectiveStreamCodeFreeze, releaseCapacity, remainingByFreeze, reservationBalance, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, sumPoints, velocityAttainment, type EventChip, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
 import { connectorLabel } from '../sync/client';
 import type { MetricsSection } from '../modals/MetricsModal';
 import type { RowData, RowMetrics } from '../lib/rowData';
@@ -143,6 +143,12 @@ export interface ReleaseViewProps {
   onOpenEvent: (eventId: string) => void;
   /** Opens the release-level code-freeze editor. */
   onEditCodeFreeze: () => void;
+  /** The release's effective code-freeze date, surfaced as a header readout rather
+   *  than hidden behind a command button (it's state the whole plan hangs off). */
+  codeFreezeISO: string;
+  /** How many work streams override the release freeze with their own date — the
+   *  edit that actually happens, so the readout carries its count. */
+  freezeOverrideCount: number;
   onSync: () => void;
   onPush: () => void;
 }
@@ -385,6 +391,8 @@ export function useReleaseView(): ReleaseViewProps | null {
         ? openModal({ type: 'codeFreeze', releaseId: id })
         : openModal({ type: 'event', releaseId: id, eventId }),
     onEditCodeFreeze: () => openModal({ type: 'codeFreeze', releaseId: id }),
+    codeFreezeISO: effectiveCodeFreeze(r),
+    freezeOverrideCount: r.workStreams.filter((ws) => ws.codeFreezeISO != null).length,
     onSync: () => onSync(id),
     onPush: () => onPush(id),
   };

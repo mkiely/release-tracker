@@ -63,3 +63,26 @@
   flex: 1;
   white-space: nowrap;
 }
+
+.itemCheck {
+  display: inline-flex;
+  color: var(--rt-t2);
+  flex-shrink: 0;
+}
+
+/* Grouping inside a menu — a set of related options (an auto-sync cadence) reads
+   as a set rather than as more one-shot commands. */
+.sectionLabel {
+  padding: 5px 14px 4px;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-bold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--rt-t3);
+}
+
+.sectionRule {
+  height: 1.5px;
+  background: var(--rt-line);
+  margin: 5px 0;
+}

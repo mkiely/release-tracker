@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Icon } from './Icon';
 import { PButton } from './primitives';
 import styles from './Menu.module.css';
@@ -13,6 +13,11 @@ export type MenuAction = {
   disabled?: boolean;
   /** Omit or `true` to show; `false` to hide (e.g. a connector-only action on a local release). */
   visible?: boolean;
+  /** Uppercase group label rendered above this item; starts a new section. */
+  section?: string;
+  /** Renders a check on the trailing edge — for a chosen option in a set (e.g. an
+   *  auto-sync cadence) rather than a one-shot command. */
+  checked?: boolean;
 };
 
 /**
@@ -32,6 +37,7 @@ export function Menu({
   variant = 'subtle',
   align = 'right',
   title,
+  style,
 }: {
   label: ReactNode;
   icon?: ReactNode;
@@ -40,6 +46,7 @@ export function Menu({
   variant?: 'subtle' | 'ghost' | 'danger';
   align?: 'left' | 'right';
   title?: string;
+  style?: CSSProperties;
 }) {
   const visible = actions.filter((a) => a.visible !== false);
   const [open, setOpen] = useState(false);
@@ -62,9 +69,10 @@ export function Menu({
   }, [open]);
 
   // Degenerate cases: a lone action doesn't warrant a menu, and an empty group
-  // shouldn't take up space in the action row.
+  // shouldn't take up space in the action row. A lone action inside a *section*
+  // still needs its label for context, so it keeps the popover.
   if (visible.length === 0) return null;
-  if (visible.length === 1) {
+  if (visible.length === 1 && !visible[0].section) {
     const a = visible[0];
     return (
       <PButton variant={variant} sm={sm} icon={a.icon} onClick={a.onSelect} title={a.title} disabled={a.disabled}>
@@ -75,7 +83,7 @@ export function Menu({
 
   return (
     <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
-      <PButton variant={variant} sm={sm} icon={icon} onClick={() => setOpen((o) => !o)} title={title}>
+      <PButton variant={variant} sm={sm} icon={icon} onClick={() => setOpen((o) => !o)} title={title} style={style}>
         {label}
         <span className={styles.caret} data-open={open || undefined}>
           {Icon.chevDown}
@@ -83,22 +91,31 @@ export function Menu({
       </PButton>
       {open && (
         <div className={`${styles.menu} ${align === 'left' ? styles.alignLeft : styles.alignRight}`} role="menu">
-          {visible.map((a) => (
-            <button
-              key={a.key}
-              type="button"
-              role="menuitem"
-              className={styles.item}
-              disabled={a.disabled}
-              title={a.title}
-              onClick={() => {
-                setOpen(false);
-                a.onSelect();
-              }}
-            >
-              {a.icon && <span className={styles.itemIcon}>{a.icon}</span>}
-              <span className={styles.itemLabel}>{a.label}</span>
-            </button>
+          {visible.map((a, i) => (
+            <Fragment key={a.key}>
+              {a.section && a.section !== visible[i - 1]?.section && (
+                <>
+                  {i > 0 && <div className={styles.sectionRule} />}
+                  <div className={styles.sectionLabel}>{a.section}</div>
+                </>
+              )}
+              <button
+                type="button"
+                role={a.checked === undefined ? 'menuitem' : 'menuitemradio'}
+                aria-checked={a.checked}
+                className={styles.item}
+                disabled={a.disabled}
+                title={a.title}
+                onClick={() => {
+                  setOpen(false);
+                  a.onSelect();
+                }}
+              >
+                {a.icon && <span className={styles.itemIcon}>{a.icon}</span>}
+                <span className={styles.itemLabel}>{a.label}</span>
+                {a.checked && <span className={styles.itemCheck}>{Icon.check}</span>}
+              </button>
+            </Fragment>
           ))}
         </div>
       )}

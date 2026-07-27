@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { TopBar } from './chrome';
+import type { Crumb } from './Breadcrumb';
 
 /**
  * Generic screen shell: the `wf screen` frame + the shared TopBar, an optional
@@ -10,6 +11,7 @@ import { TopBar } from './chrome';
  */
 export function ScreenScaffold({
   left,
+  crumbs,
   title,
   titleIcon,
   sub,
@@ -18,6 +20,8 @@ export function ScreenScaffold({
   children,
 }: {
   left?: ReactNode;
+  /** Trail rendered above the title, as on every other screen. */
+  crumbs?: Crumb[];
   title: ReactNode | null;
   titleIcon?: ReactNode;
   sub?: ReactNode;
@@ -27,7 +31,7 @@ export function ScreenScaffold({
 }) {
   return (
     <div className="wf screen">
-      <TopBar left={left} title={title} titleIcon={titleIcon} sub={sub} right={right} />
+      <TopBar left={left} crumbs={crumbs} title={title} titleIcon={titleIcon} sub={sub} right={right} />
       {toolbar}
       {children}
     </div>

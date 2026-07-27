@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ReleaseViewProps, WorkStreamBadgeData } from '../hooks/useReleaseView';
 import type { StatusSeg } from '../types';
 import { missingCapabilities } from '../lib/connectorFields';
-import { AutoSyncControl, PushButton, SyncButton } from './chrome';
+import { SyncMenu } from './chrome';
+import chromeStyles from './chrome.module.css';
+import { fmtShort } from '../lib/dates';
 import { FacetBar } from './FacetBar';
 import { ScreenScaffold } from './ScreenScaffold';
 import { Icon } from './Icon';
@@ -15,7 +17,49 @@ import { TeamLink } from './TeamLink';
 import { VDivider } from './VDivider';
 import { AxisModeStore, useAxisMode, type AxisMode } from '../store/axisMode';
 import { useAutoSync } from '../hooks/useAutoSync';
+import { useMediaQuery, NARROW_CHROME } from '../hooks/useMediaQuery';
 import styles from './ReleaseChrome.module.css';
+
+/**
+ * Tracks how much of a horizontally scrolling strip is out of view: whether each
+ * edge has content past it (drives the fades) and how many whole children are
+ * hidden past the right edge (drives the "+N" count). Recomputed on scroll and on
+ * resize, so the affordance never claims an overflow that isn't there.
+ */
+function useStripOverflow(ref: React.RefObject<HTMLDivElement>, deps: unknown[]) {
+  const [state, setState] = useState({ hidden: 0, atStart: true, atEnd: true });
+
+  // Stable so callers can re-measure straight after a programmatic scroll rather
+  // than waiting on a scroll event, which isn't guaranteed to arrive.
+  const remeasure = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const right = el.scrollLeft + el.clientWidth;
+    let hidden = 0;
+    for (const child of Array.from(el.children)) {
+      const c = child as HTMLElement;
+      if (c.offsetLeft + c.offsetWidth > right + 1) hidden++;
+    }
+    setState({ hidden, atStart: el.scrollLeft <= 1, atEnd: max <= 1 || el.scrollLeft >= max - 1 });
+  }, [ref]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    remeasure();
+    el.addEventListener('scroll', remeasure, { passive: true });
+    const ro = new ResizeObserver(remeasure);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', remeasure);
+      ro.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ref, remeasure, ...deps]);
+
+  return { ...state, remeasure };
+}
 
 /** One pill in the work-streams strip. Identical for assigned and unassigned lanes. */
 function StreamBadge({
@@ -24,6 +68,7 @@ function StreamBadge({
   segs,
   showSeg,
   unassigned,
+  freezeOverride,
   onClick,
 }: {
   name: string;
@@ -31,6 +76,8 @@ function StreamBadge({
   segs: StatusSeg[];
   showSeg: boolean;
   unassigned?: boolean;
+  /** This stream overrides the release freeze with its own date. */
+  freezeOverride?: string | null;
   onClick?: () => void;
 }) {
   return (
@@ -47,6 +94,11 @@ function StreamBadge({
         cursor: onClick ? 'pointer' : 'default',
       }}
     >
+      {freezeOverride && (
+        <span className={styles.badgeFreeze} title={`Own code freeze: ${fmtShort(freezeOverride)}`}>
+          {Icon.snowflake}
+        </span>
+      )}
       <span
         style={{
           fontSize: 'var(--rt-fs-sm)',
@@ -94,6 +146,8 @@ type ReleaseChromeProps = Pick<
   | 'onNewEvent'
   | 'onNewStream'
   | 'onEditCodeFreeze'
+  | 'codeFreezeISO'
+  | 'freezeOverrideCount'
   | 'onSync'
   | 'onPush'
 > & { children: ReactNode };
@@ -131,11 +185,18 @@ export function ReleaseChrome({
   onNewEvent,
   onNewStream,
   onEditCodeFreeze,
+  codeFreezeISO,
+  freezeOverrideCount,
   onSync,
   onPush,
   children,
 }: ReleaseChromeProps) {
   const axis = useAxisMode();
+  // Collapse ladder: below this width the "add" zone drops to icon-only, before
+  // anything in the navigate or exchange zones gives ground.
+  const narrow = useMediaQuery(NARROW_CHROME);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const overflow = useStripOverflow(stripRef, [workStreamBadges.length, hasUnassigned, axis, isStreamFiltered]);
   // Background auto-sync while this release is open, at its configured cadence (off by default).
   useAutoSync(r);
   // Capability handshake verdict, from the release's catalog snapshot: which
@@ -160,6 +221,7 @@ export function ReleaseChrome({
   return (
     <ScreenScaffold
       left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
+      crumbs={[{ label: 'Releases', onClick: onBack }, { label: r.name }]}
       title={r.name}
       titleIcon={Icon.release}
       sub={
@@ -172,24 +234,6 @@ export function ReleaseChrome({
               <span>—</span>
             </>
           )}
-          <button
-            type="button"
-            className={`tag ${metricsBad ? styles.overTag : styles.allocTag}`}
-            onClick={() => onOpenMetrics(metricsSection)}
-            title={metricsTitle}
-            style={metricsBad ? { color: statusVars('Blocked').dot } : metricsSoft ? { color: warningVars().dot } : undefined}
-          >
-            {metricsBad || metricsSoft ? Icon.alert : Icon.sprint}
-            Release analysis
-            {metricsBad && (
-              <span
-                className="mono"
-                style={{ fontSize: 'var(--rt-fs-micro)', fontWeight: 'var(--rt-fw-semibold)', marginLeft: 2 }}
-              >
-                {metricsIssues.length}
-              </span>
-            )}
-          </button>
           <span style={{ opacity: 0.5 }}>·</span>
           <span>{dateRange}</span>
           {connLabel && (
@@ -200,6 +244,28 @@ export function ReleaseChrome({
               </span>
             </>
           )}
+          <span style={{ opacity: 0.5 }}>·</span>
+          {/* Code freeze reads as state, not a command: it's the date the whole plan
+              hangs off and it almost never changes, so it states its value here
+              instead of hiding behind a button that showed nothing. */}
+          <button
+            type="button"
+            className={styles.freezeTag}
+            onClick={onEditCodeFreeze}
+            title={
+              freezeOverrideCount > 0
+                ? `Release code freeze ${fmtShort(codeFreezeISO)} — ${freezeOverrideCount} work stream${freezeOverrideCount === 1 ? '' : 's'} override it. Click to edit.`
+                : `Release code freeze ${fmtShort(codeFreezeISO)}. Click to edit.`
+            }
+          >
+            {Icon.snowflake}
+            Freeze {fmtShort(codeFreezeISO)}
+            {freezeOverrideCount > 0 && (
+              <span className="mono" style={{ fontSize: 'var(--rt-fs-micro)', fontWeight: 'var(--rt-fw-semibold)', marginLeft: 2 }}>
+                +{freezeOverrideCount}
+              </span>
+            )}
+          </button>
           {degraded.length > 0 && (
             <span
               className="tag"
@@ -207,36 +273,71 @@ export function ReleaseChrome({
               title={`This connector's catalog limits some features:\n${degraded.map((m) => `· ${m.impact}`).join('\n')}`}
             >
               {Icon.alert}
-              Connector limits
             </span>
           )}
         </>
       }
       right={
         <>
-          <PButton variant="subtle" sm icon={Icon.backlog} onClick={onNavigateToBacklog} title="All incomplete work in this release">
-            Backlog
-          </PButton>
-          <ShareMenu release={r} onExport={onExport} visibleStreamIds={visibleStreamIds} />
-          <PushButton release={r} onPush={onPush} />
-          <SyncButton release={r} onSync={onSync} />
-          <AutoSyncControl release={r} />
-          <PButton variant="subtle" sm icon={Icon.event} onClick={onNewEvent}>
-            New event
-          </PButton>
-          <PButton variant="subtle" sm icon={Icon.snowflake} onClick={onEditCodeFreeze}>
-            Code freeze
-          </PButton>
-          {!r.connector && (
-            <PButton sm icon={Icon.plus} onClick={onNewStream}>
-              New work stream
+          {/* Navigate — destinations. Never collapses. */}
+          <span className={`${chromeStyles.actionZone} ${chromeStyles.navZone}`}>
+            <PButton variant="subtle" sm icon={Icon.backlog} onClick={onNavigateToBacklog} title="All incomplete work in this release">
+              Backlog
             </PButton>
-          )}
+            <PButton
+              variant="subtle"
+              sm
+              icon={metricsBad || metricsSoft ? Icon.alert : Icon.sprint}
+              onClick={() => onOpenMetrics(metricsSection)}
+              title={metricsTitle}
+              style={
+                metricsBad
+                  ? { color: statusVars('Blocked').text, borderColor: 'var(--rt-st-bl-soft)', background: 'var(--rt-st-bl-soft)' }
+                  : metricsSoft
+                    ? { color: warningVars().text }
+                    : undefined
+              }
+            >
+              Analysis
+              {metricsBad && (
+                <span className="mono" style={{ fontSize: 'var(--rt-fs-micro)', fontWeight: 'var(--rt-fw-semibold)', marginLeft: 2 }}>
+                  {metricsIssues.length}
+                </span>
+              )}
+            </PButton>
+          </span>
+          <VDivider />
+          {/* Exchange — data in from the connector, data out to people. */}
+          <span className={chromeStyles.actionZone}>
+            <SyncMenu release={r} onSync={onSync} onPush={onPush} />
+            <ShareMenu release={r} onExport={onExport} visibleStreamIds={visibleStreamIds} />
+          </span>
+          <VDivider />
+          {/* Add — creation only, not release configuration. First zone to shed its
+              labels when the row runs out of room. */}
+          <span className={chromeStyles.actionZone}>
+            {narrow ? (
+              <IconButton icon={Icon.event} title="New event" onClick={onNewEvent} />
+            ) : (
+              <PButton variant="subtle" sm icon={Icon.event} onClick={onNewEvent}>
+                New event
+              </PButton>
+            )}
+            {!r.connector &&
+              (narrow ? (
+                <IconButton icon={Icon.plus} title="New work stream" onClick={onNewStream} />
+              ) : (
+                <PButton sm icon={Icon.plus} onClick={onNewStream}>
+                  New work stream
+                </PButton>
+              ))}
+          </span>
         </>
       }
       toolbar={
         <div className={styles.toolbar}>
-          <div className={styles.streamStrip}>
+          <div className={styles.stripZone}>
+          <div className={styles.streamStrip} ref={stripRef}>
             <span
               className="tag"
               style={{ flexShrink: 0, marginRight: 4, display: 'inline-flex', alignItems: 'center', gap: 5 }}
@@ -268,6 +369,7 @@ export function ReleaseChrome({
                     count={itemCount}
                     segs={segs}
                     showSeg={itemCount > 0}
+                    freezeOverride={ws.codeFreezeISO}
                     onClick={() => onNavigateToStream(ws.id)}
                   />
                 ))}
@@ -284,6 +386,28 @@ export function ReleaseChrome({
               </>
             )}
           </div>
+            <span className={`${styles.fadeEdge} ${styles.fadeStart}`} data-on={!overflow.atStart || undefined} />
+            <span className={`${styles.fadeEdge} ${styles.fadeEnd}`} data-on={!overflow.atEnd || undefined} />
+          </div>
+          {overflow.hidden > 0 && (
+            <button
+              type="button"
+              className={styles.moreStreams}
+              title={`${overflow.hidden} more work stream${overflow.hidden === 1 ? '' : 's'} — click to scroll`}
+              // Jump, don't animate. Smooth scrolling (via scrollTo's behavior option
+              // or CSS scroll-behavior) is a no-op under prefers-reduced-motion and in
+              // some environments, which would leave this button appearing to do
+              // nothing at all — the point is revealing the streams, not the motion.
+              onClick={() => {
+                const el = stripRef.current;
+                if (!el) return;
+                el.scrollLeft = el.scrollWidth;
+                overflow.remeasure();
+              }}
+            >
+              +{overflow.hidden}
+            </button>
+          )}
           <div className={styles.axisSlot}>
             <SegmentedToggle<AxisMode>
               ariaLabel="Index release by"

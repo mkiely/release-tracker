@@ -11,7 +11,9 @@ import { getActions, selDirtyCount, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import { connectorCreateTypes } from '../sync/client';
+import { Breadcrumb, type Crumb } from './Breadcrumb';
 import { Icon } from './Icon';
+import { Menu } from './Menu';
 import { IconButton, PButton } from './primitives';
 import { ShareButton } from './ShareButton';
 import { statusVars } from './statusVars';
@@ -136,12 +138,15 @@ export function PresentationToggle() {
 
 export function TopBar({
   left,
+  crumbs,
   title,
   titleIcon,
   sub,
   right,
 }: {
   left?: ReactNode;
+  /** Trail rendered above the title. */
+  crumbs?: Crumb[];
   title: ReactNode | null;
   titleIcon?: ReactNode;
   sub?: ReactNode;
@@ -152,6 +157,7 @@ export function TopBar({
       <div className={styles.topBarLeft}>
         {left}
         <div style={{ minWidth: 0 }}>
+          {crumbs && crumbs.length > 0 && <Breadcrumb crumbs={crumbs} marginBottom={4} />}
           {typeof title === 'string' ? (
             <div className={styles.topBarTitle} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {titleIcon && <span style={{ display: 'inline-flex', color: 'var(--rt-t2)', flexShrink: 0 }}>{titleIcon}</span>}
@@ -258,6 +264,97 @@ export function AutoSyncControl({ release }: { release: Release }) {
         ))}
       </select>
     </label>
+  );
+}
+
+/** Compact "how long ago" for the sync trigger. An absolute timestamp is precision
+ *  nobody reads; what matters is whether the data is minutes or days old. */
+function relTime(iso: string): string {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+}
+
+/**
+ * The release header's connector cluster, collapsed behind one trigger: the face
+ * reports freshness ("Synced 2h ago") and badges pending changes, the caret holds
+ * pull / push / auto-sync cadence. Replaces three separate top-bar controls whose
+ * combined 310px was mostly idle state, and stops Push from popping in and out of
+ * the row as the dirty count crosses zero.
+ */
+export function SyncMenu({
+  release,
+  onSync,
+  onPush,
+}: {
+  release: Release;
+  onSync: () => void | Promise<void>;
+  onPush: () => void | Promise<void>;
+}) {
+  const { openModal } = useApp();
+  const dirtyCount = useStore((s) => selDirtyCount(s, release.id));
+  const [busy, setBusy] = useState(false);
+  if (!release.connector) return null;
+
+  const sync = release.sync;
+  const ok = sync?.state === 'ok' && sync.lastISO;
+  const err = sync?.state === 'error';
+  const cadence = release.autoSyncMinutes ?? 0;
+
+  const label = busy ? 'Syncing…' : ok ? `Synced ${relTime(sync!.lastISO!)}` : err ? 'Sync failed' : 'Sync';
+  const color = busy ? undefined : err ? statusVars('Blocked').text : ok ? statusVars('Complete').text : undefined;
+
+  const pull = async () => {
+    if (busy) return;
+    setBusy(true);
+    try { await onSync(); } finally { setBusy(false); }
+  };
+
+  return (
+    <Menu
+      label={
+        <>
+          {label}
+          {dirtyCount > 0 && (
+            <span className={styles.dirtyBadge} title={`${dirtyCount} pending change${dirtyCount !== 1 ? 's' : ''}`}>
+              {dirtyCount}
+            </span>
+          )}
+        </>
+      }
+      icon={Icon.sync}
+      sm
+      title={err && sync?.message ? sync.message : 'Connector sync — pull, push, and automatic pull cadence'}
+      style={color ? { color } : undefined}
+      actions={[
+        {
+          key: 'push',
+          label: `Push ${dirtyCount} change${dirtyCount !== 1 ? 's' : ''}…`,
+          icon: Icon.sync,
+          visible: dirtyCount > 0,
+          onSelect: () => openModal({ type: 'pushReview', releaseId: release.id, onConfirm: onPush }),
+          title: 'Review local edits before sending them to the connector',
+        },
+        {
+          key: 'pull',
+          label: busy ? 'Pulling…' : 'Pull now',
+          icon: Icon.sync,
+          disabled: busy,
+          onSelect: pull,
+          title: 'Fetch the latest from the connector',
+        },
+        ...AUTO_SYNC_OPTIONS.map((o) => ({
+          key: `auto-${o.value}`,
+          section: 'Automatic pull',
+          label: o.value === 0 ? 'Off' : `Every ${o.label}`,
+          checked: cadence === o.value,
+          onSelect: () => getActions().setAutoSync(release.id, o.value || null),
+        })),
+      ]}
+    />
   );
 }
 
