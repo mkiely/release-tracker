@@ -1,7 +1,7 @@
 // Seed data — ported from proto-store.jsx seed(). Builds a primary demo
 // release plus two lighter releases so the home list feels real.
 
-import { SCHEMA_VERSION, SPRINT_LEN_DAYS, type AppState, type ItemType, type Release, type Sprint, type Status, type WorkItem, type WorkStream } from '../types';
+import { SCHEMA_VERSION, SPRINT_LEN_DAYS, type AppState, type ItemType, type PlanningState, type Release, type Sprint, type Status, type WorkItem, type WorkStream } from '../types';
 import { addDays, buildSprints, todayISO, uid } from './dates';
 
 // curated subjects per work stream so generated items read believably
@@ -45,9 +45,14 @@ const CONNECTOR_MATRIX: Record<number, Record<string, [Status, number][]>> = {
   3: { 'Data Ingestion': M(2,0,0,0,0), 'API Gateway': M(2,0,0,0,0), 'Auth & SSO': M(3,0,0,0,0), 'Reporting & Analytics': M(2,0,0,0,0), 'Webhooks': M(2,0,0,0,0), 'SDK & Developer Tools': M(1,0,0,0,0) },
   4: { 'Data Ingestion': M(2,0,0,0,0), 'API Gateway': M(2,0,0,0,0), 'Auth & SSO': M(2,0,0,0,0), 'Reporting & Analytics': M(2,0,0,0,0), 'Webhooks': M(1,0,0,0,0), 'SDK & Developer Tools': M(2,0,0,0,0) },
   5: { 'Data Ingestion': M(1,0,0,0,0), 'API Gateway': M(2,0,0,0,0), 'Auth & SSO': M(1,0,0,0,0), 'Reporting & Analytics': M(2,0,0,0,0), 'Webhooks': M(2,0,0,0,0), 'SDK & Developer Tools': M(2,0,0,0,0) },
-  6: { 'Data Ingestion': M(0,1,1,1,1), 'API Gateway': M(0,1,1,0,2), 'Auth & SSO': M(0,0,1,1,1), 'Reporting & Analytics': M(0,1,1,0,1), 'Webhooks': M(0,0,1,0,2), 'SDK & Developer Tools': M(0,1,0,1,1) },
-  7: { 'Data Ingestion': M(0,0,0,0,2), 'API Gateway': M(0,0,0,0,3), 'Auth & SSO': M(0,0,0,0,2), 'Reporting & Analytics': M(0,0,0,0,2), 'Webhooks': M(0,0,0,0,2), 'SDK & Developer Tools': M(0,0,0,0,2) },
-  8: { 'Data Ingestion': M(0,0,0,0,1), 'API Gateway': M(0,0,0,0,2), 'Auth & SSO': M(0,0,0,0,2), 'Reporting & Analytics': M(0,0,0,0,1), 'Webhooks': M(0,0,0,0,1), 'SDK & Developer Tools': M(0,0,0,0,2) },
+  // Forward sprints (6 = active, 7 pre-freeze, 8 post-freeze): only the two
+  // unconfigured streams (Webhooks, SDK — no engineersRequired) get matrix-generated
+  // work here. The four configured streams' forward items are hand-placed below with
+  // controlled points so their runway verdicts (at-risk / over-reserved / under-planned)
+  // land deterministically rather than riding the shared point round-robin.
+  6: { 'Webhooks': M(0,0,1,0,2), 'SDK & Developer Tools': M(0,1,0,1,1) },
+  7: { 'Webhooks': M(0,0,0,0,2), 'SDK & Developer Tools': M(0,0,0,0,2) },
+  8: { 'Webhooks': M(0,0,0,0,1), 'SDK & Developer Tools': M(0,0,0,0,2) },
 };
 
 // Nexus sprint shape: variable lengths (10, 14, 14, 14, 14, 21, 14, 14 days) to show
@@ -254,12 +259,23 @@ export function seed(): AppState {
   // CONNECTOR_MATRIX — is the active sprint, landing today on its 11th day (of 21).
   const nexusStart = addDays(today, -(10 + 14 + 14 + 14 + 14 + 10));
   const nexusStreamNames = ['Data Ingestion', 'API Gateway', 'Auth & SSO', 'Reporting & Analytics', 'Webhooks', 'SDK & Developer Tools'];
-  const nexusEngineers = [2, 3, 2, 2, 1, 1]; // app-owned enrichment; survives connector sync
+  // App-owned enrichment (survives connector sync). Tuned — with the forward work
+  // below — to exercise the full planning-runway spectrum on one release:
+  //   Data Ingestion     1 eng, open      → at-risk (work parked past the freeze too)
+  //   API Gateway        2 eng, complete  → over-reserved (scope done, engineers held beyond it)
+  //   Auth & SSO         1 eng, open      → under-planned + alarm (thin, nothing beyond next)
+  //   Reporting & Analytics 1 eng, deferred → under-planned, muted (research pending)
+  //   Webhooks / SDK     unset            → unconfigured ("Not assessed")
+  // Σ configured = 5 > 4 contributing, so the team also reads overbooked — and the
+  // over-reserved API Gateway is exactly the slack the rebalance suggestion offers to
+  // the at-risk Data Ingestion.
+  const nexusEngineers: (number | null)[] = [1, 2, 1, 1, null, null];
+  const nexusPlanning: PlanningState[] = ['open', 'complete', 'open', 'deferred', 'open', 'open'];
   // Acme-style deep link to an issue/epic, as a real connector would construct it.
   const nexusSite = 'acme.atlassian.net';
   const acmeUrl = (extId: string) => `https://${nexusSite}/browse/${extId}`;
   const nexusStreams: WorkStream[] = nexusStreamNames.map((n, i) => ({
-    id: uid('ws'), name: n, externalId: `EPIC-NXS-${i + 1}`, engineersRequired: nexusEngineers[i] ?? null, planningState: 'open', build: null,
+    id: uid('ws'), name: n, externalId: `EPIC-NXS-${i + 1}`, engineersRequired: nexusEngineers[i] ?? null, planningState: nexusPlanning[i] ?? 'open', build: null,
     externalUrl: acmeUrl(`EPIC-NXS-${i + 1}`),
   }));
   // A carried-in stream: an epic from the prior build whose items overlap this
@@ -330,7 +346,6 @@ export function seed(): AppState {
   // Patch items from Nexus Beta 2 carried into the active sprint (sprint 6)
   const nexusPatches: { stream: string; subject: string; status: Status; pts: number }[] = [
     { stream: 'Auth & SSO',          subject: 'Backport JWT clock-skew tolerance fix',        status: 'Under Review', pts: 2 },
-    { stream: 'API Gateway',         subject: 'Patch circuit-breaker false-positive on 429',  status: 'In Progress',  pts: 3 },
     { stream: 'Data Ingestion',      subject: 'Fix dedup window off-by-one under high lag',    status: 'Not Started', pts: 5 },
     { stream: 'Webhooks',            subject: 'Retry storm fix from Beta 2 load test',         status: 'Not Started', pts: 3 },
   ];
@@ -362,6 +377,29 @@ export function seed(): AppState {
       assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
       build: 'Nexus Beta 2', dirtyFields: [],
       itemType: { id: 'acme_task', label: 'Task' },
+    });
+  });
+
+  // Data Ingestion forward work — deliberately over-subscribed vs its 1 reserved
+  // engineer so the stream reads AT-RISK, with two items parked in the post-freeze
+  // sprint (8) to exercise the "N pts scheduled after freeze" callout. Native items
+  // (build null) with explicit points so the verdict doesn't depend on the round-robin.
+  const dataIngestionForward: { subject: string; sprintIdx: number; status: Status; pts: number }[] = [
+    { subject: 'Schema evolution for v2 event envelope', sprintIdx: 5, status: 'Not Started', pts: 8 },
+    { subject: 'Partition rebalancing safeguards',       sprintIdx: 5, status: 'Not Started', pts: 5 },
+    { subject: 'Backpressure tuning for burst ingest',   sprintIdx: 6, status: 'Not Started', pts: 5 },
+    { subject: 'Cross-region replication rollout',       sprintIdx: 7, status: 'Not Started', pts: 5 }, // post-freeze
+    { subject: 'Cold-path archival to object store',     sprintIdx: 7, status: 'Not Started', pts: 3 }, // post-freeze
+  ];
+  dataIngestionForward.forEach(({ subject, sprintIdx, status, pts }) => {
+    items.push({
+      id: uid('it'), releaseId: 'rel_nexus', workStreamId: nxsWsId('Data Ingestion'),
+      sprintId: nexusSprints[sprintIdx].id,
+      key: `NXS-${nxsKeyN}`, subject, description: '', status,
+      points: pts, externalId: `NXS-${nxsKeyN}`, externalUrl: acmeUrl(`NXS-${nxsKeyN++}`),
+      assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
+      build: null, dirtyFields: [],
+      itemType: NEXUS_TYPE_POOL[nxsTypeI++ % NEXUS_TYPE_POOL.length],
     });
   });
 
@@ -400,7 +438,7 @@ export function seed(): AppState {
     },
     {
       id: uid('it'), releaseId: 'rel_nexus', workStreamId: nxsWsId('Reporting & Analytics'),
-      sprintId: nexusSprints[4].id,
+      sprintId: nexusActiveSprint.id,
       key: `NXS-${nxsKeyN}`, subject: 'Nightly export job — timezone-correct day boundaries',
       description: `<p>The nightly export currently buckets events by <em>UTC</em> day, which splits a customer's "today" across two files for every timezone west of UTC. Rebucket using each tenant's configured reporting timezone instead.</p>
 <ol>
