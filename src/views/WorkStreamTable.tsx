@@ -7,15 +7,10 @@ import { usePresentationMode } from '../store/presentationMode';
 import type { Member, Sprint, WorkItem } from '../types';
 import { fmtShort } from '../lib/dates';
 import { streamCodeFreezeChip, sumPoints } from '../lib/derive';
-import { NewItemButton, PushButton, SyncButton, TopBar } from '../components/chrome';
-import { Breadcrumb } from '../components/Breadcrumb';
+import { WorkStreamChrome } from '../components/WorkStreamChrome';
 import { EmptyState } from '../components/EmptyState';
 import { EventBadge } from '../components/badges';
-import { Icon } from '../components/Icon';
 import { Drag, useDrag, useDragAutoScroll } from '../components/dnd';
-import { IconButton } from '../components/primitives';
-import { TeamLink } from '../components/TeamLink';
-import { StreamAttrSummary } from '../components/StreamAttrSummary';
 import { statusVars } from '../components/statusVars';
 import { TableFacetBar } from './SprintTable';
 import { getActions } from '../store/store';
@@ -215,27 +210,20 @@ function ColHeaders({
 
 // ── Main component ────────────────────────────────────────────────────────
 
-export function WorkStreamTable({
-  release: r,
-  workStream: ws,
-  team,
-  onOpenTeam,
-  filteredItems,
-  activeSprintId,
-  totalItemCount,
-  totalPts,
-  facetGroups,
-  isFiltered,
-  onHome,
-  onBack,
-  onNewItem,
-  onOpenItem,
-  onToggleFacet,
-  onClearFilters,
-  onSync,
-  onPush,
-  notify,
-}: WorkStreamViewProps) {
+export function WorkStreamTable(props: WorkStreamViewProps) {
+  const {
+    release: r,
+    workStream: ws,
+    team,
+    filteredItems,
+    activeSprintId,
+    facetGroups,
+    isFiltered,
+    onOpenItem,
+    onToggleFacet,
+    onClearFilters,
+    notify,
+  } = props;
   const members = team?.members ?? [];
   // Vocabulary columns declared by the connector's catalog snapshot (none for local releases).
   const attrCols = attributeColumns(r.catalog);
@@ -267,67 +255,10 @@ export function WorkStreamTable({
   const backlogItems = filteredItems.filter((i) => i.sprintId === null);
 
   return (
-    <div className="wf screen">
-      <TopBar
-        left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
-        title={
-          <>
-            <Breadcrumb
-              marginBottom={3}
-              crumbs={[
-                { label: 'Releases', icon: Icon.release, onClick: onHome },
-                { label: r.name, onClick: onBack },
-                { label: 'Work stream' },
-              ]}
-            />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ display: 'inline-flex', color: 'var(--rt-t2)', flexShrink: 0 }}>{Icon.stream}</span>
-              <span
-                style={{
-                  fontSize: 'var(--rt-fs-xl)',
-                  fontWeight: 'var(--rt-fw-heading)',
-                  letterSpacing: '-0.02em',
-                  lineHeight: 1,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {ws.name}
-              </span>
-              {ws.externalUrl && (
-                <a
-                  href={ws.externalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Open this work stream in the external system (new tab)"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    width: 28, height: 28, flexShrink: 0,
-                    color: 'var(--rt-accent)', borderRadius: 6,
-                    border: '1.5px solid var(--rt-line)', background: 'var(--rt-fill)',
-                  }}
-                >
-                  {Icon.external}
-                </a>
-              )}
-              <StreamAttrSummary release={r} ws={ws} />
-            </div>
-          </>
-        }
-        sub={team ? <TeamLink name={team.name} onClick={onOpenTeam} /> : undefined}
-        right={
-          <>
-            <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
-              {totalItemCount} items · {totalPts} pts
-            </span>
-            <PushButton release={r} onPush={onPush} />
-            <SyncButton release={r} onSync={onSync} />
-            <NewItemButton release={r} onClick={onNewItem} icon={Icon.plus} />
-          </>
-        }
-      />
-
-      <TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />
-
+    <WorkStreamChrome
+      {...props}
+      toolbar={<TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />}
+    >
       <div className={styles.body} ref={bodyRef}>
         <ColHeaders attrColumns={attrCols} containerRef={bodyRef} sort={sort} onSort={onSort} />
 
@@ -368,6 +299,6 @@ export function WorkStreamTable({
           </>
         )}
       </div>
-    </div>
+    </WorkStreamChrome>
   );
 }

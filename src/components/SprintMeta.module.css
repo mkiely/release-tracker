@@ -1,0 +1,8 @@
+.dot {
+  opacity: 0.45;
+}
+
+.over {
+  color: var(--rt-st-bl-text);
+  font-weight: var(--rt-fw-bold);
+}

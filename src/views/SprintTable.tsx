@@ -6,7 +6,8 @@ import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
 import { fmtShort } from '../lib/dates';
 import { sumPoints } from '../lib/derive';
-import { SprintTopActions, TopBar } from '../components/chrome';
+import { EditSprintButton, ReleaseActions, TopBar } from '../components/chrome';
+import { SprintMeta } from '../components/SprintMeta';
 import { avatarPalette, memberInitials } from '../components/Avatar';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { EmptyState } from '../components/EmptyState';
@@ -14,8 +15,8 @@ import { EventBadge } from '../components/badges';
 import { FilterChip, ClearFiltersButton } from '../components/FilterChip';
 import { Icon } from '../components/Icon';
 import { SprintRail } from '../components/dnd';
+import { SegmentedToggle } from '../components/SegmentedToggle';
 import { IconButton } from '../components/primitives';
-import { TeamLink } from '../components/TeamLink';
 import { statusVars } from '../components/statusVars';
 import type { Member, Status } from '../types';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
@@ -30,20 +31,20 @@ const TABLE_STATUS_ORDER: Status[] = ['In Progress', 'Under Review', 'Blocked', 
 
 // ── Sub-components ────────────────────────────────────────────────────────
 
+// Was a hand-rolled pair of buttons with its own .groupToggle/.groupBtn styles,
+// while the card presenter used the SegmentedToggle primitive for the same
+// control. Same control, one implementation.
 function GroupToggle({ value, onChange }: { value: GroupBy; onChange: (v: GroupBy) => void }) {
   return (
-    <div className={styles.groupToggle}>
-      {(['stream', 'status'] as const).map((mode) => (
-        <button
-          key={mode}
-          onClick={() => onChange(mode)}
-          title={mode === 'stream' ? 'Group by work stream' : 'Group by status'}
-          className={`${styles.groupBtn} ${value === mode ? styles.groupBtnActive : ''}`}
-        >
-          {mode === 'stream' ? 'By Stream' : 'By Status'}
-        </button>
-      ))}
-    </div>
+    <SegmentedToggle<GroupBy>
+      ariaLabel="Group work items by"
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: 'stream', label: 'By stream', title: 'Group by work stream' },
+        { value: 'status', label: 'By status', title: 'Group by status' },
+      ]}
+    />
   );
 }
 
@@ -362,9 +363,9 @@ export function SprintTable({
           />
         }
         right={
-          <SprintTopActions
+          <ReleaseActions
             release={r}
-            onEditSprint={onEditSprint}
+            leading={<EditSprintButton release={r} onEditSprint={onEditSprint} />}
             onPush={onPush}
             onSync={onSync}
             onNewItem={onNewItem}
@@ -380,22 +381,17 @@ export function SprintTable({
         </div>
         <div className={styles.identityRight}>
           <div className={styles.identityMeta}>
-            {team && (
-              <>
-                <TeamLink name={team.name} onClick={onOpenTeam} />
-                <span className={styles.identityDot}>·</span>
-              </>
-            )}
-            <span>{fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}</span>
-            <span className={styles.identityDot}>·</span>
-            <span>{vel} pts capacity{pct < 100 ? ` (${pct}%)` : ''}</span>
-            <span className={styles.identityDot}>·</span>
-            <span>{sp.daysOff} person-day{sp.daysOff === 1 ? '' : 's'} off</span>
-            <span className={styles.identityDot}>·</span>
-            <span style={totalPts > vel ? { color: 'var(--rt-st-bl-text)', fontWeight: 'var(--rt-fw-bold)' } : undefined}>
-              {sprintItemCount} items · {totalPts} pts planned
-              {totalPts > vel ? ` · over by ${totalPts - vel}` : ''}
-            </span>
+            <SprintMeta
+              sprint={sp}
+              team={team}
+              onOpenTeam={onOpenTeam}
+              vel={vel}
+              pct={pct}
+              totalPts={totalPts}
+              sprintItemCount={sprintItemCount}
+            />
+            {/* This presenter inlines the sprint's events rather than giving them
+                their own strip — there's room on the identity row. */}
             {evts.map((e) => (
               <EventBadge key={e.id} date={fmtShort(e.dateISO)} critical={e.critical} onClick={() => onOpenEvent(e.id)}>
                 {e.label}

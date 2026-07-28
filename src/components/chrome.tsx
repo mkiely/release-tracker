@@ -186,49 +186,6 @@ export function Brand() {
   );
 }
 
-export function SyncButton({ release, onSync }: { release: Release; onSync: () => void | Promise<void> }) {
-  const [busy, setBusy] = useState(false);
-  if (!release.connector) return null;
-
-  const sync = release.sync;
-  const ok = sync?.state === 'ok' && sync.lastISO;
-  const err = sync?.state === 'error';
-  const label = busy
-    ? 'Syncing…'
-    : ok
-      ? `Synced ${new Date(sync!.lastISO!).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
-      : err
-        ? 'Sync failed'
-        : 'Sync';
-  const color = busy
-    ? undefined
-    : ok
-      ? statusVars('Complete').text
-      : err
-        ? statusVars('Blocked').text
-        : undefined;
-
-  const run = async () => {
-    if (busy) return;
-    setBusy(true);
-    try { await onSync(); } finally { setBusy(false); }
-  };
-
-  return (
-    <PButton
-      variant="subtle"
-      sm
-      icon={Icon.sync}
-      onClick={run}
-      disabled={busy}
-      title={err && sync?.message ? sync.message : undefined}
-      style={color ? { color } : undefined}
-    >
-      {label}
-    </PButton>
-  );
-}
-
 /** Offered auto-sync cadences (minutes). 0 = off, the default. */
 const AUTO_SYNC_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: 'Off' },
@@ -328,28 +285,6 @@ export function SyncMenu({
   );
 }
 
-export function PushButton({ release, onPush }: { release: Release; onPush: () => void | Promise<void> }) {
-  const { openModal } = useApp();
-  const dirtyCount = useStore((s) => selDirtyCount(s, release.id));
-
-  if (!release.connector) return null;
-  if (dirtyCount === 0) return null;
-
-  // Clicking Push opens the review modal; the modal performs the actual push on confirm.
-  return (
-    <PButton
-      variant="subtle"
-      sm
-      icon={Icon.sync}
-      onClick={() => openModal({ type: 'pushReview', releaseId: release.id, onConfirm: onPush })}
-      title={`${dirtyCount} pending change${dirtyCount !== 1 ? 's' : ''}`}
-      style={{ color: statusVars('In Progress').text }}
-    >
-      {`Push (${dirtyCount})`}
-    </PButton>
-  );
-}
-
 /** "New work item" button. Always shown for local releases. For connector
  *  releases it's shown only when the connector advertises a create capability
  *  (`creatable.item.types`); otherwise it's hidden — items are owned externally. */
@@ -371,37 +306,58 @@ export function NewItemButton({
   );
 }
 
-/** The shared TopBar action cluster for both sprint presenters (card + table):
- *  edit-sprint (or "Days off" on connector releases), Push, Sync, New work item. */
-export function SprintTopActions({
+/**
+ * The TopBar action cluster shared by every screen inside a release (sprint,
+ * work stream, backlog, unassigned), in both densities.
+ *
+ * Every one of these screens used to spell this cluster out for itself, and they
+ * had drifted: the work-stream table had lost its Share button, and the sprint
+ * screens carried a `SprintTopActions` variant that the others didn't. `leading`
+ * is the only genuine per-screen difference (the sprint screens put an
+ * edit-sprint button first), so it's the only thing passed in.
+ *
+ * Connector controls go through SyncMenu — one trigger holding pull, push and
+ * cadence — rather than the separate Sync and Push buttons these screens used,
+ * which reported freshness in a different format from the release header and
+ * made Push pop in and out of the row as the dirty count crossed zero.
+ */
+export function ReleaseActions({
   release,
-  onEditSprint,
+  leading,
   onPush,
   onSync,
   onNewItem,
+  newItemIcon,
 }: {
   release: Release;
-  onEditSprint: () => void;
+  /** Screen-specific actions, rendered before the shared ones. */
+  leading?: ReactNode;
   onPush: () => void | Promise<void>;
   onSync: () => void | Promise<void>;
   onNewItem: () => void;
+  newItemIcon?: ReactNode;
 }) {
   return (
     <>
-      {release.connector ? (
-        <PButton variant="subtle" sm icon={Icon.cal} onClick={onEditSprint}>
-          Days off
-        </PButton>
-      ) : (
-        <PButton variant="subtle" sm icon={Icon.sprint} onClick={onEditSprint}>
-          Edit sprint
-        </PButton>
-      )}
+      {leading}
       <ShareButton release={release} />
-      <PushButton release={release} onPush={onPush} />
-      <SyncButton release={release} onSync={onSync} />
-      <NewItemButton release={release} onClick={onNewItem} />
+      <SyncMenu release={release} onSync={onSync} onPush={onPush} />
+      <NewItemButton release={release} onClick={onNewItem} icon={newItemIcon} />
     </>
+  );
+}
+
+/** The edit-sprint action that leads the cluster on the two sprint screens.
+ *  Connector releases own the sprint itself, so only days off is editable. */
+export function EditSprintButton({ release, onEditSprint }: { release: Release; onEditSprint: () => void }) {
+  return release.connector ? (
+    <PButton variant="subtle" sm icon={Icon.cal} onClick={onEditSprint}>
+      Days off
+    </PButton>
+  ) : (
+    <PButton variant="subtle" sm icon={Icon.sprint} onClick={onEditSprint}>
+      Edit sprint
+    </PButton>
   );
 }
 

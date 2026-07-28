@@ -1,7 +1,8 @@
 import type { SprintViewProps, GroupBy } from '../hooks/useSprintView';
 import { fmtShort } from '../lib/dates';
 import { groupItemsByStream, sumPoints } from '../lib/derive';
-import { SprintTopActions, TopBar } from '../components/chrome';
+import { EditSprintButton, ReleaseActions, TopBar } from '../components/chrome';
+import { SprintMeta } from '../components/SprintMeta';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { EmptyState } from '../components/EmptyState';
 import { FacetBar } from '../components/FacetBar';
@@ -11,7 +12,6 @@ import { SprintRail } from '../components/dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
 import { IconButton } from '../components/primitives';
 import { SegmentedToggle } from '../components/SegmentedToggle';
-import { TeamLink } from '../components/TeamLink';
 import sprintStyles from '../routes/Sprint.module.css';
 
 function GroupToggle({ value, onChange }: { value: GroupBy; onChange: (v: GroupBy) => void }) {
@@ -94,35 +94,20 @@ export function SprintView({
           </>
         }
         sub={
-          <>
-            {team && (
-              <>
-                <TeamLink name={team.name} onClick={onOpenTeam} />
-                <span style={{ opacity: 0.5 }}>·</span>
-              </>
-            )}
-            <span>
-              {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
-            </span>
-            <span style={{ opacity: 0.5 }}>·</span>
-            <span>
-              {vel} pts capacity{pct < 100 ? ` (${pct}%)` : ''}
-            </span>
-            <span style={{ opacity: 0.5 }}>·</span>
-            <span>
-              {sp.daysOff} person-day{sp.daysOff === 1 ? '' : 's'} off
-            </span>
-            <span style={{ opacity: 0.5 }}>·</span>
-            <span style={totalPts > vel ? { color: 'var(--rt-st-bl-text)', fontWeight: 'var(--rt-fw-bold)' } : undefined}>
-              {sprintItemCount} items · {totalPts} pts planned
-              {totalPts > vel ? ` · over by ${totalPts - vel}` : ''}
-            </span>
-          </>
+          <SprintMeta
+            sprint={sp}
+            team={team}
+            onOpenTeam={onOpenTeam}
+            vel={vel}
+            pct={pct}
+            totalPts={totalPts}
+            sprintItemCount={sprintItemCount}
+          />
         }
         right={
-          <SprintTopActions
+          <ReleaseActions
             release={r}
-            onEditSprint={onEditSprint}
+            leading={<EditSprintButton release={r} onEditSprint={onEditSprint} />}
             onPush={onPush}
             onSync={onSync}
             onNewItem={onNewItem}

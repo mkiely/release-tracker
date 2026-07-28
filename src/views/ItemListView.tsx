@@ -7,13 +7,8 @@ import { usePresentationMode } from '../store/presentationMode';
 import type { Member, Sprint, WorkItem } from '../types';
 import { fmtShort } from '../lib/dates';
 import { sumPoints } from '../lib/derive';
-import { NewItemButton, PushButton, SyncButton, TopBar } from '../components/chrome';
-import { ShareButton } from '../components/ShareButton';
-import { Breadcrumb } from '../components/Breadcrumb';
+import { ListChrome } from '../components/ListChrome';
 import { EmptyState } from '../components/EmptyState';
-import { Icon } from '../components/Icon';
-import { IconButton } from '../components/primitives';
-import { TeamLink } from '../components/TeamLink';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { statusVars } from '../components/statusVars';
 import { TableFacetBar } from './SprintTable';
@@ -163,29 +158,22 @@ function ColHeaders({
 
 // ── Main component ────────────────────────────────────────────────────────
 
-export function ItemListView({
-  variant,
-  release: r,
-  team,
-  filteredItems,
-  activeSprintId,
-  totalItemCount,
-  totalPts,
-  facetGroups,
-  isFiltered,
-  groupBySprint,
-  showStreamColumn,
-  onToggleGroupBy,
-  onHome,
-  onBack,
-  onOpenTeam,
-  onNewItem,
-  onOpenItem,
-  onToggleFacet,
-  onClearFilters,
-  onSync,
-  onPush,
-}: ItemListViewProps) {
+export function ItemListView(props: ItemListViewProps) {
+  const {
+    variant,
+    release: r,
+    team,
+    filteredItems,
+    activeSprintId,
+    facetGroups,
+    isFiltered,
+    groupBySprint,
+    showStreamColumn,
+    onToggleGroupBy,
+    onOpenItem,
+    onToggleFacet,
+    onClearFilters,
+  } = props;
   const members = team?.members ?? [];
   const attrCols = attributeColumns(r.catalog);
 
@@ -235,52 +223,30 @@ export function ItemListView({
   const isEmpty = filteredItems.length === 0;
 
   return (
-    <div className="wf screen">
-      <TopBar
-        left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
-        title={
-          <Breadcrumb
-            crumbs={[
-              { label: 'Releases', icon: Icon.release, onClick: onHome },
-              { label: r.name, onClick: onBack },
-              { label: crumbLabel, icon: variant === 'backlog' ? Icon.backlog : Icon.stream },
-            ]}
-          />
-        }
-        sub={team ? <TeamLink name={team.name} onClick={onOpenTeam} /> : undefined}
-        right={
-          <>
-            <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
-              {totalItemCount} item{totalItemCount !== 1 ? 's' : ''} · {totalPts} pts
-            </span>
-            <ShareButton release={r} />
-            <PushButton release={r} onPush={onPush} />
-            <SyncButton release={r} onSync={onSync} />
-            <NewItemButton release={r} onClick={onNewItem} icon={Icon.plus} />
-          </>
-        }
-      />
-
-      <TableFacetBar
-        groups={facetGroups}
-        onToggle={onToggleFacet}
-        onClear={onClearFilters}
-        trailing={
-          <div className={styles.filterGroup} style={{ justifyContent: 'flex-end' }}>
-            <span className={styles.filterLabel}>Group by</span>
-            <SegmentedToggle<'flat' | 'sprint'>
-              ariaLabel={`Group ${crumbLabel.toLowerCase()} by`}
-              value={groupBySprint ? 'sprint' : 'flat'}
-              onChange={(v) => { if ((v === 'sprint') !== groupBySprint) onToggleGroupBy(); }}
-              options={[
-                { value: 'flat', label: 'All items', title: 'Show all items in one list' },
-                { value: 'sprint', label: 'By sprint', title: 'Group items by sprint' },
-              ]}
-            />
-          </div>
-        }
-      />
-
+    <ListChrome
+      {...props}
+      toolbar={
+        <TableFacetBar
+          groups={facetGroups}
+          onToggle={onToggleFacet}
+          onClear={onClearFilters}
+          trailing={
+            <div className={styles.filterGroup} style={{ justifyContent: 'flex-end' }}>
+              <span className={styles.filterLabel}>Group by</span>
+              <SegmentedToggle<'flat' | 'sprint'>
+                ariaLabel={`Group ${crumbLabel.toLowerCase()} by`}
+                value={groupBySprint ? 'sprint' : 'flat'}
+                onChange={(v) => { if ((v === 'sprint') !== groupBySprint) onToggleGroupBy(); }}
+                options={[
+                  { value: 'flat', label: 'All items', title: 'Show all items in one list' },
+                  { value: 'sprint', label: 'By sprint', title: 'Group items by sprint' },
+                ]}
+              />
+            </div>
+          }
+        />
+      }
+    >
       <div className={styles.body} ref={bodyRef}>
         <ColHeaders
           groupBySprint={groupBySprint}
@@ -346,6 +312,6 @@ export function ItemListView({
           </div>
         )}
       </div>
-    </div>
+    </ListChrome>
   );
 }
