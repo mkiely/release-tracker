@@ -274,7 +274,7 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
       title={editing ? 'Edit work stream' : 'New work stream'}
       icon={Icon.stream}
       onClose={onClose}
-      width={440}
+      width={520}
       footer={
         <>
           <PButton variant="subtle" onClick={onClose}>
@@ -394,11 +394,15 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
   return (
     <Modal
       onClose={onClose}
-      width={640}
+      width={720}
       title={
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        // The badge holds its size; the name truncates (the shell's title styling
+        // covers the whole node, so this span only needs the ellipsis rules).
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <VerdictBadge verdict={forecast.verdict} />
-          <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>{ws.name}</span>
+          <span title={ws.name} style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {ws.name}
+          </span>
         </span>
       }
       footer={
@@ -629,7 +633,7 @@ export function CodeFreezeModal({ releaseId, onClose }: { releaseId: string; onC
       title="Code freeze"
       icon={Icon.snowflake}
       onClose={onClose}
-      width={460}
+      width={560}
       footer={
         <>
           {isOverride && (

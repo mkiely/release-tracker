@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.17.0
+  version: 0.18.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
@@ -433,6 +433,18 @@ components:
         facetSeparator:
           type: string
           description: Separator for facetGroup=prefix. Default '.'.
+        detailOnly:
+          type: boolean
+          description: >-
+            Presentation hint: keep this field out of the app's item/stream
+            tables. It still syncs, still appears on the item detail, and is
+            still offered as a facet when `filterable` — it simply never becomes
+            a column. For vocabulary fields a type declares but that aren't worth
+            a column across every item in the release (long free text, niche
+            per-type detail). Only meaningful on vocabulary fields — canonical
+            fields have fixed columns of their own. Orthogonal to `creatable`
+            and `writeable`: a detailOnly field is still editable and pushable
+            where those allow. Default false.
 
     ConnectorItemType:
       type: object

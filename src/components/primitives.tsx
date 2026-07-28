@@ -146,9 +146,9 @@ export function Modal({
     >
       <div className={modalStyles.modal} role="dialog" aria-modal="true" style={{ maxWidth: width }}>
         <div className={modalStyles.head}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+          <div className={modalStyles.titleWrap}>
             {icon}
-            <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)', whiteSpace: 'nowrap' }}>{title}</span>
+            <span className={modalStyles.title}>{title}</span>
           </div>
           <IconButton icon={Icon.close} onClick={onClose} title="Close" style={{ border: 'none', padding: 4 }} />
         </div>

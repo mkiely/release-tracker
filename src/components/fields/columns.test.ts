@@ -12,6 +12,7 @@ const catalog: ReleaseCatalog = {
     { key: 'track', label: 'Track', kind: 'enum', options: [{ value: 'product', label: 'Product' }] },
     { key: 'owner', kind: 'string' },
     { key: 'epicRef', kind: 'ref', target: 'workStream' }, // ref — never a column
+    { key: 'charter', label: 'Charter', kind: 'string', detailOnly: true },
   ],
   itemTypes: [
     {
@@ -22,6 +23,7 @@ const catalog: ReleaseCatalog = {
         { key: 'sprint', kind: 'ref', target: 'sprint' },                 // ref — never a column
         { key: 'severity', label: 'Severity', kind: 'enum', options: [{ value: 'high', label: 'High' }] },
         { key: 'regression', label: 'Regression', kind: 'boolean' },
+        { key: 'repro', label: 'Repro steps', kind: 'string', detailOnly: true },
       ],
     },
     {
@@ -31,6 +33,8 @@ const catalog: ReleaseCatalog = {
         // Same key, different option vocabulary — cells must resolve per type.
         { key: 'severity', label: 'Sev (ops)', kind: 'enum', options: [{ value: 'high', label: 'P1' }] },
         { key: 'rootCause', label: 'Root cause', kind: 'string' },
+        // Shared key, suppressed only here — the column survives, this type's cells go blank.
+        { key: 'regression', label: 'Regression', kind: 'boolean', detailOnly: true },
       ],
     },
   ],
@@ -48,6 +52,18 @@ describe('attributeColumns', () => {
   it('returns no columns without a catalog (local releases)', () => {
     expect(attributeColumns(null)).toEqual([]);
     expect(attributeColumns(undefined)).toEqual([]);
+  });
+
+  it('omits detailOnly fields — they belong to the item detail, not the table', () => {
+    expect(attributeColumns(catalog).map((c) => c.key)).not.toContain('repro');
+  });
+
+  it('keeps a shared key columnar when another type declares it, blanking the suppressed type', () => {
+    const regression = attributeColumns(catalog).find((c) => c.key === 'regression')!;
+    const bug = item({ itemType: { id: 'bug', label: 'Bug' }, attributes: { regression: true } });
+    const incident = item({ itemType: { id: 'incident', label: 'Incident' }, attributes: { regression: true } });
+    expect(regression.cell(bug)).toBe('Yes');
+    expect(regression.cell(incident)).toBe('');
   });
 
   it('formats cells through the spec of the item own type (per-type enum labels)', () => {
@@ -86,6 +102,10 @@ describe('streamAttributeColumns', () => {
   it('returns no columns without a catalog (local releases)', () => {
     expect(streamAttributeColumns(null)).toEqual([]);
     expect(streamAttributeColumns(undefined)).toEqual([]);
+  });
+
+  it('omits detailOnly stream fields', () => {
+    expect(streamAttributeColumns(catalog).map((c) => c.key)).not.toContain('charter');
   });
 
   it('formats cells through the declaring spec, em dash when unset', () => {
