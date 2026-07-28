@@ -28,7 +28,7 @@ function hash(s: string): number {
 }
 
 /** Ramp slot (1..8) for a type label: anchored when known, else a stable hash. */
-export function typeSlot(label: string): number {
+function typeSlot(label: string): number {
   const anchored = ANCHORED[label];
   if (anchored !== undefined) return anchored;
   return FREE_SLOTS[hash(label) % FREE_SLOTS.length];

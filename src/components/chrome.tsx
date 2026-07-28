@@ -119,9 +119,6 @@ export function SettingsPanel() {
   );
 }
 
-/** @deprecated Use SettingsPanel instead. Kept for callers that haven't migrated. */
-export const PalettePicker = SettingsPanel;
-
 /** Persistent top-bar toggle for presentation mode — enlarges all UI text for
  *  readability when sharing the app in a meeting tab. Lives in every TopBar. */
 export function PresentationToggle() {
@@ -239,33 +236,6 @@ const AUTO_SYNC_OPTIONS: { value: number; label: string }[] = [
   { value: 30, label: '30 min' },
   { value: 60, label: '60 min' },
 ];
-
-/** Per-release auto-sync cadence picker. Connector releases only; sits by the Sync
- *  button. Off by default — the user opts into a background pull interval. */
-export function AutoSyncControl({ release }: { release: Release }) {
-  if (!release.connector) return null;
-  const current = release.autoSyncMinutes ?? 0;
-  return (
-    <label
-      className={styles.autoSync}
-      title="Automatically pull from the connector on this interval while the release is open. Off by default."
-    >
-      <span className={styles.autoSyncLabel}>{Icon.sync} Auto</span>
-      <select
-        className={styles.autoSyncSelect}
-        value={current}
-        aria-label="Auto-sync interval"
-        onChange={(e) => getActions().setAutoSync(release.id, Number(e.target.value) || null)}
-      >
-        {AUTO_SYNC_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
 
 /** Compact "how long ago" for the sync trigger. An absolute timestamp is precision
  *  nobody reads; what matters is whether the data is minutes or days old. */

@@ -21,7 +21,7 @@ function hexToRgb(h: string): [number, number, number] {
   return [0, 2, 4].map((i) => parseInt(s.slice(i, i + 2), 16)) as [number, number, number];
 }
 function lab(hex: string): [number, number, number] {
-  let [r, g, b] = hexToRgb(hex).map((v) => {
+  const [r, g, b] = hexToRgb(hex).map((v) => {
     const c = v / 255;
     return c > 0.04045 ? ((c + 0.055) / 1.055) ** 2.4 : c / 12.92;
   });

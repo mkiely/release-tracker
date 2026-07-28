@@ -14,7 +14,7 @@ function hash(s: string): number {
 }
 
 /** Ramp slot (1..8) for a work-stream id: a stable hash, no anchors. */
-export function streamSlot(workStreamId: string): number {
+function streamSlot(workStreamId: string): number {
   return SLOTS[hash(workStreamId) % SLOTS.length];
 }
 

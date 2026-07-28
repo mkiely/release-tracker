@@ -47,23 +47,11 @@ export function EventBadge({
   );
 }
 
-export function StatusChip({ status, count }: { status: Status; count?: number }) {
-  const { soft, text, dot } = statusVars(status);
-  return (
-    <span className="chip" style={{ background: soft, color: text }}>
-      <span className="dot" style={{ background: dot }} />
-      {status}
-      {count != null ? ` · ${count}` : ''}
-    </span>
-  );
-}
-
 /**
  * A soft-tinted status pill (dot + label). `sm` is the compact form used in
  * dense table rows; the default is the slightly larger form used as a column
- * heading. Distinct from {@link StatusChip}, which uses the global `.chip` class.
- * `label` overrides the displayed text (e.g. an item's native workflow state)
- * while colors stay keyed to the canonical category.
+ * heading. `label` overrides the displayed text (e.g. an item's native workflow
+ * state) while colors stay keyed to the canonical category.
  */
 export function StatusPill({ status, sm, label, title }: { status: Status; sm?: boolean; label?: string; title?: string }) {
   const { soft, text, dot } = statusVars(status);

@@ -102,7 +102,7 @@ export function setDragGhost(e: React.DragEvent, text: string) {
 }
 
 // ── planned-vs-capacity meter ───────────────────────────────────────────
-export function CapacityMeter({ planned, cap, style }: { planned: number; cap: number; style?: CSSProperties }) {
+function CapacityMeter({ planned, cap, style }: { planned: number; cap: number; style?: CSSProperties }) {
   const over = planned > cap;
   const ratio = cap > 0 ? Math.min(planned / cap, 1) : planned > 0 ? 1 : 0;
   const overW = over && cap > 0 ? Math.min((planned - cap) / cap, 0.6) : 0;

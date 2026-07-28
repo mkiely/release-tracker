@@ -30,7 +30,9 @@ export function saveColWidth(col: string, px: number): void {
     const saved = loadSaved();
     if (px === COL_DEFAULTS[col]) { delete saved[col]; } else { saved[col] = px; }
     localStorage.setItem(LS_KEY, JSON.stringify(saved));
-  } catch {}
+  } catch {
+    /* storage unavailable — column widths just don't persist */
+  }
 }
 
 export function getColWidthFromDOM(col: string, el: HTMLElement | null): number {

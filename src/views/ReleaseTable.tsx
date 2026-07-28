@@ -77,7 +77,11 @@ function F3SprintRow({
                     styles.trackLabelClickable,
                     isUnassigned && styles.trackLabelUnassigned,
                   ].filter(Boolean).join(' ')}
-                  onClick={(ev) => { ev.stopPropagation(); isUnassigned ? onNavigateToUnassigned() : onNavigateToStream(e.ws!.id); }}
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    if (isUnassigned) onNavigateToUnassigned();
+                    else onNavigateToStream(e.ws!.id);
+                  }}
                 >
                   {e.ws ? e.ws.name : 'Unassigned'}
                 </span>
