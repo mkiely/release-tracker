@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { Status, StatusSeg } from '../types';
 import { Icon } from './Icon';
 import { statusVars, warningVars } from './statusVars';
-import styles from './badges.module.css';
+import styles from './Badges.module.css';
 
 /** A calendar-event chip (flag + label + optional date). Long labels are
  *  truncated to `max` chars with the full text in a tooltip. `critical` gives it

@@ -1,8 +1,8 @@
-// ModalHost — renders the active modal based on the ModalSpec. Mirrors the
-// modal switch at the bottom of proto-app.jsx's App().
+// ModalHost — renders the active modal for a ModalSpec. One switch, so opening a
+// modal anywhere in the app is a plain data value rather than local state.
 
 import type { ModalSpec } from '../app-context';
-import { CodeFreezeModal, ConfirmModal, EventModal, LoadShareModal, PushReviewModal, SprintModal, StreamHealthModal, TeamModal, WorkItemDetailModal, WorkItemModal, WorkStreamModal } from './modals';
+import { CodeFreezeModal, ConfirmModal, EventModal, LoadShareModal, PushReviewModal, SprintModal, StreamHealthModal, TeamModal, WorkItemDetailModal, WorkItemModal, WorkStreamModal } from './Modals';
 import { ConnectorItemModal } from './ConnectorItemModal';
 import { MetricsModal } from './MetricsModal';
 

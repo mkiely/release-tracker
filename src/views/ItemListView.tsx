@@ -20,6 +20,8 @@ import styles from './table/table.module.css';
 
 // ── Main component ────────────────────────────────────────────────────────
 
+/** The flat item list backing both Backlog and Unassigned (`variant` picks which).
+ *  Groups by sprint or shows one flat list — a persisted per-view preference. */
 export function ItemListView(props: ItemListViewProps) {
   const {
     variant,

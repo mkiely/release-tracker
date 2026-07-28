@@ -1,9 +1,9 @@
 import type { ReleaseViewProps } from '../hooks/useReleaseView';
 import { fmtShort } from '../lib/dates';
-import { SegBar, EventBadge, StatusPill } from '../components/badges';
+import { SegBar, EventBadge, StatusPill } from '../components/Badges';
 import { EmptyState } from '../components/EmptyState';
 import { ReleaseChrome } from '../components/ReleaseChrome';
-import { Sparkline, CompletionRing } from '../components/trend';
+import { Sparkline, CompletionRing } from '../components/Trend';
 import { useScrollActiveIntoView } from '../hooks/useScrollActiveIntoView';
 import styles from './ReleaseTable.module.css';
 
@@ -111,6 +111,8 @@ function F3SprintRow({
   );
 }
 
+/** The release plan as a table, indexed by sprint: one dense row per sprint with
+ *  a per-stream track showing status split, points, type tallies and trend. */
 export function ReleaseTable(props: ReleaseViewProps) {
   const { release: r, sprintRows, onNavigateToSprint, onNavigateToStream, onNavigateToUnassigned, onOpenEvent } = props;
   const activeRowRef = useScrollActiveIntoView<HTMLDivElement>();

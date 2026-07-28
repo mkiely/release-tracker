@@ -1,8 +1,8 @@
 import type { SnapshotPayload, SnapshotStream } from '../lib/releaseSnapshot';
 import type { Status, StatusSeg } from '../types';
-import { SegBar } from '../components/badges';
+import { SegBar } from '../components/Badges';
 import { VerdictBadge, RunwayBadge } from '../components/VerdictLine';
-import { StreamBurnChart, VelocityTrendChart } from '../components/trend';
+import { StreamBurnChart, VelocityTrendChart } from '../components/Trend';
 import { statusVars, warningVars } from '../components/statusVars';
 import { Icon } from '../components/Icon';
 import { fmtLong } from '../lib/dates';

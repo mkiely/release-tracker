@@ -1,5 +1,5 @@
 import { statusVars, warningVars } from './statusVars';
-import styles from './trend.module.css';
+import styles from './Trend.module.css';
 
 /** Ellipsize an axis label to a max character budget (keeps at least one char). */
 function truncLabel(s: string, max: number): string {

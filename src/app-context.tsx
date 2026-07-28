@@ -1,6 +1,8 @@
-// App context — preserves the prototype's openModal / notify / onSync seams so
-// screen code stays close to proto-app.jsx. The provider owns modal + toast
-// state and renders the ModalHost and Toast.
+// App context — the openModal / notify / onSync / onPush seams.
+//
+// Screens call these without knowing how a modal is mounted or a toast is timed,
+// which is what lets a presenter stay a pure function of its props. The provider
+// owns modal + toast state and renders the ModalHost and Toast.
 
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import { getActions } from './store/store';

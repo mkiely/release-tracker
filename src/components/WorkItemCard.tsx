@@ -1,7 +1,7 @@
 import type { Status, WorkItem } from '../types';
 import { STATUSES } from '../types';
 import { getActions, selRelease, selTeam, useStore } from '../store/store';
-import { Drag, useDrag } from './dnd';
+import { Drag, useDrag } from './Dnd';
 import { DirtyDot } from './DirtyDot';
 import { Icon } from './Icon';
 import { statusVars } from './statusVars';

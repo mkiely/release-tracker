@@ -2,7 +2,7 @@ import type { ReleaseViewProps, SprintRowData } from '../hooks/useReleaseView';
 import { STATUSES } from '../types';
 import { fmtShort } from '../lib/dates';
 import { Icon } from '../components/Icon';
-import { SegBar, StatusPill } from '../components/badges';
+import { SegBar, StatusPill } from '../components/Badges';
 import { CapBarInline } from '../components/CapBarInline';
 import { EmptyState } from '../components/EmptyState';
 import { EventStrip } from '../components/EventStrip';
@@ -165,6 +165,9 @@ function SprintRow({
   );
 }
 
+/** The release plan as cards, indexed by sprint: a row per sprint, each carrying
+ *  its capacity meter, events, and a lane of work-stream cards. The app's
+ *  reference screen — see docs/release-tracker-handoff/README.md for the row spec. */
 export function ReleaseView(props: ReleaseViewProps) {
   const {
     release: r,

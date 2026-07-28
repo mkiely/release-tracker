@@ -5,13 +5,13 @@ import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
 import { fmtShort } from '../lib/dates';
 import { sumPoints } from '../lib/derive';
-import { EditSprintButton, ReleaseActions, TopBar } from '../components/chrome';
+import { EditSprintButton, ReleaseActions, TopBar } from '../components/AppChrome';
 import { SprintMeta } from '../components/SprintMeta';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { EmptyState } from '../components/EmptyState';
-import { EventBadge } from '../components/badges';
+import { EventBadge } from '../components/Badges';
 import { Icon } from '../components/Icon';
-import { SprintRail } from '../components/dnd';
+import { SprintRail } from '../components/Dnd';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { IconButton } from '../components/primitives';
 import { statusVars } from '../components/statusVars';
@@ -153,6 +153,8 @@ function StatusSection({
 
 // ── Main component ────────────────────────────────────────────────────────
 
+/** One sprint as a table: rows banded by work stream or status, sortable within
+ *  each band. Grouping always wins over sort, so a sort never scatters a band. */
 export function SprintTable({
   release: r,
   sprint: sp,
@@ -216,7 +218,7 @@ export function SprintTable({
     .filter((c) => c && c.items.length > 0);
 
   return (
-    <div className="wf screen">
+    <div className="screen">
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
         title={

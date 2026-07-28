@@ -17,7 +17,7 @@ import { Menu } from './Menu';
 import { IconButton, PButton } from './primitives';
 import { ShareButton } from './ShareButton';
 import { statusVars } from './statusVars';
-import styles from './chrome.module.css';
+import styles from './AppChrome.module.css';
 
 function ThemeSwatch({ bg, dot, size = 14 }: { bg: string; dot: string; size?: number }) {
   const r = size / 2;
@@ -364,7 +364,7 @@ export function EditSprintButton({ release, onEditSprint }: { release: Release; 
 export function NotFound({ label }: { label: string }) {
   const navigate = useNavigate();
   return (
-    <div className={`wf screen ${styles.notFound}`}>
+    <div className={`screen ${styles.notFound}`}>
       <div className={styles.notFoundLabel}>{label}</div>
       <PButton icon={Icon.chevLeft} onClick={() => navigate('/')}>
         Back to releases

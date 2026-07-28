@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ItemListViewProps } from '../hooks/useItemListView';
-import { ReleaseActions } from './chrome';
+import { ReleaseActions } from './AppChrome';
 import { ScreenScaffold } from './ScreenScaffold';
 import { Icon } from './Icon';
 import { IconButton } from './primitives';

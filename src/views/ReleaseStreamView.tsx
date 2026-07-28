@@ -1,10 +1,10 @@
 import type { ReleaseViewProps, StreamRowData } from '../hooks/useReleaseView';
 import { fmtShort } from '../lib/dates';
-import { SegBar } from '../components/badges';
+import { SegBar } from '../components/Badges';
 import { EmptyState } from '../components/EmptyState';
 import { ReleaseChrome } from '../components/ReleaseChrome';
 import { VDivider } from '../components/VDivider';
-import { Sparkline } from '../components/trend';
+import { Sparkline } from '../components/Trend';
 import { VerdictBadge, VerdictLine } from '../components/VerdictLine';
 import releaseStyles from '../routes/Release.module.css';
 
@@ -154,6 +154,8 @@ function StreamRow({
   );
 }
 
+/** The release plan as cards, indexed by work stream — the transpose of
+ *  ReleaseView. Each row is a stream with its health verdict and a cell per sprint. */
 export function ReleaseStreamView(props: ReleaseViewProps) {
   const { release: r, streamRows, onNavigateToStream, onNavigateToSprint, onNavigateToUnassigned, onOpenStreamHealth, onEditStream } = props;
   return (

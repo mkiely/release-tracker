@@ -1,4 +1,5 @@
-// Interactive modals wired to the store — ported from proto-modals.jsx.
+// The app's modals. Each reads what it needs from the store and commits through
+// getActions(), so callers only supply ids and an onClose.
 
 import { useState, type ReactNode } from 'react';
 import { LOCAL_ITEM_TYPES, STATUSES, type AttrValue, type Member, type PlanningState, type Status } from '../types';
@@ -18,9 +19,9 @@ import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
 import { CalcCard, Callout, MetaChip } from '../components/ui/Callout';
-import { SegBar } from '../components/badges';
+import { SegBar } from '../components/Badges';
 import { SegmentedToggle } from '../components/SegmentedToggle';
-import { StreamBurnChart } from '../components/trend';
+import { StreamBurnChart } from '../components/Trend';
 import { VerdictBadge } from '../components/VerdictLine';
 import { statusVars, verdictVars, warningVars } from '../components/statusVars';
 

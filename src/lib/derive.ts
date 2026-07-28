@@ -1,4 +1,8 @@
-// Pure derivations — ported verbatim from proto-store.jsx. Unit-tested.
+// Pure derivations over the domain model — capacity, velocity, health, runway.
+//
+// Everything here is a function of its arguments alone: no store access, no
+// dates read from the clock unless passed in. That's what makes the planning
+// maths testable, and it's why `today` is a parameter throughout.
 
 import { STATUSES, type PlanningState, type Release, type Sprint, type StatusSeg, type Team, type WorkItem, type WorkStream } from '../types';
 import { between, todayISO, workdaysInRange } from './dates';

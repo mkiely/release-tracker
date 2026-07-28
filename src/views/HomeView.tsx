@@ -1,7 +1,7 @@
 import type { HomeViewProps, ReleaseCardData } from '../hooks/useHomeView';
-import { Brand, TopBar } from '../components/chrome';
+import { Brand, TopBar } from '../components/AppChrome';
 import { Icon } from '../components/Icon';
-import { Meter } from '../components/badges';
+import { Meter } from '../components/Badges';
 import { EmptyState } from '../components/EmptyState';
 import { IconButton, PButton, PField, PInput, PSelect } from '../components/primitives';
 import { capabilitySummary, missingCapabilities } from '../lib/connectorFields';
@@ -71,6 +71,8 @@ function ReleaseCard({
   );
 }
 
+/** The releases index: a create-release form and a card per release. The entry
+ *  point, so it's also where a first-run user meets the app. */
 export function HomeView({
   releases,
   teams,
@@ -100,7 +102,7 @@ export function HomeView({
   onNewTeam,
 }: HomeViewProps) {
   return (
-    <div className="wf screen">
+    <div className="screen">
       <TopBar
         left={<Brand />}
         title={null}

@@ -1,12 +1,12 @@
 // EventStrip — renders as many event badges as fit on one line, then a "+N"
 // overflow chip. Measures every badge off-screen and re-checks on resize, so
 // the sprint row keeps a constant height regardless of how many events fall in
-// it. Ported from proto-app.jsx; algorithm per the handoff README.
+// it. Overflow algorithm per docs/release-tracker-handoff/README.md.
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { EventChip } from '../lib/derive';
 import { fmtShort } from '../lib/dates';
-import { EventBadge } from './badges';
+import { EventBadge } from './Badges';
 
 export function EventStrip({
   events,

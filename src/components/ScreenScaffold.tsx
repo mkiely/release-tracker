@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
-import { TopBar } from './chrome';
+import { TopBar } from './AppChrome';
 import type { Crumb } from './Breadcrumb';
 
 /**
- * Generic screen shell: the `wf screen` frame + the shared TopBar, an optional
+ * Generic screen shell: the full-viewport screen frame + the shared TopBar, an optional
  * toolbar strip beneath it, and the screen body. Per-screen chrome wrappers
  * (ReleaseChrome, etc.) fill the TopBar slots and toolbar; presenters supply
  * only the body via `children`. This is the seam that lets card/table — and the
@@ -30,7 +30,7 @@ export function ScreenScaffold({
   children: ReactNode;
 }) {
   return (
-    <div className="wf screen">
+    <div className="screen">
       <TopBar left={left} crumbs={crumbs} title={title} titleIcon={titleIcon} sub={sub} right={right} />
       {toolbar}
       {children}

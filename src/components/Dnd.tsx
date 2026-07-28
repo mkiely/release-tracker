@@ -6,8 +6,8 @@ import type { Release, Sprint, Team, WorkItem } from '../types';
 import { fmtShort } from '../lib/dates';
 import { sprintVel, sumPoints, type EventChip } from '../lib/derive';
 import { getActions } from '../store/store';
-import { EventBadge } from './badges';
-import styles from './dnd.module.css';
+import { EventBadge } from './Badges';
+import styles from './Dnd.module.css';
 
 // ── external drag store so any drop target can react to an in-flight drag ──
 const subs = new Set<() => void>();

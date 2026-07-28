@@ -163,6 +163,18 @@ export interface ReleaseViewProps {
   onPush: () => void;
 }
 
+/**
+ * View model for the release plan — the app's densest screen, and the one place
+ * where the planning maths is assembled.
+ *
+ * It builds BOTH axes on every render (sprint-indexed rows and their transpose,
+ * stream-indexed rows) because the axis toggle must not re-derive, and because
+ * the release-level signals — contention, the runway alarm count, the
+ * reservation rebalance — are functions of every stream at once and can't be
+ * computed row by row.
+ *
+ * Returns null when the id doesn't resolve, which the route renders as NotFound.
+ */
 export function useReleaseView(): ReleaseViewProps | null {
   const st = useStore();
   const navigate = useNavigate();

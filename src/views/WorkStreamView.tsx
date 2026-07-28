@@ -3,7 +3,7 @@ import { streamCodeFreezeChip } from '../lib/derive';
 import { WorkStreamChrome } from '../components/WorkStreamChrome';
 import { EmptyState } from '../components/EmptyState';
 import { FacetBar } from '../components/FacetBar';
-import { StreamSprintColumn } from '../components/dnd';
+import { StreamSprintColumn } from '../components/Dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
 import styles from './WorkStreamView.module.css';
 

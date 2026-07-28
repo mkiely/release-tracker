@@ -1,4 +1,4 @@
-// Seed data — ported from proto-store.jsx seed(). Builds a primary demo
+// Seed data. Builds a primary demo
 // release plus two lighter releases so the home list feels real.
 
 import { SCHEMA_VERSION, SPRINT_LEN_DAYS, type AppState, type ItemType, type PlanningState, type Release, type Sprint, type Status, type WorkItem, type WorkStream } from '../types';

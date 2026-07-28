@@ -1,14 +1,14 @@
 import type { SprintViewProps, GroupBy } from '../hooks/useSprintView';
 import { fmtShort } from '../lib/dates';
 import { groupItemsByStream, sumPoints } from '../lib/derive';
-import { EditSprintButton, ReleaseActions, TopBar } from '../components/chrome';
+import { EditSprintButton, ReleaseActions, TopBar } from '../components/AppChrome';
 import { SprintMeta } from '../components/SprintMeta';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { EmptyState } from '../components/EmptyState';
 import { FacetBar } from '../components/FacetBar';
 import { Icon } from '../components/Icon';
-import { EventBadge, StatusPill } from '../components/badges';
-import { SprintRail } from '../components/dnd';
+import { EventBadge, StatusPill } from '../components/Badges';
+import { SprintRail } from '../components/Dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
 import { IconButton } from '../components/primitives';
 import { SegmentedToggle } from '../components/SegmentedToggle';
@@ -28,6 +28,8 @@ function GroupToggle({ value, onChange }: { value: GroupBy; onChange: (v: GroupB
   );
 }
 
+/** One sprint as a card board: a column per work stream (or per status), cards
+ *  draggable between columns and, via the sprint rail, into other sprints. */
 export function SprintView({
   release: r,
   sprint: sp,
@@ -63,7 +65,7 @@ export function SprintView({
   notify,
 }: SprintViewProps) {
   return (
-    <div className="wf screen">
+    <div className="screen">
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
         title={

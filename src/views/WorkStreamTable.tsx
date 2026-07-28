@@ -8,8 +8,8 @@ import { fmtShort } from '../lib/dates';
 import { streamCodeFreezeChip, sumPoints } from '../lib/derive';
 import { WorkStreamChrome } from '../components/WorkStreamChrome';
 import { EmptyState } from '../components/EmptyState';
-import { EventBadge } from '../components/badges';
-import { Drag, useDrag, useDragAutoScroll } from '../components/dnd';
+import { EventBadge } from '../components/Badges';
+import { Drag, useDrag, useDragAutoScroll } from '../components/Dnd';
 import { statusVars } from '../components/statusVars';
 import { getActions } from '../store/store';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
@@ -139,6 +139,8 @@ function SprintSection({
 
 // ── Main component ────────────────────────────────────────────────────────
 
+/** One work stream as a table, banded by sprint. Bands are drop targets, so an
+ *  item moves sprint by dragging its row — including onto a currently-empty band. */
 export function WorkStreamTable(props: WorkStreamViewProps) {
   const {
     release: r,

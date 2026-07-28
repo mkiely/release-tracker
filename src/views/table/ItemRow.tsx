@@ -1,8 +1,8 @@
 import type { Member, WorkItem } from '../../types';
 import { Avatar } from '../../components/Avatar';
-import { StatusPill } from '../../components/badges';
+import { StatusPill } from '../../components/Badges';
 import { DirtyDot } from '../../components/DirtyDot';
-import { Drag, setDragGhost, useDrag } from '../../components/dnd';
+import { Drag, setDragGhost, useDrag } from '../../components/Dnd';
 import type { AttrColumn } from '../../components/fields/columns';
 import { StreamChip } from '../../components/StreamChip';
 import { typeVars } from '../../components/typeColor';

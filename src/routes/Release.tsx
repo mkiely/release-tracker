@@ -3,7 +3,7 @@ import { ReleaseView } from '../views/ReleaseView';
 import { ReleaseTable } from '../views/ReleaseTable';
 import { ReleaseStreamView } from '../views/ReleaseStreamView';
 import { ReleaseStreamTable } from '../views/ReleaseStreamTable';
-import { NotFound } from '../components/chrome';
+import { NotFound } from '../components/AppChrome';
 import { useViewMode } from '../store/viewMode';
 import { useAxisMode } from '../store/axisMode';
 
