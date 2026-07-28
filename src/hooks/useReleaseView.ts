@@ -5,6 +5,7 @@ import { ExportScopePrefs, type ExportScope } from '../store/exportScope';
 import { scopeLabel, scopeStreamIds } from '../lib/exportScope';
 import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } from '../store/store';
 import { releaseToTSV } from '../lib/exportRelease';
+import { copyText } from '../lib/copyLink';
 import { applyFacets, buildFacetGroups, buildStreamFacet, catalogStreamFacets, isAnyFacetActive } from '../lib/facets';
 import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
@@ -339,22 +340,7 @@ export function useReleaseView(): ReleaseViewProps | null {
   const exportStreamCount = exportStreamIds ? exportStreamIds.size : r.workStreams.length;
 
   const onExport = async () => {
-    const tsv = releaseToTSV(st, id, exportStreamIds);
-    try {
-      await navigator.clipboard.writeText(tsv);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = tsv;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand('copy');
-      } finally {
-        document.body.removeChild(ta);
-      }
-    }
+    await copyText(releaseToTSV(st, id, exportStreamIds));
     notify(`Release copied as TSV — ${scopeLabel(exportScope, exportStreamCount)}`);
   };
 

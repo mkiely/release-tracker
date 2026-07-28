@@ -4,6 +4,7 @@
 
 import type { Release } from '../types';
 import { buildSnapshotUrl } from '../lib/releaseSnapshot';
+import { copyText } from '../lib/copyLink';
 import { connectorLabel } from '../sync/client';
 import { selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
@@ -40,26 +41,6 @@ function summaryBase(): string {
   return runtime || built || window.location.origin;
 }
 
-/** Copy `text` to the clipboard, falling back to a hidden textarea + execCommand
- *  when the async Clipboard API is unavailable (mirrors the share/export paths). */
-async function copyToClipboard(text: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    try {
-      document.execCommand('copy');
-    } finally {
-      document.body.removeChild(ta);
-    }
-  }
-}
-
 /**
  * Returns a copy-summary-link action for a release. Always available.
  *
@@ -80,11 +61,11 @@ export function useSummaryLink(release: Release, visibleStreamIds?: ReadonlySet<
       // Too long for the address bar — copy the raw encoded value instead. The viewer's
       // "Load from a link" box accepts a bare encoded value, so the recipient pastes it
       // there rather than opening a (truncatable) link.
-      await copyToClipboard(result.encoded);
+      await copyText(result.encoded);
       notify('Summary too large for a link — encoded value copied. Open summary.html and paste it into “Load from a link”.');
       return;
     }
-    await copyToClipboard(result.url);
+    await copyText(result.url);
     const scoped = visibleStreamIds ? ` · ${visibleStreamIds.size} stream${visibleStreamIds.size === 1 ? '' : 's'}` : '';
     notify(`Summary link copied — a frozen, read-only view with no work-item detail${scoped}`);
   };
