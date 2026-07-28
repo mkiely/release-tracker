@@ -9,6 +9,8 @@
 // a local viewing preference, so it needs no schema bump and must never round-trip
 // to a connector.
 
+import { createKeyedPrefs } from './persisted';
+
 /**
  * - `current-build` — streams native to this release (`build === null`), the
  *   default. Matches the "Current Build" option the build facet already offers.
@@ -20,28 +22,9 @@ export type ExportScope = 'current-build' | 'all-builds' | 'filters';
 
 export const DEFAULT_EXPORT_SCOPE: ExportScope = 'current-build';
 
-const KEY = 'release-tracker:exportScope';
-
-type PrefsShape = Record<string, ExportScope>; // releaseId -> scope
-
-function load(): PrefsShape {
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as PrefsShape) : {};
-  } catch {
-    return {};
-  }
-}
-
-function save(s: PrefsShape) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(s));
-  } catch {
-    /* ignore */
-  }
-}
-
 const VALID: readonly ExportScope[] = ['current-build', 'all-builds', 'filters'];
+
+const prefs = createKeyedPrefs<ExportScope>('release-tracker:exportScope');
 
 export const ExportScopePrefs = {
   /**
@@ -50,15 +33,13 @@ export const ExportScopePrefs = {
    * pointing at a selection that no longer exists.
    */
   get(releaseId: string, facetsActive: boolean): ExportScope {
-    const stored = load()[releaseId];
+    const stored = prefs.get(releaseId);
     if (!stored || !VALID.includes(stored)) return DEFAULT_EXPORT_SCOPE;
     if (stored === 'filters' && !facetsActive) return DEFAULT_EXPORT_SCOPE;
     return stored;
   },
+  /** Storing the default removes the entry — absence and "default" mean the same. */
   set(releaseId: string, scope: ExportScope) {
-    const s = load();
-    if (scope === DEFAULT_EXPORT_SCOPE) delete s[releaseId];
-    else s[releaseId] = scope;
-    save(s);
+    prefs.set(releaseId, scope === DEFAULT_EXPORT_SCOPE ? undefined : scope);
   },
 };

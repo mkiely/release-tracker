@@ -1,30 +1,14 @@
-import { useSyncExternalStore } from 'react';
+import { createPersistedStore, oneOf } from './persisted';
 
 /** How the Sprint view groups its work items into columns. */
 export type SprintGroupBy = 'stream' | 'status';
 
-const KEY = 'release-tracker:sprintGroupBy';
-const listeners = new Set<() => void>();
-let current: SprintGroupBy = 'stream';
+export const SPRINT_GROUP_BYS = ['stream', 'status'] as const;
 
-try {
-  const s = localStorage.getItem(KEY);
-  if (s === 'stream' || s === 'status') current = s;
-} catch { /* ignore */ }
+export const SprintGroupByStore = createPersistedStore<SprintGroupBy>({
+  key: 'release-tracker:sprintGroupBy',
+  initial: 'stream',
+  parse: oneOf(SPRINT_GROUP_BYS),
+});
 
-export const SprintGroupByStore = {
-  get: (): SprintGroupBy => current,
-  set: (v: SprintGroupBy) => {
-    current = v;
-    try { localStorage.setItem(KEY, v); } catch { /* ignore */ }
-    listeners.forEach((l) => l());
-  },
-  sub: (l: () => void) => {
-    listeners.add(l);
-    return () => { listeners.delete(l); };
-  },
-};
-
-export function useSprintGroupBy(): SprintGroupBy {
-  return useSyncExternalStore(SprintGroupByStore.sub, SprintGroupByStore.get, SprintGroupByStore.get);
-}
+export const useSprintGroupBy = SprintGroupByStore.use;
