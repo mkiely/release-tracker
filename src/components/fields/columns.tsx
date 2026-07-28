@@ -9,6 +9,14 @@ import type { ReleaseCatalog, WorkItem, WorkStream } from '../../types';
 import { isAttributeField } from '../../lib/connectorFields';
 import { displayValue } from './registry';
 
+/** Whether a spec projects into a table column: connector vocabulary the catalog
+ *  hasn't marked `detailOnly`. Suppression is per *spec*, not per key — a type
+ *  that marks a shared key detailOnly renders blank cells in a column another
+ *  type still declares, which is the same "not applicable here" the projection
+ *  already uses for a key a type doesn't declare at all. Detail rendering and
+ *  facets read the catalog directly and are unaffected. */
+const isColumnField = (f: FieldSpec): boolean => isAttributeField(f) && f.detailOnly !== true;
+
 /** One vocabulary-driven table column. */
 export interface AttrColumn {
   /** FieldSpec.key — the column identity and the attributes-bag key. */
@@ -22,7 +30,8 @@ export interface AttrColumn {
 
 /**
  * Project a release's catalog snapshot into table columns: the union of
- * vocabulary fields across its item types, in first-seen catalog order. Cell
+ * columnar vocabulary fields across its item types, in first-seen catalog
+ * order (`detailOnly` specs are detail-and-facet only, never columns). Cell
  * values format through the spec declared by the item's *own* type (enum values
  * resolve to that type's option labels), so two types sharing a key with
  * different option sets each render correctly.
@@ -31,7 +40,7 @@ export function attributeColumns(catalog: ReleaseCatalog | null | undefined): At
   const byKey = new Map<string, { label: string; byType: Map<string, FieldSpec> }>();
   for (const t of catalog?.itemTypes ?? []) {
     for (const f of t.fields) {
-      if (!isAttributeField(f)) continue;
+      if (!isColumnField(f)) continue;
       let entry = byKey.get(f.key);
       if (!entry) {
         entry = { label: f.label ?? f.key, byType: new Map() };
@@ -62,11 +71,11 @@ export interface StreamAttrColumn {
 /**
  * Project a release's work-stream field catalog into columns/tags. Flat —
  * streams have no type dimension, so every declared vocabulary field applies
- * to every stream (defensively re-filtered through isAttributeField; the
+ * to every stream (defensively re-filtered through isColumnField; the
  * conformance suite enforces the same shape service-side).
  */
 export function streamAttributeColumns(catalog: ReleaseCatalog | null | undefined): StreamAttrColumn[] {
-  return (catalog?.workStreamFields ?? []).filter(isAttributeField).map((f) => ({
+  return (catalog?.workStreamFields ?? []).filter(isColumnField).map((f) => ({
     key: f.key,
     label: f.label ?? f.key,
     cell: (ws) => displayValue(f, ws.attributes?.[f.key]),
