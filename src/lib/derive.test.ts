@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { activeSprint, capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, freezeSprintX, fullCap, groupItemsByStream, plannedVel, releaseCapacity, remainingByFreeze, remainingSprints, reservationBalance, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
+import { activeSprint, capPct, CODE_FREEZE_CHIP_ID, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, freezeOverrides, freezeSprintX, fullCap, groupItemsByStream, parseFreezeChipId, plannedVel, releaseCapacity, remainingByFreeze, remainingSprints, reservationBalance, sprintEventChips, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
-import { aRelease, aSprint, aTeamOf, anItem } from '../test/factories';
+import { aRelease, aSprint, aStream, aTeamOf, anEvent, anItem } from '../test/factories';
 import type { Release, Sprint, Team, WorkItem, WorkStream } from '../types';
 
 const team = (members: number, velocity: number): Team => aTeamOf(members, velocity);
@@ -115,6 +115,81 @@ describe('eventsIn', () => {
     const r = release();
     const sp1 = r.sprints[0];
     expect(eventsIn(r, sp1).some((e) => e.dateISO === sp1.startISO)).toBe(true);
+  });
+});
+
+describe('sprintEventChips', () => {
+  // Sprint 1 = Apr 13–26, Sprint 2 = Apr 27–May 10 (aRelease's default pair).
+  const withStreams = (streams: WorkStream[], codeFreezeISO: string | null = null): Release =>
+    aRelease({ workStreams: streams, codeFreezeISO, events: [anEvent({ id: 'ev1', label: 'Design review', dateISO: '2026-04-20' })] });
+
+  it('synthesizes the release freeze chip in the sprint that contains it', () => {
+    const r = withStreams([], '2026-04-24');
+    expect(sprintEventChips(r, r.sprints[0]).map((c) => c.id)).toEqual(['ev1', CODE_FREEZE_CHIP_ID]);
+    expect(sprintEventChips(r, r.sprints[1]).map((c) => c.id)).toEqual([]);
+  });
+
+  it('adds a chip for each work stream overriding the freeze in that sprint', () => {
+    const r = withStreams(
+      [
+        aStream({ id: 'ws1', name: 'API', codeFreezeISO: '2026-04-16' }),
+        aStream({ id: 'ws2', name: 'Webhooks', codeFreezeISO: '2026-05-04' }),
+        aStream({ id: 'ws3', name: 'Reporting', codeFreezeISO: null }),
+      ],
+      '2026-04-24',
+    );
+    const sp1 = sprintEventChips(r, r.sprints[0]);
+    // Date-sorted: stream override Apr 16, event Apr 20, release freeze Apr 24.
+    expect(sp1.map((c) => c.id)).toEqual(['code-freeze:ws1', 'ev1', CODE_FREEZE_CHIP_ID]);
+    expect(sp1[0].label).toBe('API freeze');
+    expect(sp1[0].critical).toBe(true);
+    // The later override lands in sprint 2, alone.
+    expect(sprintEventChips(r, r.sprints[1]).map((c) => c.id)).toEqual(['code-freeze:ws2']);
+  });
+
+  it('still chips an override pinned to the release freeze date, so the row matches the header count', () => {
+    const r = withStreams([aStream({ id: 'ws1', name: 'API', codeFreezeISO: '2026-04-24' })], '2026-04-24');
+    expect(sprintEventChips(r, r.sprints[0]).map((c) => c.id)).toEqual(['ev1', 'code-freeze:ws1', CODE_FREEZE_CHIP_ID]);
+  });
+
+  it('ignores a stream freeze that falls outside every sprint', () => {
+    const r = withStreams([aStream({ id: 'ws1', name: 'API', codeFreezeISO: '2026-06-01' })], '2026-04-24');
+    expect(sprintEventChips(r, r.sprints[0]).some((c) => c.id.startsWith('code-freeze:'))).toBe(false);
+    expect(sprintEventChips(r, r.sprints[1]).some((c) => c.id.startsWith('code-freeze:'))).toBe(false);
+  });
+});
+
+describe('parseFreezeChipId', () => {
+  it('round-trips the ids sprintEventChips emits', () => {
+    const r = aRelease({
+      workStreams: [aStream({ id: 'ws_7', name: 'API', codeFreezeISO: '2026-04-16' })],
+      codeFreezeISO: '2026-04-24',
+      events: [anEvent({ id: 'ev1', dateISO: '2026-04-20' })],
+    });
+    const [stream, event, release] = sprintEventChips(r, r.sprints[0]);
+    expect(parseFreezeChipId(stream.id)).toEqual({ kind: 'stream', wsId: 'ws_7' });
+    expect(parseFreezeChipId(event.id)).toBeNull();
+    expect(parseFreezeChipId(release.id)).toEqual({ kind: 'release' });
+  });
+});
+
+describe('freezeOverrides', () => {
+  it('names the overriding streams, earliest first, and skips inheritors', () => {
+    const r = aRelease({
+      workStreams: [
+        aStream({ id: 'ws1', name: 'API', codeFreezeISO: '2026-05-04' }),
+        aStream({ id: 'ws2', name: 'Inherits', codeFreezeISO: null }),
+        aStream({ id: 'ws3', name: 'Webhooks', codeFreezeISO: '2026-04-16' }),
+      ],
+    });
+    expect(freezeOverrides(r)).toEqual([
+      { id: 'ws3', name: 'Webhooks', dateISO: '2026-04-16' },
+      { id: 'ws1', name: 'API', dateISO: '2026-05-04' },
+    ]);
+  });
+
+  it('is empty when every stream inherits the release freeze', () => {
+    expect(freezeOverrides(aRelease())).toEqual([]);
   });
 });
 
@@ -486,9 +561,22 @@ describe('forward capacity-fit health', () => {
       expect(f.summary).toContain('1 item');
     });
 
-    it('is complete (not unestimated) for an empty stream', () => {
+    it('is no-work (never complete) for an empty stream', () => {
+      // 0 remaining because nothing was ever created is not "all work complete" —
+      // reading it as green is the failure docs/metrics.md warns about, and it put a
+      // green chip on streams holding reserved capacity against nothing.
       const f = streamForecast(hp(0, 0), 2, ctx(), noContention);
-      expect(f.verdict).toBe('complete');
+      expect(f.verdict).toBe('no-work');
+      expect(f.summary).toContain('No work items created');
+    });
+
+    it('still reports complete when created work is all done', () => {
+      const done: StreamHealth = { itemCount: 3, totalPts: 30, donePts: 30, remainingPts: 0, blockedPts: 0, pct: 100, pointsByStatus: [] };
+      expect(streamForecast(done, 2, ctx(), noContention).verdict).toBe('complete');
+    });
+
+    it('prefers unconfigured over no-work — an unstaffed empty stream needs engineers first', () => {
+      expect(streamForecast(hp(0, 0), null, ctx(), noContention).verdict).toBe('unconfigured');
     });
 
     it('is on-track when remaining work fits capacity', () => {
@@ -665,11 +753,29 @@ describe('forward capacity-fit health', () => {
       expect(f.postFreezeRemainingPts).toBe(0);
     });
 
-    it('forecast: all-post-freeze work reads "nothing due before freeze"', () => {
+    it('forecast: all-post-freeze work reads "nothing due before freeze" while the freeze is AHEAD', () => {
       const f = streamForecast(estimated(40), 2, ctx(), noContention, /* preFreeze */ 0);
       expect(f.verdict).toBe('on-track');
       expect(f.summary).toContain('Nothing due before freeze');
       expect(f.summary).toContain('40 pts scheduled after freeze');
+    });
+
+    it('forecast: the same work is at-risk once the freeze has PASSED', () => {
+      // No capacity window left (the stream's freeze is behind us) and 40 pts still
+      // open. The pre-freeze slice is empty either way, so the shortfall arithmetic
+      // reads 0 − 0 = fits; measuring the stranded remainder is what stops a stream
+      // that has already missed its freeze from showing green.
+      const elapsed: ReleaseCapacity = { remainingSprintCount: 0, teamRemainingCap: 0, contributingCount: 4, perEngineerCap: 0 };
+      const f = streamForecast(estimated(40), 2, elapsed, noContention, /* preFreeze */ 0);
+      expect(f.verdict).toBe('at-risk');
+      expect(f.summary).toContain('Freeze passed with 40 pts outstanding');
+    });
+
+    it('forecast: a finished stream stays complete when its freeze has passed', () => {
+      // Nothing outstanding → nothing stranded, so the elapsed window is not a failure.
+      const elapsed: ReleaseCapacity = { remainingSprintCount: 0, teamRemainingCap: 0, contributingCount: 4, perEngineerCap: 0 };
+      const done: StreamHealth = { itemCount: 3, totalPts: 40, donePts: 40, remainingPts: 0, blockedPts: 0, pct: 100, pointsByStatus: [] };
+      expect(streamForecast(done, 2, elapsed, noContention, 0).verdict).toBe('complete');
     });
 
     it('runway: post-freeze created work does not mask an under-planned window', () => {

@@ -61,6 +61,25 @@ function useStripOverflow(ref: React.RefObject<HTMLDivElement>, deps: unknown[])
   return { ...state, remeasure };
 }
 
+/** Most overriding streams the freeze readout's tooltip names before it summarizes
+ *  the rest — a title attribute that runs past a handful of lines stops being read. */
+const FREEZE_TOOLTIP_MAX = 6;
+
+/** Tooltip for the freeze readout: the release date, then which streams override it
+ *  and when. The count alone left the "+N" undiscoverable — you had to open every
+ *  stream's assessment modal in turn to find out who was behind it. */
+function freezeTitle(codeFreezeISO: string, overrides: Array<{ name: string; dateISO: string }>): string {
+  const head = `Release code freeze ${fmtShort(codeFreezeISO)}`;
+  if (overrides.length === 0) return `${head}. Click to edit.`;
+  const lines = overrides.slice(0, FREEZE_TOOLTIP_MAX).map((o) => {
+    const rel = o.dateISO < codeFreezeISO ? ' (earlier)' : o.dateISO > codeFreezeISO ? ' (later)' : '';
+    return `\xb7 ${o.name} — ${fmtShort(o.dateISO)}${rel}`;
+  });
+  const rest = overrides.length - lines.length;
+  if (rest > 0) lines.push(`\xb7 +${rest} more`);
+  return [`${head}`, `Overridden by ${overrides.length} work stream${overrides.length === 1 ? '' : 's'}:`, ...lines, 'Click to edit.'].join('\n');
+}
+
 /** One pill in the work-streams strip. Identical for assigned and unassigned lanes. */
 function StreamBadge({
   name,
@@ -150,7 +169,7 @@ type ReleaseChromeProps = Pick<
   | 'onNewStream'
   | 'onEditCodeFreeze'
   | 'codeFreezeISO'
-  | 'freezeOverrideCount'
+  | 'freezeOverrides'
   | 'onSync'
   | 'onPush'
 > & { children: ReactNode };
@@ -192,7 +211,7 @@ export function ReleaseChrome({
   onNewStream,
   onEditCodeFreeze,
   codeFreezeISO,
-  freezeOverrideCount,
+  freezeOverrides,
   onSync,
   onPush,
   children,
@@ -258,17 +277,13 @@ export function ReleaseChrome({
             type="button"
             className={styles.freezeTag}
             onClick={onEditCodeFreeze}
-            title={
-              freezeOverrideCount > 0
-                ? `Release code freeze ${fmtShort(codeFreezeISO)} — ${freezeOverrideCount} work stream${freezeOverrideCount === 1 ? '' : 's'} override it. Click to edit.`
-                : `Release code freeze ${fmtShort(codeFreezeISO)}. Click to edit.`
-            }
+            title={freezeTitle(codeFreezeISO, freezeOverrides)}
           >
             {Icon.snowflake}
             Freeze {fmtShort(codeFreezeISO)}
-            {freezeOverrideCount > 0 && (
+            {freezeOverrides.length > 0 && (
               <span className="mono" style={{ fontSize: 'var(--rt-fs-micro)', fontWeight: 'var(--rt-fw-semibold)', marginLeft: 2 }}>
-                +{freezeOverrideCount}
+                +{freezeOverrides.length}
               </span>
             )}
           </button>

@@ -1,0 +1,68 @@
+.list {
+  background: var(--rt-bg);
+  padding: 15px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  margin-bottom: 4px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Keeps the row a real ≥32px hit target while the text stays modal-sized. */
+  min-height: 32px;
+  padding: 0 8px;
+  margin: 0 -8px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  font-family: inherit;
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-t2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--rt-fill);
+  color: var(--rt-ink);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--rt-accent);
+  outline-offset: -2px;
+}
+
+.flake {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--rt-st-wn-dot);
+}
+
+.name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--rt-fw-semibold);
+  color: var(--rt-ink);
+}
+
+.date {
+  flex: 0 0 auto;
+  font-weight: var(--rt-fw-semibold);
+}
+
+/* Direction relative to the release freeze — the reason an override matters. */
+.rel {
+  flex: 0 0 auto;
+  font-size: var(--rt-fs-xs);
+  color: var(--rt-t3);
+  min-width: 46px;
+}

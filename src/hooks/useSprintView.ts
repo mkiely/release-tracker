@@ -3,6 +3,7 @@ import { SprintGroupByStore, useSprintGroupBy } from '../store/sprintGroupBy';
 import { selRelease, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { activeSprint, capPct, sprintEventChips, sprintVel, sumPoints, type EventChip } from '../lib/derive';
+import { freezeChipModal } from './freezeChipModal';
 import { applyFacets, buildFacetGroups, buildItemFacet, catalogItemFacets, isAnyFacetActive, memberFacet, statusFacet, typeFacet } from '../lib/facets';
 import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
@@ -127,7 +128,7 @@ export function useSprintView(): SprintViewProps | null {
     onEditSprint: () => openModal({ type: 'sprint', releaseId: id, sprintId: sp.id }),
     onNewItem: () => openModal({ type: r.connector ? 'connectorItem' : 'item', releaseId: id, presetSprintId: sp.id }),
     onOpenItem: (itemId) => openModal({ type: 'itemDetail', itemId }),
-    onOpenEvent: (eventId) => openModal({ type: 'event', releaseId: id, eventId }),
+    onOpenEvent: (eventId) => openModal(freezeChipModal(id, eventId)),
     onSetGroupBy: SprintGroupByStore.set,
     onToggleFacet: facetState.toggle,
     onClearFilters: facetState.clear,

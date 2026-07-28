@@ -5,6 +5,7 @@ import { ScreenScaffold } from './ScreenScaffold';
 import { Icon } from './Icon';
 import { IconButton } from './primitives';
 import { StreamAttrSummary } from './StreamAttrSummary';
+import { StreamAssessmentChips } from './StreamAssessmentChips';
 import { TeamLink } from './TeamLink';
 import styles from './WorkStreamChrome.module.css';
 
@@ -21,6 +22,10 @@ type WorkStreamChromeProps = Pick<
   | 'onPush'
   | 'totalItemCount'
   | 'totalPts'
+  | 'forecast'
+  | 'runway'
+  | 'onOpenHealth'
+  | 'onEditStream'
 > & {
   /** Extra text after the item/points summary — the card view's drag hint. */
   hint?: string;
@@ -49,6 +54,10 @@ export function WorkStreamChrome({
   onPush,
   totalItemCount,
   totalPts,
+  forecast,
+  runway,
+  onOpenHealth,
+  onEditStream,
   hint,
   toolbar,
   children,
@@ -79,7 +88,20 @@ export function WorkStreamChrome({
           <StreamAttrSummary release={r} ws={ws} />
         </div>
       }
-      sub={team ? <TeamLink name={team.name} onClick={onOpenTeam} /> : undefined}
+      sub={
+        <span className={styles.subRow}>
+          {team && <TeamLink name={team.name} onClick={onOpenTeam} />}
+          {/* The verdicts this screen never carried. Reaching them used to mean going
+              back to the release view or opening Release analysis. */}
+          <StreamAssessmentChips
+            forecast={forecast}
+            runway={runway}
+            planningState={ws.planningState}
+            onOpenDelivery={() => (forecast.verdict === 'unconfigured' ? onEditStream() : onOpenHealth())}
+            onOpenPlanning={() => (runway.verdict === 'unconfigured' ? onEditStream() : onOpenHealth())}
+          />
+        </span>
+      }
       right={
         <>
           <span className={styles.summary}>

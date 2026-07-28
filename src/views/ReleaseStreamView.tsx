@@ -5,7 +5,8 @@ import { EmptyState } from '../components/EmptyState';
 import { ReleaseChrome } from '../components/ReleaseChrome';
 import { VDivider } from '../components/VDivider';
 import { Sparkline } from '../components/Trend';
-import { VerdictBadge, VerdictLine } from '../components/VerdictLine';
+import { VerdictLine } from '../components/VerdictLine';
+import { StreamAssessmentChips } from '../components/StreamAssessmentChips';
 import releaseStyles from '../routes/Release.module.css';
 
 function StreamRow({
@@ -23,10 +24,12 @@ function StreamRow({
   onOpenStreamHealth: (wsId: string) => void;
   onEditStream: (wsId: string) => void;
 }) {
-  const { ws, itemCount, points, segs, series, forecast, lane } = row;
+  const { ws, itemCount, points, segs, series, forecast, runway, lane } = row;
   const filled = lane.filter((e) => e.n > 0);
   const activeIndex = lane.find((e) => e.isActive)?.sprintIndex ?? -1;
-  const showVerdict = ws !== null && itemCount > 0;
+  // Assessed even with no items: an empty stream holding reserved engineers is the
+  // case the delivery verdict alone used to paint green.
+  const showVerdict = ws !== null;
   const handleClick = ws !== null ? () => onNavigateToStream(ws.id) : onNavigateToUnassigned;
 
   return (
@@ -84,12 +87,23 @@ function StreamRow({
         )}
         <div style={{ flex: 1, minWidth: 40, marginLeft: 4 }}>{itemCount > 0 && <SegBar segs={segs} height={9} />}</div>
         {series.length > 0 && <Sparkline series={series} activeIndex={activeIndex} />}
-        {showVerdict && <VerdictBadge verdict={forecast.verdict} />}
+        {showVerdict && (
+          <StreamAssessmentChips
+            forecast={forecast}
+            runway={runway}
+            planningState={ws!.planningState}
+            onOpenDelivery={() => (forecast.verdict === 'unconfigured' ? onEditStream(ws!.id) : onOpenStreamHealth(ws!.id))}
+            onOpenPlanning={() => (runway.verdict === 'unconfigured' ? onEditStream(ws!.id) : onOpenStreamHealth(ws!.id))}
+          />
+        )}
       </div>
       <div style={{ padding: '10px 13px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Badge-free: the header strip's chips already carry both verdicts, so this
+            line is only the delivery verdict's plain-language "why". */}
         {showVerdict && (
           <VerdictLine
             forecast={forecast}
+            badge={false}
             onOpen={() => (forecast.verdict === 'unconfigured' ? onEditStream(ws!.id) : onOpenStreamHealth(ws!.id))}
           />
         )}

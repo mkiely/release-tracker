@@ -41,3 +41,13 @@
   color: var(--rt-t3);
   white-space: nowrap;
 }
+
+/* Team link and the assessment chips share the sub-line, wrapping rather than
+   squeezing the chips when the stream name is long. */
+.subRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}

@@ -11,7 +11,9 @@ import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
 import { useApp } from '../app-context';
 import { dOf, fmtShort, todayISO } from '../lib/dates';
-import { activeSprint, CODE_FREEZE_CHIP_ID, sprintEventChips, effectiveCodeFreeze, effectiveStreamCodeFreeze, releaseCapacity, remainingByFreeze, reservationBalance, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, sumPoints, velocityAttainment, type EventChip, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
+import { activeSprint, freezeOverrides, sprintEventChips, effectiveCodeFreeze, reservationBalance, sprintVel, statusSegs, sumPoints, velocityAttainment, type EventChip, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
+import { assessStreams } from '../lib/streamAssessment';
+import { freezeChipModal } from './freezeChipModal';
 import { connectorLabel } from '../sync/client';
 import type { MetricsSection } from '../modals/MetricsModal';
 import type { RowData, RowMetrics } from '../lib/rowData';
@@ -86,6 +88,10 @@ interface StreamHeader {
   forecast: StreamForecast;
   /** Forward planning-runway signal: is enough work created to fill held capacity? */
   runway: StreamRunway;
+  /** Remaining points parked in sprints starting after this stream's freeze — work
+   *  neither verdict measures, so it rides as its own chip rather than hiding behind
+   *  a green one. 0 when nothing is scheduled past the freeze. */
+  postFreezePts: number;
 }
 
 /** Lane covers every sprint, including empty ones, so cells form aligned columns. */
@@ -156,9 +162,10 @@ export interface ReleaseViewProps {
   /** The release's effective code-freeze date, surfaced as a header readout rather
    *  than hidden behind a command button (it's state the whole plan hangs off). */
   codeFreezeISO: string;
-  /** How many work streams override the release freeze with their own date — the
-   *  edit that actually happens, so the readout carries its count. */
-  freezeOverrideCount: number;
+  /** The work streams overriding the release freeze with their own date. The readout
+   *  carries the count; naming them is what makes the override discoverable without
+   *  opening every stream in turn. */
+  freezeOverrides: Array<{ id: string; name: string; dateISO: string }>;
   onSync: () => void;
   onPush: () => void;
 }
@@ -275,55 +282,30 @@ export function useReleaseView(): ReleaseViewProps | null {
     return { ws, itemCount: its.length, segs: statusSegs(its) };
   });
 
-  // The transpose of sprintRows: one row per work stream, lane = every sprint.
-  // First pass collects items + current-state health per stream; contention (the
-  // release-level parallelism check) needs every stream's remaining work before any
-  // forward forecast can be computed; second pass builds the rows with the forecast.
-  const ctx = releaseCapacity(r, team);
-  const streamInputs: Array<{ ws: WorkStream | null; items: WorkItem[]; series: number[]; health: StreamHealth }> = [
-    ...streams.map((ws) => ({ ws, items: items.filter((i) => i.workStreamId === ws.id), series: streamSeries.get(ws.id) ?? [] })),
-    ...(unassigned.length > 0 ? [{ ws: null as WorkStream | null, items: unassigned, series: unassignedSeries }] : []),
-  ].map((s) => ({ ...s, health: streamHealth(s.items) }));
+  // The transpose of sprintRows: one row per work stream, lane = every sprint. The
+  // verdicts come from the shared assessment so this screen, the metrics modal, the
+  // exports and the work-stream screen can't disagree about a stream.
+  // Assessed over EVERY stream, then displayed for the facet-visible ones: contention
+  // is a release-level fact about the team, so hiding a stream behind a facet must not
+  // change what the remaining streams are competing with.
+  const assessment = assessStreams(r, team, items, { today, unassignedItems: unassigned });
+  const { ctx, contention } = assessment;
+  const visibleAssessments = [
+    ...streams.map((ws) => assessment.byId.get(ws.id)!),
+    ...(unassigned.length > 0 ? [assessment.byId.get(null)!] : []),
+  ];
 
-  const contention = streamContention(
-    streamInputs
-      .filter((s) => s.ws && s.ws.engineersRequired != null && s.health.remainingPts > 0)
-      .map((s) => s.ws!.engineersRequired!),
-    ctx.contributingCount,
-  );
-
-  // "Beyond next" = sprints two or more past the current one. An item created there
-  // is evidence of planning further than a sprint ahead — the runway alarm fires
-  // when a stream holds capacity but has nothing created beyond next. firstRemaining
-  // is the current sprint (active or first upcoming); -1 → release fully elapsed.
-  const firstRemainingIndex = r.sprints.findIndex((sp) => sp.endISO >= today);
-  const beyondNextThreshold = (firstRemainingIndex < 0 ? r.sprints.length : firstRemainingIndex) + 2;
-  const sprintIndexById = new Map(r.sprints.map((sp, i) => [sp.id, i] as const));
-  const itemsBeyondNextFor = (streamItems: WorkItem[]): number =>
-    streamItems.filter(
-      (i) => i.status !== 'Complete' && i.sprintId != null && (sprintIndexById.get(i.sprintId) ?? -1) >= beyondNextThreshold,
-    ).length;
-
-  const streamRows: StreamRowData[] = streamInputs.map(({ ws, items: streamItems, series, health }) => {
-    // Most streams inherit the release's code freeze, so they share `ctx`; a stream
-    // with its own override gets its own capacity window (streamCapacityCtx centralizes this).
-    const streamCtx = streamCapacityCtx(r, team, ws, ctx, today);
-    // Split remaining work at this stream's effective freeze so post-freeze work
-    // neither inflates the at-risk shortfall nor masks an under-planned window.
-    const { preFreezePts } = remainingByFreeze(streamItems, r.sprints, effectiveStreamCodeFreeze(r, ws));
+  const streamRows: StreamRowData[] = visibleAssessments.map(({ ws, items: streamItems, health, forecast, runway, postFreezePts }) => {
     return {
       ws,
       itemCount: streamItems.length,
       points: sumPoints(streamItems),
       segs: statusSegs(streamItems),
-      series,
+      series: ws ? (streamSeries.get(ws.id) ?? []) : unassignedSeries,
       health,
-      forecast: streamForecast(health, ws ? ws.engineersRequired : null, streamCtx, contention, preFreezePts),
-      runway: streamRunway(health, ws ? ws.engineersRequired : null, streamCtx, contention, {
-        itemsBeyondNext: itemsBeyondNextFor(streamItems),
-        planningState: ws ? ws.planningState : 'open',
-        remainingPreFreezePts: preFreezePts,
-      }),
+      forecast,
+      runway,
+      postFreezePts,
       lane: r.sprints.map((sp, sprintIndex) => {
         const its = streamItems.filter((i) => i.sprintId === sp.id);
         return {
@@ -410,13 +392,10 @@ export function useReleaseView(): ReleaseViewProps | null {
     },
     onNewEvent: () => openModal({ type: 'event', releaseId: id }),
     onNewStream: () => openModal({ type: 'stream', releaseId: id }),
-    onOpenEvent: (eventId) =>
-      eventId === CODE_FREEZE_CHIP_ID
-        ? openModal({ type: 'codeFreeze', releaseId: id })
-        : openModal({ type: 'event', releaseId: id, eventId }),
+    onOpenEvent: (eventId) => openModal(freezeChipModal(id, eventId)),
     onEditCodeFreeze: () => openModal({ type: 'codeFreeze', releaseId: id }),
     codeFreezeISO: effectiveCodeFreeze(r),
-    freezeOverrideCount: r.workStreams.filter((ws) => ws.codeFreezeISO != null).length,
+    freezeOverrides: freezeOverrides(r),
     onSync: () => onSync(id),
     onPush: () => onPush(id),
   };
