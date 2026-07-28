@@ -1,4 +1,5 @@
-// Interactive modals wired to the store — ported from proto-modals.jsx.
+// The app's modals. Each reads what it needs from the store and commits through
+// getActions(), so callers only supply ids and an onClose.
 
 import { useState, type ReactNode } from 'react';
 import { LOCAL_ITEM_TYPES, STATUSES, type AttrValue, type Member, type PlanningState, type Status } from '../types';
@@ -13,13 +14,14 @@ import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import type { SharePayload } from '../lib/shareRelease';
 import { DirtyDot } from '../components/DirtyDot';
 import { RichTextEditor } from '../components/RichTextEditor';
-import { linkClipboard } from '../lib/copyLink';
+import { copyRich, linkClipboard } from '../lib/copyLink';
 import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
-import { SegBar } from '../components/badges';
+import { CalcCard, Callout, MetaChip } from '../components/ui/Callout';
+import { SegBar } from '../components/Badges';
 import { SegmentedToggle } from '../components/SegmentedToggle';
-import { StreamBurnChart } from '../components/trend';
+import { StreamBurnChart } from '../components/Trend';
 import { VerdictBadge } from '../components/VerdictLine';
 import { statusVars, verdictVars, warningVars } from '../components/statusVars';
 
@@ -459,8 +461,7 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
 
       {/* The calculation */}
       {canForecast && (
-        <div className="card" style={{ background: 'var(--rt-bg)', padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <span className="tag" style={{ marginBottom: 2 }}>The calculation</span>
+        <CalcCard label="The calculation">
           <Row
             k="Code freeze"
             v={`${fmtShort(effectiveStreamCodeFreeze(r, ws))}${ws.codeFreezeISO != null ? ' (stream override)' : ' (release default)'}`}
@@ -482,7 +483,7 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
             v={`${shortfall > 0.5 ? '' : '+'}${Math.round(Math.abs(shortfall))} pts`}
             big
           />
-        </div>
+        </CalcCard>
       )}
     </Modal>
   );
@@ -545,9 +546,8 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
           onChange={(e) => setDate(e.target.value)}
         />
       </PField>
-      <div className="card" style={{ background: 'var(--rt-bg)', padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ width: 9, height: 9, borderRadius: 2, background: sp ? 'var(--rt-st-ac-dot)' : 'var(--rt-line-strong)', flex: '0 0 auto' }} />
-        <span style={{ fontSize: 'var(--rt-fs-base)', color: 'var(--rt-t2)', lineHeight: 1.45 }}>
+      <Callout tone={sp ? 'active' : 'neutral'}>
+        <>
           {!date ? (
             'Pick a date within the release to place this event on a sprint.'
           ) : sp ? (
@@ -558,8 +558,8 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
           ) : (
             'That date is outside the release range.'
           )}
-        </span>
-      </div>
+        </>
+      </Callout>
     </Modal>
   );
 }
@@ -608,9 +608,8 @@ export function CodeFreezeModal({ releaseId, onClose }: { releaseId: string; onC
       <PField label="Code check-in deadline" hint="defaults to the release's last sprint end when not set explicitly">
         <PInput autoFocus type="date" value={date} min={minDate} onChange={(e) => setDate(e.target.value)} />
       </PField>
-      <div className="card" style={{ background: 'var(--rt-bg)', padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ width: 9, height: 9, borderRadius: 2, background: sp ? 'var(--rt-st-wn-dot)' : 'var(--rt-line-strong)', flex: '0 0 auto' }} />
-        <span style={{ fontSize: 'var(--rt-fs-base)', color: 'var(--rt-t2)', lineHeight: 1.45 }}>
+      <Callout tone={sp ? 'warning' : 'neutral'}>
+        <>
           {!date ? (
             'Pick the date code must be checked in for this release.'
           ) : sp ? (
@@ -622,8 +621,8 @@ export function CodeFreezeModal({ releaseId, onClose }: { releaseId: string; onC
           ) : (
             "That date falls outside the release's current sprints."
           )}
-        </span>
-      </div>
+        </>
+      </Callout>
     </Modal>
   );
 }
@@ -704,17 +703,14 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
       <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', marginTop: -4 }}>
         One holiday for a team of {memberCount} = {memberCount} days off.
       </span>
-      <div className="card" style={{ background: 'var(--rt-bg)', padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <span className="tag" style={{ marginBottom: 2 }}>
-          Expected velocity
-        </span>
+      <CalcCard label="Expected velocity">
         <Row k="Team velocity" v={`${team ? team.velocity : 0} pts`} />
         <Row k="Full capacity" v={`${memberCount} × ${workdays} = ${full} person-days`} />
         <Row k="Days off" v={`− ${off}`} />
         <Row k="% of capacity" v={`${full - off} / ${full} = ${pct}%`} />
         <hr className="divider" style={{ margin: '3px 0' }} />
         <Row k="Sprint velocity" v={`${team ? team.velocity : 0} × ${pct}% = ${vel} pts`} big />
-      </div>
+      </CalcCard>
     </Modal>
   );
 }
@@ -936,28 +932,12 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
     onClose();
   };
 
-  // Copy a clickable link to the item's backend record: a rich text/html anchor
-  // (label = key + subject) with a text/plain fallback, so a paste lands as a live
-  // link in docs/chat and as readable text everywhere else. Falls back to writeText
-  // where ClipboardItem is unavailable.
+  // Copy a clickable link to the item's backend record, so a paste lands as a
+  // live link in docs/chat and as readable text everywhere else.
   const copyLink = async () => {
     if (!it.externalUrl) return;
-    const { html, text } = linkClipboard(it.key, it.subject, it.externalUrl);
-    try {
-      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            'text/html': new Blob([html], { type: 'text/html' }),
-            'text/plain': new Blob([text], { type: 'text/plain' }),
-          }),
-        ]);
-      } else {
-        await navigator.clipboard.writeText(text);
-      }
-      notify('Link copied');
-    } catch {
-      notify('Copy failed');
-    }
+    const ok = await copyRich(linkClipboard(it.key, it.subject, it.externalUrl));
+    notify(ok ? 'Link copied' : 'Copy failed');
   };
 
   // Connector context banner — rendered in the footer (left of the buttons) so it
@@ -998,67 +978,36 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
             {it.key}
           </span>
           {it.itemType && (
-            <span
-              title="Item type (connector-assigned, read-only)"
-              style={{
-                display: 'inline-flex', alignItems: 'center',
-                fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t2)',
-                background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`,
-                borderRadius: 5, padding: '2px 8px',
-              }}
-            >
-              {it.itemType.label}
-            </span>
+            <MetaChip title="Item type (connector-assigned, read-only)">{it.itemType.label}</MetaChip>
           )}
           {it.build && (
-            <span
-              title={`Build: ${it.build}`}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-t3)',
-                background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`,
-                borderRadius: 5, padding: '2px 8px',
-              }}
-            >
-              <span style={{ width: 5, height: 5, borderRadius: 1, background: 'var(--rt-t3)', flexShrink: 0 }} />
+            <MetaChip title={`Build: ${it.build}`}>
+              <span className="dot" style={{ width: 5, height: 5, borderRadius: 1, background: 'var(--rt-t3)' }} />
               {it.build}
-            </span>
+            </MetaChip>
           )}
           {/* <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Work item</span> */}
           {isDirty && <DirtyDot size={7} />}
           {it.externalUrl && (
-            <a
+            <MetaChip
+              accent
               href={it.externalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
               title={`Open ${it.key} in ${meta?.label ?? 'the external system'} (new tab)`}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-accent)',
-                background: 'var(--rt-fill)', border: '1.5px solid var(--rt-line)',
-                borderRadius: 5, padding: '2px 8px', textDecoration: 'none',
-              }}
             >
               {Icon.external}
               Open in {meta?.label ?? 'external'}
-            </a>
+            </MetaChip>
           )}
           {it.externalUrl && (
-            <button
-              type="button"
+            <MetaChip
+              accent
               onClick={copyLink}
               title={`Copy a link to ${it.key} (${it.key} ${it.subject})`}
-              aria-label={`Copy a link to ${it.key}`}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer',
-                fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-accent)',
-                background: 'var(--rt-fill)', border: '1.5px solid var(--rt-line)',
-                borderRadius: 5, padding: '2px 8px',
-              }}
+              ariaLabel={`Copy a link to ${it.key}`}
             >
               {Icon.link}
               Copy link
-            </button>
+            </MetaChip>
           )}
         </span>
       }

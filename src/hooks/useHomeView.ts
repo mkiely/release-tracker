@@ -45,6 +45,9 @@ export interface HomeViewProps {
   onNewTeam: () => void;
 }
 
+/** View model for the releases index: the release cards with their derived
+ *  completion, the teams available to a new release, and the create-release form
+ *  state. Owns all store access so HomeView stays a pure function of its props. */
 export function useHomeView(): HomeViewProps {
   const st = useStore();
   const navigate = useNavigate();

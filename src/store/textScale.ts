@@ -1,17 +1,16 @@
-// Text-size store — a persistent baseline font-size preference, surfaced in the
-// SettingsPanel next to palette + view style. It drives the typography system's
-// single --rt-type-scale lever (see tokens.css), so every --rt-fs-* size scales
-// proportionally. Mirrors the ViewMode/Theme external-store pattern.
+// Baseline text size — a persistent preference surfaced in the SettingsPanel
+// next to palette and view style. It drives the typography system's single
+// --rt-type-scale lever (see tokens.css), so every --rt-fs-* size scales
+// proportionally from one number.
 //
-// This store is the single owner of --rt-type-scale. Presentation mode is a
+// This module is the sole owner of --rt-type-scale. Presentation mode is a
 // temporary bump layered on top: the effective scale is the chosen baseline
 // multiplied by PRESENTATION_SCALE while presentation mode is on, so the two
-// compose instead of clobbering each other. To keep the dependency one-way,
-// this module subscribes to PresentationStore (presentationMode.ts never imports
-// this file).
+// compose rather than clobber each other. To keep the dependency one-way, this
+// module subscribes to PresentationStore; presentationMode.ts never imports this.
 
-import { useSyncExternalStore } from 'react';
 import { PRESENTATION_SCALE, PresentationStore } from './presentationMode';
+import { createPersistedStore, oneOf } from './persisted';
 
 /** The selectable baseline sizes. `scale` multiplies the whole --rt-fs-* ramp. */
 export const TEXT_SCALES = [
@@ -24,51 +23,25 @@ export const TEXT_SCALES = [
 export type TextScale = (typeof TEXT_SCALES)[number]['id'];
 
 const scaleOf = (id: TextScale): number => TEXT_SCALES.find((s) => s.id === id)!.scale;
-const VALID = new Set<string>(TEXT_SCALES.map((s) => s.id));
-const KEY = 'release-tracker:textScale';
-const listeners = new Set<() => void>();
-let current: TextScale = 'md';
 
-try {
-  const s = localStorage.getItem(KEY);
-  if (s && VALID.has(s)) current = s as TextScale;
-} catch {
-  /* ignore */
-}
-
-/** Push the effective scale (baseline × presentation bump) onto <html>. */
-const apply = () => {
+/** Push the effective scale (baseline × any presentation bump) onto <html>. */
+const applyScale = (id: TextScale) => {
   if (typeof document === 'undefined') return;
-  const effective = scaleOf(current) * (PresentationStore.get() ? PRESENTATION_SCALE : 1);
+  const effective = scaleOf(id) * (PresentationStore.get() ? PRESENTATION_SCALE : 1);
   document.documentElement.style.setProperty('--rt-type-scale', String(effective));
 };
-apply();
-// Presentation mode toggles the bump; re-apply whenever it changes.
-PresentationStore.sub(apply);
 
-export const TextScaleStore = {
-  get: (): TextScale => current,
-  set: (v: TextScale) => {
-    current = v;
-    apply();
-    try {
-      localStorage.setItem(KEY, v);
-    } catch {
-      /* ignore */
-    }
-    listeners.forEach((l) => l());
-  },
-  sub: (l: () => void) => {
-    listeners.add(l);
-    return () => {
-      listeners.delete(l);
-    };
-  },
-};
+export const TextScaleStore = createPersistedStore<TextScale>({
+  key: 'release-tracker:textScale',
+  initial: 'md',
+  parse: oneOf(TEXT_SCALES.map((s) => s.id)),
+  apply: applyScale,
+});
 
-export function useTextScale(): TextScale {
-  return useSyncExternalStore(TextScaleStore.sub, TextScaleStore.get, TextScaleStore.get);
-}
+// Presentation mode toggles the bump; re-apply the current baseline through it.
+PresentationStore.sub(() => applyScale(TextScaleStore.get()));
+
+export const useTextScale = TextScaleStore.use;
 
 /**
  * The effective --rt-type-scale currently applied to <html> (baseline × any

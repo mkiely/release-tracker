@@ -4,42 +4,27 @@
 // plan) so each release remembers its own choice — e.g. the build filter.
 //
 // Stored under its own key (release-tracker:buildFacet), deliberately NOT the
-// legacy release-tracker:buildFilter key, which store.ts clears on every load.
+// legacy release-tracker:buildFilter key, which storage.ts clears on every load.
 
-type PrefsShape = Record<string, Record<string, string[]>>; // resetKey -> facetKey -> values
+import { createKeyedPrefs } from './persisted';
 
-const KEY = 'release-tracker:buildFacet';
+/** facetKey -> selected values, for one resetKey. */
+type Selections = Record<string, string[]>;
 
-function load(): PrefsShape {
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as PrefsShape) : {};
-  } catch {
-    return {};
-  }
-}
-
-function save(s: PrefsShape) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(s));
-  } catch {
-    /* ignore */
-  }
-}
+const prefs = createKeyedPrefs<Selections>('release-tracker:buildFacet');
 
 export const FacetPrefs = {
   /** All persisted facet selections for a resetKey: facetKey -> values. */
-  get(resetKey: string): Record<string, string[]> {
-    return load()[resetKey] ?? {};
+  get(resetKey: string): Selections {
+    return prefs.get(resetKey) ?? {};
   },
   /** Write (or, for an empty selection, remove) one facet's values for a resetKey. */
   set(resetKey: string, facetKey: string, values: string[]) {
-    const s = load();
-    const forKey = { ...(s[resetKey] ?? {}) };
+    const forKey = { ...(prefs.get(resetKey) ?? {}) };
     if (values.length === 0) delete forKey[facetKey];
     else forKey[facetKey] = values;
-    if (Object.keys(forKey).length === 0) delete s[resetKey];
-    else s[resetKey] = forKey;
-    save(s);
+    // Drop the whole entry once its last facet clears, so the stored object doesn't
+    // accumulate an empty record per release the user ever opened.
+    prefs.set(resetKey, Object.keys(forKey).length === 0 ? undefined : forKey);
   },
 };

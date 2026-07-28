@@ -1,191 +1,43 @@
 import { useRef, useState } from 'react';
-import type { RefObject } from 'react';
 import type { ItemListViewProps } from '../hooks/useItemListView';
 import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
 import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
-import type { Member, Sprint, WorkItem } from '../types';
+import type { WorkItem } from '../types';
 import { fmtShort } from '../lib/dates';
 import { sumPoints } from '../lib/derive';
-import { NewItemButton, PushButton, SyncButton, TopBar } from '../components/chrome';
-import { ShareButton } from '../components/ShareButton';
-import { Breadcrumb } from '../components/Breadcrumb';
+import { ListChrome } from '../components/ListChrome';
 import { EmptyState } from '../components/EmptyState';
-import { Icon } from '../components/Icon';
-import { IconButton } from '../components/primitives';
-import { TeamLink } from '../components/TeamLink';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { statusVars } from '../components/statusVars';
-import { TableFacetBar } from './SprintTable';
-import { attributeColumns, type AttrColumn } from '../components/fields/columns';
-import { ItemRow } from './ItemRow';
-import { HeaderCell } from './HeaderCell';
-import { sortItems, nextSort, type ItemSort, type SortCtx } from './itemSort';
-import styles from './SprintTable.module.css';
-
-// ── Sprint section (grouped mode) ─────────────────────────────────────────
-
-function SprintSection({
-  sp,
-  isActive,
-  items,
-  members,
-  attrColumns,
-  streamOf,
-  onOpenItem,
-}: {
-  sp: Sprint;
-  isActive: boolean;
-  items: WorkItem[];
-  members: Member[];
-  attrColumns: AttrColumn[];
-  /** Present when the list mixes streams (backlog): resolves the row's Work Stream cell. */
-  streamOf?: (it: WorkItem) => { id: string | null; name: string };
-  onOpenItem: (id: string) => void;
-}) {
-  const pts = sumPoints(items);
-  const sv = statusVars('In Progress');
-
-  return (
-    <div className={styles.section}>
-      <div
-        className={styles.sectionLeft}
-        style={isActive ? { boxShadow: `inset 4px 0 0 ${sv.dot}` } : undefined}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-          <span
-            style={{
-              fontSize: 'var(--rt-fs-lg)',
-              fontWeight: 'var(--rt-fw-display)',
-              letterSpacing: '-0.022em',
-              color: 'var(--rt-ink)',
-              lineHeight: 1.2,
-            }}
-          >
-            {sp.name}
-          </span>
-          {isActive && (
-            <span
-              style={{
-                fontSize: 'var(--rt-fs-micro)',
-                fontWeight: 'var(--rt-fw-display)',
-                letterSpacing: '0.07em',
-                textTransform: 'uppercase',
-                background: 'var(--rt-st-ac-dot)',
-                color: '#fff',
-                borderRadius: 3,
-                padding: '2px 5px',
-                lineHeight: 1,
-                flexShrink: 0,
-              }}
-            >
-              Active
-            </span>
-          )}
-        </div>
-        <div className={styles.sectionMeta} style={{ marginTop: 3 }}>
-          {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
-        </div>
-        <div className={styles.sectionMeta}>
-          {items.length} item{items.length !== 1 ? 's' : ''} · {pts} pts
-        </div>
-      </div>
-      <div className={styles.sectionRight}>
-        {items.map((it) => (
-          <ItemRow
-            key={it.id}
-            item={it}
-            members={members}
-            attrColumns={attrColumns}
-            workStream={streamOf ? streamOf(it) : undefined}
-            onOpen={() => onOpenItem(it.id)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Col headers ───────────────────────────────────────────────────────────
-
-function ColHeaders({
-  groupBySprint,
-  showStream,
-  attrColumns,
-  containerRef,
-  sort,
-  onSort,
-}: {
-  groupBySprint: boolean;
-  showStream: boolean;
-  attrColumns: AttrColumn[];
-  containerRef: RefObject<HTMLElement | null>;
-  sort: ItemSort | null;
-  onSort: (col: string) => void;
-}) {
-  const hp = { sort, onSort, containerRef };
-  const itemCols = (
-    <>
-      <HeaderCell {...hp} colClass={styles.colKey} label="Key" sortCol="key" />
-      <HeaderCell {...hp} colClass={styles.colType} label="Type" sortCol="type" resizeCol="type" />
-      <HeaderCell {...hp} colClass={styles.colPts} label="Pts" sortCol="pts" resizeCol="pts" />
-      <HeaderCell {...hp} colClass={styles.colAssignee} label="Assignee" sortCol="assignee" />
-      <HeaderCell {...hp} colClass={styles.colStatus} label="Status" sortCol="status" />
-      <HeaderCell {...hp} colClass={styles.colBuild} label="Build" sortCol="build" resizeCol="build" />
-      {attrColumns.map((c) => (
-        <HeaderCell {...hp} key={c.key} colClass={styles.colAttr} label={c.label} sortCol={`attr:${c.key}`} resizeCol="attr" />
-      ))}
-      {!groupBySprint && (
-        <HeaderCell {...hp} colClass={styles.colSprint} label="Sprint" sortCol="sprint" resizeCol="sprint" />
-      )}
-      {showStream && (
-        <HeaderCell {...hp} colClass={styles.colWorkStream} label="Work Stream" sortCol="workstream" resizeCol="workstream" />
-      )}
-      <HeaderCell {...hp} colClass={styles.colTitle} label="Title" sortCol="title" />
-    </>
-  );
-
-  if (groupBySprint) {
-    return (
-      <div className={styles.colHeaders}>
-        <div className={styles.colHeaderLeft}>Sprint</div>
-        <div className={styles.colHeaderRight}>{itemCols}</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={styles.colHeaders}>
-      <div className={styles.colHeaderRight} style={{ flex: 1 }}>{itemCols}</div>
-    </div>
-  );
-}
+import { attributeColumns } from '../components/fields/columns';
+import { ColHeaders } from './table/ColHeaders';
+import { ActiveBadge, SprintBand } from './table/SprintBand';
+import { TableFacetBar } from './table/TableFacetBar';
+import { ItemRow } from './table/ItemRow';
+import { sortItems, nextSort, type ItemSort, type SortCtx } from './table/itemSort';
+import styles from './table/table.module.css';
 
 // ── Main component ────────────────────────────────────────────────────────
 
-export function ItemListView({
-  variant,
-  release: r,
-  team,
-  filteredItems,
-  activeSprintId,
-  totalItemCount,
-  totalPts,
-  facetGroups,
-  isFiltered,
-  groupBySprint,
-  showStreamColumn,
-  onToggleGroupBy,
-  onHome,
-  onBack,
-  onOpenTeam,
-  onNewItem,
-  onOpenItem,
-  onToggleFacet,
-  onClearFilters,
-  onSync,
-  onPush,
-}: ItemListViewProps) {
+/** The flat item list backing both Backlog and Unassigned (`variant` picks which).
+ *  Groups by sprint or shows one flat list — a persisted per-view preference. */
+export function ItemListView(props: ItemListViewProps) {
+  const {
+    variant,
+    release: r,
+    team,
+    filteredItems,
+    activeSprintId,
+    facetGroups,
+    isFiltered,
+    groupBySprint,
+    showStreamColumn,
+    onToggleGroupBy,
+    onOpenItem,
+    onToggleFacet,
+    onClearFilters,
+  } = props;
   const members = team?.members ?? [];
   const attrCols = attributeColumns(r.catalog);
 
@@ -235,56 +87,35 @@ export function ItemListView({
   const isEmpty = filteredItems.length === 0;
 
   return (
-    <div className="wf screen">
-      <TopBar
-        left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
-        title={
-          <Breadcrumb
-            crumbs={[
-              { label: 'Releases', icon: Icon.release, onClick: onHome },
-              { label: r.name, onClick: onBack },
-              { label: crumbLabel, icon: variant === 'backlog' ? Icon.backlog : Icon.stream },
-            ]}
-          />
-        }
-        sub={team ? <TeamLink name={team.name} onClick={onOpenTeam} /> : undefined}
-        right={
-          <>
-            <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
-              {totalItemCount} item{totalItemCount !== 1 ? 's' : ''} · {totalPts} pts
-            </span>
-            <ShareButton release={r} />
-            <PushButton release={r} onPush={onPush} />
-            <SyncButton release={r} onSync={onSync} />
-            <NewItemButton release={r} onClick={onNewItem} icon={Icon.plus} />
-          </>
-        }
-      />
-
-      <TableFacetBar
-        groups={facetGroups}
-        onToggle={onToggleFacet}
-        onClear={onClearFilters}
-        trailing={
-          <div className={styles.filterGroup} style={{ justifyContent: 'flex-end' }}>
-            <span className={styles.filterLabel}>Group by</span>
-            <SegmentedToggle<'flat' | 'sprint'>
-              ariaLabel={`Group ${crumbLabel.toLowerCase()} by`}
-              value={groupBySprint ? 'sprint' : 'flat'}
-              onChange={(v) => { if ((v === 'sprint') !== groupBySprint) onToggleGroupBy(); }}
-              options={[
-                { value: 'flat', label: 'All items', title: 'Show all items in one list' },
-                { value: 'sprint', label: 'By sprint', title: 'Group items by sprint' },
-              ]}
-            />
-          </div>
-        }
-      />
-
+    <ListChrome
+      {...props}
+      toolbar={
+        <TableFacetBar
+          groups={facetGroups}
+          onToggle={onToggleFacet}
+          onClear={onClearFilters}
+          trailing={
+            <div className={styles.filterGroup} style={{ justifyContent: 'flex-end' }}>
+              <span className={styles.filterLabel}>Group by</span>
+              <SegmentedToggle<'flat' | 'sprint'>
+                ariaLabel={`Group ${crumbLabel.toLowerCase()} by`}
+                value={groupBySprint ? 'sprint' : 'flat'}
+                onChange={(v) => { if ((v === 'sprint') !== groupBySprint) onToggleGroupBy(); }}
+                options={[
+                  { value: 'flat', label: 'All items', title: 'Show all items in one list' },
+                  { value: 'sprint', label: 'By sprint', title: 'Group items by sprint' },
+                ]}
+              />
+            </div>
+          }
+        />
+      }
+    >
       <div className={styles.body} ref={bodyRef}>
         <ColHeaders
-          groupBySprint={groupBySprint}
-          showStream={showStreamColumn}
+          groupLabel={groupBySprint ? 'Sprint' : null}
+          showSprint={!groupBySprint}
+          showWorkStream={showStreamColumn}
           attrColumns={attrCols}
           containerRef={bodyRef}
           sort={sort}
@@ -296,36 +127,48 @@ export function ItemListView({
         ) : groupBySprint ? (
           <>
             {sprintSections.map(({ sp, items }) => (
-              <SprintSection
+              <SprintBand
                 key={sp.id}
-                sp={sp}
-                isActive={sp.id === activeSprintId}
+                title={sp.name}
+                dates={`${fmtShort(sp.startISO)} – ${fmtShort(sp.endISO)}`}
+                count={items.length}
+                points={sumPoints(items)}
+                badge={sp.id === activeSprintId ? <ActiveBadge /> : undefined}
+                accent={sp.id === activeSprintId ? statusVars('In Progress').dot : undefined}
                 items={items}
-                members={members}
-                attrColumns={attrCols}
-                streamOf={streamOf}
-                onOpenItem={onOpenItem}
+                sort={null /* already sorted per section */}
+                sortCtx={sortCtx}
+                renderRow={(it) => (
+                  <ItemRow
+                    key={it.id}
+                    item={it}
+                    members={members}
+                    attrColumns={attrCols}
+                    workStream={streamOf ? streamOf(it) : undefined}
+                    onOpen={() => onOpenItem(it.id)}
+                  />
+                )}
               />
             ))}
             {noSprintItems.length > 0 && (
-              <div className={styles.section}>
-                <div className={styles.sectionLeft}>
-                  <span className={styles.sectionName} style={{ color: 'var(--rt-t3)', fontStyle: 'italic' }}>No sprint</span>
-                  <div className={styles.sectionMeta}>{noSprintItems.length} item{noSprintItems.length !== 1 ? 's' : ''}</div>
-                </div>
-                <div className={styles.sectionRight}>
-                  {noSprintItems.map((it) => (
-                    <ItemRow
-                      key={it.id}
-                      item={it}
-                      members={members}
-                      attrColumns={attrCols}
-                      workStream={streamOf ? streamOf(it) : undefined}
-                      onOpen={() => onOpenItem(it.id)}
-                    />
-                  ))}
-                </div>
-              </div>
+              <SprintBand
+                title="No sprint"
+                variant="unassigned"
+                count={noSprintItems.length}
+                items={noSprintItems}
+                sort={null}
+                sortCtx={sortCtx}
+                renderRow={(it) => (
+                  <ItemRow
+                    key={it.id}
+                    item={it}
+                    members={members}
+                    attrColumns={attrCols}
+                    workStream={streamOf ? streamOf(it) : undefined}
+                    onOpen={() => onOpenItem(it.id)}
+                  />
+                )}
+              />
             )}
           </>
         ) : (
@@ -346,6 +189,6 @@ export function ItemListView({
           </div>
         )}
       </div>
-    </div>
+    </ListChrome>
   );
 }

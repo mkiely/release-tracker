@@ -1,12 +1,13 @@
-// Theme store — external store so the persistent theme can be read/set from
-// anywhere. Sets data-theme on <html>. Supports 6 named palettes.
-// Ported from proto-app.jsx ThemeStore + useTheme; expanded from 2-state
-// toggle to a 6-option named-theme picker.
+// Colour theme. The whole palette re-resolves at paint time from a single
+// `data-theme` attribute on <html>, so switching is one attribute write and no
+// component needs to know a theme changed.
 
-import { useSyncExternalStore } from 'react';
+import { createPersistedStore, oneOf } from './persisted';
 
 export type Theme = 'light' | 'dark' | 'coastal' | 'dusk-berry' | 'midnight-navy' | 'neon-reef';
 
+/** The selectable palettes. `bg`/`dot` drive the two-tone swatch in the settings
+ *  panel; `dark` marks the palettes whose surfaces are darker than their ink. */
 export const THEMES: { id: Theme; label: string; bg: string; dot: string; dark: boolean }[] = [
   { id: 'light',          label: 'Default',       bg: '#f6f7f9', dot: '#5b82b8', dark: false },
   { id: 'dark',           label: 'Dark',          bg: '#131519', dot: '#6b93c9', dark: true  },
@@ -16,43 +17,13 @@ export const THEMES: { id: Theme; label: string; bg: string; dot: string; dark: 
   { id: 'neon-reef',      label: 'Neon Reef',     bg: '#071A16', dot: '#2ECC9A', dark: true  },
 ];
 
-const VALID = new Set<string>(THEMES.map((t) => t.id));
-const KEY = 'release-tracker:theme';
-const listeners = new Set<() => void>();
-let current: Theme = 'light';
-
-try {
-  const s = localStorage.getItem(KEY);
-  if (s && VALID.has(s)) current = s as Theme;
-} catch {
-  /* ignore */
-}
-
-const apply = (t: Theme) => {
-  if (typeof document !== 'undefined') document.documentElement.setAttribute('data-theme', t);
-};
-apply(current);
-
-export const ThemeStore = {
-  get: (): Theme => current,
-  set: (t: Theme) => {
-    current = t;
-    apply(t);
-    try {
-      localStorage.setItem(KEY, t);
-    } catch {
-      /* ignore */
-    }
-    listeners.forEach((l) => l());
+export const ThemeStore = createPersistedStore<Theme>({
+  key: 'release-tracker:theme',
+  initial: 'light',
+  parse: oneOf(THEMES.map((t) => t.id)),
+  apply: (t) => {
+    if (typeof document !== 'undefined') document.documentElement.setAttribute('data-theme', t);
   },
-  sub: (l: () => void) => {
-    listeners.add(l);
-    return () => {
-      listeners.delete(l);
-    };
-  },
-};
+});
 
-export function useTheme(): Theme {
-  return useSyncExternalStore(ThemeStore.sub, ThemeStore.get, ThemeStore.get);
-}
+export const useTheme = ThemeStore.use;

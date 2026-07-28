@@ -1,8 +1,10 @@
 import type { TeamsViewProps } from '../hooks/useTeamsView';
-import { TopBar } from '../components/chrome';
+import { TopBar } from '../components/AppChrome';
 import { Icon } from '../components/Icon';
 import { IconButton, PButton, PField, PInput } from '../components/primitives';
 
+/** The teams screen: a card per team with inline velocity editing and its member
+ *  list. Velocity here drives every sprint's default capacity. */
 export function TeamsView({
   teams,
   onBack,
@@ -13,7 +15,7 @@ export function TeamsView({
   onToggleNonContributing,
 }: TeamsViewProps) {
   return (
-    <div className="wf screen">
+    <div className="screen">
       <TopBar
         left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
         title="Teams"

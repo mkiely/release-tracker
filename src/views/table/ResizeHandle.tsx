@@ -1,7 +1,7 @@
-import { COL_DEFAULTS, COL_MINS, getColWidthFromDOM, saveColWidth } from '../hooks/useColumnWidths';
-import { currentTypeScale } from '../store/textScale';
+import { COL_DEFAULTS, COL_MINS, getColWidthFromDOM, saveColWidth } from '../../hooks/useColumnWidths';
+import { currentTypeScale } from '../../store/textScale';
 import type { RefObject } from 'react';
-import styles from './SprintTable.module.css';
+import styles from './table.module.css';
 
 export function ResizeHandle({
   col,

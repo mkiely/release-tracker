@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { migrate } from './store';
 import { SCHEMA_VERSION } from '../types';
 
+/** Read a field the current types no longer declare — for asserting a migration
+ *  actually dropped it, rather than merely stopping reading it. */
+const removed = (o: object, key: string): unknown => (o as Record<string, unknown>)[key];
+
 // Minimal v1 release — no connector/sync fields.
 const v1Release = () => ({
   id: 'r1', name: 'Orion 2.0', startISO: '2026-04-13', teamId: 't1',
@@ -38,11 +42,11 @@ describe('migrate — v1 → current', () => {
   const v1 = { version: 1, teams: [], releases: [v1Release()], items: [], meta: { lastSyncISO: null } };
 
   it('reaches the current schema version', () => {
-    expect(migrate(v1 as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v1)?.version).toBe(SCHEMA_VERSION);
   });
 
   it('adds connector: null and sync: null to releases', () => {
-    const next = migrate(v1 as any)!;
+    const next = migrate(v1)!;
     expect(next.releases[0].connector).toBeNull();
     expect(next.releases[0].sync).toBeNull();
   });
@@ -52,7 +56,7 @@ describe('migrate — v1 → current', () => {
       ...v1,
       releases: [{ ...v1Release(), connector: { type: 'acme', config: {} } }],
     };
-    const next = migrate(withConn as any)!;
+    const next = migrate(withConn)!;
     expect(next.releases[0].connector).toEqual({ type: 'acme', config: {} });
   });
 });
@@ -70,24 +74,24 @@ describe('migrate — v2 → current', () => {
   };
 
   it('reaches the current schema version', () => {
-    expect(migrate(v2 as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v2)?.version).toBe(SCHEMA_VERSION);
   });
 
   it('replaces sprint positional n with a string id', () => {
-    const next = migrate(v2 as any)!;
+    const next = migrate(v2)!;
     const sprints = next.releases[0].sprints;
     expect(sprints).toHaveLength(2);
     expect(typeof sprints[0].id).toBe('string');
-    expect((sprints[0] as any).n).toBeUndefined();
+    expect(removed(sprints[0], 'n')).toBeUndefined();
   });
 
   it('rewires item sprintId to match the new sprint string id', () => {
-    const next = migrate(v2 as any)!;
+    const next = migrate(v2)!;
     const sprint1Id = next.releases[0].sprints[0].id;
     const sprint2Id = next.releases[0].sprints[1].id;
     expect(next.items[0].sprintId).toBe(sprint1Id);
     expect(next.items[1].sprintId).toBe(sprint2Id);
-    expect((next.items[0] as any).sprintN).toBeUndefined();
+    expect(removed(next.items[0], 'sprintN')).toBeUndefined();
   });
 
   it('maps sprintN 0 (backlog) to sprintId null', () => {
@@ -95,12 +99,12 @@ describe('migrate — v2 → current', () => {
       ...v2,
       items: [{ ...v2Item(0), id: 'it_bl', key: 'BL-1' }],
     };
-    const next = migrate(v2WithBacklog as any)!;
+    const next = migrate(v2WithBacklog)!;
     expect(next.items[0].sprintId).toBeNull();
   });
 
   it('adds assignedMemberId: null and dirtyFields: [] to items', () => {
-    const next = migrate(v2 as any)!;
+    const next = migrate(v2)!;
     expect(next.items[0].assignedMemberId).toBeNull();
     expect(next.items[0].dirtyFields).toEqual([]);
   });
@@ -114,22 +118,22 @@ describe('migrate — v3 → current', () => {
   };
 
   it('reaches the current schema version', () => {
-    expect(migrate(v3 as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v3)?.version).toBe(SCHEMA_VERSION);
   });
 
   it('adds assignedMemberId: null to items that lack it', () => {
-    const next = migrate(v3 as any)!;
+    const next = migrate(v3)!;
     expect(next.items[0].assignedMemberId).toBeNull();
   });
 
   it('adds dirtyFields: [] to items that lack it', () => {
-    const next = migrate(v3 as any)!;
+    const next = migrate(v3)!;
     expect(next.items[0].dirtyFields).toEqual([]);
   });
 
   it('preserves existing assignedMemberId when already set', () => {
     const v3WithAssignee = { ...v3, items: [{ ...v3Item(), assignedMemberId: 'm1' }] };
-    const next = migrate(v3WithAssignee as any)!;
+    const next = migrate(v3WithAssignee)!;
     expect(next.items[0].assignedMemberId).toBe('m1');
   });
 });
@@ -142,23 +146,23 @@ describe('migrate — v4 → current', () => {
   };
 
   it('reaches the current schema version', () => {
-    expect(migrate(v4 as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v4)?.version).toBe(SCHEMA_VERSION);
   });
 
   it('adds build: null to items that lack it', () => {
-    const next = migrate(v4 as any)!;
+    const next = migrate(v4)!;
     expect(next.items[0].build).toBeNull();
   });
 
   it('preserves an existing build value when already set', () => {
     const v4WithBuild = { ...v4, items: [{ ...v4Item(), build: 'Orion 1.5' }] };
-    const next = migrate(v4WithBuild as any)!;
+    const next = migrate(v4WithBuild)!;
     expect(next.items[0].build).toBe('Orion 1.5');
   });
 
   it('sets build: null on every item when multiple items are present', () => {
     const v4Multi = { ...v4, items: [v4Item(), { ...v4Item(), id: 'it2', key: 'K-2' }] };
-    const next = migrate(v4Multi as any)!;
+    const next = migrate(v4Multi)!;
     expect(next.items.every((i) => i.build === null)).toBe(true);
   });
 });
@@ -172,23 +176,23 @@ describe('migrate — v6 → current', () => {
   };
 
   it('reaches the current schema version', () => {
-    expect(migrate(v6 as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v6)?.version).toBe(SCHEMA_VERSION);
   });
 
   it('adds descriptionFormat: text to items that lack it', () => {
-    const next = migrate(v6 as any)!;
+    const next = migrate(v6)!;
     expect(next.items[0].descriptionFormat).toBe('text');
   });
 
   it('preserves an existing descriptionFormat: html when already set', () => {
     const v6WithHtml = { ...v6, items: [{ ...v6Item(), descriptionFormat: 'html' }] };
-    const next = migrate(v6WithHtml as any)!;
+    const next = migrate(v6WithHtml)!;
     expect(next.items[0].descriptionFormat).toBe('html');
   });
 
   it('sets descriptionFormat on every item when multiple items are present', () => {
     const v6Multi = { ...v6, items: [v6Item(), { ...v6Item(), id: 'it2', key: 'K-2' }] };
-    const next = migrate(v6Multi as any)!;
+    const next = migrate(v6Multi)!;
     expect(next.items.every((i) => i.descriptionFormat === 'text')).toBe(true);
   });
 });
@@ -211,16 +215,16 @@ describe('migrate — v7 → current', () => {
   };
 
   it('reaches the current schema version', () => {
-    expect(migrate(v7 as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v7)?.version).toBe(SCHEMA_VERSION);
   });
 
   it('adds itemType: null to items that lack it', () => {
-    const next = migrate(v7 as any)!;
+    const next = migrate(v7)!;
     expect(next.items[0].itemType).toBeNull();
   });
 
   it('adds nonContributing: false to members that lack it', () => {
-    const next = migrate(v7 as any)!;
+    const next = migrate(v7)!;
     expect(next.teams[0].members[0].nonContributing).toBe(false);
   });
 
@@ -229,7 +233,7 @@ describe('migrate — v7 → current', () => {
       ...v7,
       teams: [{ ...v7.teams[0], members: [{ ...v7Member(), nonContributing: true }] }],
     };
-    const next = migrate(v7WithNonContrib as any)!;
+    const next = migrate(v7WithNonContrib)!;
     expect(next.teams[0].members[0].nonContributing).toBe(true);
   });
 });
@@ -252,11 +256,11 @@ describe('migrate — v8 → current', () => {
   };
 
   it('reaches the current schema version', () => {
-    expect(migrate(v8 as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v8)?.version).toBe(SCHEMA_VERSION);
   });
 
   it("renames 'Active' status to 'In Progress'", () => {
-    const next = migrate(v8 as any)!;
+    const next = migrate(v8)!;
     expect(next.items[0].status).toBe('In Progress');
   });
 
@@ -270,7 +274,7 @@ describe('migrate — v8 → current', () => {
         { ...v8Item(), id: 'it4', key: 'K-4', status: 'Active' },
       ],
     };
-    const next = migrate(mixed as any)!;
+    const next = migrate(mixed)!;
     expect(next.items.map((i) => i.status)).toEqual(['Not Started', 'Blocked', 'Complete', 'In Progress']);
   });
 });
@@ -285,11 +289,11 @@ describe('migrate — v9 → current', () => {
   };
 
   it('reaches the current schema version', () => {
-    expect(migrate(v9 as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v9)?.version).toBe(SCHEMA_VERSION);
   });
 
   it('adds engineersRequired: null to work streams that lack it', () => {
-    const next = migrate(v9 as any)!;
+    const next = migrate(v9)!;
     expect(next.releases[0].workStreams[0].engineersRequired).toBeNull();
   });
 
@@ -298,7 +302,7 @@ describe('migrate — v9 → current', () => {
       ...v9,
       releases: [{ ...v2Release(), workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: 3 }] }],
     };
-    const next = migrate(withVal as any)!;
+    const next = migrate(withVal)!;
     expect(next.releases[0].workStreams[0].engineersRequired).toBe(3);
   });
 });
@@ -318,23 +322,23 @@ describe('migrate — v10 → current', () => {
   };
 
   it('reaches the current schema version', () => {
-    expect(migrate(v10 as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v10)?.version).toBe(SCHEMA_VERSION);
   });
 
   it('seeds syncedValues from the current value for synced items', () => {
-    const next = migrate(v10 as any)!;
+    const next = migrate(v10)!;
     expect(next.items[0].syncedValues).toEqual({ points: 3, sprint: 'sp1' });
   });
 
   it('sets syncedValues null for local items (no externalId)', () => {
     const local = { ...v10, items: [v10Item({ externalId: null })] };
-    const next = migrate(local as any)!;
+    const next = migrate(local)!;
     expect(next.items[0].syncedValues).toBeNull();
   });
 
   it('preserves an existing syncedValues when already set', () => {
     const withVal = { ...v10, items: [v10Item({ externalId: 'EXT-1', syncedValues: { points: 8, sprintId: null } })] };
-    const next = migrate(withVal as any)!;
+    const next = migrate(withVal)!;
     expect(next.items[0].syncedValues).toEqual({ points: 8, sprint: null });
   });
 });
@@ -349,11 +353,11 @@ describe('migrate — v11 → current', () => {
   };
 
   it('reaches the current schema version', () => {
-    expect(migrate(v11 as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v11)?.version).toBe(SCHEMA_VERSION);
   });
 
   it('adds build: null to work streams that lack it (treated as native)', () => {
-    const next = migrate(v11 as any)!;
+    const next = migrate(v11)!;
     expect(next.releases[0].workStreams[0].build).toBeNull();
   });
 
@@ -362,7 +366,7 @@ describe('migrate — v11 → current', () => {
       ...v11,
       releases: [{ ...v2Release(), workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: null, build: 'Orion 1.5' }] }],
     };
-    const next = migrate(withBuild as any)!;
+    const next = migrate(withBuild)!;
     expect(next.releases[0].workStreams[0].build).toBe('Orion 1.5');
   });
 });
@@ -386,17 +390,17 @@ describe('migrate — v12 → current', () => {
   };
 
   it('reaches the current schema version', () => {
-    expect(migrate(v12 as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v12)?.version).toBe(SCHEMA_VERSION);
   });
 
   it('adds attributes: {} to items and work streams that lack it', () => {
-    const next = migrate(v12 as any)!;
+    const next = migrate(v12)!;
     expect(next.items[0].attributes).toEqual({});
     expect(next.releases[0].workStreams[0].attributes).toEqual({});
   });
 
   it('adds catalog: null to releases', () => {
-    const next = migrate(v12 as any)!;
+    const next = migrate(v12)!;
     expect(next.releases[0].catalog).toBeNull();
   });
 
@@ -406,7 +410,7 @@ describe('migrate — v12 → current', () => {
       items: [v12Item({ attributes: { severity: 'high' } })],
       releases: [{ ...v2Release(), sprints: [], workStreams: [v12Ws({ attributes: { area: 'payments' } })] }],
     };
-    const next = migrate(withAttrs as any)!;
+    const next = migrate(withAttrs)!;
     expect(next.items[0].attributes).toEqual({ severity: 'high' });
     expect(next.releases[0].workStreams[0].attributes).toEqual({ area: 'payments' });
   });
@@ -426,19 +430,19 @@ describe('migrate — v13 → current', () => {
   });
 
   it('renames the syncedValues sprintId key to sprint', () => {
-    const next = migrate(v13([v13Item()]) as any)!;
+    const next = migrate(v13([v13Item()]))!;
     expect(next.version).toBe(SCHEMA_VERSION);
     expect(next.items[0].syncedValues).toEqual({ points: 3, sprint: 'sp1' });
   });
 
   it('keeps a null baseline null (local items)', () => {
-    const next = migrate(v13([v13Item({ externalId: null, syncedValues: null })]) as any)!;
+    const next = migrate(v13([v13Item({ externalId: null, syncedValues: null })]))!;
     expect(next.items[0].syncedValues).toBeNull();
   });
 
   it('passes an already-record-shaped baseline through unchanged', () => {
     const record = { points: 5, sprint: null, severity: 'high' };
-    const next = migrate(v13([v13Item({ syncedValues: record })]) as any)!;
+    const next = migrate(v13([v13Item({ syncedValues: record })]))!;
     expect(next.items[0].syncedValues).toEqual(record);
   });
 });
@@ -458,20 +462,20 @@ describe('migrate — v14 → current', () => {
   });
 
   it('adds statusNative: null to items', () => {
-    const next = migrate(v14(null) as any)!;
+    const next = migrate(v14(null))!;
     expect(next.version).toBe(SCHEMA_VERSION);
     expect(next.items[0].statusNative).toBeNull();
   });
 
   it('wraps a bare itemTypes-array catalog into { itemTypes, statuses: [] } (v21 adds workStreamFields)', () => {
-    const next = migrate(v14(itemTypes) as any)!;
+    const next = migrate(v14(itemTypes))!;
     expect(next.releases[0].catalog).toEqual({ itemTypes, statuses: [], workStreamFields: [] });
   });
 
   it('keeps a null catalog null and preserves an already-wrapped one', () => {
-    expect(migrate(v14(null) as any)!.releases[0].catalog).toBeNull();
+    expect(migrate(v14(null))!.releases[0].catalog).toBeNull();
     const wrapped = { itemTypes, statuses: [{ id: 'qa', label: 'QA', category: 'Under Review' }] };
-    expect(migrate(v14(wrapped) as any)!.releases[0].catalog).toEqual({ ...wrapped, workStreamFields: [] });
+    expect(migrate(v14(wrapped))!.releases[0].catalog).toEqual({ ...wrapped, workStreamFields: [] });
   });
 });
 
@@ -492,7 +496,7 @@ describe('migrate — v15 → current', () => {
   });
 
   it('adds externalUrl: null to items and work streams that lack it', () => {
-    const next = migrate(v15() as any)!;
+    const next = migrate(v15())!;
     expect(next.version).toBe(SCHEMA_VERSION);
     expect(next.items[0].externalUrl).toBeNull();
     expect(next.releases[0].workStreams[0].externalUrl).toBeNull();
@@ -502,7 +506,7 @@ describe('migrate — v15 → current', () => {
     const next = migrate(v15({
       item: { externalUrl: 'https://acme.test/browse/EXT-1' },
       ws: { externalUrl: 'https://acme.test/browse/EPIC-A' },
-    }) as any)!;
+    }))!;
     expect(next.items[0].externalUrl).toBe('https://acme.test/browse/EXT-1');
     expect(next.releases[0].workStreams[0].externalUrl).toBe('https://acme.test/browse/EPIC-A');
   });
@@ -523,11 +527,11 @@ describe('migrate — v18 → current', () => {
   });
 
   it('reaches the current schema version', () => {
-    expect(migrate(v18() as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v18())?.version).toBe(SCHEMA_VERSION);
   });
 
   it('stamps a started sprint with its derived velocity and leaves the future one null', () => {
-    const next = migrate(v18() as any)!;
+    const next = migrate(v18())!;
     const [s1, s2] = next.releases[0].sprints;
     // 1 contributing member × 10 business days, full capacity → planned == team velocity (30).
     expect(s1.plannedVelocity).toBe(30);
@@ -535,7 +539,7 @@ describe('migrate — v18 → current', () => {
   });
 
   it('preserves an already-stamped baseline', () => {
-    const next = migrate(v18({ sprints: [{ ...startedSp, plannedVelocity: 17 }, futureSp] }) as any)!;
+    const next = migrate(v18({ sprints: [{ ...startedSp, plannedVelocity: 17 }, futureSp] }))!;
     expect(next.releases[0].sprints[0].plannedVelocity).toBe(17);
   });
 });
@@ -550,16 +554,16 @@ describe('migrate — v19 → current', () => {
   });
 
   it('reaches the current schema version', () => {
-    expect(migrate(v19() as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v19())?.version).toBe(SCHEMA_VERSION);
   });
 
   it('an unmuted v19 stream ends up planningState: open', () => {
-    const next = migrate(v19() as any)!;
+    const next = migrate(v19())!;
     expect(next.releases[0].workStreams[0].planningState).toBe('open');
   });
 
   it('a v19 planningMuted: true stream ends up planningState: deferred', () => {
-    const next = migrate(v19({ planningMuted: true }) as any)!;
+    const next = migrate(v19({ planningMuted: true }))!;
     expect(next.releases[0].workStreams[0].planningState).toBe('deferred');
   });
 });
@@ -574,21 +578,21 @@ describe('migrate — v20 → current', () => {
   });
 
   it('reaches the current schema version', () => {
-    expect(migrate(v20(null) as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v20(null))?.version).toBe(SCHEMA_VERSION);
   });
 
   it('keeps a null catalog null', () => {
-    expect(migrate(v20(null) as any)!.releases[0].catalog).toBeNull();
+    expect(migrate(v20(null))!.releases[0].catalog).toBeNull();
   });
 
   it('adds workStreamFields: [] to an existing catalog snapshot', () => {
-    const next = migrate(v20({ itemTypes: [], statuses: [] }) as any)!;
+    const next = migrate(v20({ itemTypes: [], statuses: [] }))!;
     expect(next.releases[0].catalog).toEqual({ itemTypes: [], statuses: [], workStreamFields: [] });
   });
 
   it('preserves existing workStreamFields', () => {
     const wsf = [{ key: 'track', kind: 'enum', filterable: true }];
-    const next = migrate(v20({ itemTypes: [], statuses: [], workStreamFields: wsf }) as any)!;
+    const next = migrate(v20({ itemTypes: [], statuses: [], workStreamFields: wsf }))!;
     expect(next.releases[0].catalog?.workStreamFields).toEqual(wsf);
   });
 });
@@ -603,16 +607,16 @@ describe('migrate — v21 → current', () => {
   });
 
   it('reaches the current schema version', () => {
-    expect(migrate(v21() as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v21())?.version).toBe(SCHEMA_VERSION);
   });
 
   it('adds codeFreezeISO: null to the release', () => {
-    const next = migrate(v21() as any)!;
+    const next = migrate(v21())!;
     expect(next.releases[0].codeFreezeISO).toBeNull();
   });
 
   it('adds codeFreezeISO: null to work streams that lack it', () => {
-    const next = migrate(v21() as any)!;
+    const next = migrate(v21())!;
     expect(next.releases[0].workStreams[0].codeFreezeISO).toBeNull();
   });
 });
@@ -629,11 +633,11 @@ describe('migrate — v23 → current', () => {
   });
 
   it('reaches the current schema version', () => {
-    expect(migrate(v23() as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v23())?.version).toBe(SCHEMA_VERSION);
   });
 
   it('backfills pendingCreate: false on existing items', () => {
-    const next = migrate(v23() as any)!;
+    const next = migrate(v23())!;
     expect(next.items[0].pendingCreate).toBe(false);
   });
 });
@@ -648,11 +652,11 @@ describe('migrate — v24 → current', () => {
   });
 
   it('reaches the current schema version', () => {
-    expect(migrate(v24() as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v24())?.version).toBe(SCHEMA_VERSION);
   });
 
   it('leaves autoSyncMinutes unset (off by default)', () => {
-    const next = migrate(v24() as any)!;
+    const next = migrate(v24())!;
     expect(next.releases[0].autoSyncMinutes ?? null).toBeNull();
   });
 });
@@ -667,17 +671,17 @@ describe('migrate — v25 → current', () => {
   });
 
   it('reaches the current schema version', () => {
-    expect(migrate(v25(false) as any)?.version).toBe(SCHEMA_VERSION);
+    expect(migrate(v25(false))?.version).toBe(SCHEMA_VERSION);
   });
 
   it('maps planningMuted: false → planningState: open', () => {
-    const next = migrate(v25(false) as any)!;
+    const next = migrate(v25(false))!;
     expect(next.releases[0].workStreams[0].planningState).toBe('open');
-    expect((next.releases[0].workStreams[0] as any).planningMuted).toBeUndefined();
+    expect(removed(next.releases[0].workStreams[0], 'planningMuted')).toBeUndefined();
   });
 
   it('maps planningMuted: true → planningState: deferred', () => {
-    const next = migrate(v25(true) as any)!;
+    const next = migrate(v25(true))!;
     expect(next.releases[0].workStreams[0].planningState).toBe('deferred');
   });
 });
@@ -685,12 +689,12 @@ describe('migrate — v25 → current', () => {
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };
-    expect(migrate(unknown as any)).toBeNull();
+    expect(migrate(unknown)).toBeNull();
   });
 
   it('returns the state unchanged for the current version', () => {
     const current = { version: SCHEMA_VERSION, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };
-    const result = migrate(current as any);
+    const result = migrate(current);
     expect(result).toEqual(current);
   });
 });

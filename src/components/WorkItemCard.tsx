@@ -1,7 +1,7 @@
 import type { Status, WorkItem } from '../types';
 import { STATUSES } from '../types';
 import { getActions, selRelease, selTeam, useStore } from '../store/store';
-import { Drag, useDrag } from './dnd';
+import { Drag, useDrag } from './Dnd';
 import { DirtyDot } from './DirtyDot';
 import { Icon } from './Icon';
 import { statusVars } from './statusVars';
@@ -9,7 +9,7 @@ import styles from './WorkItemCard.module.css';
 
 // inline status chip that doubles as a select. `label` overrides the displayed
 // text (an item's native workflow state); colors stay keyed to the category.
-export function StatusSelect({ value, onChange, disabled, label }: { value: Status; onChange: (v: Status) => void; disabled?: boolean; label?: string }) {
+function StatusSelect({ value, onChange, disabled, label }: { value: Status; onChange: (v: Status) => void; disabled?: boolean; label?: string }) {
   const { soft, text, dot } = statusVars(value);
   return (
     <div style={{ position: 'relative', alignSelf: 'center' }} onClick={(e) => e.stopPropagation()}>

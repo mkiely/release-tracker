@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { attributeColumns, streamAttributeColumns } from './columns';
+import { anItem } from '../../test/factories';
 import type { ReleaseCatalog, WorkItem, WorkStream } from '../../types';
 
-const item = (over: Partial<WorkItem>): WorkItem => ({
-  id: 'it_1', releaseId: 'rel_1', workStreamId: 'ws_1', sprintId: null,
-  key: 'X-1', subject: 'S', description: '', status: 'Not Started', points: 0,
-  externalId: 'X-1', assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [],
-  itemType: null, ...over,
-});
+const item = (over: Partial<WorkItem>): WorkItem =>
+  anItem({ id: 'it_1', key: 'X-1', externalId: 'X-1', sprintId: null, points: 0, ...over });
 
 const catalog: ReleaseCatalog = {
   statuses: [],

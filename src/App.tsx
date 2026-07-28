@@ -1,4 +1,5 @@
-// App root — routes map the prototype's `route` object to real URLs:
+// App root. The browser URL is the single source of routing truth, which is
+// what makes every screen linkable and survives a reload:
 //   /                          → Home / Releases
 //   /teams                     → Teams
 //   /releases/:id              → Release Overview (release plan view)

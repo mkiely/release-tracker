@@ -1,7 +1,7 @@
 import { useWorkStreamView } from '../hooks/useWorkStreamView';
 import { WorkStreamView } from '../views/WorkStreamView';
 import { WorkStreamTable } from '../views/WorkStreamTable';
-import { NotFound } from '../components/chrome';
+import { NotFound } from '../components/AppChrome';
 import { useViewMode } from '../store/viewMode';
 
 export function WorkStream() {

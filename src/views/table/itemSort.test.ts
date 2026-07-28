@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import type { WorkItem } from '../types';
+import type { WorkItem } from '../../types';
+import { anItem } from '../../test/factories';
 import { sortItems, nextSort, type SortCtx } from './itemSort';
 
-// Minimal partials — the comparator only reads the fields set here.
-function item(p: Partial<WorkItem>): WorkItem {
-  return { key: 'X-0', status: 'Not Started', ...p } as unknown as WorkItem;
-}
+// The comparator only reads a few fields, but the item is complete — the old
+// `as unknown as WorkItem` partial would have hidden a comparator that started
+// reading a field the fixture never set.
+const item = (p: Partial<WorkItem>): WorkItem => anItem({ key: 'X-0', ...p });
 
 const ctx: SortCtx = {
   memberName: (id) => (id ? `name-${id}` : ''),

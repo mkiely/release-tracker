@@ -1,7 +1,7 @@
 import { useSprintView } from '../hooks/useSprintView';
 import { SprintView } from '../views/SprintView';
 import { SprintTable } from '../views/SprintTable';
-import { NotFound } from '../components/chrome';
+import { NotFound } from '../components/AppChrome';
 import { useViewMode } from '../store/viewMode';
 
 export function Sprint() {

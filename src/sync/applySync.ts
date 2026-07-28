@@ -34,7 +34,7 @@ export interface ExtMaps {
 /** Build ref lookups from a release's already-synced entities (each carrying an
  *  externalId). Used by the single-item create path; full sync builds them
  *  incrementally as it upserts streams/sprints/members. */
-export function buildExtMaps(release: Release, teams: Team[]): ExtMaps {
+function buildExtMaps(release: Release, teams: Team[]): ExtMaps {
   const wsByExt = new Map<string, string>();
   for (const ws of release.workStreams) if (ws.externalId) wsByExt.set(ws.externalId, ws.id);
   const sprintByExt = new Map<string, string>();

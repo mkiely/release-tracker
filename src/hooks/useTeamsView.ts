@@ -13,6 +13,8 @@ export interface TeamsViewProps {
   onToggleNonContributing: (teamId: string, memberId: string) => void;
 }
 
+/** View model for the teams screen: every team with its members, plus the
+ *  create/edit handlers. */
 export function useTeamsView(): TeamsViewProps {
   const st = useStore();
   const navigate = useNavigate();

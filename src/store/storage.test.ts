@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LS_KEY, load, persist, stampStartedSprints } from './store';
 import { seed } from '../lib/seed';
+import { aMember, aRelease, aSprint, aState, aTeam } from '../test/factories';
 import { SCHEMA_VERSION, type AppState } from '../types';
 
 beforeEach(() => {
@@ -120,20 +121,18 @@ describe('load', () => {
 
 describe('stampStartedSprints', () => {
   const today = '2026-07-22';
-  const startedSprint = () => ({
-    id: 'sp1', name: 'Sprint 1', startISO: '2026-06-01', endISO: '2026-06-14',
-    daysOff: 0, externalId: null, plannedVelocity: null as number | null,
-  });
-  const stateWith = (velocity: number, plannedVelocity: number | null): AppState => ({
-    version: SCHEMA_VERSION,
-    teams: [{ id: 't1', name: 'T', velocity, externalId: null, members: [{ id: 'm1', name: 'A', externalId: null, nonContributing: false }] }],
-    releases: [{
-      id: 'r1', name: 'R', startISO: '2026-06-01', teamId: 't1', workStreams: [], events: [],
-      sprints: [{ ...startedSprint(), plannedVelocity }], codeFreezeISO: null, externalId: null,
-      connector: null, sync: null, sprintLengthDays: 14,
-    }],
-    items: [], meta: { lastSyncISO: null },
-  } as AppState);
+  // A sprint whose window has already begun relative to `today`, so the lazy
+  // stamp-on-start trigger applies to it.
+  const startedSprint = (plannedVelocity: number | null) =>
+    aSprint({ id: 'sp1', name: 'Sprint 1', startISO: '2026-06-01', endISO: '2026-06-14', plannedVelocity });
+
+  const stateWith = (velocity: number, plannedVelocity: number | null): AppState =>
+    aState({
+      teams: [aTeam({ id: 't1', name: 'T', velocity, members: [aMember({ id: 'm1', name: 'A' })] })],
+      releases: [
+        aRelease({ id: 'r1', name: 'R', startISO: '2026-06-01', teamId: 't1', workStreams: [], sprints: [startedSprint(plannedVelocity)] }),
+      ],
+    });
 
   it('does not freeze a started sprint while the team velocity is unset (0)', () => {
     const out = stampStartedSprints(stateWith(0, null), today);

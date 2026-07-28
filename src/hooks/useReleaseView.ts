@@ -5,6 +5,7 @@ import { ExportScopePrefs, type ExportScope } from '../store/exportScope';
 import { scopeLabel, scopeStreamIds } from '../lib/exportScope';
 import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } from '../store/store';
 import { releaseToTSV } from '../lib/exportRelease';
+import { copyText } from '../lib/copyLink';
 import { applyFacets, buildFacetGroups, buildStreamFacet, catalogStreamFacets, isAnyFacetActive } from '../lib/facets';
 import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
@@ -162,6 +163,18 @@ export interface ReleaseViewProps {
   onPush: () => void;
 }
 
+/**
+ * View model for the release plan — the app's densest screen, and the one place
+ * where the planning maths is assembled.
+ *
+ * It builds BOTH axes on every render (sprint-indexed rows and their transpose,
+ * stream-indexed rows) because the axis toggle must not re-derive, and because
+ * the release-level signals — contention, the runway alarm count, the
+ * reservation rebalance — are functions of every stream at once and can't be
+ * computed row by row.
+ *
+ * Returns null when the id doesn't resolve, which the route renders as NotFound.
+ */
 export function useReleaseView(): ReleaseViewProps | null {
   const st = useStore();
   const navigate = useNavigate();
@@ -339,22 +352,7 @@ export function useReleaseView(): ReleaseViewProps | null {
   const exportStreamCount = exportStreamIds ? exportStreamIds.size : r.workStreams.length;
 
   const onExport = async () => {
-    const tsv = releaseToTSV(st, id, exportStreamIds);
-    try {
-      await navigator.clipboard.writeText(tsv);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = tsv;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand('copy');
-      } finally {
-        document.body.removeChild(ta);
-      }
-    }
+    await copyText(releaseToTSV(st, id, exportStreamIds));
     notify(`Release copied as TSV — ${scopeLabel(exportScope, exportStreamCount)}`);
   };
 

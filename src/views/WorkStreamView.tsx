@@ -1,121 +1,47 @@
 import type { WorkStreamViewProps } from '../hooks/useWorkStreamView';
 import { streamCodeFreezeChip } from '../lib/derive';
-import { NewItemButton, PushButton, SyncButton, TopBar } from '../components/chrome';
-import { ShareButton } from '../components/ShareButton';
-import { Breadcrumb } from '../components/Breadcrumb';
+import { WorkStreamChrome } from '../components/WorkStreamChrome';
 import { EmptyState } from '../components/EmptyState';
 import { FacetBar } from '../components/FacetBar';
-import { Icon } from '../components/Icon';
-import { StreamAttrSummary } from '../components/StreamAttrSummary';
-import { StreamSprintColumn } from '../components/dnd';
+import { StreamSprintColumn } from '../components/Dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
-import { IconButton } from '../components/primitives';
-import { TeamLink } from '../components/TeamLink';
+import styles from './WorkStreamView.module.css';
 
-export function WorkStreamView({
-  release: r,
-  workStream: ws,
-  team,
-  onOpenTeam,
-  allItems,
-  filteredItems,
-  activeSprintId,
-  totalItemCount,
-  totalPts,
-  facetGroups,
-  isFiltered,
-  onHome,
-  onBack,
-  onNewItem,
-  onOpenItem,
-  onToggleFacet,
-  onClearFilters,
-  onSync,
-  onPush,
-  notify,
-}: WorkStreamViewProps) {
+/** The card presenter for one work stream: a column per sprint, cards draggable
+ *  between them. Chrome comes from WorkStreamChrome; this renders the board. */
+export function WorkStreamView(props: WorkStreamViewProps) {
+  const {
+    release: r,
+    workStream: ws,
+    team,
+    allItems,
+    filteredItems,
+    activeSprintId,
+    facetGroups,
+    isFiltered,
+    onOpenItem,
+    onToggleFacet,
+    onClearFilters,
+    notify,
+  } = props;
+
   return (
-    <div className="wf screen">
-      <TopBar
-        left={<IconButton icon={Icon.chevLeft} title="Back" onClick={onBack} />}
-        title={
-          <>
-            <Breadcrumb
-              marginBottom={3}
-              crumbs={[
-                { label: 'Releases', icon: Icon.release, onClick: onHome },
-                { label: r.name, onClick: onBack },
-                { label: 'Work stream' },
-              ]}
-            />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ display: 'inline-flex', color: 'var(--rt-t2)', flexShrink: 0 }}>{Icon.stream}</span>
-              <span
-                style={{
-                  fontSize: 'var(--rt-fs-xl)',
-                  fontWeight: 'var(--rt-fw-heading)',
-                  letterSpacing: '-0.02em',
-                  lineHeight: 1,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {ws.name}
-              </span>
-              {ws.externalUrl && (
-                <a
-                  href={ws.externalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Open this work stream in the external system (new tab)"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    width: 28, height: 28, flexShrink: 0,
-                    color: 'var(--rt-accent)', borderRadius: 6,
-                    border: '1.5px solid var(--rt-line)', background: 'var(--rt-fill)',
-                  }}
-                >
-                  {Icon.external}
-                </a>
-              )}
-              <StreamAttrSummary release={r} ws={ws} />
-            </div>
-          </>
-        }
-        sub={team ? <TeamLink name={team.name} onClick={onOpenTeam} /> : undefined}
-        right={
-          <>
-            <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
-              {totalItemCount} items · {totalPts} pts · drag cards between sprints
-            </span>
-            <ShareButton release={r} />
-            <PushButton release={r} onPush={onPush} />
-            <SyncButton release={r} onSync={onSync} />
-            <NewItemButton release={r} onClick={onNewItem} icon={Icon.plus} />
-          </>
-        }
-      />
-
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '7px 24px',
-          borderBottom: `1.5px solid ${'var(--rt-line)'}`,
-          background: 'var(--rt-bg)',
-          flexWrap: 'wrap',
-        }}
-      >
-        <FacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />
-      </div>
-
-      <div style={{ flex: 1, overflow: 'auto', padding: '18px 24px' }}>
+    <WorkStreamChrome
+      {...props}
+      hint="drag cards between sprints"
+      toolbar={
+        <div className={styles.facetBar}>
+          <FacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />
+        </div>
+      }
+    >
+      <div className={styles.board}>
         {filteredItems.length === 0 ? (
           <EmptyState>
             {isFiltered ? 'No items match the current filters.' : 'No work items yet. Create one to get started.'}
           </EmptyState>
         ) : (
-          <div style={{ display: 'flex', gap: 14, alignItems: 'stretch', minHeight: '100%' }}>
+          <div className={styles.columns}>
             {r.sprints.map((sp) => (
               <StreamSprintColumn
                 key={sp.id}
@@ -140,6 +66,6 @@ export function WorkStreamView({
           </div>
         )}
       </div>
-    </div>
+    </WorkStreamChrome>
   );
 }

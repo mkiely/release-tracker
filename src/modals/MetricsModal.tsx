@@ -28,10 +28,10 @@ import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { Modal, PButton } from '../components/primitives';
 import { SegmentedToggle } from '../components/SegmentedToggle';
-import { VelocityTrendChart } from '../components/trend';
+import { VelocityTrendChart } from '../components/Trend';
 import { RunwayBadge } from '../components/VerdictLine';
 import { statusVars, warningVars } from '../components/statusVars';
-import { Row } from './modals';
+import { Row } from './Modals';
 
 export type MetricsSection = 'velocity' | 'capacity' | 'runway';
 

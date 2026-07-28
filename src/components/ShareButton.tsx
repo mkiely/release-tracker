@@ -4,30 +4,11 @@
 
 import type { Release } from '../types';
 import { buildShareUrl, MAX_SAFE_URL_LENGTH } from '../lib/shareRelease';
+import { copyText } from '../lib/copyLink';
 import { selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { Icon } from './Icon';
 import { PButton } from './primitives';
-
-/** Copy `text` to the clipboard, falling back to a hidden textarea + execCommand
- *  when the async Clipboard API is unavailable (mirrors the TSV export path). */
-async function copyToClipboard(text: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    try {
-      document.execCommand('copy');
-    } finally {
-      document.body.removeChild(ta);
-    }
-  }
-}
 
 /**
  * The share-link action for a release, or `null` when there's nothing to share
@@ -50,7 +31,7 @@ export function useShareReleaseLink(release: Release): (() => void) | null {
       );
       return;
     }
-    await copyToClipboard(result.url);
+    await copyText(result.url);
     notify('Share link copied — the recipient confirms, then syncs to fetch data');
   };
 }

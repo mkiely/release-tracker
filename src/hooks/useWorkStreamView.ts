@@ -30,6 +30,9 @@ export interface WorkStreamViewProps {
   notify: (msg: string) => void;
 }
 
+/** View model for one work stream across the release: its items, the facets that
+ *  filter them, and the active sprint. Returns null when the release or stream id
+ *  doesn't resolve. */
 export function useWorkStreamView(): WorkStreamViewProps | null {
   const st = useStore();
   const navigate = useNavigate();

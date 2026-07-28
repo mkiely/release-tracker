@@ -1,4 +1,5 @@
-// Domain types for Release Tracker. Mirrors the schema in proto-store.jsx.
+// Domain types. These are the persisted shapes — a change here needs a matching
+// migration step in store/migrate.ts and a SCHEMA_VERSION bump.
 
 import type { ConnectorItemType, FieldSpec, StatusDef } from './sync/schema';
 

@@ -1,9 +1,9 @@
 import type { ReleaseViewProps, StreamRowData } from '../hooks/useReleaseView';
 import type { StreamHealth } from '../lib/derive';
-import { SegBar } from '../components/badges';
+import { SegBar } from '../components/Badges';
 import { EmptyState } from '../components/EmptyState';
 import { ReleaseChrome } from '../components/ReleaseChrome';
-import { Sparkline, CompletionRing } from '../components/trend';
+import { Sparkline, CompletionRing } from '../components/Trend';
 import { statusVars } from '../components/statusVars';
 import { VerdictLine } from '../components/VerdictLine';
 import styles from './ReleaseTable.module.css';
@@ -127,6 +127,8 @@ function StreamRow({
   );
 }
 
+/** The release plan as a table, indexed by work stream: a row per stream against
+ *  sprint columns, with the capacity-fit verdict and planning runway per row. */
 export function ReleaseStreamTable(props: ReleaseViewProps) {
   const { release: r, streamRows, onNavigateToStream, onNavigateToUnassigned, onOpenStreamHealth, onEditStream, overAllocated, engineersRequiredTotal, contributingCount } = props;
   return (

@@ -1,4 +1,5 @@
-// Inline SVG icons — ported from the Icon object in wireframe-kit.jsx.
+// Inline SVG icons. Inline rather than a sprite or an icon font so they inherit
+// currentColor and the surrounding font size without extra plumbing.
 import type { ReactElement } from 'react';
 
 export const Icon: Record<string, ReactElement> = {

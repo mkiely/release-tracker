@@ -65,35 +65,6 @@
   opacity: 0.45;
 }
 
-/* ── Group toggle ────────────────────────────────────────────────────────── */
-.groupToggle {
-  display: inline-flex;
-  gap: 1px;
-  background: var(--rt-fill);
-  border-radius: 7px;
-  padding: 2px;
-  flex-shrink: 0;
-}
-
-.groupBtn {
-  padding: 3px 10px;
-  border-radius: 5px;
-  border: none;
-  cursor: pointer;
-  font-size: var(--rt-fs-sm);
-  font-weight: var(--rt-fw-medium);
-  background: transparent;
-  color: var(--rt-t3);
-  font-family: var(--rt-sans);
-  line-height: var(--rt-lh-normal);
-}
-
-.groupBtnActive {
-  border: 1px solid var(--rt-line);
-  font-weight: var(--rt-fw-bold);
-  background: var(--rt-paper);
-  color: var(--rt-ink);
-}
 
 /* ── Filter bar ──────────────────────────────────────────────────────────── */
 .filterBar {
@@ -493,4 +464,54 @@
 .resizeHandle:hover::after {
   background: var(--rt-accent, var(--rt-t2));
   height: 100%;
+}
+
+/* ── Shared group-section furniture ──────────────────────────────────────── */
+/* Used by GroupSection, which backs the sprint bands in the work-stream and
+   item-list tables and the "No sprint" trailer all three carried a copy of. */
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+/* Sprint bands title larger than stream/status bands — a sprint is the coarser
+   grouping, and these tables have only a handful of them. */
+.sectionNameLarge {
+  font-size: var(--rt-fs-lg);
+  font-weight: var(--rt-fw-display);
+  letter-spacing: -0.022em;
+  color: var(--rt-ink);
+  line-height: 1.2;
+}
+
+/* "No sprint" / "No stream" — a real bucket, but not a named one. */
+.sectionNameMuted {
+  font-size: var(--rt-fs-base);
+  font-weight: var(--rt-fw-semibold);
+  color: var(--rt-t3);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sectionEmpty {
+  padding: 9px 12px;
+  color: var(--rt-t3);
+  font-size: var(--rt-fs-sm);
+}
+
+.facetAvatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }

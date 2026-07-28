@@ -1,9 +1,10 @@
-// Fixture data standing in for the local sync service while it doesn't exist yet.
-// These are exactly the shapes the real service will return, so the app code that
-// consumes them (SyncClient → applySync) is the code we keep.
+// Representative sync-service wire data, used by tests. These are exactly the
+// shapes the real service returns, so a test built on them exercises the same
+// SyncClient → applySync path production does.
 //
-// `FIXTURE_CONNECTORS` mirrors `GET /connectors`; `fixtureMappedRelease()` mirrors
-// `POST /releases/sync` for the Acme connector with representative sample data.
+// `FIXTURE_CONNECTORS` mirrors `GET /connectors`; `fixtureCreatedItem()` mirrors
+// `POST /releases/items`; `fixtureMappedRelease()` mirrors `POST /releases/sync`
+// for the Acme connector.
 
 import type { ConnectorMeta, CreateItemInput } from './client';
 import type { ContractStatus, ConnectorItemType, MappedItem, MappedRelease, StatusDef } from './schema';

@@ -56,6 +56,9 @@ export interface SprintViewProps {
   notify: (msg: string) => void;
 }
 
+/** View model for one sprint: its items grouped by work stream or by status
+ *  (a persisted preference), the capacity reading, and the events falling inside
+ *  it. Returns null when the release or sprint id doesn't resolve. */
 export function useSprintView(): SprintViewProps | null {
   const st = useStore();
   const navigate = useNavigate();

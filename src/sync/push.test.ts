@@ -1,41 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { buildCreateRequest, buildPushChanges, buildPushPreview, type PushRefs } from './push';
+import { aMember, aSprint, aStream, anItem } from '../test/factories';
 import type { Member, Sprint, WorkItem, WorkStream } from '../types';
 import type { ConnectorItemType } from './schema';
 
-const sprint = (id: string, externalId: string | null): Sprint => ({
-  id,
-  name: 'S',
-  startISO: '2026-04-13',
-  endISO: '2026-04-26',
-  daysOff: 0,
-  externalId,
-  plannedVelocity: null,
-});
-
-const stream = (id: string, externalId: string | null): WorkStream => ({ id, name: 'WS', externalId, engineersRequired: null, build: null, externalUrl: null, planningState: 'open' });
-const member = (id: string, externalId: string | null): Member => ({ id, name: 'M', externalId, nonContributing: false });
+const sprint = (id: string, externalId: string | null): Sprint => aSprint({ id, name: 'S', externalId });
+const stream = (id: string, externalId: string | null): WorkStream => aStream({ id, name: 'WS', externalId });
+const member = (id: string, externalId: string | null): Member => aMember({ id, name: 'M', externalId });
 
 /** Wrap loose ref arrays in the PushRefs shape buildPushChanges expects. */
 const pushRefs = (sprints: Sprint[] = [], workStreams: WorkStream[] = [], members: Member[] = []): PushRefs => ({ sprints, workStreams, members });
 
-const item = (over: Partial<WorkItem>): WorkItem => ({
-  id: 'it_1',
-  releaseId: 'rel_1',
-  workStreamId: 'ws_1',
-  sprintId: 'sp_1',
-  key: 'EXT-1',
-  subject: 'Test item',
-  description: '',
-  status: 'In Progress',
-  points: 5,
-  externalId: 'EXT-1',
-  assignedMemberId: null,
-  build: null, externalUrl: null,
-  dirtyFields: [],
-  itemType: null,
-  ...over,
-});
+const item = (over: Partial<WorkItem>): WorkItem =>
+  anItem({
+    id: 'it_1',
+    workStreamId: 'ws_1',
+    sprintId: 'sp_1',
+    key: 'EXT-1',
+    subject: 'Test item',
+    status: 'In Progress',
+    points: 5,
+    externalId: 'EXT-1',
+    ...over,
+  });
 
 // A type where only `sprint` is writeable (points is create-once). Used to verify
 // per-type writeability. Items must carry a matching itemType.id to resolve it;

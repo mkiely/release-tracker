@@ -159,8 +159,9 @@
 }
 
 /* ----------------------------------------------------------------------------
-   Spacing / sizing constants used by the sprint row (documented as values, not
-   tokens, since the prototype inlines them). Reproduce these exactly:
+   Spacing / sizing constants for the sprint row. Recorded here as documentation
+   rather than tokens because they're applied in the row's own CSS module; this
+   is the reference to check a change against. Reproduce these exactly:
 
      row card radius ............ 12px      border weight ......... 1.5px
      meta strip padding ......... 9px 14px  meta strip gap ........ 12px
