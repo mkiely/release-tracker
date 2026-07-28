@@ -4,7 +4,7 @@
 import { useState, type ReactNode } from 'react';
 import { LOCAL_ITEM_TYPES, STATUSES, type AttrValue, type Member, type PlanningState, type Status } from '../types';
 import { between, fmtShort, todayISO, workdaysInRange } from '../lib/dates';
-import { capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, freezeSprintX, fullCap, releaseCapacity, remainingByFreeze, sprintVel, streamContention, streamForecast, streamHealth, sumPoints } from '../lib/derive';
+import { capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, freezeOverrides, freezeSprintX, fullCap, sprintVel, sumPoints } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
 import { attributeFields, CANONICAL_FIELDS, canonicalChanged, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type CanonicalView, type EditConcept } from '../lib/connectorFields';
@@ -19,10 +19,12 @@ import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput, PointSeg, PSelect, PTextarea } from '../components/primitives';
 import { CalcCard, Callout, MetaChip } from '../components/ui/Callout';
+import { FreezeOverrideList } from '../components/ui/FreezeOverrideList';
+import { assessStreams } from '../lib/streamAssessment';
 import { SegBar } from '../components/Badges';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { StreamBurnChart } from '../components/Trend';
-import { VerdictBadge } from '../components/VerdictLine';
+import { RunwayBadge, VerdictBadge } from '../components/VerdictLine';
 import { statusVars, verdictVars, warningVars } from '../components/statusVars';
 
 // ── Confirm / danger modal ─────────────────────────────────────────────
@@ -367,18 +369,12 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
   }
 
   const items = allItems.filter((i) => i.releaseId === releaseId);
-  const streamItems = items.filter((i) => i.workStreamId === wsId);
-  const health = streamHealth(streamItems);
   const today = todayISO();
-  const ctx = releaseCapacity(r, team, today, effectiveStreamCodeFreeze(r, ws));
-  const contention = streamContention(
-    r.workStreams
-      .filter((w) => w.engineersRequired != null && streamHealth(items.filter((i) => i.workStreamId === w.id)).remainingPts > 0)
-      .map((w) => w.engineersRequired!),
-    ctx.contributingCount,
-  );
-  const { preFreezePts } = remainingByFreeze(streamItems, r.sprints, effectiveStreamCodeFreeze(r, ws));
-  const forecast = streamForecast(health, ws.engineersRequired, ctx, contention, preFreezePts);
+  // One assessment for the whole release, so this modal, the stream row that opened
+  // it and the metrics tab can't disagree about the same stream.
+  const assessment = assessStreams(r, team, items, { today });
+  const { contention } = assessment;
+  const { items: streamItems, health, ctx, forecast, runway } = assessment.byId.get(wsId)!;
   const v = verdictVars(forecast.verdict);
 
   const series = r.sprints.map((sp) => sumPoints(streamItems.filter((i) => i.sprintId === sp.id)));
@@ -476,7 +472,10 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
             </>
           ) : null}
           <Row k="Stream capacity" v={`${n1(forecast.effectiveEngineers)} × ${n1(ctx.perEngineerCap)} = ${Math.round(forecast.effectiveCap)} pts`} />
-          <Row k="Runway" v={Number.isFinite(forecast.runwaySprints) ? `~${n1(forecast.runwaySprints)} sprints` : '—'} />
+          {/* "Burn-down runway", not the planning runway below — this is how many
+              sprints the EXISTING work takes to clear, not how much held capacity
+              has no work against it. Two different questions, one word. */}
+          <Row k="Burn-down runway" v={Number.isFinite(forecast.runwaySprints) ? `~${n1(forecast.runwaySprints)} sprints` : '—'} />
           <hr className="divider" style={{ margin: '3px 0' }} />
           <Row
             k={shortfall > 0.5 ? 'Shortfall' : 'Surplus'}
@@ -484,6 +483,46 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
             big
           />
         </CalcCard>
+      )}
+
+      {/* Planning runway — the inverse question, and the one the row's planning chip
+          raises. Without this the chip had nowhere to explain itself. */}
+      <CalcCard label="Planning runway">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <RunwayBadge verdict={runway.verdict} planningState={ws.planningState} />
+          <button
+            type="button"
+            onClick={editStream}
+            title="Edit this stream's planning status"
+            style={{
+              appearance: 'none', background: 'transparent', border: 'none', padding: 0,
+              font: 'inherit', fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', cursor: 'pointer', textDecoration: 'underline',
+            }}
+          >
+            planning {ws.planningState === 'complete' ? 'scope complete' : ws.planningState}
+          </button>
+        </div>
+        <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)', lineHeight: 1.45 }}>{runway.summary}</span>
+        {runway.judgeable && (
+          <>
+            <hr className="divider" style={{ margin: '3px 0' }} />
+            <Row k="Reserved capacity" v={`${Math.round(runway.availableCap)} pts`} />
+            <Row k="Created work remaining" v={`${Math.round(runway.createdRemainingPts)} pts`} />
+            <Row k="Unclaimed" v={`${Math.round(runway.unclaimedRunway)} pts (~${n1(runway.unclaimedSprints)} sprints)`} big />
+          </>
+        )}
+      </CalcCard>
+
+      {/* Work parked past the freeze is measured by neither verdict above — it can't
+          land in the window they assess — so it states itself rather than hiding. */}
+      {forecast.postFreezeRemainingPts > 0 && (
+        <Callout tone="warning">
+          <>
+            <strong style={{ color: 'var(--rt-ink)' }}>{Math.round(forecast.postFreezeRemainingPts)} pts</strong> are scheduled
+            into sprints starting after this stream's code freeze ({fmtShort(effectiveStreamCodeFreeze(r, ws))}). That work sits
+            outside both assessments above — as planned, it won't land by the freeze.
+          </>
+        </Callout>
       )}
     </Modal>
   );
@@ -567,9 +606,11 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
 // ── Code freeze modal (release-level code check-in deadline) ───────────
 export function CodeFreezeModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId))!;
+  const { openModal } = useApp();
   const isOverride = r.codeFreezeISO != null;
   const [date, setDate] = useState(effectiveCodeFreeze(r));
   const sp = date ? r.sprints.find((s) => between(date, s.startISO, s.endISO)) : null;
+  const overrides = freezeOverrides(r);
 
   const save = () => {
     if (!date) return;
@@ -623,6 +664,13 @@ export function CodeFreezeModal({ releaseId, onClose }: { releaseId: string; onC
           )}
         </>
       </Callout>
+      {/* The overriding streams are the first thing you need when editing this date:
+          moving the release freeze doesn't move theirs. */}
+      <FreezeOverrideList
+        overrides={overrides}
+        codeFreezeISO={effectiveCodeFreeze(r)}
+        onOpenStream={(wsId) => openModal({ type: 'stream', releaseId, wsId })}
+      />
     </Modal>
   );
 }

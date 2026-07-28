@@ -5,7 +5,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ReleaseChrome } from '../components/ReleaseChrome';
 import { Sparkline, CompletionRing } from '../components/Trend';
 import { statusVars } from '../components/statusVars';
-import { VerdictLine } from '../components/VerdictLine';
+import { StreamAssessmentChips } from '../components/StreamAssessmentChips';
 import styles from './ReleaseTable.module.css';
 
 /** Remaining work, broken down by status — the "why" behind what's left. */
@@ -68,7 +68,7 @@ function StreamRow({
   onOpenStreamHealth: (wsId: string) => void;
   onEditStream: (wsId: string) => void;
 }) {
-  const { ws, itemCount, points, series, health, forecast } = row;
+  const { ws, itemCount, points, series, health, forecast, runway } = row;
   const activeIndex = row.lane.find((e) => e.isActive)?.sprintIndex ?? -1;
   const handleClick = ws !== null ? () => onNavigateToStream(ws.id) : onNavigateToUnassigned;
 
@@ -109,19 +109,22 @@ function StreamRow({
         )}
       </div>
       <div className={styles.rowRight}>
-        {itemCount === 0 ? (
-          <span className={styles.noItems}>No work items</span>
+        {itemCount > 0 && <HealthPanel health={health} />}
+        {/* Chips render even for an empty stream: "no items" is a fact about the work,
+            not a reason to withhold the assessment — an empty stream holding reserved
+            engineers is exactly the case that used to read as green. */}
+        {ws ? (
+          <StreamAssessmentChips
+            forecast={forecast}
+            runway={runway}
+            planningState={ws.planningState}
+            onOpenDelivery={() => (forecast.verdict === 'unconfigured' ? onEditStream(ws.id) : onOpenStreamHealth(ws.id))}
+            onOpenPlanning={() => (runway.verdict === 'unconfigured' ? onEditStream(ws.id) : onOpenStreamHealth(ws.id))}
+          />
         ) : (
-          <>
-            <HealthPanel health={health} />
-            {ws && (
-              <VerdictLine
-                forecast={forecast}
-                onOpen={() => (forecast.verdict === 'unconfigured' ? onEditStream(ws.id) : onOpenStreamHealth(ws.id))}
-              />
-            )}
-          </>
+          itemCount === 0 && <span className={styles.noItems}>No work items</span>
         )}
+        {ws && <span className={styles.verdictWhy}>{forecast.summary}</span>}
       </div>
     </div>
   );

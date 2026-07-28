@@ -271,12 +271,19 @@ export function seed(): AppState {
   // the at-risk Data Ingestion.
   const nexusEngineers: (number | null)[] = [1, 2, 1, 1, null, null];
   const nexusPlanning: PlanningState[] = ['open', 'complete', 'open', 'deferred', 'open', 'open'];
+  // Code-freeze overrides, one in each direction: Webhooks must be done before the
+  // integration window closes, the SDK ships after the platform does. Both sit on
+  // unconfigured streams (engineersRequired null) so they exercise the override's
+  // visibility — header "+2", the freeze editor's listing, per-sprint chips — without
+  // moving the capacity window of any stream the runway spectrum above depends on.
+  const nexusFreeze: (number | null)[] = [null, null, null, null, 79, 103];
   // Acme-style deep link to an issue/epic, as a real connector would construct it.
   const nexusSite = 'acme.atlassian.net';
   const acmeUrl = (extId: string) => `https://${nexusSite}/browse/${extId}`;
   const nexusStreams: WorkStream[] = nexusStreamNames.map((n, i) => ({
     id: uid('ws'), name: n, externalId: `EPIC-NXS-${i + 1}`, engineersRequired: nexusEngineers[i] ?? null, planningState: nexusPlanning[i] ?? 'open', build: null,
     externalUrl: acmeUrl(`EPIC-NXS-${i + 1}`),
+    codeFreezeISO: nexusFreeze[i] != null ? addDays(nexusStart, nexusFreeze[i]!) : null,
   }));
   // A carried-in stream: an epic from the prior build whose items overlap this
   // release's sprint window. build !== null marks it off-build; the "on-build only"

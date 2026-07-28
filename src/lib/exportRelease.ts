@@ -9,21 +9,18 @@
 // Multi-line cells use RFC 4180 quoting ("..." with embedded \n) which Google
 // Sheets honours when pasting from the clipboard.
 
-import type { AppState, PlanningState, WorkItem } from '../types';
+import type { AppState, WorkItem } from '../types';
 import { fmtShort, todayISO } from './dates';
 import {
   effectiveStreamCodeFreeze,
   eventsIn,
-  releaseCapacity,
-  remainingByFreeze,
   sprintVel,
-  streamCapacityCtx,
-  streamContention,
   streamForecast,
   streamHealth,
   streamRunway,
   sumPoints,
 } from './derive';
+import { assessStreams } from './streamAssessment';
 
 const TAB = '\t';
 
@@ -44,10 +41,11 @@ const serializeRow = (row: string[]): string => row.map(quoteField).join(TAB);
  *
  * `visibleStreamIds` mirrors the release view's active stream facets (build +
  * connector-declared): streams outside the set are dropped from the per-stream
- * sections (and from the contention math that feeds their forecast/runway
- * lines), matching what's on screen when facets are active. Null/undefined =
+ * sections, matching what's on screen when facets are active. Null/undefined =
  * all streams. The release-wide summary rows (dates, capacity, planned) stay
- * unfiltered, same as the app.
+ * unfiltered, same as the app — and so do the forecast/runway verdicts, which are
+ * assessed against every stream: contention is a fact about the whole team, so a
+ * scoped export must not report a stream as less contended than it really is.
  */
 export function releaseToTSV(
   state: AppState,
@@ -65,41 +63,23 @@ export function releaseToTSV(
     ? release.workStreams.filter((ws) => visibleStreamIds.has(ws.id))
     : release.workStreams;
 
-  // Pre-compute per-stream metrics.
+  // Pre-compute per-stream metrics. Assessed across every stream even when the export
+  // is scoped to a subset — contention is a release-level figure, so a scoped export
+  // must still report the verdicts the app itself shows.
   const today = todayISO();
-  const ctx = releaseCapacity(release, team, today);
-
-  const streamHealthMap = new Map(
-    visibleWorkStreams.map((ws) => {
-      const its = state.items.filter((i) => i.releaseId === releaseId && i.workStreamId === ws.id);
-      return [ws.id, { health: streamHealth(its), items: its }] as const;
-    }),
-  );
-  const unassignedItems = state.items.filter((i) => i.releaseId === releaseId && i.workStreamId === null);
-  const unassignedHealth = streamHealth(unassignedItems);
-
-  const activeEngineerCounts = visibleWorkStreams
-    .filter((ws) => ws.engineersRequired != null && (streamHealthMap.get(ws.id)?.health.remainingPts ?? 0) > 0)
-    .map((ws) => ws.engineersRequired!);
-  const contention = streamContention(activeEngineerCounts, ctx.contributingCount);
-
-  const firstRemainingIndex = release.sprints.findIndex((sp) => sp.endISO >= today);
-  const beyondNextThreshold = (firstRemainingIndex < 0 ? release.sprints.length : firstRemainingIndex) + 2;
-  const sprintIndexById = new Map(release.sprints.map((sp, i) => [sp.id, i] as const));
-  const itemsBeyondNextFor = (its: WorkItem[]): number =>
-    its.filter((i) => i.status !== 'Complete' && i.sprintId != null && (sprintIndexById.get(i.sprintId) ?? -1) >= beyondNextThreshold).length;
+  const releaseItems = state.items.filter((i) => i.releaseId === releaseId);
+  const unassignedItems = releaseItems.filter((i) => i.workStreamId === null);
+  const assessment = assessStreams(release, team, releaseItems, { today, unassignedItems });
+  const { ctx, contention } = assessment;
 
   /** Multi-line string for the stream header cell: name + compact metric lines. */
-  const streamHeaderCell = (wsId: string | null, name: string, planningState: PlanningState): string => {
-    const its = wsId ? (streamHealthMap.get(wsId)?.items ?? []) : unassignedItems;
-    const h = wsId ? (streamHealthMap.get(wsId)?.health ?? streamHealth([])) : unassignedHealth;
+  const streamHeaderCell = (wsId: string | null, name: string): string => {
+    const assessed = assessment.byId.get(wsId);
+    const h = assessed?.health ?? streamHealth([]);
     const ws = wsId ? release.workStreams.find((w) => w.id === wsId) : null;
-    const engReq = ws?.engineersRequired ?? null;
-    // Per-stream freeze override → per-stream capacity window, matching the app views.
-    const streamCtx = streamCapacityCtx(release, team, ws ?? null, ctx, today);
-    const { preFreezePts } = remainingByFreeze(its, release.sprints, effectiveStreamCodeFreeze(release, ws ?? null));
-    const forecast = streamForecast(h, engReq, streamCtx, contention, preFreezePts);
-    const runway = streamRunway(h, engReq, streamCtx, contention, { itemsBeyondNext: itemsBeyondNextFor(its), planningState, remainingPreFreezePts: preFreezePts });
+    const forecast = assessed?.forecast ?? streamForecast(streamHealth([]), null, ctx, contention);
+    const runway =
+      assessed?.runway ?? streamRunway(streamHealth([]), null, ctx, contention, { itemsBeyondNext: 0, planningState: 'open' });
 
     const healthLine = `${h.itemCount} items · ${h.pct}% done (${h.donePts}/${h.totalPts}pt) · ${h.remainingPts}pt rem${h.blockedPts > 0 ? ` · ${h.blockedPts}pt blocked` : ''}`;
 
@@ -140,19 +120,18 @@ export function releaseToTSV(
     serializeRow(['Planned', ...sprints.map((s) => String(sumPoints(state.items.filter((i) => i.releaseId === releaseId && i.sprintId === s.id))))]),
   ];
 
-  const streamsToExport: Array<{ name: string; matchId: string | null; planningState: PlanningState }> = [
-    ...visibleWorkStreams.map((ws) => ({ name: ws.name, matchId: ws.id, planningState: ws.planningState })),
+  const streamsToExport: Array<{ name: string; matchId: string | null }> = [
+    ...visibleWorkStreams.map((ws) => ({ name: ws.name, matchId: ws.id })),
   ];
-  const unassignedInRelease = state.items.filter((i) => i.releaseId === releaseId && i.workStreamId === null);
-  if (unassignedInRelease.length > 0) {
+  if (unassignedItems.length > 0) {
     // Catch-all for every streamless item (native and carried-in alike), so the
     // export stays complete — broader than the app's Unassigned view, hence the label.
-    streamsToExport.push({ name: 'No stream', matchId: null, planningState: 'open' });
+    streamsToExport.push({ name: 'No stream', matchId: null });
   }
 
-  for (const { name, matchId, planningState } of streamsToExport) {
+  for (const { name, matchId } of streamsToExport) {
     // Stream header row: multi-line stats cell in col 0, sprint columns empty.
-    outputRows.push(serializeRow([streamHeaderCell(matchId, name, planningState), ...emptySprints]));
+    outputRows.push(serializeRow([streamHeaderCell(matchId, name), ...emptySprints]));
 
     // Collect items grouped by sprint.
     const bySprint = new Map<string, WorkItem[]>(sprints.map((s) => [s.id, []]));

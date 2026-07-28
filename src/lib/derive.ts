@@ -62,15 +62,48 @@ export interface EventChip {
 /** Sentinel id for the synthesized code-freeze chip — not a real ReleaseEvent. */
 export const CODE_FREEZE_CHIP_ID = 'code-freeze';
 
-/** eventsIn, plus a synthesized 'Code freeze' chip when the release's effective
- *  freeze date (see effectiveCodeFreeze) falls inside this sprint's range. */
-export const sprintEventChips = (release: Release, sp: Sprint): EventChip[] => {
-  const real = eventsIn(release, sp);
-  const freeze = effectiveCodeFreeze(release);
-  if (!between(freeze, sp.startISO, sp.endISO)) return real;
-  const chip: EventChip = { id: CODE_FREEZE_CHIP_ID, label: 'Code freeze', dateISO: freeze, critical: true };
-  return [...real, chip].sort((a, b) => (a.dateISO < b.dateISO ? -1 : 1));
+/** Prefix for a work stream's own freeze chip: `code-freeze:<wsId>`. */
+const STREAM_FREEZE_CHIP_PREFIX = 'code-freeze:';
+
+/** What an event chip's id points at: the release freeze editor, one work stream's
+ *  freeze override, or (null) a real ReleaseEvent. Callers own the modal mapping —
+ *  this keeps the sentinel ids from leaking as magic strings into every hook. */
+export const parseFreezeChipId = (id: string): { kind: 'release' } | { kind: 'stream'; wsId: string } | null => {
+  if (id === CODE_FREEZE_CHIP_ID) return { kind: 'release' };
+  if (id.startsWith(STREAM_FREEZE_CHIP_PREFIX)) return { kind: 'stream', wsId: id.slice(STREAM_FREEZE_CHIP_PREFIX.length) };
+  return null;
 };
+
+/** One chip per work stream whose OWN freeze override (not the inherited release
+ *  date) falls inside this sprint. A stream that pins its override to the release
+ *  date still gets a chip: the row then agrees with the header's "+N" count, and
+ *  the two chips say different things — when the release freezes, and that this
+ *  stream is pinned there rather than following it. */
+const streamFreezeChips = (release: Release, sp: Sprint): EventChip[] =>
+  release.workStreams
+    .filter((ws) => ws.codeFreezeISO != null && between(ws.codeFreezeISO, sp.startISO, sp.endISO))
+    .map((ws) => ({ id: `${STREAM_FREEZE_CHIP_PREFIX}${ws.id}`, label: `${ws.name} freeze`, dateISO: ws.codeFreezeISO!, critical: true }));
+
+/** eventsIn, plus the synthesized freeze chips landing in this sprint: the release's
+ *  effective freeze (see effectiveCodeFreeze) and every work-stream override. Without
+ *  the latter a stream's own deadline was invisible outside its own screen. */
+export const sprintEventChips = (release: Release, sp: Sprint): EventChip[] => {
+  const chips: EventChip[] = [...eventsIn(release, sp), ...streamFreezeChips(release, sp)];
+  const freeze = effectiveCodeFreeze(release);
+  if (between(freeze, sp.startISO, sp.endISO)) {
+    chips.push({ id: CODE_FREEZE_CHIP_ID, label: 'Code freeze', dateISO: freeze, critical: true });
+  }
+  return chips.sort((a, b) => (a.dateISO < b.dateISO ? -1 : 1));
+};
+
+/** The work streams overriding the release freeze with their own date, earliest
+ *  first — the header readout's "+N" and the freeze editor's listing both need the
+ *  names, not just the count. */
+export const freezeOverrides = (release: Release): Array<{ id: string; name: string; dateISO: string }> =>
+  release.workStreams
+    .filter((ws) => ws.codeFreezeISO != null)
+    .map((ws) => ({ id: ws.id, name: ws.name, dateISO: ws.codeFreezeISO! }))
+    .sort((a, b) => (a.dateISO < b.dateISO ? -1 : 1));
 
 /** The code-freeze chip for one work stream in a sprint — its own override wins
  *  (see effectiveStreamCodeFreeze), else the release's. Drives the freeze marker in
@@ -129,7 +162,7 @@ export function streamHealth(items: WorkItem[]): StreamHealth {
 // items roll forward), so there is no past slippage to detect — see
 // docs/work-stream-health.md. Assumptions are spelled out at each step.
 
-export type HealthVerdict = 'on-track' | 'at-risk' | 'complete' | 'unconfigured' | 'unestimated';
+export type HealthVerdict = 'on-track' | 'at-risk' | 'complete' | 'no-work' | 'unconfigured' | 'unestimated';
 
 /** Effective code check-in deadline for the release: an explicit codeFreezeISO wins;
  *  otherwise it defaults to the last sprint's end (no artificial cutoff). */
@@ -342,6 +375,13 @@ export function streamForecast(
   if (engineersRequired == null) {
     return { ...base, ...inert, verdict: 'unconfigured', summary: 'Set engineers required to assess capacity fit' };
   }
+  // Nothing was ever created. Checked BEFORE the remaining-work gate, which would
+  // otherwise read 0 remaining as "all work complete" and paint an empty stream green
+  // — the "0 created masquerading as 0 remaining" failure docs/metrics.md warns about.
+  // The planning runway carries the consequence (capacity held against nothing).
+  if (health.itemCount === 0) {
+    return { ...base, ...inert, verdict: 'no-work', summary: 'No work items created — nothing to forecast' };
+  }
   // "Complete" is a fact about ALL remaining work, not just the pre-freeze slice — a
   // stream with work parked after the freeze isn't done.
   if (health.remainingPts === 0) {
@@ -358,13 +398,23 @@ export function streamForecast(
   const sprintsShort = runwaySprints - ctx.remainingSprintCount;
 
   const EPS = 0.5; // points tolerance to avoid float-noise flips
-  const verdict: HealthVerdict = shortfallPts > EPS ? 'at-risk' : 'on-track';
+  // Work with nowhere left to land. An empty pre-freeze slice reads as a trivial fit
+  // (shortfall 0 − 0), which is right while the freeze is still AHEAD — that work was
+  // deliberately parked past it. Once the window is gone the same arithmetic paints a
+  // stream that has already missed its freeze green, so the un-landable remainder is
+  // measured in full rather than through the pre-freeze split.
+  const strandedPts = ctx.remainingSprintCount === 0 ? health.remainingPts : 0;
+  const verdict: HealthVerdict = shortfallPts > EPS || strandedPts > EPS ? 'at-risk' : 'on-track';
 
   const overbook = contended ? ` \xb7 team overbooked (${contention.totalRequired} req / ${ctx.contributingCount} avail)` : '';
   let summary: string;
-  if (remainingPts === 0) {
-    // All remaining work is parked after the freeze — nothing is due before it, so the
-    // pre-freeze window fits trivially. The callout carries the real story.
+  if (strandedPts > EPS && remainingPts === 0) {
+    // The freeze is behind us and everything left sits past it — the case that used to
+    // read "Nothing due before freeze" and score green.
+    summary = `Freeze passed with ${r0(strandedPts)} pts outstanding → won't land in this window`;
+  } else if (remainingPts === 0) {
+    // All remaining work is parked after a freeze that is still ahead — nothing is due
+    // before it, so the pre-freeze window fits trivially. The callout carries the rest.
     summary = `Nothing due before freeze${postNote}`;
   } else if (ctx.remainingSprintCount === 0) {
     summary = `${remainingPts} pts left, no sprints remaining → won't land${postNote}`;

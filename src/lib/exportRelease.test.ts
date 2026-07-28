@@ -238,14 +238,14 @@ describe('releaseToTSV', () => {
     expect(tsvHasStream(rows, 'Payments')).toBe(true);
   });
 
-  it('drops an excluded stream from the contention math behind forecast lines', () => {
-    // Both streams demand engineers against a 1-engineer team; excluding one
-    // changes the contention scale behind the visible stream's effective
-    // capacity, so its forecast shortfall differs — proof the forecast/runway
-    // lines are computed over the filtered set, matching the on-screen facets.
-    // Sprints must lie in the future (contention is inert once no sprints
-    // remain) and remaining points must exceed capacity in both scenarios so
-    // the at-risk line carries the (different) shortfall numbers.
+  it('keeps the contention math behind forecast lines release-wide when a stream is excluded', () => {
+    // Both streams demand engineers against a 1-engineer team. Scoping the export to
+    // one of them must NOT relax the contention behind the visible stream's effective
+    // capacity: contention is a fact about how the whole team is allocated, so a
+    // scoped export that reported a smaller demand pool would contradict the app's own
+    // stream rows and metrics tab for the same stream. Sprints must lie in the future
+    // (contention is inert once no sprints remain) and remaining points must exceed
+    // capacity so the at-risk line carries a shortfall number to compare.
     const r = release();
     r.sprints = [
       aSprint({ id: 'sp1', name: 'Sprint 1', startISO: '2027-04-13', endISO: '2027-04-26' }),
@@ -265,9 +265,11 @@ describe('releaseToTSV', () => {
     const all = releaseToTSV(st, 'rel');
     const filtered = releaseToTSV(st, 'rel', new Set(['ws1']));
     expect(tsvHasStream(parseRows(filtered), 'Auth')).toBe(false);
-    // The Payments header cell differs once Auth's engineer demand leaves the pool.
+    // Auth is gone from the sections, but its engineer demand still counts against
+    // Payments — so Payments' header cell reads identically either way.
     const paymentsCell = (tsv: string) => parseRows(tsv).find((row) => row[0].startsWith('Payments'))?.[0];
-    expect(paymentsCell(filtered)).not.toBe(paymentsCell(all));
+    expect(paymentsCell(filtered)).toBe(paymentsCell(all));
+    expect(paymentsCell(all)).toContain('Forecast: at-risk');
   });
 
   it('strips tabs/newlines from item labels so the grid stays intact', () => {

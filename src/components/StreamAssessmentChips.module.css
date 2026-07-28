@@ -1,0 +1,35 @@
+.chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.chipBtn {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  border-radius: 6px;
+}
+
+.chipBtn:focus-visible {
+  outline: 2px solid var(--rt-accent);
+  outline-offset: 2px;
+}
+
+.postFreeze {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--rt-fs-xs);
+  font-weight: var(--rt-fw-semibold);
+  border: 1.5px solid;
+  border-radius: 6px;
+  padding: 3px 9px;
+  line-height: 1;
+  white-space: nowrap;
+}

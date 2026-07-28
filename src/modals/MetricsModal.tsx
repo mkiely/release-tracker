@@ -9,17 +9,11 @@
 
 import { useState, type ReactNode } from 'react';
 import type { Release, Team, WorkItem } from '../types';
-import { todayISO } from '../lib/dates';
 import {
-  effectiveStreamCodeFreeze,
   releaseCapacity,
-  remainingByFreeze,
   reservationBalance,
-  streamCapacityCtx,
   streamContention,
-  streamForecast,
   streamHealth,
-  streamRunway,
   velocityAttainment,
   velocitySuggestion,
 } from '../lib/derive';
@@ -30,6 +24,7 @@ import { Modal, PButton } from '../components/primitives';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { VelocityTrendChart } from '../components/Trend';
 import { RunwayBadge } from '../components/VerdictLine';
+import { assessStreams } from '../lib/streamAssessment';
 import { statusVars, warningVars } from '../components/statusVars';
 import { Row } from './Modals';
 
@@ -239,32 +234,7 @@ function CapacitySection({ r, team, items }: SectionProps) {
 /** One runway verdict per work stream. Shared by the Runway section and the
  *  modal's tab-warning check so the alarm logic lives in one place. */
 function buildRunwayRows(r: Release, team: Team | undefined, items: WorkItem[]) {
-  const ctx = releaseCapacity(r, team);
-  const today = todayISO();
-  const firstRemainingIndex = r.sprints.findIndex((sp) => sp.endISO >= today);
-  const beyondNextThreshold = (firstRemainingIndex < 0 ? r.sprints.length : firstRemainingIndex) + 2;
-  const sprintIndexById = new Map(r.sprints.map((sp, i) => [sp.id, i] as const));
-  const healthByWs = new Map(r.workStreams.map((ws) => [ws.id, streamHealth(items.filter((i) => i.workStreamId === ws.id))] as const));
-  // Release-level contention so the runway capacity matches the at-risk forecast's
-  // effective capacity (one baseline → no at-risk/under-planned contradiction).
-  const contention = streamContention(
-    r.workStreams.filter((ws) => ws.engineersRequired != null && healthByWs.get(ws.id)!.remainingPts > 0).map((ws) => ws.engineersRequired!),
-    ctx.contributingCount,
-  );
-  return r.workStreams.map((ws) => {
-    const streamItems = items.filter((i) => i.workStreamId === ws.id);
-    const health = healthByWs.get(ws.id)!;
-    const itemsBeyondNext = streamItems.filter(
-      (i) => i.status !== 'Complete' && i.sprintId != null && (sprintIndexById.get(i.sprintId) ?? -1) >= beyondNextThreshold,
-    ).length;
-    // Honor a stream's own code-freeze override so its runway matches the overview
-    // row and the health modal (all three route through streamCapacityCtx).
-    const streamCtx = streamCapacityCtx(r, team, ws, ctx, today);
-    const { preFreezePts } = remainingByFreeze(streamItems, r.sprints, effectiveStreamCodeFreeze(r, ws));
-    const forecast = streamForecast(health, ws.engineersRequired, streamCtx, contention, preFreezePts);
-    const runway = streamRunway(health, ws.engineersRequired, streamCtx, contention, { itemsBeyondNext, planningState: ws.planningState, remainingPreFreezePts: preFreezePts });
-    return { ws, runway, forecast };
-  });
+  return assessStreams(r, team, items).streams.map(({ ws, runway, forecast }) => ({ ws: ws!, runway, forecast }));
 }
 
 /** Release-level reservation balance: pair over-reserved (scope-complete) streams

@@ -16,25 +16,20 @@
 // if the viewer is hosted somewhere with request logging.
 
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
-import type { HealthVerdict, RunwayVerdict, StreamHealth, VelocityAttainment, VelocitySuggestion } from './derive';
+import type { HealthVerdict, RunwayVerdict, VelocityAttainment, VelocitySuggestion } from './derive';
 import {
   capPct,
   effectiveStreamCodeFreeze,
   freezeSprintX,
-  releaseCapacity,
-  remainingByFreeze,
   sprintEventChips,
   sprintVel,
   statusSegs,
-  streamCapacityCtx,
-  streamContention,
-  streamForecast,
   streamHealth,
-  streamRunway,
   sumPoints,
   velocityAttainment,
   velocitySuggestion,
 } from './derive';
+import { assessStreams } from './streamAssessment';
 import { between, dOf, fmtShort, todayISO } from './dates';
 import type { Release, StatusSeg, Team, WorkItem, WorkStream } from '../types';
 
@@ -274,44 +269,18 @@ export function buildSnapshot(
   });
 
   // ── Streams (+ unassigned bucket) ────────────────────────────────────────
-  const ctx = releaseCapacity(release, team, today);
-  const streamInputs: Array<{ ws: WorkStream | null; items: WorkItem[]; series: number[]; health: StreamHealth }> = [
-    ...streams.map((ws) => ({ ws, items: items.filter((i) => i.workStreamId === ws.id), series: streamSeries.get(ws.id) ?? [] })),
-    ...(unassigned.length > 0 ? [{ ws: null as WorkStream | null, items: unassigned, series: unassignedSeries }] : []),
-  ].map((s) => ({ ...s, health: streamHealth(s.items) }));
+  // Assessed over every stream in the release, then narrowed to the shared subset:
+  // contention measures the whole team's allocation, so a share scope that omits
+  // streams must not make the remaining ones look less contended than they are.
+  const { ctx, contention, byId } = assessStreams(release, team, items, { today, unassignedItems: unassigned });
+  const computed = [
+    ...streams.map((ws) => ({ ...byId.get(ws.id)!, series: streamSeries.get(ws.id) ?? [] })),
+    ...(unassigned.length > 0 ? [{ ...byId.get(null)!, series: unassignedSeries }] : []),
+  ];
 
-  const contention = streamContention(
-    streamInputs
-      .filter((s) => s.ws && s.ws.engineersRequired != null && s.health.remainingPts > 0)
-      .map((s) => s.ws!.engineersRequired!),
-    ctx.contributingCount,
-  );
-
-  // "Beyond next" = two or more sprints past the current one — evidence of planning
-  // further than a sprint ahead. Mirrors useReleaseView's runway-alarm input.
   const firstRemainingIndex = release.sprints.findIndex((sp) => sp.endISO >= today);
-  const beyondNextThreshold = (firstRemainingIndex < 0 ? release.sprints.length : firstRemainingIndex) + 2;
-  const sprintIndexById = new Map(release.sprints.map((sp, i) => [sp.id, i] as const));
-  const itemsBeyondNextFor = (streamItems: WorkItem[]): number =>
-    streamItems.filter((i) => i.status !== 'Complete' && i.sprintId != null && (sprintIndexById.get(i.sprintId) ?? -1) >= beyondNextThreshold).length;
-
   const activeIndex = release.sprints.findIndex((sp) => between(today, sp.startISO, sp.endISO));
   const friClamped = firstRemainingIndex < 0 ? release.sprints.length : firstRemainingIndex;
-
-  // Compute each stream's forecast + runway once, so both the per-stream sections
-  // and the capacity table (which needs the same verdict chip) read from one source.
-  const computed = streamInputs.map((si) => {
-    const { ws, health } = si;
-    const streamCtx = streamCapacityCtx(release, team, ws, ctx, today);
-    const { preFreezePts } = remainingByFreeze(si.items, release.sprints, effectiveStreamCodeFreeze(release, ws));
-    const forecast = streamForecast(health, ws ? ws.engineersRequired : null, streamCtx, contention, preFreezePts);
-    const runway = streamRunway(health, ws ? ws.engineersRequired : null, streamCtx, contention, {
-      itemsBeyondNext: itemsBeyondNextFor(si.items),
-      planningState: ws ? ws.planningState : 'open',
-      remainingPreFreezePts: preFreezePts,
-    });
-    return { ...si, forecast, runway };
-  });
 
   const outStreams: SnapshotStream[] = computed.map(({ ws, items: streamItems, series, health, forecast, runway }) => {
     const canForecast = (ws ? ws.engineersRequired : null) != null && health.totalPts > 0;

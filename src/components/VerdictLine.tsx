@@ -1,4 +1,5 @@
 import type { HealthVerdict, RunwayVerdict, StreamForecast } from '../lib/derive';
+import type { PlanningState } from '../types';
 import { runwayVars, verdictVars } from './statusVars';
 import styles from './VerdictLine.module.css';
 
@@ -27,22 +28,28 @@ export function VerdictBadge({ verdict }: { verdict: HealthVerdict }) {
   return <Pill v={verdictVars(verdict)} />;
 }
 
-/** Planning-runway verdict pill — same idiom as VerdictBadge, runway palette. */
-export function RunwayBadge({ verdict }: { verdict: RunwayVerdict }) {
-  return <Pill v={runwayVars(verdict)} />;
+/** Planning-runway verdict pill — same idiom as VerdictBadge, runway palette.
+ *  `planningState` is what produced the verdict, so the pill can name it when it
+ *  changes the reading (see runwayVars). */
+export function RunwayBadge({ verdict, planningState }: { verdict: RunwayVerdict; planningState?: PlanningState }) {
+  return <Pill v={runwayVars(verdict, planningState)} />;
 }
 
 /** Always-visible verdict + plain-language "why", clickable to the detail modal
  *  (or the edit modal when engineers haven't been set yet). Pass `summary={false}`
- *  for a badge-only variant in tight spaces (e.g. a card header strip). */
+ *  for a badge-only variant in tight spaces (e.g. a card header strip), or
+ *  `badge={false}` where the badge is already shown alongside (StreamAssessmentChips)
+ *  and repeating it would say the same thing twice in one row. */
 export function VerdictLine({
   forecast,
   onOpen,
   summary = true,
+  badge = true,
 }: {
   forecast: StreamForecast;
   onOpen: () => void;
   summary?: boolean;
+  badge?: boolean;
 }) {
   return (
     <button
@@ -60,7 +67,7 @@ export function VerdictLine({
             : 'View capacity-fit details'
       }
     >
-      <VerdictBadge verdict={forecast.verdict} />
+      {badge && <VerdictBadge verdict={forecast.verdict} />}
       {summary && <span className={styles.verdictSummary}>{forecast.summary}</span>}
     </button>
   );
