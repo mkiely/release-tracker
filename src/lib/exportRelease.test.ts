@@ -248,8 +248,8 @@ describe('releaseToTSV', () => {
     // the at-risk line carries the (different) shortfall numbers.
     const r = release();
     r.sprints = [
-      { id: 'sp1', name: 'Sprint 1', startISO: '2027-04-13', endISO: '2027-04-26', daysOff: 0, externalId: null, plannedVelocity: null },
-      { id: 'sp2', name: 'Sprint 2', startISO: '2027-04-27', endISO: '2027-05-10', daysOff: 0, externalId: null, plannedVelocity: null },
+      aSprint({ id: 'sp1', name: 'Sprint 1', startISO: '2027-04-13', endISO: '2027-04-26' }),
+      aSprint({ id: 'sp2', name: 'Sprint 2', startISO: '2027-04-27', endISO: '2027-05-10' }),
     ];
     r.workStreams = r.workStreams.map((ws) => ({ ...ws, engineersRequired: 2 }));
     const st: AppState = {

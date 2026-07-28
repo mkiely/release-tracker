@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applySync } from './applySync';
 import { fixtureMappedRelease } from './fixtures';
 import { buildSprints } from '../lib/dates';
-import { aConnectorRelease, aRelease, aState } from '../test/factories';
+import { aConnectorRelease, aRelease, aState, anItem } from '../test/factories';
 import type { AppState, Release, WorkItem } from '../types';
 import type { MappedRelease } from './schema';
 
@@ -171,11 +171,10 @@ describe('applySync — external wins on re-sync', () => {
 
 describe('applySync — local-only entities are untouched', () => {
   it('never matches or modifies items with externalId === null', () => {
-    const local: WorkItem = {
+    const local: WorkItem = anItem({
       id: 'it_local', releaseId: 'rel_1', workStreamId: 'ws_x', sprintId: 'sp_x',
-      key: 'LOCAL-1', subject: 'Hand-entered', description: '', status: 'Not Started', points: 1, externalId: null,
-      assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], itemType: null,
-    };
+      key: 'LOCAL-1', subject: 'Hand-entered', points: 1,
+    });
     const { next } = applySync(baseState({ items: [local] }), 'rel_1', mapped());
     const stillThere = next.items.find((i) => i.id === 'it_local');
     expect(stillThere).toEqual(local); // unchanged
