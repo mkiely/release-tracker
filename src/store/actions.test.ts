@@ -7,6 +7,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SCHEMA_VERSION } from '../types';
+import type { WorkItem } from '../types';
 import type { ConnectorItemType, MappedRelease } from '../sync/schema';
 
 // Mock the syncClient seam used by syncRelease / pushRelease. Keep the rest of
@@ -529,5 +530,75 @@ describe('pushRelease (flush queued creates)', () => {
     expect(items).toHaveLength(1);
     expect(items[0].pendingCreate).toBe(true); // still queued for retry
     expect(getState().releases[0].sync?.state).toBe('error');
+  });
+});
+
+// ── moveItemToSprint ──────────────────────────────────────────────────────
+// The drag-and-drop path. Its whole subtlety is the dirty flag: a move is only
+// pushable while the item sits somewhere other than its synced baseline, so
+// dragging an item away and back must leave it clean.
+
+const movable = (over: Partial<WorkItem>): WorkItem => ({
+  id: 'it_1', releaseId: 'rel_1', workStreamId: 'ws_1', sprintId: 'sp_1',
+  key: 'EXT-1', subject: 'S', description: '', status: 'Not Started', points: 5,
+  externalId: 'EXT-1', assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [],
+  syncedValues: { points: 5, sprint: 'sp_1' }, itemType: null,
+  ...over,
+});
+
+describe('moveItemToSprint', () => {
+  const setItems = (...items: WorkItem[]) => useStore.setState({ items });
+  const got = (id = 'it_1') => getState().items.find((i) => i.id === id)!;
+
+  beforeEach(() => setItems());
+
+  it('is a no-op when the sprint is unchanged', () => {
+    setItems(movable({ sprintId: 'sp_1', dirtyFields: [] }));
+    A().moveItemToSprint('it_1', 'sp_1');
+    expect(got().sprintId).toBe('sp_1');
+    expect(got().dirtyFields).toEqual([]);
+  });
+
+  it('moves a local item without marking it dirty', () => {
+    setItems(movable({ externalId: null, syncedValues: null, dirtyFields: [] }));
+    A().moveItemToSprint('it_1', 'sp_2');
+    expect(got().sprintId).toBe('sp_2');
+    expect(got().dirtyFields).toEqual([]);
+  });
+
+  it('marks a synced item sprint-dirty when moved away from the baseline', () => {
+    setItems(movable({ sprintId: 'sp_1', syncedValues: { points: 5, sprint: 'sp_1' } }));
+    A().moveItemToSprint('it_1', 'sp_2');
+    expect(got().sprintId).toBe('sp_2');
+    expect(got().dirtyFields).toContain('sprint');
+  });
+
+  it('clears the sprint dirty flag when moved back to the synced sprint', () => {
+    setItems(movable({ sprintId: 'sp_2', dirtyFields: ['sprint'], syncedValues: { points: 5, sprint: 'sp_1' } }));
+    A().moveItemToSprint('it_1', 'sp_1');
+    expect(got().sprintId).toBe('sp_1');
+    expect(got().dirtyFields).not.toContain('sprint');
+  });
+
+  it('treats backlog (null) as a sprint value relative to the baseline', () => {
+    setItems(movable({ sprintId: 'sp_1', syncedValues: { points: 5, sprint: null } }));
+    A().moveItemToSprint('it_1', null);
+    expect(got().sprintId).toBeNull();
+    expect(got().dirtyFields).not.toContain('sprint');
+  });
+
+  it('preserves an existing points dirty flag when toggling sprint', () => {
+    setItems(movable({ sprintId: 'sp_1', dirtyFields: ['points'], syncedValues: { points: 8, sprint: 'sp_1' } }));
+    A().moveItemToSprint('it_1', 'sp_2');
+    expect(got().dirtyFields).toEqual(['points', 'sprint']);
+    A().moveItemToSprint('it_1', 'sp_1');
+    expect(got().dirtyFields).toEqual(['points']);
+  });
+
+  it('does not mark a synced item dirty when it has no baseline', () => {
+    setItems(movable({ sprintId: 'sp_1', syncedValues: null }));
+    A().moveItemToSprint('it_1', 'sp_2');
+    expect(got().sprintId).toBe('sp_2');
+    expect(got().dirtyFields).toEqual([]);
   });
 });
