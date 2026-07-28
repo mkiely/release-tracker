@@ -7,6 +7,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SCHEMA_VERSION } from '../types';
+import { aSyncedItem } from '../test/factories';
 import type { WorkItem } from '../types';
 import type { ConnectorItemType, MappedRelease } from '../sync/schema';
 
@@ -538,13 +539,8 @@ describe('pushRelease (flush queued creates)', () => {
 // pushable while the item sits somewhere other than its synced baseline, so
 // dragging an item away and back must leave it clean.
 
-const movable = (over: Partial<WorkItem>): WorkItem => ({
-  id: 'it_1', releaseId: 'rel_1', workStreamId: 'ws_1', sprintId: 'sp_1',
-  key: 'EXT-1', subject: 'S', description: '', status: 'Not Started', points: 5,
-  externalId: 'EXT-1', assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [],
-  syncedValues: { points: 5, sprint: 'sp_1' }, itemType: null,
-  ...over,
-});
+const movable = (over: Partial<WorkItem>): WorkItem =>
+  aSyncedItem({ id: 'it_1', workStreamId: 'ws_1', sprintId: 'sp_1', points: 5, ...over });
 
 describe('moveItemToSprint', () => {
   const setItems = (...items: WorkItem[]) => useStore.setState({ items });

@@ -1,41 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { applySync } from './applySync';
+import { fixtureMappedRelease } from './fixtures';
 import { buildSprints } from '../lib/dates';
-import { SCHEMA_VERSION } from '../types';
+import { aConnectorRelease, aRelease, aState } from '../test/factories';
 import type { AppState, Release, WorkItem } from '../types';
 import type { MappedRelease } from './schema';
 
 // A connector release starts with NO sprints — the external system supplies them.
-const baseRelease = (): Release => ({
-  id: 'rel_1',
-  name: 'Orion 2.0',
-  startISO: '2026-04-13',
-  teamId: 'team_1',
-  workStreams: [],
-  events: [],
-  sprints: [],
-  codeFreezeISO: null,
-  externalId: null,
-  connector: { type: 'acme', config: {} },
-  sync: null,
-  sprintLengthDays: 14,
-});
+const baseRelease = (): Release => aConnectorRelease({ externalId: null, workStreams: [], sprints: [] });
 
 // A local release keeps the fixed grid and never creates sprints from a sync.
-const localRelease = (): Release => ({
-  ...baseRelease(),
-  connector: null,
-  sprints: buildSprints('2026-04-13', {}),
-});
+const localRelease = (): Release =>
+  aRelease({ workStreams: [], sprints: buildSprints('2026-04-13', {}) });
 
-const baseState = (overrides: Partial<AppState> = {}): AppState => ({
-  version: SCHEMA_VERSION,
-  teams: [],
-  releases: [baseRelease()],
-  items: [],
-  meta: { lastSyncISO: null },
-  ...overrides,
-});
+const baseState = (overrides: Partial<AppState> = {}): AppState =>
+  aState({ teams: [], releases: [baseRelease()], ...overrides });
 
 const mapped = (over: Partial<MappedRelease> = {}): MappedRelease => ({
   workStreams: [{ externalId: 'EPIC-A', fields: { name: 'Checkout API' } }],
@@ -678,5 +657,45 @@ describe('applySync — purity', () => {
     const { next, result } = applySync(baseState(), 'nope', mapped());
     expect(next.items).toHaveLength(0);
     expect(result.warnings[0]).toContain('not found');
+  });
+});
+
+// The tests above drive applySync with hand-written minimal MappedReleases, which
+// keeps each case readable but means none of them exercises a realistic payload.
+// fixtures.ts already holds one — the Acme sample the sync service returns, with a
+// full item-type catalog, a status vocabulary, deep links and carried-in builds.
+// Running it end to end is what catches a mapping regression that a two-field
+// fixture would sail straight past.
+describe('applySync — against the full Acme fixture payload', () => {
+  it('ingests the representative wire payload without warnings', () => {
+    const { next, result } = applySync(baseState(), 'rel_1', fixtureMappedRelease());
+    const release = next.releases[0];
+
+    expect(result.warnings).toEqual([]);
+    expect(next.items.length).toBeGreaterThan(0);
+    expect(release.workStreams.length).toBeGreaterThan(0);
+    expect(release.sprints.length).toBeGreaterThan(0);
+    expect(result.created).toBeGreaterThan(0);
+
+    // Every item lands on a real stream/sprint of this release, or explicitly on
+    // none — never pointing at an id that doesn't exist.
+    const streamIds = new Set(release.workStreams.map((w) => w.id));
+    const sprintIds = new Set(release.sprints.map((s) => s.id));
+    for (const it of next.items) {
+      expect(it.releaseId).toBe('rel_1');
+      expect(it.workStreamId === null || streamIds.has(it.workStreamId)).toBe(true);
+      expect(it.sprintId === null || sprintIds.has(it.sprintId)).toBe(true);
+      expect(it.externalId).not.toBeNull();
+    }
+  });
+
+  it('is idempotent — re-syncing the same payload updates rather than duplicates', () => {
+    const first = applySync(baseState(), 'rel_1', fixtureMappedRelease());
+    const second = applySync(first.next, 'rel_1', fixtureMappedRelease());
+
+    expect(second.next.items).toHaveLength(first.next.items.length);
+    expect(second.next.releases[0].workStreams).toHaveLength(first.next.releases[0].workStreams.length);
+    expect(second.next.releases[0].sprints).toHaveLength(first.next.releases[0].sprints.length);
+    expect(second.result.created).toBe(0);
   });
 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { aConnectorRelease, aMember, aSprint, aStream, aTeam, anEvent } from '../test/factories';
 import type { Release, Team } from '../types';
 import {
   MAX_SAFE_URL_LENGTH,
@@ -9,43 +10,39 @@ import {
   encodeSharePayload,
 } from './shareRelease';
 
-const connectorRelease = (overrides: Partial<Release> = {}): Release => ({
-  id: 'rel',
-  name: 'Atlas 4.0',
-  startISO: '2026-04-13',
-  teamId: 'team_local',
-  workStreams: [
-    { id: 'ws1', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: null, planningState: 'open' },
-  ],
-  events: [
-    { id: 'ev1', label: 'Code freeze', dateISO: '2026-05-01', externalId: 'X-EV-1' },
-    { id: 'ev2', label: 'GA', dateISO: '2026-05-20', externalId: null },
-  ],
-  sprints: [
-    { id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 3, externalId: 'JIRA-S1', plannedVelocity: null },
-    { id: 'sp2', name: 'Sprint 2', startISO: '2026-04-27', endISO: '2026-05-10', daysOff: 0, externalId: 'JIRA-S2', plannedVelocity: null },
-  ],
-  codeFreezeISO: null,
-  externalId: null,
-  connector: { type: 'acme', config: { project: 'ATL', board: '42' } },
-  sync: null,
-  catalog: null,
-  sprintLengthDays: 14,
-  ...overrides,
-});
+const connectorRelease = (overrides: Partial<Release> = {}): Release =>
+  aConnectorRelease({
+    id: 'rel',
+    name: 'Atlas 4.0',
+    teamId: 'team_local',
+    externalId: null,
+    connector: { type: 'acme', config: { project: 'ATL', board: '42' } },
+    workStreams: [aStream({ id: 'ws1', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2 })],
+    events: [
+      anEvent({ id: 'ev1', label: 'Code freeze', dateISO: '2026-05-01', externalId: 'X-EV-1' }),
+      anEvent({ id: 'ev2', label: 'GA', dateISO: '2026-05-20' }),
+    ],
+    sprints: [
+      aSprint({ id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 3, externalId: 'JIRA-S1' }),
+      aSprint({ id: 'sp2', name: 'Sprint 2', startISO: '2026-04-27', endISO: '2026-05-10', externalId: 'JIRA-S2' }),
+    ],
+    ...overrides,
+  });
 
-const team = (overrides: Partial<Team> = {}): Team => ({
-  id: 'team_local',
-  name: 'Atlas',
-  velocity: 40,
-  externalId: 'ACME-TEAM',
-  members: [
-    { id: 'm1', name: 'Ada L.', externalId: 'USR-ADA', nonContributing: false },
-    { id: 'm2', name: 'Pete O.', externalId: 'USR-PETE', nonContributing: true },
-    { id: 'm3', name: 'Local Only', externalId: null, nonContributing: true },
-  ],
-  ...overrides,
-});
+// Members deliberately mix synced/local and contributing/not: the share payload
+// only carries overrides for members the connector knows (those with externalId).
+const team = (overrides: Partial<Team> = {}): Team =>
+  aTeam({
+    id: 'team_local',
+    name: 'Atlas',
+    externalId: 'ACME-TEAM',
+    members: [
+      aMember({ id: 'm1', name: 'Ada L.', externalId: 'USR-ADA' }),
+      aMember({ id: 'm2', name: 'Pete O.', externalId: 'USR-PETE', nonContributing: true }),
+      aMember({ id: 'm3', name: 'Local Only', nonContributing: true }),
+    ],
+    ...overrides,
+  });
 
 describe('buildSharePayload', () => {
   it('returns null for a Local (non-connector) release', () => {

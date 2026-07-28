@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { aConnectorRelease, aMember, aSprint, aStream, aTeam, anEvent, anItem } from '../test/factories';
 import type { Release, Team, WorkItem } from '../types';
 import {
   MAX_SNAPSHOT_URL_LENGTH,
@@ -12,60 +13,45 @@ import {
 
 const NOW = '2026-04-20'; // inside Sprint 1
 
-const release = (overrides: Partial<Release> = {}): Release => ({
-  id: 'rel_atlas',
-  name: 'Atlas 4.0',
-  startISO: '2026-04-13',
-  teamId: 'team_atlas',
-  workStreams: [
-    { id: 'ws_pay', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: null, planningState: 'open' },
-    { id: 'ws_auth', name: 'Auth', externalId: 'EPIC-2', engineersRequired: null, build: null, externalUrl: null, planningState: 'open' },
-  ],
-  events: [{ id: 'ev1', label: 'GA', dateISO: '2026-04-24', externalId: null }],
-  sprints: [
-    { id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 2, externalId: null, plannedVelocity: null },
-    { id: 'sp2', name: 'Sprint 2', startISO: '2026-04-27', endISO: '2026-05-10', daysOff: 0, externalId: null, plannedVelocity: null },
-  ],
-  codeFreezeISO: null,
-  externalId: null,
-  connector: { type: 'acme', config: {} },
-  sync: null,
-  catalog: null,
-  sprintLengthDays: 14,
-  ...overrides,
-});
+const release = (overrides: Partial<Release> = {}): Release =>
+  aConnectorRelease({
+    id: 'rel_atlas',
+    name: 'Atlas 4.0',
+    teamId: 'team_atlas',
+    externalId: null,
+    workStreams: [
+      aStream({ id: 'ws_pay', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2 }),
+      aStream({ id: 'ws_auth', name: 'Auth', externalId: 'EPIC-2' }),
+    ],
+    events: [anEvent({ id: 'ev1', label: 'GA', dateISO: '2026-04-24' })],
+    sprints: [
+      aSprint({ id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 2 }),
+      aSprint({ id: 'sp2', name: 'Sprint 2', startISO: '2026-04-27', endISO: '2026-05-10' }),
+    ],
+    ...overrides,
+  });
 
-const team = (overrides: Partial<Team> = {}): Team => ({
-  id: 'team_atlas',
-  name: 'Atlas Team',
-  velocity: 40,
-  externalId: null,
-  members: [
-    { id: 'm1', name: 'Ada', externalId: null, nonContributing: false },
-    { id: 'm2', name: 'Pete', externalId: null, nonContributing: false },
-  ],
-  ...overrides,
-});
+const team = (overrides: Partial<Team> = {}): Team =>
+  aTeam({
+    id: 'team_atlas',
+    name: 'Atlas Team',
+    members: [aMember({ id: 'm1', name: 'Ada' }), aMember({ id: 'm2', name: 'Pete' })],
+    ...overrides,
+  });
 
-let seq = 0;
-const item = (overrides: Partial<WorkItem> = {}): WorkItem => ({
-  id: `it_${seq++}`,
-  releaseId: 'rel_atlas',
-  workStreamId: 'ws_pay',
-  sprintId: 'sp1',
-  key: 'ATL-100',
-  subject: 'Secret subject line',
-  description: 'Confidential description body',
-  status: 'In Progress',
-  points: 5,
-  externalId: null,
-  assignedMemberId: null,
-  build: null,
-  externalUrl: null,
-  dirtyFields: [],
-  itemType: null,
-  ...overrides,
-});
+// Subject and description carry deliberately identifiable text: several tests
+// assert the snapshot does NOT leak work-item detail.
+const item = (overrides: Partial<WorkItem> = {}): WorkItem =>
+  anItem({
+    releaseId: 'rel_atlas',
+    workStreamId: 'ws_pay',
+    key: 'ATL-100',
+    subject: 'Secret subject line',
+    description: 'Confidential description body',
+    status: 'In Progress',
+    points: 5,
+    ...overrides,
+  });
 
 describe('buildSnapshot', () => {
   it('summarizes release meta, sprints, and streams', () => {

@@ -1,19 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { activeSprint, capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, freezeSprintX, fullCap, groupItemsByStream, plannedVel, releaseCapacity, remainingByFreeze, remainingSprints, reservationBalance, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
+import { aSprint, aTeamOf } from '../test/factories';
 import type { Release, Sprint, Team, WorkItem, WorkStream } from '../types';
 
-const team = (members: number, velocity: number): Team => ({
-  id: 't',
-  name: 'T',
-  velocity,
-  members: Array.from({ length: members }, (_, i) => ({ id: `m${i}`, name: `M${i}`, externalId: null, nonContributing: false })),
-  externalId: null,
-});
+const team = (members: number, velocity: number): Team => aTeamOf(members, velocity);
 
-const sprint = (startISO: string, endISO: string): Sprint => ({
-  id: 'sp', name: 'S', startISO, endISO, daysOff: 0, externalId: null, plannedVelocity: null,
-});
+const sprint = (startISO: string, endISO: string): Sprint =>
+  aSprint({ id: 'sp', name: 'S', startISO, endISO });
 
 // standard 14-day sprint: Mon Apr 13 → Sun Apr 26, 2026 = 10 business days
 const s14 = sprint('2026-04-13', '2026-04-26');
@@ -30,16 +24,8 @@ describe('workdaysInRange', () => {
   });
 });
 
-const teamWithNonContrib = (contributing: number, nonContributing: number, velocity: number): Team => ({
-  id: 't',
-  name: 'T',
-  velocity,
-  externalId: null,
-  members: [
-    ...Array.from({ length: contributing }, (_, i) => ({ id: `c${i}`, name: `C${i}`, externalId: null, nonContributing: false })),
-    ...Array.from({ length: nonContributing }, (_, i) => ({ id: `nc${i}`, name: `NC${i}`, externalId: null, nonContributing: true })),
-  ],
-});
+const teamWithNonContrib = (contributing: number, nonContributing: number, velocity: number): Team =>
+  aTeamOf(contributing, velocity, nonContributing);
 
 describe('fullCap', () => {
   it('is members × the sprint workdays (10 for a standard 14-day sprint)', () => {

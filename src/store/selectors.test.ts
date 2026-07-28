@@ -1,24 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { selBacklogItems, selDirtyCount, selItem, selItemsFor, selItemsForStream, selRelease, selTeam, selUnassignedItems } from './store';
 import { SCHEMA_VERSION } from '../types';
+import { aMember, aRelease, aTeam, anItem } from '../test/factories';
 import type { AppState, Release, Team, WorkItem } from '../types';
 
-const team = (id: string): Team => ({
-  id, name: `Team ${id}`, velocity: 20, externalId: null,
-  members: [{ id: `m_${id}`, name: 'Alice', externalId: null, nonContributing: false }],
-});
+const team = (id: string): Team =>
+  aTeam({ id, name: `Team ${id}`, velocity: 20, members: [aMember({ id: `m_${id}`, name: 'Alice' })] });
 
-const release = (id: string): Release => ({
-  id, name: `Release ${id}`, startISO: '2026-04-13', teamId: 't1',
-  workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: null, build: null, externalUrl: null, planningState: 'open' }],
-  events: [], sprints: [], codeFreezeISO: null, externalId: null, connector: null, sync: null, sprintLengthDays: 14,
-});
+const release = (id: string): Release =>
+  aRelease({ id, name: `Release ${id}`, teamId: 't1', sprints: [] });
 
-const item = (id: string, releaseId: string, wsId = 'ws1', dirty: string[] = []): WorkItem => ({
-  id, releaseId, workStreamId: wsId, sprintId: null,
-  key: `K-${id}`, subject: 'S', description: '', status: 'Not Started',
-  points: 1, externalId: null, assignedMemberId: null, build: null, externalUrl: null, dirtyFields: dirty, itemType: null,
-});
+const item = (id: string, releaseId: string, wsId = 'ws1', dirty: string[] = []): WorkItem =>
+  anItem({ id, releaseId, workStreamId: wsId, sprintId: null, key: `K-${id}`, points: 1, dirtyFields: dirty });
 
 const state = (...overrides: Partial<AppState>[]): AppState =>
   Object.assign(

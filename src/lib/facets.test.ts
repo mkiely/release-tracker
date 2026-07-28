@@ -16,37 +16,23 @@ import {
 } from './facets';
 import type { FacetDef } from './facets';
 import { STATUSES } from '../types';
-import type { ReleaseCatalog, Team, WorkItem, WorkStream } from '../types';
+import { aCatalog, aMember, aStream, aTeam, anItem } from '../test/factories';
+import type { Team, WorkItem, WorkStream } from '../types';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 
-const item = (over: Partial<WorkItem> = {}): WorkItem =>
-  ({
-    id: 'it1', releaseId: 'r1', workStreamId: 'ws1', sprintId: 'sp1',
-    key: 'K-1', subject: 'S', description: '', descriptionFormat: 'text',
-    status: 'Not Started', points: 3, externalId: null, assignedMemberId: null,
-    build: null, externalUrl: null, dirtyFields: [], syncedValues: null,
-    itemType: null, attributes: {}, statusNative: null,
-    ...over,
-  }) as WorkItem;
+const item = (over: Partial<WorkItem> = {}): WorkItem => anItem({ id: 'it1', releaseId: 'r1', ...over });
 
-const stream = (over: Partial<WorkStream> = {}): WorkStream => ({
-  id: 'ws1', name: 'API', externalId: null, engineersRequired: null,
-  planningState: 'open', build: null, externalUrl: null, attributes: {},
-  ...over,
+const stream = aStream;
+
+const team: Team = aTeam({
+  id: 't1',
+  name: 'Team',
+  velocity: 30,
+  members: [aMember({ id: 'm1', name: 'Ada L.' }), aMember({ id: 'm2', name: 'Marco P.' })],
 });
 
-const team: Team = {
-  id: 't1', name: 'Team', velocity: 30, externalId: null,
-  members: [
-    { id: 'm1', name: 'Ada L.', externalId: null, nonContributing: false },
-    { id: 'm2', name: 'Marco P.', externalId: null, nonContributing: false },
-  ],
-};
-
-const catalog = (over: Partial<ReleaseCatalog> = {}): ReleaseCatalog => ({
-  itemTypes: [], statuses: [], workStreamFields: [], ...over,
-});
+const catalog = aCatalog;
 
 const selections = (entries: [string, string[]][]) => new Map(entries.map(([k, v]) => [k, new Set(v)]));
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { releaseToTSV } from './exportRelease';
+import { aRelease, aSprint, aStream, anItem } from '../test/factories';
 import type { AppState, Release, WorkItem } from '../types';
 
 // Sprint 1: Apr 13 – Apr 26, Sprint 2: Apr 27 – May 10 (contiguous 14-day ranges).
@@ -7,51 +8,22 @@ const SPRINT_DATES: Record<number, [string, string]> = {
   1: ['2026-04-13', '2026-04-26'],
   2: ['2026-04-27', '2026-05-10'],
 };
-const sprint = (n: number) => ({
-  id: `sp${n}`,
-  name: `Sprint ${n}`,
-  startISO: SPRINT_DATES[n][0],
-  endISO: SPRINT_DATES[n][1],
-  daysOff: 0,
-  externalId: null,
-  plannedVelocity: null,
-});
+const sprint = (n: number) =>
+  aSprint({ id: `sp${n}`, name: `Sprint ${n}`, startISO: SPRINT_DATES[n][0], endISO: SPRINT_DATES[n][1] });
 
-const release = (): Release => ({
-  id: 'rel',
-  name: 'Orion 2.0',
-  startISO: '2026-04-13',
-  teamId: 't',
-  workStreams: [
-    { id: 'ws1', name: 'Payments', externalId: null, engineersRequired: null, build: null, externalUrl: null, planningState: 'open' },
-    { id: 'ws2', name: 'Auth', externalId: null, engineersRequired: null, build: null, externalUrl: null, planningState: 'open' },
-  ],
-  events: [],
-  sprints: [sprint(1), sprint(2)],
-  codeFreezeISO: null,
-  externalId: null,
-  connector: null,
-  sync: null,
-  sprintLengthDays: 14,
-});
+const release = (): Release =>
+  aRelease({
+    id: 'rel',
+    teamId: 't',
+    workStreams: [
+      aStream({ id: 'ws1', name: 'Payments' }),
+      aStream({ id: 'ws2', name: 'Auth' }),
+    ],
+    sprints: [sprint(1), sprint(2)],
+  });
 
-const item = (over: Partial<WorkItem>): WorkItem => ({
-  id: Math.random().toString(),
-  releaseId: 'rel',
-  workStreamId: 'ws1',
-  sprintId: 'sp1',
-  key: 'ORN-100',
-  subject: 'Item',
-  description: '',
-  status: 'Not Started',
-  points: 1,
-  itemType: null,
-  externalId: null,
-  assignedMemberId: null,
-  build: null, externalUrl: null,
-  dirtyFields: [],
-  ...over,
-});
+const item = (over: Partial<WorkItem>): WorkItem =>
+  anItem({ releaseId: 'rel', key: 'ORN-100', subject: 'Item', points: 1, ...over });
 
 const state = (items: WorkItem[]): AppState => ({
   version: 1,
