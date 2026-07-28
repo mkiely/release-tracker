@@ -1,8 +1,8 @@
 import type { RefObject } from 'react';
-import { Icon } from '../components/Icon';
+import { Icon } from '../../components/Icon';
 import { ResizeHandle } from './ResizeHandle';
 import type { ItemSort } from './itemSort';
-import styles from './SprintTable.module.css';
+import styles from './table.module.css';
 
 /** One clickable, sortable column header — shared by every item table (backlog/
  *  unassigned, sprint, work stream). `resizeCol` (when set) mounts the resize

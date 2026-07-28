@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import type { RefObject } from 'react';
 import type { WorkStreamViewProps } from '../hooks/useWorkStreamView';
 import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
 import { useColumnWidths } from '../hooks/useColumnWidths';
@@ -12,13 +11,14 @@ import { EmptyState } from '../components/EmptyState';
 import { EventBadge } from '../components/badges';
 import { Drag, useDrag, useDragAutoScroll } from '../components/dnd';
 import { statusVars } from '../components/statusVars';
-import { TableFacetBar } from './SprintTable';
 import { getActions } from '../store/store';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
-import { ItemRow } from './ItemRow';
-import { HeaderCell } from './HeaderCell';
-import { sortItems, nextSort, type ItemSort, type SortCtx } from './itemSort';
-import styles from './SprintTable.module.css';
+import { ColHeaders } from './table/ColHeaders';
+import { ActiveBadge, SprintBand } from './table/SprintBand';
+import { TableFacetBar } from './table/TableFacetBar';
+import { ItemRow } from './table/ItemRow';
+import { sortItems, nextSort, type ItemSort, type SortCtx } from './table/itemSort';
+import styles from './table/table.module.css';
 
 // ── Sprint section ────────────────────────────────────────────────────────
 
@@ -71,140 +71,69 @@ function SprintSection({
   }, [draggingItem]);
 
   return (
-    <div
-      className={styles.section}
-      data-over={over || undefined}
-      style={over ? { background: 'var(--rt-fill)' } : undefined}
-      onDragEnter={(e) => {
-        const it = Drag.get();
-        if (it && it.sprintId !== sp.id) {
-          e.preventDefault();
-          dragDepth.current += 1;
-          if (!over) setOver(true);
-        }
-      }}
-      onDragOver={(e) => {
-        const it = Drag.get();
-        if (it && it.sprintId !== sp.id) {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-          if (!over) setOver(true);
-        }
-      }}
-      onDragLeave={() => {
-        dragDepth.current -= 1;
-        if (dragDepth.current <= 0) {
-          dragDepth.current = 0;
-          setOver(false);
-        }
-      }}
-      onDrop={(e) => {
-        const it = Drag.get();
-        if (it && it.sprintId !== sp.id) {
-          e.preventDefault();
-          getActions().moveItemToSprint(it.id, sp.id);
-          notify(`Moved ${it.key} → ${sp.name}`);
-        }
-        dragDepth.current = 0;
-        setOver(false);
-        Drag.end();
-      }}
-    >
-      <div
-        className={styles.sectionLeft}
-        style={isActive ? { boxShadow: `inset 4px 0 0 ${sv.dot}` } : undefined}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-          <span
-            style={{
-              fontSize: 'var(--rt-fs-lg)',
-              fontWeight: 'var(--rt-fw-display)',
-              letterSpacing: '-0.022em',
-              color: 'var(--rt-ink)',
-              lineHeight: 1.2,
-            }}
-          >
-            {sp.name}
-          </span>
-          {isActive && (
-            <span
-              style={{
-                fontSize: 'var(--rt-fs-micro)',
-                fontWeight: 'var(--rt-fw-display)',
-                letterSpacing: '0.07em',
-                textTransform: 'uppercase',
-                background: 'var(--rt-st-ac-dot)',
-                color: '#fff',
-                borderRadius: 3,
-                padding: '2px 5px',
-                lineHeight: 1,
-                flexShrink: 0,
-              }}
-            >
-              Active
-            </span>
-          )}
-        </div>
-        <div className={styles.sectionMeta} style={{ marginTop: 3 }}>
-          {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
-        </div>
-        <div className={styles.sectionMeta}>
-          {items.length} item{items.length !== 1 ? 's' : ''} · {pts} pts
-        </div>
-        {freezeChip && (
+    <SprintBand
+      title={sp.name}
+      dates={`${fmtShort(sp.startISO)} – ${fmtShort(sp.endISO)}`}
+      count={items.length}
+      points={pts}
+      badge={isActive ? <ActiveBadge /> : undefined}
+      accent={isActive ? sv.dot : undefined}
+      extra={
+        freezeChip && (
           <div style={{ marginTop: 4 }}>
             <EventBadge date={fmtShort(freezeChip.dateISO)} critical>
               {freezeChip.label}
             </EventBadge>
           </div>
-        )}
-      </div>
-      <div className={styles.sectionRight}>
-        {items.map((it) => (
-          <ItemRow key={it.id} item={it} members={members} attrColumns={attrColumns} onOpen={() => onOpenItem(it.id)} />
-        ))}
-        {items.length === 0 && (
-          <div className="card dash" style={{ padding: '9px 12px', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-sm)' }}>
-            No items
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Column headers ────────────────────────────────────────────────────────
-
-function ColHeaders({
-  attrColumns,
-  containerRef,
-  sort,
-  onSort,
-}: {
-  attrColumns: AttrColumn[];
-  containerRef: RefObject<HTMLElement | null>;
-  sort: ItemSort | null;
-  onSort: (col: string) => void;
-}) {
-  const hp = { sort, onSort, containerRef };
-  return (
-    <div className={styles.colHeaders}>
-      <div className={styles.colHeaderLeft}>
-        <span className={styles.colHeaderLabel}>Sprint</span>
-      </div>
-      <div className={styles.colHeaderRight}>
-        <HeaderCell {...hp} colClass={styles.colKey} label="Key" sortCol="key" />
-        <HeaderCell {...hp} colClass={styles.colType} label="Type" sortCol="type" resizeCol="type" />
-        <HeaderCell {...hp} colClass={styles.colPts} label="Pts" sortCol="pts" resizeCol="pts" />
-        <HeaderCell {...hp} colClass={styles.colAssignee} label="Assignee" sortCol="assignee" />
-        <HeaderCell {...hp} colClass={styles.colStatus} label="Status" sortCol="status" />
-        <HeaderCell {...hp} colClass={styles.colBuild} label="Build" sortCol="build" resizeCol="build" />
-        {attrColumns.map((c) => (
-          <HeaderCell {...hp} key={c.key} colClass={styles.colAttr} label={c.label} sortCol={`attr:${c.key}`} resizeCol="attr" />
-        ))}
-        <HeaderCell {...hp} colClass={styles.colTitle} label="Title" sortCol="title" />
-      </div>
-    </div>
+        )
+      }
+      items={items}
+      sort={null /* sorted above, so the band renders as given */}
+      sortCtx={sortCtx}
+      emptyLabel="No items"
+      renderRow={(it) => (
+        <ItemRow key={it.id} item={it} members={members} attrColumns={attrColumns} onOpen={() => onOpenItem(it.id)} />
+      )}
+      dropTarget={{
+        over,
+        handlers: {
+          onDragEnter: (e) => {
+            const it = Drag.get();
+            if (it && it.sprintId !== sp.id) {
+              e.preventDefault();
+              dragDepth.current += 1;
+              if (!over) setOver(true);
+            }
+          },
+          onDragOver: (e) => {
+            const it = Drag.get();
+            if (it && it.sprintId !== sp.id) {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              if (!over) setOver(true);
+            }
+          },
+          onDragLeave: () => {
+            dragDepth.current -= 1;
+            if (dragDepth.current <= 0) {
+              dragDepth.current = 0;
+              setOver(false);
+            }
+          },
+          onDrop: (e) => {
+            const it = Drag.get();
+            if (it && it.sprintId !== sp.id) {
+              e.preventDefault();
+              getActions().moveItemToSprint(it.id, sp.id);
+              notify(`Moved ${it.key} → ${sp.name}`);
+            }
+            dragDepth.current = 0;
+            setOver(false);
+            Drag.end();
+          },
+        },
+      }}
+    />
   );
 }
 
@@ -260,7 +189,7 @@ export function WorkStreamTable(props: WorkStreamViewProps) {
       toolbar={<TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />}
     >
       <div className={styles.body} ref={bodyRef}>
-        <ColHeaders attrColumns={attrCols} containerRef={bodyRef} sort={sort} onSort={onSort} />
+        <ColHeaders groupLabel="Sprint" attrColumns={attrCols} containerRef={bodyRef} sort={sort} onSort={onSort} />
 
         {filteredItems.length === 0 ? (
           <EmptyState>
@@ -284,17 +213,17 @@ export function WorkStreamTable(props: WorkStreamViewProps) {
               />
             ))}
             {backlogItems.length > 0 && (
-              <div className={styles.section}>
-                <div className={styles.sectionLeft}>
-                  <span className={styles.sectionName} style={{ color: 'var(--rt-t3)', fontStyle: 'italic' }}>No sprint</span>
-                  <div className={styles.sectionMeta}>{backlogItems.length} item{backlogItems.length !== 1 ? 's' : ''}</div>
-                </div>
-                <div className={styles.sectionRight}>
-                  {sortItems(backlogItems, sort, sortCtx).map((it) => (
-                    <ItemRow key={it.id} item={it} members={members} attrColumns={attrCols} onOpen={() => onOpenItem(it.id)} />
-                  ))}
-                </div>
-              </div>
+              <SprintBand
+                title="No sprint"
+                variant="unassigned"
+                count={backlogItems.length}
+                items={backlogItems}
+                sort={sort}
+                sortCtx={sortCtx}
+                renderRow={(it) => (
+                  <ItemRow key={it.id} item={it} members={members} attrColumns={attrCols} onOpen={() => onOpenItem(it.id)} />
+                )}
+              />
             )}
           </>
         )}

@@ -1,12 +1,12 @@
-import type { Member, WorkItem } from '../types';
-import { Avatar } from '../components/Avatar';
-import { StatusPill } from '../components/badges';
-import { DirtyDot } from '../components/DirtyDot';
-import { Drag, setDragGhost, useDrag } from '../components/dnd';
-import type { AttrColumn } from '../components/fields/columns';
-import { StreamChip } from '../components/StreamChip';
-import { typeVars } from '../components/typeColor';
-import styles from './SprintTable.module.css';
+import type { Member, WorkItem } from '../../types';
+import { Avatar } from '../../components/Avatar';
+import { StatusPill } from '../../components/badges';
+import { DirtyDot } from '../../components/DirtyDot';
+import { Drag, setDragGhost, useDrag } from '../../components/dnd';
+import type { AttrColumn } from '../../components/fields/columns';
+import { StreamChip } from '../../components/StreamChip';
+import { typeVars } from '../../components/typeColor';
+import styles from './table.module.css';
 
 /**
  * One draggable work-item row in a table view (sprint or work-stream). The whole

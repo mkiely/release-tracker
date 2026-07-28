@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import type { WorkItem } from '../types';
-import { anItem } from '../test/factories';
+import type { WorkItem } from '../../types';
+import { anItem } from '../../test/factories';
 import { sortItems, nextSort, type SortCtx } from './itemSort';
 
 // The comparator only reads a few fields, but the item is complete — the old

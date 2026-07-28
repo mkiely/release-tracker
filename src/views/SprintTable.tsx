@@ -1,6 +1,5 @@
-import { Fragment, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { GroupBy, SprintViewProps, StreamColumn, StatusColumn } from '../hooks/useSprintView';
-import { isAnyFacetActive, type FacetGroup } from '../lib/facets';
 import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
 import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
@@ -8,11 +7,9 @@ import { fmtShort } from '../lib/dates';
 import { sumPoints } from '../lib/derive';
 import { EditSprintButton, ReleaseActions, TopBar } from '../components/chrome';
 import { SprintMeta } from '../components/SprintMeta';
-import { avatarPalette, memberInitials } from '../components/Avatar';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { EmptyState } from '../components/EmptyState';
 import { EventBadge } from '../components/badges';
-import { FilterChip, ClearFiltersButton } from '../components/FilterChip';
 import { Icon } from '../components/Icon';
 import { SprintRail } from '../components/dnd';
 import { SegmentedToggle } from '../components/SegmentedToggle';
@@ -20,10 +17,12 @@ import { IconButton } from '../components/primitives';
 import { statusVars } from '../components/statusVars';
 import type { Member, Status } from '../types';
 import { attributeColumns, type AttrColumn } from '../components/fields/columns';
-import { ItemRow } from './ItemRow';
-import { HeaderCell } from './HeaderCell';
-import { sortItems, nextSort, type ItemSort, type SortCtx } from './itemSort';
-import styles from './SprintTable.module.css';
+import { ColHeaders } from './table/ColHeaders';
+import { ActiveBadge } from './table/SprintBand';
+import { TableFacetBar } from './table/TableFacetBar';
+import { ItemRow } from './table/ItemRow';
+import { sortItems, nextSort, type ItemSort, type SortCtx } from './table/itemSort';
+import styles from './table/table.module.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -45,46 +44,6 @@ function GroupToggle({ value, onChange }: { value: GroupBy; onChange: (v: GroupB
         { value: 'status', label: 'By status', title: 'Group by status' },
       ]}
     />
-  );
-}
-
-function ColHeaders({
-  groupBy,
-  attrColumns,
-  containerRef,
-  sort,
-  onSort,
-}: {
-  groupBy: GroupBy;
-  attrColumns: AttrColumn[];
-  containerRef: React.RefObject<HTMLElement | null>;
-  sort: ItemSort | null;
-  onSort: (col: string) => void;
-}) {
-  const hp = { sort, onSort, containerRef };
-  return (
-    <div className={styles.colHeaders}>
-      <div className={styles.colHeaderLeft}>
-        <span className={styles.colHeaderLabel}>
-          {groupBy === 'stream' ? 'Work Stream' : 'Status'}
-        </span>
-      </div>
-      <div className={styles.colHeaderRight}>
-        <HeaderCell {...hp} colClass={styles.colKey} label="Key" sortCol="key" />
-        <HeaderCell {...hp} colClass={styles.colType} label="Type" sortCol="type" resizeCol="type" />
-        <HeaderCell {...hp} colClass={styles.colPts} label="Pts" sortCol="pts" resizeCol="pts" />
-        <div className={`${styles.colAssignee} ${styles.colHeaderLabel}`}></div>
-        <HeaderCell {...hp} colClass={styles.colStatus} label="Status" sortCol="status" />
-        <HeaderCell {...hp} colClass={styles.colBuild} label="Build" sortCol="build" resizeCol="build" />
-        {attrColumns.map((c) => (
-          <HeaderCell {...hp} key={c.key} colClass={styles.colAttr} label={c.label} sortCol={`attr:${c.key}`} resizeCol="attr" />
-        ))}
-        {groupBy === 'status' && (
-          <HeaderCell {...hp} colClass={styles.colWorkStream} label="Work Stream" sortCol="workstream" resizeCol="workstream" />
-        )}
-        <HeaderCell {...hp} colClass={styles.colTitle} label="Title" sortCol="title" />
-      </div>
-    </div>
   );
 }
 
@@ -192,99 +151,6 @@ function StatusSection({
   );
 }
 
-// ── Filter bar ────────────────────────────────────────────────────────────
-// The table's labeled-group presentation of the generic facet groups — every
-// facet (built-in and connector-declared) renders here with no per-field
-// wiring. Member facets keep the leading-avatar chip style.
-
-export function TableFacetBar<T>({
-  groups,
-  onToggle,
-  onClear,
-  trailing,
-}: {
-  groups: FacetGroup<T>[];
-  onToggle: (facetKey: string, value: string) => void;
-  onClear: () => void;
-  /** Extra bar content after the facets (e.g. the backlog's group-by toggle). */
-  trailing?: React.ReactNode;
-}) {
-  const visible = groups.filter((g) => g.visible);
-  if (visible.length === 0 && !trailing) return null;
-  const isFiltered = isAnyFacetActive(groups);
-  return (
-    <div className={styles.filterBar}>
-      {visible.map((g, gi) => (
-        <Fragment key={g.def.key}>
-          {gi > 0 && <div className={styles.filterDivider} />}
-          <div className={styles.filterGroup}>
-            <span className={styles.filterLabel}>{g.def.label}</span>
-            <div className={styles.filterChips}>
-              {g.options.map((o) => {
-                const active = g.selection.has(o.value);
-                const title = active ? `Remove filter: ${o.label}` : `Filter: ${o.label}`;
-                if (g.def.chip?.render === 'avatar') {
-                  const pal = avatarPalette(o.value);
-                  return (
-                    <FilterChip
-                      key={o.value}
-                      active={active}
-                      label={o.label.split(' ')[0]}
-                      title={title}
-                      onClick={() => onToggle(g.def.key, o.value)}
-                      leading={
-                        <span
-                          style={{
-                            width: 18,
-                            height: 18,
-                            borderRadius: '50%',
-                            background: active ? pal.bg : 'var(--rt-fill)',
-                            color: active ? pal.color : 'var(--rt-t3)',
-                            fontSize: 'var(--rt-fs-micro)',
-                            fontWeight: 'var(--rt-fw-bold)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                          }}
-                        >
-                          {memberInitials(o.label)}
-                        </span>
-                      }
-                    />
-                  );
-                }
-                return (
-                  <FilterChip
-                    key={o.value}
-                    active={active}
-                    vars={g.def.chip?.vars?.(o.value)}
-                    dotShape={g.def.chip?.dotShape}
-                    label={o.label}
-                    title={title}
-                    onClick={() => onToggle(g.def.key, o.value)}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </Fragment>
-      ))}
-      {isFiltered && (
-        <div className={styles.filterClear}>
-          <ClearFiltersButton onClick={onClear} />
-        </div>
-      )}
-      {trailing && (
-        <>
-          {visible.length > 0 && <div className={styles.filterDivider} />}
-          {trailing}
-        </>
-      )}
-    </div>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────
 
 export function SprintTable({
@@ -377,7 +243,7 @@ export function SprintTable({
       <div className={styles.identityBlock}>
         <div className={styles.identityLeft}>
           <span className={styles.sprintName}>{sp.name}</span>
-          {isActive && <span className={styles.activeBadge}>Active</span>}
+          {isActive && <ActiveBadge />}
         </div>
         <div className={styles.identityRight}>
           <div className={styles.identityMeta}>
@@ -414,7 +280,7 @@ export function SprintTable({
       <TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />
 
       <div className={styles.body} ref={bodyRef}>
-        <ColHeaders groupBy={groupBy} attrColumns={attrCols} containerRef={bodyRef} sort={sort} onSort={onSort} />
+        <ColHeaders groupLabel={groupBy === 'stream' ? 'Work Stream' : 'Status'} showWorkStream={groupBy === 'status'} hideAssigneeLabel attrColumns={attrCols} containerRef={bodyRef} sort={sort} onSort={onSort} />
 
         {filteredItems.length === 0 ? (
           <EmptyState>

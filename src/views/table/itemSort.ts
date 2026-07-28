@@ -1,7 +1,7 @@
 // Column sorting for the item-list tables (backlog / unassigned). Pure so it can
 // be unit-tested; the view owns the ephemeral sort state and the display context.
 
-import type { WorkItem } from '../types';
+import type { WorkItem } from '../../types';
 
 export type SortDir = 'asc' | 'desc';
 export interface ItemSort {
