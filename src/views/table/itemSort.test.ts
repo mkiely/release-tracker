@@ -2,26 +2,37 @@ import { describe, it, expect } from 'vitest';
 import type { WorkItem } from '../../types';
 import { anItem } from '../../test/factories';
 import { sortItems, nextSort, type SortCtx } from './itemSort';
-import type { AttrColumn } from '../../components/fields/columns';
+import { attributeColumns, itemColumns, type ItemColumn } from '../../components/fields/columns';
+import type { ReleaseCatalog } from '../../types';
 
 // The comparator only reads a few fields, but the item is complete — the old
 // `as unknown as WorkItem` partial would have hidden a comparator that started
 // reading a field the fixture never set.
 const item = (p: Partial<WorkItem>): WorkItem => anItem({ key: 'X-0', ...p });
 
-const ctx: SortCtx = {
+// The real column definitions — the specs under test are the ones the table renders.
+const columnsFor = (catalog: ReleaseCatalog | null = null): ItemColumn[] =>
+  itemColumns(catalog, { members: [], sprintName: () => '', workStream: () => ({ id: null, name: '' }) });
+
+const ctxWith = (columns: readonly ItemColumn[]): SortCtx => ({
   memberName: (id) => (id ? `name-${id}` : ''),
   sprintOrder: (id) => (id === 's1' ? 0 : id === 's2' ? 1 : Number.MAX_SAFE_INTEGER),
   streamName: (id) => (id ? `ws-${id}` : ''),
-};
-
-/** A vocabulary column carrying its own sort spec, as attributeColumns builds it. */
-const attrCol = (key: string, sort: AttrColumn['sort']): AttrColumn => ({
-  key,
-  label: key,
-  cell: (i) => String(i.attributes?.[key] ?? ''),
-  sort,
+  columns,
 });
+
+const ctx: SortCtx = ctxWith(columnsFor());
+
+/** A catalog declaring one vocabulary field, projected into a real column. */
+const vocabCtx = (key: string, spec: Partial<FieldSpecLike>): SortCtx => {
+  const catalog: ReleaseCatalog = {
+    statuses: [],
+    workStreamFields: [],
+    itemTypes: [{ id: 'bug', label: 'Bug', fields: [{ key, label: key, kind: 'string', ...spec } as never] }],
+  };
+  return ctxWith([...columnsFor(), ...attributeColumns(catalog)]);
+};
+type FieldSpecLike = { kind: string; options?: { value: string; label: string }[] };
 
 const keys = (items: WorkItem[]) => items.map((i) => i.key);
 
@@ -95,55 +106,61 @@ describe('sortItems', () => {
 });
 
 describe('sortItems — vocabulary columns', () => {
-  const withAttr = (key: string, value: unknown, attributes: Record<string, unknown> = { severity: value }) =>
+  const withAttr = (key: string, attributes: Record<string, unknown>) =>
     item({ key, attributes: attributes as WorkItem['attributes'] });
 
   // The bug this replaced: sorting read the *rendered* cell, so a date column
   // formatted for humans ordered May, June, March.
   it('sorts a date column chronologically, not by its rendered text', () => {
-    const col = attrCol('due', { kind: 'date', valueOf: (i) => i.attributes?.due ?? null });
+    const ctxA = vocabCtx('due', { kind: 'date' });
     const items = [
-      withAttr('A', null, { due: '2026-05-02' }),
-      withAttr('B', null, { due: '2026-03-14' }),
-      withAttr('C', null, { due: '2026-06-30' }),
+      withAttr('A', { due: '2026-05-02' }),
+      withAttr('B', { due: '2026-03-14' }),
+      withAttr('C', { due: '2026-06-30' }),
     ];
-    const ctxA: SortCtx = { ...ctx, attrColumns: [col] };
     expect(keys(sortItems(items, { col: 'attr:due', dir: 'asc' }, ctxA))).toEqual(['B', 'A', 'C']);
     expect(keys(sortItems(items, { col: 'attr:due', dir: 'desc' }, ctxA))).toEqual(['C', 'A', 'B']);
   });
 
   it('orders full instants within the same day', () => {
-    const col = attrCol('seen', { kind: 'date', valueOf: (i) => i.attributes?.seen ?? null });
+    const ctxA = vocabCtx('seen', { kind: 'date' });
     const items = [
-      withAttr('A', null, { seen: '2026-07-30T18:00:00Z' }),
-      withAttr('B', null, { seen: '2026-07-30T09:15:00Z' }),
+      withAttr('A', { seen: '2026-07-30T18:00:00Z' }),
+      withAttr('B', { seen: '2026-07-30T09:15:00Z' }),
     ];
-    expect(keys(sortItems(items, { col: 'attr:seen', dir: 'asc' }, { ...ctx, attrColumns: [col] }))).toEqual(['B', 'A']);
+    expect(keys(sortItems(items, { col: 'attr:seen', dir: 'asc' }, ctxA))).toEqual(['B', 'A']);
   });
 
   it('sorts an enum column by catalog option order, not label text', () => {
     // Alphabetically 'Critical' < 'Low' < 'Medium'; the catalog's order is severity.
-    const col = attrCol('severity', {
-      kind: 'order',
-      order: { critical: 0, medium: 1, low: 2 },
-      valueOf: (i) => i.attributes?.severity ?? null,
+    const ctxA = vocabCtx('severity', {
+      kind: 'enum',
+      options: [
+        { value: 'critical', label: 'Critical' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'low', label: 'Low' },
+      ],
     });
-    const items = [withAttr('A', 'low'), withAttr('B', 'critical'), withAttr('C', 'medium')];
-    expect(keys(sortItems(items, { col: 'attr:severity', dir: 'asc' }, { ...ctx, attrColumns: [col] }))).toEqual(['B', 'C', 'A']);
+    const items = [withAttr('A', { severity: 'low' }), withAttr('B', { severity: 'critical' }), withAttr('C', { severity: 'medium' })];
+    expect(keys(sortItems(items, { col: 'attr:severity', dir: 'asc' }, ctxA))).toEqual(['B', 'C', 'A']);
   });
 
   it('sorts a numeric vocabulary column numerically', () => {
-    const col = attrCol('rank', { kind: 'number', valueOf: (i) => i.attributes?.rank ?? null });
-    const items = [withAttr('A', null, { rank: 9 }), withAttr('B', null, { rank: 10 })];
-    expect(keys(sortItems(items, { col: 'attr:rank', dir: 'asc' }, { ...ctx, attrColumns: [col] }))).toEqual(['A', 'B']);
+    const ctxA = vocabCtx('rank', { kind: 'number' });
+    const items = [withAttr('A', { rank: 9 }), withAttr('B', { rank: 10 })];
+    expect(keys(sortItems(items, { col: 'attr:rank', dir: 'asc' }, ctxA))).toEqual(['A', 'B']);
   });
 
-  it('keeps items whose type does not declare the field last', () => {
-    const col = attrCol('severity', { kind: 'text', valueOf: (i) => i.attributes?.severity ?? null });
-    const items = [withAttr('A', 'low'), item({ key: 'B' }), withAttr('C', 'high')];
-    const ctxA: SortCtx = { ...ctx, attrColumns: [col] };
+  it('keeps items with no value for the field last', () => {
+    const ctxA = vocabCtx('severity', { kind: 'string' });
+    const items = [withAttr('A', { severity: 'low' }), item({ key: 'B' }), withAttr('C', { severity: 'high' })];
     expect(keys(sortItems(items, { col: 'attr:severity', dir: 'asc' }, ctxA))).toEqual(['C', 'A', 'B']);
     expect(keys(sortItems(items, { col: 'attr:severity', dir: 'desc' }, ctxA))).toEqual(['A', 'C', 'B']);
+  });
+
+  it('will not sort by a column the table is not rendering', () => {
+    const items = [withAttr('A', { severity: 'low' }), withAttr('B', { severity: 'high' })];
+    expect(sortItems(items, { col: 'attr:severity', dir: 'asc' }, ctx)).toBe(items);
   });
 });
 

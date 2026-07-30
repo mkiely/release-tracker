@@ -1,25 +1,15 @@
 import { useLayoutEffect } from 'react';
 import type { RefObject } from 'react';
+import { resizableWidths } from '../components/fields/columns';
 
 const LS_KEY = 'release-tracker:col-widths';
 
-export const COL_DEFAULTS: Record<string, number> = {
-  type: 100,
-  pts: 40,
-  build: 120,
-  attr: 104,
-  workstream: 130,
-  sprint: 130,
-};
+// Defaults and floors come from the column definitions themselves — they used to
+// be a second hand-maintained copy of every width, which the CSS fallbacks
+// (var(--rt-col-build, 120px)) then repeated a third time.
+const { defaults: COL_DEFAULTS, mins: COL_MINS } = resizableWidths();
 
-export const COL_MINS: Record<string, number> = {
-  type: 50,
-  pts: 30,
-  build: 50,
-  attr: 50,
-  workstream: 60,
-  sprint: 60,
-};
+export { COL_DEFAULTS, COL_MINS };
 
 function loadSaved(): Record<string, number> {
   try { return JSON.parse(localStorage.getItem(LS_KEY) ?? '{}'); } catch { return {}; }

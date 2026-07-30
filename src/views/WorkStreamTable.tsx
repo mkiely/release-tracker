@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { WorkStreamViewProps } from '../hooks/useWorkStreamView';
-import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
+import { itemColumnsDep, useFitColumns } from '../hooks/useFitColumns';
 import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
-import type { Member, Sprint, WorkItem } from '../types';
+import type { Sprint, WorkItem } from '../types';
 import { fmtShort } from '../lib/dates';
 import { streamCodeFreezeChip, sumPoints } from '../lib/derive';
 import { WorkStreamChrome } from '../components/WorkStreamChrome';
@@ -12,7 +12,7 @@ import { EventBadge } from '../components/Badges';
 import { Drag, useDrag, useDragAutoScroll } from '../components/Dnd';
 import { statusVars } from '../components/statusVars';
 import { getActions } from '../store/store';
-import { attributeColumns, type AttrColumn } from '../components/fields/columns';
+import { fitSpecs, itemColumns, type ItemCellCtx, type ItemColumn } from '../components/fields/columns';
 import { ColHeaders } from './table/ColHeaders';
 import { ActiveBadge, SprintBand } from './table/SprintBand';
 import { TableFacetBar } from './table/TableFacetBar';
@@ -26,8 +26,8 @@ function SprintSection({
   sp,
   isActive,
   items: rawItems,
-  members,
-  attrColumns,
+  columns,
+  cellCtx,
   sort,
   sortCtx,
   freezeChip,
@@ -37,8 +37,8 @@ function SprintSection({
   sp: Sprint;
   isActive: boolean;
   items: WorkItem[];
-  members: Member[];
-  attrColumns: AttrColumn[];
+  columns: readonly ItemColumn[];
+  cellCtx: ItemCellCtx;
   sort: ItemSort | null;
   sortCtx: SortCtx;
   /** This stream's code-freeze marker, when its effective freeze falls in this sprint. */
@@ -92,7 +92,7 @@ function SprintSection({
       sortCtx={sortCtx}
       emptyLabel="No items"
       renderRow={(it) => (
-        <ItemRow key={it.id} item={it} members={members} attrColumns={attrColumns} onOpen={() => onOpenItem(it.id)} />
+        <ItemRow key={it.id} item={it} columns={columns} ctx={cellCtx} onOpen={() => onOpenItem(it.id)} />
       )}
       dropTarget={{
         over,
@@ -156,14 +156,15 @@ export function WorkStreamTable(props: WorkStreamViewProps) {
     notify,
   } = props;
   const members = team?.members ?? [];
-  // Vocabulary columns declared by the connector's catalog snapshot (none for local releases).
-  const attrCols = attributeColumns(r.catalog);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const presentation = usePresentationMode();
+  // Scoped to one stream and banded by sprint, so neither position column applies.
+  const cellCtx: ItemCellCtx = { members };
+  const columns = itemColumns(r.catalog, cellCtx);
 
   // Fit the Key/Status columns to their content (re-measured when the item set
   // or the presentation-mode type scale changes).
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const presentation = usePresentationMode();
-  useFitColumns(bodyRef, itemTableColumns(filteredItems), [itemColumnsDep(filteredItems), presentation]);
+  useFitColumns(bodyRef, fitSpecs(columns, filteredItems), [itemColumnsDep(filteredItems), presentation]);
   useColumnWidths(bodyRef);
   // Keep far-off sprint bands reachable while dragging in this scrolling list.
   useDragAutoScroll(bodyRef);
@@ -175,7 +176,7 @@ export function WorkStreamTable(props: WorkStreamViewProps) {
     memberName: (id) => (id ? (members.find((m) => m.id === id)?.name ?? '') : ''),
     sprintOrder: () => 0, // no Sprint column in this table — never invoked
     streamName: () => '', // no Work Stream column in this table — never invoked
-    attrColumns: attrCols,
+    columns,
   };
 
   // Every release sprint gets a section — including ones with no items yet from
@@ -191,7 +192,7 @@ export function WorkStreamTable(props: WorkStreamViewProps) {
       toolbar={<TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />}
     >
       <div className={styles.body} ref={bodyRef}>
-        <ColHeaders groupLabel="Sprint" attrColumns={attrCols} containerRef={bodyRef} sort={sort} onSort={onSort} />
+        <ColHeaders groupLabel="Sprint" columns={columns} containerRef={bodyRef} sort={sort} onSort={onSort} />
 
         {filteredItems.length === 0 ? (
           <EmptyState>
@@ -205,8 +206,8 @@ export function WorkStreamTable(props: WorkStreamViewProps) {
                 sp={sp}
                 isActive={sp.id === activeSprintId}
                 items={items}
-                members={members}
-                attrColumns={attrCols}
+                columns={columns}
+                cellCtx={cellCtx}
                 sort={sort}
                 sortCtx={sortCtx}
                 freezeChip={streamCodeFreezeChip(r, sp, ws)}
@@ -223,7 +224,7 @@ export function WorkStreamTable(props: WorkStreamViewProps) {
                 sort={sort}
                 sortCtx={sortCtx}
                 renderRow={(it) => (
-                  <ItemRow key={it.id} item={it} members={members} attrColumns={attrCols} onOpen={() => onOpenItem(it.id)} />
+                  <ItemRow key={it.id} item={it} columns={columns} ctx={cellCtx} onOpen={() => onOpenItem(it.id)} />
                 )}
               />
             )}

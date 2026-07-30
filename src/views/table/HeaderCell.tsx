@@ -1,47 +1,53 @@
 import type { RefObject } from 'react';
 import { Icon } from '../../components/Icon';
+import { headerCellClass, widthStyle } from '../../components/fields/cells';
+import type { ItemColumn } from '../../components/fields/columns';
 import { ResizeHandle } from './ResizeHandle';
 import type { ItemSort } from './itemSort';
 import styles from './table.module.css';
 
-/** One clickable, sortable column header — shared by every item table (backlog/
- *  unassigned, sprint, work stream). `resizeCol` (when set) mounts the resize
- *  handle — its own mousedown stops propagation, so dragging never sorts. */
+/** One clickable, sortable column header, rendered from the column's own
+ *  definition — the same geometry its body cells get, so the two can't drift.
+ *  A column declaring `width.resizable` mounts the resize handle; the handle's
+ *  own mousedown stops propagation, so dragging never sorts. */
 export function HeaderCell({
-  colClass,
-  label,
-  sortCol,
-  resizeCol,
+  column,
   sort,
   onSort,
   containerRef,
 }: {
-  colClass: string;
-  label: string;
-  sortCol: string;
-  resizeCol?: string;
+  column: ItemColumn;
   sort: ItemSort | null;
   onSort: (col: string) => void;
   containerRef: RefObject<HTMLElement | null>;
 }) {
-  const active = sort?.col === sortCol;
+  const active = sort?.col === column.key;
+  const sortable = column.sort !== undefined;
+  const resizable = column.width.resizable === true && column.width.var !== undefined;
+
   return (
     <div
       className={
-        `${colClass} ${styles.colHeaderLabel} ${styles.sortable}` +
+        `${headerCellClass(column.width, column.align)} ${styles.colHeaderLabel}` +
+        (sortable ? ` ${styles.sortable}` : '') +
         (active ? ` ${styles.sortActive}` : '') +
-        (resizeCol ? ` ${styles.resizeTarget}` : '')
+        (resizable ? ` ${styles.resizeTarget}` : '')
       }
-      role="button"
-      tabIndex={0}
-      aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-      title={`Sort by ${label}`}
-      onClick={() => onSort(sortCol)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSort(sortCol); }
-      }}
+      style={widthStyle(column.width)}
+      role={sortable ? 'button' : undefined}
+      tabIndex={sortable ? 0 : undefined}
+      aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+      title={sortable ? `Sort by ${column.label}` : undefined}
+      onClick={sortable ? () => onSort(column.key) : undefined}
+      onKeyDown={
+        sortable
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSort(column.key); }
+            }
+          : undefined
+      }
     >
-      {label}
+      {column.label}
       {active && (
         <span
           className={styles.sortArrow}
@@ -51,7 +57,7 @@ export function HeaderCell({
           {Icon.chevDown}
         </span>
       )}
-      {resizeCol && <ResizeHandle col={resizeCol} containerRef={containerRef} />}
+      {resizable && <ResizeHandle col={column.width.var!} containerRef={containerRef} />}
     </div>
   );
 }
