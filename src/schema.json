@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "26.0.0",
+  "version": "27.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -397,12 +397,22 @@
           ],
           "description": "The item's native workflow state (denormalized id + label, mirrors itemType). `status` carries this state's canonical category — what all derivations compute over; this adds the backend's real state for display/edit. Pushable (as statusId) when the item type declares a writeable status field. Null/absent for local items or backends without a richer workflow."
         },
+        "createdISO": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "When the item came into existence, as a full ISO 8601 instant (not the bare local date used elsewhere in this schema). Connector-owned and read-only on synced items (external wins on sync); stamped by the app on locally-created items. Null when unknown — items predating this field, and connectors that send no timestamps."
+        },
+        "updatedISO": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "When the item last changed, as a full ISO 8601 instant. Same ownership as createdISO: on a synced item it is the backend's modification stamp and a pending local edit deliberately does not move it; on a local item the app bumps it on every edit. Null when unknown."
+        },
         "pendingCreate": {
           "type": "boolean",
           "description": "A locally-created item on a connector release not yet created in the external system: it sits in the push queue (with externalId null) and is sent via the connector's create endpoint on the next Push, then reconciled into a synced item (externalId assigned, flag cleared). False/absent for synced items and items on local releases. Optional — absence implies false."
         }
       },
-      "required": ["id", "releaseId", "workStreamId", "sprintId", "key", "subject", "description", "status", "points", "externalId", "assignedMemberId", "build", "externalUrl", "dirtyFields", "itemType"],
+      "required": ["id", "releaseId", "workStreamId", "sprintId", "key", "subject", "description", "status", "points", "externalId", "assignedMemberId", "build", "externalUrl", "dirtyFields", "itemType", "createdISO", "updatedISO"],
       "additionalProperties": false
     },
     "Release": {
@@ -565,7 +575,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 26,
+      "value": 27,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {

@@ -57,6 +57,9 @@ function mapItemType(it: MappedItem['fields']['itemType']): ItemType | null {
 function itemFingerprint(i: WorkItem): string {
   return JSON.stringify([
     i.key, i.descriptionFormat, i.build, i.externalUrl, i.itemType,
+    // A moved updatedAt is the backend telling us the item changed — including it
+    // catches upstream edits to fields the app doesn't model at all.
+    i.createdISO, i.updatedISO,
     i.points, i.sprintId, i.workStreamId, i.assignedMemberId,
     i.status, i.statusNative, i.subject, i.description, i.attributes,
   ]);
@@ -125,6 +128,8 @@ export function upsertItem(
     existing.build = m.fields.build ?? null;
     existing.externalUrl = m.fields.url ?? null;
     existing.itemType = mapItemType(m.fields.itemType);
+    existing.createdISO = m.fields.createdAt ?? null;
+    existing.updatedISO = m.fields.updatedAt ?? null;
     // Dirty-aware: external wins on every canonical field except those locally
     // dirty (pending push), which keep their local value.
     const dirty = new Set(existing.dirtyFields.filter((f) => writeable.has(f)));
@@ -159,6 +164,8 @@ export function upsertItem(
     build: m.fields.build ?? null,
     externalUrl: m.fields.url ?? null,
     itemType: mapItemType(m.fields.itemType),
+    createdISO: m.fields.createdAt ?? null,
+    updatedISO: m.fields.updatedAt ?? null,
     statusNative,
     dirtyFields: [],
     syncedValues: baseline(),

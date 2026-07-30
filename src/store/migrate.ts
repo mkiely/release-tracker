@@ -396,6 +396,18 @@ export function migrate(persisted: PersistedState): AppState | null {
     };
   }
 
+  // v26 → v27: work items gain `createdISO` / `updatedISO`. Existing items have no
+  // recorded history and none can be reconstructed — a local item's creation time was
+  // never stored, and a synced item's belongs to the backend — so both backfill to
+  // null (rendered as an em dash) until the item is next created, edited, or synced.
+  if (s.version === 26) {
+    s = {
+      ...s,
+      version: 27,
+      items: s.items.map((i) => ({ ...i, createdISO: null, updatedISO: null })),
+    };
+  }
+
   return s.version === SCHEMA_VERSION ? s : null;
 }
 

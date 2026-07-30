@@ -514,6 +514,41 @@ describe('applySync — externalUrl (connector deep link)', () => {
   });
 });
 
+describe('applySync — item timestamps', () => {
+  const itemAt = (createdAt: string | null, updatedAt: string | null) => ({
+    externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null,
+    fields: { key: 'EXT-1', subject: 's', description: '', status: 'In Progress' as const, points: 3, createdAt, updatedAt },
+  });
+
+  it('takes createdISO / updatedISO from the connector on create', () => {
+    const { next } = applySync(baseState(), 'rel_1', mapped({ items: [itemAt('2026-06-01T09:00:00Z', '2026-07-02T14:30:00Z')] }));
+    expect(next.items[0].createdISO).toBe('2026-06-01T09:00:00Z');
+    expect(next.items[0].updatedISO).toBe('2026-07-02T14:30:00Z');
+  });
+
+  it('leaves both null when the connector sends no timestamps', () => {
+    const { next } = applySync(baseState(), 'rel_1', mapped());
+    expect(next.items[0].createdISO).toBeNull();
+    expect(next.items[0].updatedISO).toBeNull();
+  });
+
+  it('external wins on re-sync — the backend owns both', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [itemAt('2026-06-01T09:00:00Z', '2026-07-02T14:30:00Z')] }));
+    const { next } = applySync(first.next, 'rel_1', mapped({ items: [itemAt('2026-06-01T09:00:00Z', '2026-07-29T08:00:00Z')] }));
+    expect(next.items[0].updatedISO).toBe('2026-07-29T08:00:00Z');
+  });
+
+  // A moved updatedAt is the backend reporting a real change — including one the
+  // app doesn't model — so it must not be counted as a no-op re-sync.
+  it('counts a moved updatedAt as an update, not unchanged', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [itemAt('2026-06-01T09:00:00Z', '2026-07-02T14:30:00Z')] }));
+    const same = applySync(first.next, 'rel_1', mapped({ items: [itemAt('2026-06-01T09:00:00Z', '2026-07-02T14:30:00Z')] }));
+    expect(same.result.updated).toBe(0);
+    const moved = applySync(first.next, 'rel_1', mapped({ items: [itemAt('2026-06-01T09:00:00Z', '2026-07-29T08:00:00Z')] }));
+    expect(moved.result.updated).toBe(1);
+  });
+});
+
 describe('applySync — attributes (connector vocabulary)', () => {
   const itemWithAttrs = (attributes?: Record<string, string | number | boolean | null>) => ({
     externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null,

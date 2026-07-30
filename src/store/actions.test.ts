@@ -7,7 +7,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SCHEMA_VERSION } from '../types';
-import { aSyncedItem } from '../test/factories';
+import { anItem, aSyncedItem } from '../test/factories';
 import type { WorkItem } from '../types';
 import type { ConnectorItemType, MappedRelease } from '../sync/schema';
 
@@ -223,6 +223,14 @@ describe('createItem', () => {
   it('returns null for an unknown release id', () => {
     expect(A().createItem('nope', { workStreamId: null, sprintId: null, subject: 'S' })).toBeNull();
   });
+
+  it('stamps createdISO and updatedISO', () => {
+    const r = setup();
+    const before = Date.now();
+    const it = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'S' })!;
+    expect(Date.parse(it.createdISO!)).toBeGreaterThanOrEqual(before);
+    expect(it.updatedISO).toBe(it.createdISO);
+  });
 });
 
 describe('updateItem', () => {
@@ -234,6 +242,26 @@ describe('updateItem', () => {
     A().updateItem(a.id, { points: 8, status: 'Blocked' });
     expect(getState().items.find((i) => i.id === a.id)).toMatchObject({ points: 8, status: 'Blocked' });
     expect(getState().items.find((i) => i.id === b.id)?.points).toBeNull();
+  });
+
+  it('bumps updatedISO on a local item', () => {
+    useStore.setState({ items: [anItem({ id: 'it_1', updatedISO: '2020-01-01T00:00:00.000Z' })] });
+    A().updateItem('it_1', { points: 8 });
+    expect(getState().items[0].updatedISO).not.toBe('2020-01-01T00:00:00.000Z');
+  });
+
+  // On a synced item the timestamps are the backend's; a pending local edit must
+  // not invent a modification the connector never recorded.
+  it('leaves updatedISO alone on a synced item', () => {
+    useStore.setState({ items: [aSyncedItem({ id: 'it_1', updatedISO: '2026-07-01T09:00:00.000Z' })] });
+    A().updateItem('it_1', { points: 8 });
+    expect(getState().items[0].updatedISO).toBe('2026-07-01T09:00:00.000Z');
+  });
+
+  it('lets an explicit updatedISO in the patch win', () => {
+    useStore.setState({ items: [anItem({ id: 'it_1', updatedISO: '2020-01-01T00:00:00.000Z' })] });
+    A().updateItem('it_1', { updatedISO: '2026-07-30T12:00:00.000Z' });
+    expect(getState().items[0].updatedISO).toBe('2026-07-30T12:00:00.000Z');
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, between, buildSprints, dOf, fmtShort, isoOf } from './dates';
+import { addDays, between, buildSprints, dOf, fmtDateTime, fmtShort, isoOf } from './dates';
 
 describe('isoOf / dOf', () => {
   it('round-trips a date without timezone drift', () => {
@@ -46,6 +46,21 @@ describe('fmtShort', () => {
     expect(fmtShort('2026-04-13')).toBe('Apr 13');
     expect(fmtShort('2026-01-05')).toBe('Jan 5');
     expect(fmtShort('2026-12-01')).toBe('Dec 1');
+  });
+});
+
+describe('fmtDateTime', () => {
+  it('formats an instant in the local zone, with a zero-padded time', () => {
+    // Built from local parts so the assertion holds in any timezone.
+    const iso = new Date(2026, 3, 13, 9, 5).toISOString();
+    expect(fmtDateTime(iso)).toBe('Apr 13, 2026, 09:05');
+  });
+
+  it('returns null for an absent or unparseable value, so callers can fall back', () => {
+    expect(fmtDateTime(null)).toBeNull();
+    expect(fmtDateTime(undefined)).toBeNull();
+    expect(fmtDateTime('')).toBeNull();
+    expect(fmtDateTime('not a date')).toBeNull();
   });
 });
 

@@ -686,6 +686,26 @@ describe('migrate — v25 → current', () => {
   });
 });
 
+describe('migrate — v26 → current', () => {
+  const v26 = () => ({
+    version: 26,
+    teams: [],
+    releases: [{ id: 'r1', name: 'R', startISO: '2026-04-13', teamId: 't1', workStreams: [], events: [], sprints: [], codeFreezeISO: null, externalId: null, connector: null, sync: null, sprintLengthDays: 14 }],
+    items: [{ id: 'it1', releaseId: 'r1', workStreamId: null, sprintId: null, key: 'K-1', subject: 'S', description: '', status: 'Not Started', points: 3, externalId: null, assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], syncedValues: null, itemType: null, attributes: {} }],
+    meta: { lastSyncISO: null },
+  });
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v26())?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('backfills item timestamps to null — no history exists to reconstruct', () => {
+    const next = migrate(v26())!;
+    expect(next.items[0].createdISO).toBeNull();
+    expect(next.items[0].updatedISO).toBeNull();
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

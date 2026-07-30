@@ -21,7 +21,7 @@ import {
   type WorkItem,
   type WorkStream,
 } from '../types';
-import { buildSprints, todayISO, uid } from '../lib/dates';
+import { buildSprints, nowISO, todayISO, uid } from '../lib/dates';
 import { seed } from '../lib/seed';
 import { applyCreatedItem, applySync } from '../sync/applySync';
 import { buildCreateRequest, buildPushChanges } from '../sync/push';
@@ -56,6 +56,19 @@ export interface ConnectorItemDraft {
   status: Status;
   points: number | null;
   attributes: Record<string, AttrValue>;
+}
+
+/**
+ * The `updatedISO` stamp for an edit, as a patch fragment to spread last.
+ *
+ * Only app-owned items get stamped. On a synced item the timestamps belong to the
+ * connector (see {@link WorkItem.createdISO}), so an edit awaiting push leaves the
+ * backend's modify time alone rather than showing a modification the backend hasn't
+ * recorded. An explicit `updatedISO` in the patch — sync reconciliation — always wins.
+ */
+function touch(item: WorkItem, patch: Partial<WorkItem>): { updatedISO?: string } {
+  if (item.externalId || 'updatedISO' in patch) return {};
+  return { updatedISO: nowISO() };
 }
 
 /** How the actions reach the state they mutate. The store supplies this; a test
@@ -349,6 +362,8 @@ export function createActions(ctx: ActionContext): Actions {
         itemType: itemType ?? null,
         statusNative: null,
         attributes: {},
+        createdISO: nowISO(),
+        updatedISO: nowISO(),
       };
       commit((d) => { d.items = [...d.items, it]; });
       return it;
@@ -356,7 +371,7 @@ export function createActions(ctx: ActionContext): Actions {
 
     updateItem: (id, patch) => {
       commit((d) => {
-        d.items = d.items.map((i) => (i.id === id ? { ...i, ...patch } : i));
+        d.items = d.items.map((i) => (i.id === id ? { ...i, ...patch, ...touch(i, patch) } : i));
       });
     },
 
@@ -364,7 +379,7 @@ export function createActions(ctx: ActionContext): Actions {
       commit((d) => {
         d.items = d.items.map((i) => {
           if (i.id !== id || i.sprintId === sprintId) return i;
-          const next: WorkItem = { ...i, sprintId };
+          const next: WorkItem = { ...i, sprintId, ...touch(i, {}) };
           // Synced items track the sprint change for push-back, measured against the
           // synced baseline — moving back to the synced sprint clears the dirty flag.
           if (i.externalId && i.syncedValues && 'sprint' in i.syncedValues) {
@@ -436,6 +451,10 @@ export function createActions(ctx: ActionContext): Actions {
         itemType: draft.itemType,
         statusNative: null,
         attributes: draft.attributes,
+        // App-owned while queued; the backend's own stamps replace these when the
+        // push reconciles the created item.
+        createdISO: nowISO(),
+        updatedISO: nowISO(),
         pendingCreate: true,
       };
       commit((d) => { d.items = [...d.items, it]; });
