@@ -16,6 +16,7 @@ import toastStyles from './ui/Toast.module.css';
 import iconBtnStyles from './ui/IconButton.module.css';
 import segStyles from './ui/PointSeg.module.css';
 import fieldStyles from './ui/PField.module.css';
+import metaStyles from './ui/MetaLine.module.css';
 
 /** A labelled form field: an optional uppercase label (with an optional inline
  *  hint) above whatever control is passed as children. Wraps in a `<label>`. */
@@ -47,14 +48,22 @@ export function PField({
 // forward all native props, so use them anywhere a plain input/textarea/select fits.
 export const PInput = (p: InputHTMLAttributes<HTMLInputElement>) => <input className={inputStyles.input} {...p} />;
 export const PTextarea = (p: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea className={inputStyles.input} {...p} />;
-/** A read-only value, rendered as plain text rather than a disabled input — for
- *  fields the app only ever displays (item timestamps). Renders an em dash when
- *  the value is absent, so the field keeps its shape. */
-export const PReadout = ({ children, title }: { children?: ReactNode; title?: string }) => (
-  <span className={inputStyles.readout} title={title}>
-    {children ?? '—'}
-  </span>
-);
+/** A one-line metadata footnote: label/value pairs in the smallest type on the
+ *  ramp, for read-only facts that belong on a record but shouldn't cost a form
+ *  row's height (item timestamps). Absent values render an em dash. */
+export function PMetaLine({ items }: { items: { label: string; value: string | null; title?: string }[] }) {
+  return (
+    <div className={metaStyles.line}>
+      {items.map((m, i) => (
+        <span key={m.label} className={metaStyles.pair}>
+          {i > 0 && <span className={metaStyles.sep} aria-hidden="true">·</span>}
+          <span className={metaStyles.label}>{m.label}</span>
+          <span title={m.title}>{m.value ?? '—'}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export const PSelect = ({ children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) => (
   <select className={inputStyles.input} {...rest}>
