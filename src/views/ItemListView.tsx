@@ -64,12 +64,11 @@ export function ItemListView(props: ItemListViewProps) {
   // Flat mode: sprint name lookup for inline column
   const sprintById = new Map(r.sprints.map((sp) => [sp.id, sp.name]));
   const sprintOrderById = new Map(r.sprints.map((sp, i) => [sp.id, i]));
-  const attrByKey = new Map(attrCols.map((c) => [c.key, c]));
   const sortCtx: SortCtx = {
     memberName: (id) => (id ? (members.find((m) => m.id === id)?.name ?? '') : ''),
     sprintOrder: (id) => (id ? (sprintOrderById.get(id) ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER),
     streamName: (id) => (id ? (streamNameById.get(id) ?? '') : ''),
-    attrCell: (item, key) => attrByKey.get(key)?.cell(item) ?? '',
+    attrColumns: attrCols,
   };
 
   // Grouped mode: sprint sections in release order + "No sprint" at the end.

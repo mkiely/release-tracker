@@ -5,6 +5,7 @@
 
 import type { ReactNode } from 'react';
 import type { FieldSpec } from '../../sync/schema';
+import { fmtDateValue } from '../../lib/dates';
 import { STATUSES } from '../../types';
 import { PInput, PSelect, PTextarea, PointSeg } from '../primitives';
 import { RichTextEditor } from '../RichTextEditor';
@@ -55,6 +56,10 @@ export function displayValue(field: FieldSpec, value: unknown): string {
     const opt = (field.options ?? []).find((o) => o.value === String(value));
     return opt?.label ?? String(value);
   }
+  // Dates render for humans, not as the wire's ISO-8601. Safe to format because
+  // sorting reads the underlying value (see itemSort's SortSpec) and facets group
+  // on raw values — neither goes through this function.
+  if (field.kind === 'date') return fmtDateValue(String(value)) ?? String(value);
   return String(value);
 }
 

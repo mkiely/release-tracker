@@ -209,7 +209,7 @@ export function SprintTable({
     memberName: (id) => (id ? (members.find((m) => m.id === id)?.name ?? '') : ''),
     sprintOrder: () => 0, // no Sprint column in this table — never invoked
     streamName: (id) => (id ? (streamNameById.get(id) ?? '') : ''),
-    attrCell: (item, key) => attrCols.find((c) => c.key === key)?.cell(item) ?? '',
+    attrColumns: attrCols,
   };
 
   // status cols reordered for table view
