@@ -1,0 +1,88 @@
+/* Table cell presentation, by kind — the display-direction twin of registry.tsx's
+   data→control mapping. Nine per-column classes lived in table.module.css, three of
+   them byte-identical apart from width; a column now declares a *kind* (typography,
+   alignment, empty state) and its width separately.
+
+   Width arrives as the --col-w custom property so the same rule serves a fixed
+   column, a resizable one (--rt-col-* written by ResizeHandle) and a fit-to-content
+   one (written by useFitColumns). It's multiplied by --rt-type-scale like every
+   other column, so presentation mode scales the table with the text. */
+.cell {
+  width: calc(var(--col-w) * var(--rt-type-scale));
+  flex-shrink: 0;
+  min-width: 0;
+  padding: 0 10px 0 8px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Takes the remaining space rather than a declared width (the Title column). */
+.flex {
+  flex: 1;
+  width: auto;
+}
+
+.alignCenter { justify-content: center; }
+.alignEnd { justify-content: flex-end; }
+
+/* ── Kinds ──────────────────────────────────────────────────────────────── */
+
+/* The default: secondary-weight body text (Build, Sprint, vocabulary values). */
+.text {
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-t2);
+}
+
+/* Identifiers — the item key. Accent-coloured so the row has one anchor. */
+.mono {
+  padding-left: 14px;
+  font-family: var(--rt-mono);
+  font-size: var(--rt-fs-xs);
+  font-weight: var(--rt-fw-semibold);
+  color: var(--rt-st-ac-dot);
+  gap: 5px;
+}
+
+/* Figures, right-aligned so digits line up down the column. */
+.number {
+  padding: 0 10px 0 4px;
+  font-family: var(--rt-mono);
+  font-size: var(--rt-fs-xs);
+  color: var(--rt-t3);
+}
+
+/* The row's subject line — the one cell that reads as content, not metadata. */
+.title {
+  padding: 0 8px;
+  font-size: var(--rt-fs-md);
+  font-weight: var(--rt-fw-medium);
+  color: var(--rt-ink);
+}
+
+/* A declared-but-unset value (an em dash), muted so it reads as absence rather
+   than as data. Not applied to cells a column doesn't apply to — those are blank. */
+.empty {
+  color: var(--rt-t3);
+}
+
+/* The item-type chip — a full-width tag whose colours come from typeColor's
+   per-type vars, set inline because they're derived from the type's own label. */
+.typeChip {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  border-width: 1px;
+  border-style: solid;
+}
+

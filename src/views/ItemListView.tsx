@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { ItemListViewProps } from '../hooks/useItemListView';
-import { itemColumnsDep, itemTableColumns, useFitColumns } from '../hooks/useFitColumns';
+import { itemColumnsDep, useFitColumns } from '../hooks/useFitColumns';
 import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
 import type { WorkItem } from '../types';
@@ -10,7 +10,7 @@ import { ListChrome } from '../components/ListChrome';
 import { EmptyState } from '../components/EmptyState';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { statusVars } from '../components/statusVars';
-import { attributeColumns } from '../components/fields/columns';
+import { fitSpecs, itemColumns, type ItemCellCtx } from '../components/fields/columns';
 import { ColHeaders } from './table/ColHeaders';
 import { ActiveBadge, SprintBand } from './table/SprintBand';
 import { TableFacetBar } from './table/TableFacetBar';
@@ -39,12 +39,9 @@ export function ItemListView(props: ItemListViewProps) {
     onClearFilters,
   } = props;
   const members = team?.members ?? [];
-  const attrCols = attributeColumns(r.catalog);
 
   const bodyRef = useRef<HTMLDivElement>(null);
   const presentation = usePresentationMode();
-  useFitColumns(bodyRef, itemTableColumns(filteredItems), [itemColumnsDep(filteredItems), presentation]);
-  useColumnWidths(bodyRef);
 
   const [sort, setSort] = useState<ItemSort | null>(null);
   const onSort = (col: string) => setSort((cur) => nextSort(cur, col));
@@ -61,15 +58,30 @@ export function ItemListView(props: ItemListViewProps) {
     ? (it: WorkItem) => ({ id: it.workStreamId, name: it.workStreamId ? (streamNameById.get(it.workStreamId) ?? '—') : '—' })
     : undefined;
 
-  // Flat mode: sprint name lookup for inline column
+  // Grouped mode bands rows by sprint, so the Sprint column would repeat the band
+  // heading; supplying the accessor only in flat mode is what makes the column
+  // appear (see SPRINT_COLUMN.applies).
   const sprintById = new Map(r.sprints.map((sp) => [sp.id, sp.name]));
   const sprintOrderById = new Map(r.sprints.map((sp, i) => [sp.id, i]));
+  const cellCtx: ItemCellCtx = {
+    members,
+    workStream: streamOf,
+    sprintName: groupBySprint
+      ? undefined
+      : (it) => (it.sprintId ? (sprintById.get(it.sprintId) ?? '—') : 'No sprint'),
+  };
+  const columns = itemColumns(r.catalog, cellCtx);
   const sortCtx: SortCtx = {
     memberName: (id) => (id ? (members.find((m) => m.id === id)?.name ?? '') : ''),
     sprintOrder: (id) => (id ? (sprintOrderById.get(id) ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER),
     streamName: (id) => (id ? (streamNameById.get(id) ?? '') : ''),
-    attrColumns: attrCols,
+    columns,
   };
+
+  // Fit the Key/Status columns to their content (re-measured when the item set or
+  // the presentation-mode type scale changes).
+  useFitColumns(bodyRef, fitSpecs(columns, filteredItems), [itemColumnsDep(filteredItems), presentation]);
+  useColumnWidths(bodyRef);
 
   // Grouped mode: sprint sections in release order + "No sprint" at the end.
   // Sorting applies within each section (and the flat list) so grouping wins.
@@ -113,9 +125,7 @@ export function ItemListView(props: ItemListViewProps) {
       <div className={styles.body} ref={bodyRef}>
         <ColHeaders
           groupLabel={groupBySprint ? 'Sprint' : null}
-          showSprint={!groupBySprint}
-          showWorkStream={showStreamColumn}
-          attrColumns={attrCols}
+          columns={columns}
           containerRef={bodyRef}
           sort={sort}
           onSort={onSort}
@@ -138,14 +148,7 @@ export function ItemListView(props: ItemListViewProps) {
                 sort={null /* already sorted per section */}
                 sortCtx={sortCtx}
                 renderRow={(it) => (
-                  <ItemRow
-                    key={it.id}
-                    item={it}
-                    members={members}
-                    attrColumns={attrCols}
-                    workStream={streamOf ? streamOf(it) : undefined}
-                    onOpen={() => onOpenItem(it.id)}
-                  />
+                  <ItemRow key={it.id} item={it} columns={columns} ctx={cellCtx} onOpen={() => onOpenItem(it.id)} />
                 )}
               />
             ))}
@@ -158,14 +161,7 @@ export function ItemListView(props: ItemListViewProps) {
                 sort={null}
                 sortCtx={sortCtx}
                 renderRow={(it) => (
-                  <ItemRow
-                    key={it.id}
-                    item={it}
-                    members={members}
-                    attrColumns={attrCols}
-                    workStream={streamOf ? streamOf(it) : undefined}
-                    onOpen={() => onOpenItem(it.id)}
-                  />
+                  <ItemRow key={it.id} item={it} columns={columns} ctx={cellCtx} onOpen={() => onOpenItem(it.id)} />
                 )}
               />
             )}
@@ -174,15 +170,7 @@ export function ItemListView(props: ItemListViewProps) {
           <div className={styles.section} style={{ border: 'none' }}>
             <div className={styles.sectionRight} style={{ flex: 1 }}>
               {flatItems.map((it) => (
-                <ItemRow
-                  key={it.id}
-                  item={it}
-                  members={members}
-                  attrColumns={attrCols}
-                  sprintName={it.sprintId ? (sprintById.get(it.sprintId) ?? '—') : 'No sprint'}
-                  workStream={streamOf ? streamOf(it) : undefined}
-                  onOpen={() => onOpenItem(it.id)}
-                />
+                <ItemRow key={it.id} item={it} columns={columns} ctx={cellCtx} onOpen={() => onOpenItem(it.id)} />
               ))}
             </div>
           </div>

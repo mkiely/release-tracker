@@ -8,11 +8,12 @@
 // March — a display concern deciding order. Specs read values instead, so how a
 // cell is formatted and how a column sorts are independent.
 //
-// The canonical specs below are the seed of the column descriptor array in
-// docs/item-columns.md; Phase 2 moves them onto the ColumnDef itself.
+// The specs live on the column definitions (components/fields/columns.tsx) and
+// reach this module through the context, so there is no second list of columns
+// here to fall out of step with the one the table renders.
 
 import type { WorkItem } from '../../types';
-import type { AttrColumn } from '../../components/fields/columns';
+import type { ItemColumn } from '../../components/fields/columns';
 
 export type SortDir = 'asc' | 'desc';
 export interface ItemSort {
@@ -37,45 +38,22 @@ export interface SortSpec {
   valueOf: (item: WorkItem, ctx: SortCtx) => unknown;
 }
 
-/** Display-derived lookups a spec can't get from the item alone. */
+/** Display-derived lookups a spec can't get from the item alone, plus the columns
+ *  being rendered — which is where the specs themselves live, so the table can
+ *  only sort by a column it is actually showing. */
 export interface SortCtx {
   memberName: (id: string | null) => string;
-  /** Sprint's position in release order; unassigned sorts last. */
+  /** Sprint's position in release order. */
   sprintOrder: (id: string | null) => number;
   streamName: (id: string | null) => string;
-  /** The release's vocabulary columns, which carry their own specs. */
-  attrColumns?: readonly AttrColumn[];
+  /** The rendered columns (see components/fields/columns.tsx), each carrying its spec. */
+  columns: readonly ItemColumn[];
 }
 
-// Chip/status reading order — a meaningful sort, not alphabetical.
-const STATUS_ORDER: Readonly<Record<string, number>> = {
-  'Not Started': 0,
-  'In Progress': 1,
-  'Under Review': 2,
-  'Blocked': 3,
-  'Complete': 4,
-};
-
-/** The built-in columns' sort specs, keyed by column id. */
-export const CANONICAL_SORTS: Readonly<Record<string, SortSpec>> = {
-  key: { kind: 'text', valueOf: (i) => i.key },
-  type: { kind: 'text', valueOf: (i) => i.itemType?.label },
-  pts: { kind: 'number', valueOf: (i) => i.points },
-  assignee: { kind: 'text', valueOf: (i, ctx) => ctx.memberName(i.assignedMemberId) },
-  status: { kind: 'order', order: STATUS_ORDER, valueOf: (i) => i.status },
-  build: { kind: 'text', valueOf: (i) => i.build },
-  // Null sprint reads as absent rather than as a large position, so backlog items
-  // land with the other blanks instead of leading a descending sort.
-  sprint: { kind: 'number', valueOf: (i, ctx) => (i.sprintId == null ? null : ctx.sprintOrder(i.sprintId)) },
-  workstream: { kind: 'text', valueOf: (i, ctx) => ctx.streamName(i.workStreamId) },
-  title: { kind: 'text', valueOf: (i) => i.subject },
-};
-
-/** The spec for a column id: a built-in, or the vocabulary column's own. */
+/** The spec for a column id — canonical and vocabulary alike, since both are
+ *  entries in the same ordered array. */
 function specFor(col: string, ctx: SortCtx): SortSpec | undefined {
-  const canonical = CANONICAL_SORTS[col];
-  if (canonical) return canonical;
-  return ctx.attrColumns?.find((c) => `attr:${c.key}` === col)?.sort;
+  return ctx.columns.find((c) => c.key === col)?.sort;
 }
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
