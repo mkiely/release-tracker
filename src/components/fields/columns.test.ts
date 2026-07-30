@@ -86,6 +86,47 @@ describe('attributeColumns', () => {
   });
 });
 
+describe('attributeColumns — sort specs', () => {
+  // The column carries how it sorts, so the table never sorts by rendered text.
+  const dated: ReleaseCatalog = {
+    statuses: [],
+    workStreamFields: [],
+    itemTypes: [{
+      id: 'bug',
+      label: 'Bug',
+      fields: [
+        { key: 'due', label: 'Due', kind: 'date' },
+        { key: 'rank', label: 'Rank', kind: 'number' },
+        { key: 'owner', label: 'Owner', kind: 'string' },
+        { key: 'regression', label: 'Regression', kind: 'boolean' },
+      ],
+    }],
+  };
+
+  it('derives the comparator from the field kind', () => {
+    const kinds = Object.fromEntries(attributeColumns(dated).map((c) => [c.key, c.sort.kind]));
+    expect(kinds).toEqual({ due: 'date', rank: 'number', owner: 'text', regression: 'text' });
+  });
+
+  it('sorts enums by catalog option order, unioned across declaring types', () => {
+    const [severity] = attributeColumns(catalog);
+    expect(severity.sort.kind).toBe('order');
+    expect(severity.sort.order).toEqual({ high: 0 });
+  });
+
+  it('reads the stored value, not the formatted cell', () => {
+    const [severity] = attributeColumns(catalog);
+    const bug = item({ itemType: { id: 'bug', label: 'Bug' }, attributes: { severity: 'high' } });
+    expect(severity.cell(bug)).toBe('High');            // display
+    expect(severity.sort.valueOf(bug, {} as never)).toBe('high'); // data
+  });
+
+  it('reads null for an item with no value, so blanks-last applies', () => {
+    const [severity] = attributeColumns(catalog);
+    expect(severity.sort.valueOf(item({ attributes: {} }), {} as never)).toBeNull();
+  });
+});
+
 describe('streamAttributeColumns', () => {
   const stream = (attributes: WorkStream['attributes']): WorkStream => ({
     id: 'ws_1', name: 'API', externalId: null, engineersRequired: null,

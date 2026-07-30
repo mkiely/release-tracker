@@ -175,7 +175,7 @@ export function WorkStreamTable(props: WorkStreamViewProps) {
     memberName: (id) => (id ? (members.find((m) => m.id === id)?.name ?? '') : ''),
     sprintOrder: () => 0, // no Sprint column in this table — never invoked
     streamName: () => '', // no Work Stream column in this table — never invoked
-    attrCell: (item, key) => attrCols.find((c) => c.key === key)?.cell(item) ?? '',
+    attrColumns: attrCols,
   };
 
   // Every release sprint gets a section — including ones with no items yet from

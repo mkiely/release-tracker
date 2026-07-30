@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, between, buildSprints, dOf, fmtDateTime, fmtShort, isoOf } from './dates';
+import { addDays, between, buildSprints, dOf, fmtDateTime, fmtDateValue, fmtShort, isoOf } from './dates';
 
 describe('isoOf / dOf', () => {
   it('round-trips a date without timezone drift', () => {
@@ -61,6 +61,27 @@ describe('fmtDateTime', () => {
     expect(fmtDateTime(undefined)).toBeNull();
     expect(fmtDateTime('')).toBeNull();
     expect(fmtDateTime('not a date')).toBeNull();
+  });
+});
+
+describe('fmtDateValue', () => {
+  it('renders a bare date without inventing a time', () => {
+    expect(fmtDateValue('2026-04-13')).toBe('Apr 13, 2026');
+  });
+
+  it('keeps the time on a full instant', () => {
+    expect(fmtDateValue(new Date(2026, 3, 13, 14, 3).toISOString())).toBe('Apr 13, 2026, 14:03');
+  });
+
+  it('does not shift a bare date across the dateline', () => {
+    // Parsed as local (dOf), not UTC — new Date('2026-01-01') would read as UTC
+    // and render Dec 31 for anyone west of Greenwich.
+    expect(fmtDateValue('2026-01-01')).toBe('Jan 1, 2026');
+  });
+
+  it('returns null for an unparseable value so callers can show the raw string', () => {
+    expect(fmtDateValue('someday')).toBeNull();
+    expect(fmtDateValue('')).toBeNull();
   });
 });
 

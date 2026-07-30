@@ -5,6 +5,7 @@
 // field surfaces it in the sprint/stream tables with no per-field wiring.
 
 import type { FieldSpec } from '../../sync/schema';
+import type { SortKind, SortSpec } from '../../views/table/itemSort';
 import type { ReleaseCatalog, WorkItem, WorkStream } from '../../types';
 import { isAttributeField } from '../../lib/connectorFields';
 import { displayValue } from './registry';
@@ -26,6 +27,32 @@ export interface AttrColumn {
   /** Display string for one item's cell: '' when the item's type doesn't declare
    *  the field (column not applicable), an em dash when declared but unset. */
   cell: (item: WorkItem) => string;
+  /** How the column sorts — over the stored value, never the rendered cell. */
+  sort: SortSpec;
+}
+
+/** The comparator a field's data kind implies. Dates order chronologically and
+ *  enums by their declared catalog order; everything else collates as text. */
+function sortKindOf(kind: FieldSpec['kind']): SortKind {
+  switch (kind) {
+    case 'number': return 'number';
+    case 'date': return 'date';
+    case 'enum': return 'order';
+    default: return 'text';
+  }
+}
+
+/** Rank map for an enum column: the option's position in the catalog. A
+ *  connector lists options in a meaningful order (P0, P1, P2 — or Small, Medium,
+ *  Large), which alphabetical sorting of the labels would scramble. */
+function enumOrder(specs: Iterable<FieldSpec>): Record<string, number> {
+  const order: Record<string, number> = {};
+  for (const spec of specs) {
+    for (const opt of spec.options ?? []) {
+      if (!(opt.value in order)) order[opt.value] = Object.keys(order).length;
+    }
+  }
+  return order;
 }
 
 /**
@@ -49,15 +76,26 @@ export function attributeColumns(catalog: ReleaseCatalog | null | undefined): At
       entry.byType.set(t.id, f);
     }
   }
-  return [...byKey.entries()].map(([key, entry]) => ({
-    key,
-    label: entry.label,
-    cell: (item) => {
-      const spec = item.itemType?.id != null ? entry.byType.get(item.itemType.id) : undefined;
-      if (!spec) return ''; // this item's type doesn't declare the field
-      return displayValue(spec, item.attributes?.[key]);
-    },
-  }));
+  return [...byKey.entries()].map(([key, entry]) => {
+    // Kind comes from the first declaring type: two types sharing a key may offer
+    // different option *sets*, but a key that changed data kind between types
+    // couldn't render as one column at all.
+    const kind = sortKindOf([...entry.byType.values()][0].kind);
+    return {
+      key,
+      label: entry.label,
+      cell: (item) => {
+        const spec = item.itemType?.id != null ? entry.byType.get(item.itemType.id) : undefined;
+        if (!spec) return ''; // this item's type doesn't declare the field
+        return displayValue(spec, item.attributes?.[key]);
+      },
+      sort: {
+        kind,
+        ...(kind === 'order' && { order: enumOrder(entry.byType.values()) }),
+        valueOf: (item: WorkItem) => item.attributes?.[key] ?? null,
+      },
+    };
+  });
 }
 
 /** One vocabulary-driven work-stream column/tag. */

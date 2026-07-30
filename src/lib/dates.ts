@@ -63,6 +63,20 @@ export const fmtDateTime = (iso: string | null | undefined): string | null => {
   return `${PMON[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}, ${hh}:${mm}`;
 };
 
+/** Format a connector-supplied date value for display, without knowing up front
+ *  which shape it is: a bare 'YYYY-MM-DD' renders as a date, a full instant keeps
+ *  its time. Returns null for anything unparseable, so a cell can fall back to
+ *  the raw string rather than printing 'Invalid Date'. */
+export const fmtDateValue = (value: string): string | null => {
+  // A bare date is local by definition (dOf), where an instant carries its own
+  // zone — parsing the two the same way would shift the date for half the world.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const d = dOf(value);
+    return Number.isNaN(d.getTime()) ? null : fmtLong(value);
+  }
+  return fmtDateTime(value);
+};
+
 /** Whether `iso` falls within [a, b], inclusive at both ends — sprint ranges are
  *  inclusive of their end date. */
 export const between = (iso: string, a: string, b: string): boolean => {
