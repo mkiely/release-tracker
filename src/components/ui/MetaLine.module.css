@@ -1,0 +1,32 @@
+/* A one-line metadata footnote for facts that belong on a record but don't earn a
+   form row's height: label and value share the line, in the smallest type on the
+   ramp. Wraps rather than overflowing on a narrow modal. */
+.line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-size: var(--rt-fs-xs);
+  color: var(--rt-t2);
+  line-height: var(--rt-lh-normal);
+}
+
+.pair {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rt-t3);
+  white-space: nowrap;
+}
+
+.sep {
+  color: var(--rt-line-strong);
+}

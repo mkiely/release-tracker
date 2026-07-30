@@ -17,7 +17,7 @@ import { RichTextEditor } from '../components/RichTextEditor';
 import { copyRich, linkClipboard } from '../lib/copyLink';
 import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
-import { IconButton, Modal, PButton, PField, PInput, PointSeg, PReadout, PSelect, PTextarea } from '../components/primitives';
+import { IconButton, Modal, PButton, PField, PInput, PMetaLine, PointSeg, PSelect, PTextarea } from '../components/primitives';
 import { CalcCard, Callout, MetaChip } from '../components/ui/Callout';
 import { FreezeOverrideList } from '../components/ui/FreezeOverrideList';
 import { assessStreams } from '../lib/streamAssessment';
@@ -1178,18 +1178,17 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
         </div>
       )}
       {/* Timestamps are never edited here — on a synced item they belong to the
-          backend, on a local one the app stamps them — so they read as text, not
-          as controls. Hidden entirely when neither is known (items predating the
-          field; connectors that send no timestamps). */}
+          backend, on a local one the app stamps them — so they read as a footnote,
+          not as fields: a full form row would cost the description its height for
+          two values nobody edits. Hidden entirely when neither is known (items
+          predating the field; connectors that send no timestamps). */}
       {(it.createdISO || it.updatedISO) && (
-        <div style={{ display: 'flex', gap: 12 }}>
-          <PField label="Created" style={{ flex: 1 }}>
-            <PReadout title={it.createdISO ?? undefined}>{fmtDateTime(it.createdISO)}</PReadout>
-          </PField>
-          <PField label="Last modified" style={{ flex: 1 }}>
-            <PReadout title={it.updatedISO ?? undefined}>{fmtDateTime(it.updatedISO)}</PReadout>
-          </PField>
-        </div>
+        <PMetaLine
+          items={[
+            { label: 'Created', value: fmtDateTime(it.createdISO), title: it.createdISO ?? undefined },
+            { label: 'Last modified', value: fmtDateTime(it.updatedISO), title: it.updatedISO ?? undefined },
+          ]}
+        />
       )}
     </Modal>
   );
