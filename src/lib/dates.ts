@@ -45,6 +45,24 @@ export const fmtLong = (iso: string): string => {
  *  than calling this, so they stay pure and testable. */
 export const todayISO = (): string => isoOf(new Date());
 
+/** Now as a full ISO-8601 instant. Unlike every other date in the app — which is
+ *  a bare local 'YYYY-MM-DD' — item timestamps carry a time of day, so they're
+ *  stored as UTC instants and rendered in the reader's own zone. */
+export const nowISO = (): string => new Date().toISOString();
+
+/** 'Apr 13, 2026, 14:03' — an instant from {@link nowISO} (or a connector's
+ *  createdAt/updatedAt) in the reader's local zone. Returns null for a null or
+ *  unparseable input, so callers can fall back to an em dash rather than
+ *  rendering 'Invalid Date' from whatever a backend sent. */
+export const fmtDateTime = (iso: string | null | undefined): string | null => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${PMON[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}, ${hh}:${mm}`;
+};
+
 /** Whether `iso` falls within [a, b], inclusive at both ends — sprint ranges are
  *  inclusive of their end date. */
 export const between = (iso: string, a: string, b: string): boolean => {

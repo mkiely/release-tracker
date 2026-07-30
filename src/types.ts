@@ -15,7 +15,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 26;
+export const SCHEMA_VERSION = 27;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog, its
  *  status vocabulary (native workflow states mapped to canonical categories),
@@ -225,6 +225,20 @@ export interface WorkItem {
   externalUrl: string | null;
   /** Format of the description field. Absence or 'text' means plain text; 'html' means sanitized HTML from a connector. */
   descriptionFormat?: 'text' | 'html';
+  /**
+   * When the item came into existence, and when it last changed — full ISO-8601
+   * instants (not the bare local 'YYYY-MM-DD' every other date in the app uses),
+   * because "last modified" moves several times a day.
+   *
+   * Ownership follows the item: on a synced item both are connector-owned and
+   * external always wins, exactly like {@link build} and {@link externalUrl} — a
+   * local pending edit deliberately does NOT touch `updatedISO`, since inventing
+   * a modify time the backend never recorded would only be overwritten on the
+   * next sync. On a local item the app stamps both. Null when unknown: items
+   * that predate this field, and connectors that send no timestamps.
+   */
+  createdISO: string | null;
+  updatedISO: string | null;
   /** Writeable fields edited locally since last sync/push, awaiting push. Empty for clean items. */
   dirtyFields: string[];
   /**

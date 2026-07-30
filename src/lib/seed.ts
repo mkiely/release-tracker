@@ -2,7 +2,24 @@
 // release plus two lighter releases so the home list feels real.
 
 import { SCHEMA_VERSION, SPRINT_LEN_DAYS, type AppState, type ItemType, type PlanningState, type Release, type Sprint, type Status, type WorkItem, type WorkStream } from '../types';
-import { addDays, buildSprints, todayISO, uid } from './dates';
+import { addDays, buildSprints, dOf, todayISO, uid } from './dates';
+
+// Created / last-modified instants for seeded items. Anchored a few days before the
+// item's sprint and clamped to now, so no demo item claims to have been touched in
+// the future; the counter spreads successive items apart rather than stamping a
+// whole sprint's worth at one instant.
+let stampN = 0;
+const stamps = (anchorISO: string): { createdISO: string; updatedISO: string } => {
+  const n = stampN++;
+  const created = dOf(addDays(anchorISO, -(3 + (n % 6))));
+  created.setHours(9 + (n % 8), (n * 13) % 60, 0, 0);
+  const updated = new Date(created.getTime() + ((1 + (n % 9)) * 24 + (n % 5)) * 3_600_000);
+  const now = Date.now();
+  return {
+    createdISO: new Date(Math.min(created.getTime(), now)).toISOString(),
+    updatedISO: new Date(Math.min(updated.getTime(), now)).toISOString(),
+  };
+};
 
 // curated subjects per work stream so generated items read believably
 const SUBJECTS: Record<string, string[]> = {
@@ -138,7 +155,8 @@ export function seed(): AppState {
   let ptI = 0;
   let memberIdx = 0;
   Object.entries(RELEASE_MATRIX).forEach(([sprintN, byStream]) => {
-    const sprintId = demo.sprints[Number(sprintN) - 1].id; // matrix key is 1-based position
+    const sprint = demo.sprints[Number(sprintN) - 1]; // matrix key is 1-based position
+    const sprintId = sprint.id;
     Object.entries(byStream).forEach(([streamName, counts]) => {
       counts.forEach(([status, k]) => {
         for (let i = 0; i < k; i++) {
@@ -151,6 +169,7 @@ export function seed(): AppState {
             key: `ORN-${keyN++}`, subject, description: '', descriptionFormat: 'html', status, points: PT_POOL[ptI++ % PT_POOL.length], externalId: null,
             assignedMemberId: coreMembers[memberIdx++ % coreMembers.length].id,
             build: null, externalUrl: null, dirtyFields: [], itemType: null,
+            ...stamps(sprint.startISO),
           });
         }
       });
@@ -173,6 +192,7 @@ export function seed(): AppState {
       points: pts, externalId: null,
       assignedMemberId: coreMembers[memberIdx++ % coreMembers.length].id,
       build: 'Orion 1.5', externalUrl: null, dirtyFields: [], itemType: null,
+      ...stamps(demo.sprints[sprintIdx].startISO),
     });
   });
 
@@ -185,6 +205,7 @@ export function seed(): AppState {
       description: 'Cross-cutting concern; stream TBD once owner is identified.', descriptionFormat: 'html',
       status: 'Not Started', points: 3, externalId: null,
       assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], itemType: null,
+      ...stamps(demo.sprints[2].startISO),
     },
     {
       id: uid('it'), releaseId: 'rel_demo', workStreamId: null,
@@ -193,6 +214,7 @@ export function seed(): AppState {
       description: 'Raw findings from pentest; stream assignment pending review.', descriptionFormat: 'html',
       status: 'In Progress', points: 5, externalId: null,
       assignedMemberId: coreMembers[0].id, build: null, externalUrl: null, dirtyFields: [], itemType: null,
+      ...stamps(demo.sprints[3].startISO),
     },
     {
       id: uid('it'), releaseId: 'rel_demo', workStreamId: null,
@@ -201,6 +223,8 @@ export function seed(): AppState {
       description: 'Backlog item; not yet assigned to a stream or sprint.', descriptionFormat: 'html',
       status: 'Not Started', points: 2, externalId: null,
       assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], itemType: null,
+      // No sprint to anchor to — a backlog item is dated from the release start.
+      ...stamps(demo.startISO),
     },
   );
 
@@ -250,6 +274,7 @@ export function seed(): AppState {
     descriptionFormat: 'html',
     status: 'Not Started', points: 5, externalId: null,
     assignedMemberId: coreMembers[1].id, build: null, externalUrl: null, dirtyFields: [], itemType: null,
+    ...stamps(demo.sprints[3].startISO),
   });
 
   // Connector release: Nexus 1.0 — Acme-linked, 6 streams, custom sprint names.
@@ -328,7 +353,8 @@ export function seed(): AppState {
   let nxsMemberIdx = 0;
   let nxsTypeI = 0;
   Object.entries(CONNECTOR_MATRIX).forEach(([sprintPos, byStream]) => {
-    const sprintId = nexusSprints[Number(sprintPos) - 1].id;
+    const sprint = nexusSprints[Number(sprintPos) - 1];
+    const sprintId = sprint.id;
     Object.entries(byStream).forEach(([streamName, counts]) => {
       counts.forEach(([status, k]) => {
         for (let i = 0; i < k; i++) {
@@ -344,6 +370,7 @@ export function seed(): AppState {
             assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
             build: null, dirtyFields: [],
             itemType: NEXUS_TYPE_POOL[nxsTypeI++ % NEXUS_TYPE_POOL.length],
+            ...stamps(sprint.startISO),
           });
         }
       });
@@ -366,6 +393,7 @@ export function seed(): AppState {
       assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
       build: 'Nexus Beta 2', dirtyFields: [],
       itemType: { id: 'acme_bug', label: 'Bug' },
+      ...stamps(nexusActiveSprint.startISO),
     });
   });
 
@@ -384,6 +412,7 @@ export function seed(): AppState {
       assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
       build: 'Nexus Beta 2', dirtyFields: [],
       itemType: { id: 'acme_task', label: 'Task' },
+      ...stamps(nexusSprints[sprintIdx].startISO),
     });
   });
 
@@ -407,6 +436,7 @@ export function seed(): AppState {
       assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
       build: null, dirtyFields: [],
       itemType: NEXUS_TYPE_POOL[nxsTypeI++ % NEXUS_TYPE_POOL.length],
+      ...stamps(nexusSprints[sprintIdx].startISO),
     });
   });
 
@@ -442,6 +472,7 @@ export function seed(): AppState {
       assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
       build: null, dirtyFields: [],
       itemType: { id: 'acme_story', label: 'Story' },
+      ...stamps(nexusActiveSprint.startISO),
     },
     {
       id: uid('it'), releaseId: 'rel_nexus', workStreamId: nxsWsId('Reporting & Analytics'),
@@ -460,6 +491,7 @@ export function seed(): AppState {
       assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
       build: null, dirtyFields: [],
       itemType: { id: 'acme_bug', label: 'Bug' },
+      ...stamps(nexusActiveSprint.startISO),
     },
   );
 

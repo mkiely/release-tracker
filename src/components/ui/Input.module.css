@@ -17,6 +17,16 @@
   box-shadow: 0 0 0 3px var(--rt-fill);
 }
 
+/* A value with no control behind it — for fields the app displays but never edits.
+   Deliberately unlike .input: no box, no min-height, so it reads as text instead of
+   a disabled control someone might click at expecting it to wake up. */
+.readout {
+  font-family: var(--rt-sans);
+  font-size: var(--rt-fs-md);
+  color: var(--rt-t2);
+  padding: 2px 0;
+}
+
 select.input {
   appearance: none;
   -webkit-appearance: none;

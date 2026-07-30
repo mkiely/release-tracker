@@ -47,6 +47,15 @@ export function PField({
 // forward all native props, so use them anywhere a plain input/textarea/select fits.
 export const PInput = (p: InputHTMLAttributes<HTMLInputElement>) => <input className={inputStyles.input} {...p} />;
 export const PTextarea = (p: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea className={inputStyles.input} {...p} />;
+/** A read-only value, rendered as plain text rather than a disabled input — for
+ *  fields the app only ever displays (item timestamps). Renders an em dash when
+ *  the value is absent, so the field keeps its shape. */
+export const PReadout = ({ children, title }: { children?: ReactNode; title?: string }) => (
+  <span className={inputStyles.readout} title={title}>
+    {children ?? '—'}
+  </span>
+);
+
 export const PSelect = ({ children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) => (
   <select className={inputStyles.input} {...rest}>
     {children}
