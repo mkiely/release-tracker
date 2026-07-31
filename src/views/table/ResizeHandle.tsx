@@ -1,13 +1,19 @@
-import { COL_DEFAULTS, COL_MINS, getColWidthFromDOM, saveColWidth } from '../../hooks/useColumnWidths';
+import { getColWidthFromDOM, saveColWidth } from '../../hooks/useColumnWidths';
 import { currentTypeScale } from '../../store/textScale';
 import type { RefObject } from 'react';
 import styles from './table.module.css';
 
 export function ResizeHandle({
   col,
+  base,
+  min: minWidth,
   containerRef,
 }: {
   col: string;
+  /** The column's declared width, restored on double-click. */
+  base: number;
+  /** The column's floor. */
+  min?: number;
   containerRef: RefObject<HTMLElement | null>;
 }) {
   return (
@@ -22,8 +28,8 @@ export function ResizeHandle({
         e.stopPropagation();
         const startX = e.clientX;
         const el = containerRef.current;
-        const startWidth = getColWidthFromDOM(col, el);
-        const min = COL_MINS[col] ?? 30;
+        const startWidth = getColWidthFromDOM(col, el, base);
+        const min = minWidth ?? 30;
         // Widths are stored as scale-1 "base" px but rendered at --rt-type-scale,
         // so a pointer moved N on-screen px should change the base width by N/scale.
         const scale = currentTypeScale();
@@ -46,9 +52,8 @@ export function ResizeHandle({
       }}
       onDoubleClick={(e) => {
         e.stopPropagation();
-        const def = COL_DEFAULTS[col] ?? 100;
-        containerRef.current?.style.setProperty(`--rt-col-${col}`, `${def}px`);
-        saveColWidth(col, def);
+        containerRef.current?.style.setProperty(`--rt-col-${col}`, `${base}px`);
+        saveColWidth(col, base);
       }}
     />
   );
