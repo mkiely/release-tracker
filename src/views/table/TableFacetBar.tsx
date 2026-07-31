@@ -84,10 +84,13 @@ export function TableFacetBar<T>({
         </div>
       )}
       {trailing && (
-        <>
+        // Pinned to the right edge: the bar scrolls horizontally when the facets
+        // outrun the window, and a column picker parked off-screen is a control
+        // nobody finds.
+        <div className={styles.filterTrailing}>
           {visible.length > 0 && <div className={styles.filterDivider} />}
           {trailing}
-        </>
+        </div>
       )}
     </div>
   );

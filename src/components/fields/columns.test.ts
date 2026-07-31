@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { attributeColumns, fitSpecs, itemColumns, resizableWidths, streamAttributeColumns, type ItemCellCtx } from './columns';
+import {
+  applyColumnPrefs,
+  attributeColumns,
+  DEFAULT_COLUMN_PREFS,
+  fitSpecs,
+  itemColumns,
+  moveColumn,
+  resizableWidths,
+  setColumnVisible,
+  streamAttributeColumns,
+  type ColumnPrefs,
+  type ItemCellCtx,
+} from './columns';
 import { anItem } from '../../test/factories';
 import type { ReleaseCatalog, WorkItem, WorkStream } from '../../types';
 
@@ -47,6 +59,7 @@ describe('attributeColumns', () => {
     expect(attributeColumns(catalog).map((c) => [c.key, c.label])).toEqual([
       ['attr:severity', 'Severity'],
       ['attr:regression', 'Regression'],
+      ['attr:repro', 'Repro steps'],
       ['attr:rootCause', 'Root cause'],
     ]);
   });
@@ -56,16 +69,28 @@ describe('attributeColumns', () => {
     expect(attributeColumns(undefined)).toEqual([]);
   });
 
-  it('omits detailOnly fields — they belong to the item detail, not the table', () => {
-    expect(attributeColumns(catalog).map((c) => c.key)).not.toContain('attr:repro');
+  it('offers detailOnly fields as columns that start hidden', () => {
+    // Contract 0.18.0 suppressed these outright; with a user column picker the
+    // hint reads as a default instead of a prohibition.
+    const repro = attributeColumns(catalog).find((c) => c.key === 'attr:repro');
+    expect(repro?.defaultHidden).toBe(true);
   });
 
-  it('keeps a shared key columnar when another type declares it, blanking the suppressed type', () => {
+  it('leaves a shared key visible when any declaring type wants it columnar', () => {
+    // 'regression' is detailOnly on Incident but plain on Bug.
+    const regression = attributeColumns(catalog).find((c) => c.key === 'attr:regression');
+    expect(regression?.defaultHidden).toBe(false);
+  });
+
+  it('renders a shared key for every declaring type, detailOnly or not', () => {
+    // Suppression used to be per spec, so a type marking the key detailOnly got a
+    // blank cell in a column another type declared. Now detailOnly only decides
+    // whether the column *starts* hidden — once shown, it shows every value it has.
     const regression = attributeColumns(catalog).find((c) => c.key === 'attr:regression')!;
     const bug = item({ itemType: { id: 'bug', label: 'Bug' }, attributes: { regression: true } });
     const incident = item({ itemType: { id: 'incident', label: 'Incident' }, attributes: { regression: true } });
     expect(regression.value!(bug, cellCtx)).toBe('Yes');
-    expect(regression.value!(incident, cellCtx)).toBe('');
+    expect(regression.value!(incident, cellCtx)).toBe('Yes');
   });
 
   it('formats cells through the spec of the item own type (per-type enum labels)', () => {
@@ -95,7 +120,7 @@ describe('itemColumns', () => {
   it('orders built-ins, then the catalog columns, then position and title', () => {
     expect(ids(ctx({ sprintName: () => 'Sprint 1', workStream: () => ({ id: null, name: 'None' }) }))).toEqual([
       'key', 'type', 'pts', 'assignee', 'status', 'build',
-      'attr:severity', 'attr:regression', 'attr:rootCause',
+      'attr:severity', 'attr:regression', 'attr:repro', 'attr:rootCause',
       'sprint', 'workstream', 'title',
     ]);
   });
@@ -124,6 +149,82 @@ describe('itemColumns', () => {
     for (const c of itemColumns(catalog, ctx())) {
       expect(Boolean(c.cell) !== Boolean(c.value)).toBe(true);
     }
+  });
+});
+
+describe('column preferences — hiding and ordering', () => {
+  const cols = () => itemColumns(catalog, { members: [] });
+  const keys = (prefs: ColumnPrefs) => applyColumnPrefs(cols(), prefs).map((c) => c.key);
+  const col = (key: string) => cols().find((c) => c.key === key)!;
+
+  it('shows everything but the default-hidden columns when nothing is set', () => {
+    expect(keys(DEFAULT_COLUMN_PREFS)).toEqual([
+      'key', 'type', 'pts', 'assignee', 'status', 'build',
+      'attr:severity', 'attr:regression', 'attr:rootCause', 'title',
+    ]);
+  });
+
+  it('hides a column the user turned off', () => {
+    const prefs = setColumnVisible(DEFAULT_COLUMN_PREFS, col('build'), false);
+    expect(keys(prefs)).not.toContain('build');
+  });
+
+  it('shows a default-hidden column once the user turns it on', () => {
+    const prefs = setColumnVisible(DEFAULT_COLUMN_PREFS, col('attr:repro'), true);
+    expect(keys(prefs)).toContain('attr:repro');
+  });
+
+  it('refuses to hide a locked column', () => {
+    const prefs = setColumnVisible(DEFAULT_COLUMN_PREFS, col('key'), false);
+    expect(prefs).toBe(DEFAULT_COLUMN_PREFS);
+    expect(keys(prefs)).toContain('key');
+  });
+
+  it('applies a saved order', () => {
+    const prefs: ColumnPrefs = { visibility: {}, order: ['title', 'key', 'status'] };
+    expect(keys(prefs).slice(0, 3)).toEqual(['title', 'key', 'status']);
+  });
+
+  it('keeps columns the saved order predates, after the ones it names', () => {
+    // A connector adding a field must not silently disappear from every table.
+    const prefs: ColumnPrefs = { visibility: {}, order: ['title', 'key'] };
+    const result = keys(prefs);
+    expect(result.slice(0, 2)).toEqual(['title', 'key']);
+    expect(result).toContain('attr:severity');
+  });
+
+  it('moves a column to where the drop target sits', () => {
+    const prefs = moveColumn(DEFAULT_COLUMN_PREFS, cols(), 'title', 'type');
+    expect(keys(prefs).slice(0, 3)).toEqual(['key', 'title', 'type']);
+  });
+
+  it('records the full order on a move, hidden columns included', () => {
+    // So a column hidden and shown again returns to its place, not the end.
+    const prefs = moveColumn(DEFAULT_COLUMN_PREFS, cols(), 'title', 'type');
+    expect(prefs.order).toContain('attr:repro');
+  });
+
+  it('flexes exactly the last column, whichever it ends up being', () => {
+    const moved = applyColumnPrefs(cols(), moveColumn(DEFAULT_COLUMN_PREFS, cols(), 'title', 'type'));
+    // Title dragged inwards stops stretching…
+    expect(moved.find((c) => c.key === 'title')!.width.flex).toBe(false);
+    // …and whatever now sits last takes the slack instead of leaving dead space.
+    expect(moved[moved.length - 1].width.flex).toBe(true);
+  });
+
+  it('leaves the natural order flexing on Title', () => {
+    const shown = applyColumnPrefs(cols(), DEFAULT_COLUMN_PREFS);
+    expect(shown[shown.length - 1].key).toBe('title');
+    expect(shown[shown.length - 1].width.flex).toBe(true);
+  });
+
+  it('is a no-op when a column is dropped on itself', () => {
+    expect(moveColumn(DEFAULT_COLUMN_PREFS, cols(), 'title', 'title')).toBe(DEFAULT_COLUMN_PREFS);
+  });
+
+  it('survives an order naming a column this table does not have', () => {
+    const prefs: ColumnPrefs = { visibility: {}, order: ['sprint', 'title', 'key'] };
+    expect(keys(prefs).slice(0, 2)).toEqual(['title', 'key']);
   });
 });
 

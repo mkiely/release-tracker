@@ -54,6 +54,11 @@ export interface ItemColumn {
   sort?: SortSpec;
   /** Structural visibility: whether this table has the column at all. */
   applies?: (ctx: ItemCellCtx) => boolean;
+  /** Off until the user turns it on — how a connector's `detailOnly` hint lands
+   *  now that hiding is a user preference rather than a rule. */
+  defaultHidden?: boolean;
+  /** Never hideable: without it a row has no identity and no drag affordance. */
+  lockVisible?: boolean;
   /** Measured width spec (fit-to-content), given the items in scope. */
   fit?: (items: WorkItem[]) => { values: string[]; fontFamily?: string; fontWeight?: string; chrome: number; min: number; max?: number };
 }
@@ -75,6 +80,7 @@ export const KEY_COLUMN: ItemColumn = {
   label: 'Key',
   width: { base: 98, var: 'key', min: 72 },
   kind: 'mono',
+  lockVisible: true,
   sort: { kind: 'text', valueOf: (i) => i.key },
   cell: (i) => (
     <>
@@ -185,7 +191,9 @@ export const WORK_STREAM_COLUMN: ItemColumn = {
 export const TITLE_COLUMN: ItemColumn = {
   key: 'title',
   label: 'Title',
-  width: { base: 0, flex: true },
+  // Flexes to fill the row's remaining space when it's last, which is where it
+  // starts; `base` is what it falls back to if the user drags it inwards.
+  width: { base: 320, flex: true },
   kind: 'title',
   sort: { kind: 'text', valueOf: (i) => i.subject },
   value: (i) => i.subject,
@@ -211,6 +219,98 @@ export function itemColumns(catalog: ReleaseCatalog | null | undefined, ctx: Ite
     WORK_STREAM_COLUMN,
     TITLE_COLUMN,
   ].filter((c) => c.applies?.(ctx) ?? true);
+}
+
+// ── User column preferences ────────────────────────────────────────────────
+// Which columns show, and in what order. App-native and driven by the user, never
+// by connector configuration — the contract describes data, not display (see
+// docs/item-columns.md). Kept pure here; store/columnPrefs.ts persists them.
+
+export interface ColumnPrefs {
+  /** Explicit show/hide choices by column key. Absent = the column's own default,
+   *  so a connector adding a field doesn't need every user to have an opinion. */
+  visibility: Record<string, boolean>;
+  /** Column keys in user order, as of the last reorder. Keys not listed (a
+   *  connector field added since) keep their natural order, after the listed ones. */
+  order: string[];
+}
+
+export const DEFAULT_COLUMN_PREFS: ColumnPrefs = { visibility: {}, order: [] };
+
+/** Whether a column shows, given the user's choices. Locked columns always do. */
+export function isColumnVisible(column: ItemColumn, prefs: ColumnPrefs): boolean {
+  if (column.lockVisible) return true;
+  return prefs.visibility[column.key] ?? column.defaultHidden !== true;
+}
+
+/** Apply the user's hiding and ordering to a table's columns. */
+export function applyColumnPrefs(columns: readonly ItemColumn[], prefs: ColumnPrefs): ItemColumn[] {
+  const rank = new Map(prefs.order.map((key, i) => [key, i]));
+  return columns
+    .filter((c) => isColumnVisible(c, prefs))
+    .map((column, natural) => ({ column, natural }))
+    .sort((a, b) => {
+      const ar = rank.get(a.column.key);
+      const br = rank.get(b.column.key);
+      // Unranked columns are ones the saved order predates; they keep their
+      // natural order among themselves and follow everything the user placed.
+      if (ar === undefined && br === undefined) return a.natural - b.natural;
+      if (ar === undefined) return 1;
+      if (br === undefined) return -1;
+      return ar - br;
+    })
+    .map(({ column }, i, all) => {
+      // Exactly the last column flexes, whichever it ends up being: a stretchy
+      // column in the middle would shove everything after it to the far edge,
+      // and a fixed one at the end would leave dead space beside it.
+      const flex = i === all.length - 1;
+      return flex === (column.width.flex === true)
+        ? column
+        : { ...column, width: { ...column.width, flex } };
+    });
+}
+
+/** Show or hide one column. A locked column can't be hidden. */
+export function setColumnVisible(prefs: ColumnPrefs, column: ItemColumn, visible: boolean): ColumnPrefs {
+  if (column.lockVisible) return prefs;
+  return { ...prefs, visibility: { ...prefs.visibility, [column.key]: visible } };
+}
+
+/**
+ * Move `fromKey` to sit where `toKey` is. `columns` is the table's full column
+ * list — hidden ones included, so a column keeps its place when it's hidden and
+ * shown again rather than reappearing at the end.
+ */
+export function moveColumn(
+  prefs: ColumnPrefs,
+  columns: readonly ItemColumn[],
+  fromKey: string,
+  toKey: string,
+): ColumnPrefs {
+  if (fromKey === toKey) return prefs;
+  const keys = applyOrder(columns.map((c) => c.key), prefs.order);
+  const from = keys.indexOf(fromKey);
+  const to = keys.indexOf(toKey);
+  if (from === -1 || to === -1) return prefs;
+  keys.splice(to, 0, ...keys.splice(from, 1));
+  return { ...prefs, order: keys };
+}
+
+/** Column keys in effective order — the ordering half of applyColumnPrefs, over
+ *  keys alone, so it can serve both the sort and the reorder bookkeeping. */
+function applyOrder(keys: string[], order: string[]): string[] {
+  const rank = new Map(order.map((key, i) => [key, i]));
+  return keys
+    .map((key, natural) => ({ key, natural }))
+    .sort((a, b) => {
+      const ar = rank.get(a.key);
+      const br = rank.get(b.key);
+      if (ar === undefined && br === undefined) return a.natural - b.natural;
+      if (ar === undefined) return 1;
+      if (br === undefined) return -1;
+      return ar - br;
+    })
+    .map(({ key }) => key);
 }
 
 /** The fit-to-content specs for the columns that declare one, ready for
@@ -239,13 +339,18 @@ export function resizableWidths(): { defaults: Record<string, number>; mins: Rec
 
 // ── Catalog-derived columns ────────────────────────────────────────────────
 
-/** Whether a spec projects into a table column: connector vocabulary the catalog
- *  hasn't marked `detailOnly`. Suppression is per *spec*, not per key — a type
- *  that marks a shared key detailOnly renders blank cells in a column another
- *  type still declares, which is the same "not applicable here" the projection
- *  already uses for a key a type doesn't declare at all. Detail rendering and
- *  facets read the catalog directly and are unaffected. */
-const isColumnField = (f: FieldSpec): boolean => isAttributeField(f) && f.detailOnly !== true;
+/** Whether a spec can be a table column at all: connector vocabulary, as opposed
+ *  to a canonical field (which has its own column) or a ref. */
+const isColumnField = (f: FieldSpec): boolean => isAttributeField(f);
+
+/** Whether a spec's column starts hidden. `detailOnly` was contract 0.18.0's way
+ *  of saying "not worth a column across every item in the release" — with a user
+ *  column picker that reads as a default, not a prohibition, so the field is
+ *  offered in the picker instead of being suppressed outright. Per *spec*, not
+ *  per key: a type marking a shared key detailOnly no longer suppresses the
+ *  column another type declares openly. */
+const isDefaultHidden = (specs: Iterable<FieldSpec>): boolean =>
+  [...specs].every((f) => f.detailOnly === true);
 
 /** Every vocabulary column shares one width (and one resize handle), so a release
  *  with six connector fields doesn't need six drags to read comfortably. */
@@ -306,6 +411,7 @@ export function attributeColumns(catalog: ReleaseCatalog | null | undefined): It
       label: entry.label,
       ...ATTR_WIDTH,
       kind: 'text' as const,
+      defaultHidden: isDefaultHidden(entry.byType.values()),
       value: (item: WorkItem) => {
         const spec = item.itemType?.id != null ? entry.byType.get(item.itemType.id) : undefined;
         if (!spec) return ''; // this item's type doesn't declare the field
@@ -335,7 +441,12 @@ export interface StreamAttrColumn {
  * conformance suite enforces the same shape service-side).
  */
 export function streamAttributeColumns(catalog: ReleaseCatalog | null | undefined): StreamAttrColumn[] {
-  return (catalog?.workStreamFields ?? []).filter(isColumnField).map((f) => ({
+  // Stream columns still honour `detailOnly` as a hard suppression: the column
+  // picker is an item-table feature, so a stream column hidden here has no way
+  // back. Item columns treat it as a default instead (see isDefaultHidden).
+  return (catalog?.workStreamFields ?? [])
+    .filter((f) => isColumnField(f) && f.detailOnly !== true)
+    .map((f) => ({
     key: f.key,
     label: f.label ?? f.key,
     cell: (ws) => displayValue(f, ws.attributes?.[f.key]),
