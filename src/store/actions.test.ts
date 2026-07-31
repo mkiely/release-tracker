@@ -559,6 +559,48 @@ describe('setAutoSync', () => {
   });
 });
 
+describe('forgetItem', () => {
+  const releaseWithTwo = () => {
+    const t = A().createTeam({ name: 'T', velocity: 20, members: [] });
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: t.id, connector: { type: 'acme', config: {} } });
+    const keep = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'keep' })!;
+    const drop = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'drop' })!;
+    return { r, keep, drop };
+  };
+
+  it('removes only the named item', () => {
+    const { keep, drop } = releaseWithTwo();
+    A().forgetItem(drop.id);
+    const left = getState().items;
+    expect(left).toHaveLength(1);
+    expect(left[0].id).toBe(keep.id);
+  });
+
+  it('removes a synced item along with its pending edits', () => {
+    const { drop } = releaseWithTwo();
+    A().updateItem(drop.id, { externalId: 'EXT-1', dirtyFields: ['points'], syncedValues: { points: 5 } });
+    A().forgetItem(drop.id);
+    expect(getState().items.find((i) => i.id === drop.id)).toBeUndefined();
+  });
+
+  // Forgetting is local-only: the sync contract has no delete, so nothing may be
+  // left behind that a later push could interpret as one.
+  it('queues nothing for push', async () => {
+    client.listConnectors.mockResolvedValue([acmeMeta()]);
+    const { r, drop } = releaseWithTwo();
+    A().updateItem(drop.id, { externalId: 'EXT-1', dirtyFields: ['points'], syncedValues: { points: 5 } });
+    A().forgetItem(drop.id);
+    expect(await A().pushRelease(r.id)).toMatchObject({ ok: false, reason: 'nothing-to-push' });
+    expect(client.push).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op for an unknown id', () => {
+    releaseWithTwo();
+    A().forgetItem('nope');
+    expect(getState().items).toHaveLength(2);
+  });
+});
+
 describe('pushRelease (flush queued creates)', () => {
   const connectorRelease = () =>
     A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'acme', config: {} } });

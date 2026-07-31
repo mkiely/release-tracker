@@ -122,6 +122,20 @@ export interface Actions {
   /** Discard a queued (`pendingCreate`) item before it's pushed — the create-side
    *  counterpart to {@link revertItem}. No-op for already-created or non-pending items. */
   discardPendingCreate: (id: string) => void;
+  /** Drop an item from local state and nothing else.
+   *
+   *  Not a delete: the external system is never told, because the sync contract has
+   *  no delete and inventing one here would push a destructive edit the user did not
+   *  ask for. This is the escape hatch for an item the connector has stopped
+   *  returning — a narrowed pull query, a moved ticket — which would otherwise sit in
+   *  the release forever, counting toward points and capacity, with no way to remove
+   *  it short of deleting the whole release.
+   *
+   *  Deliberately keeps no tombstone. If a later sync returns the item again it comes
+   *  back as an ordinary item, which is the honest outcome: the connector says it
+   *  belongs here, and suppressing it would be the app overriding its own source of
+   *  truth from a one-off click. */
+  forgetItem: (id: string) => void;
   /** Pull from this release's connector and upsert the result. No-op for Local releases. */
   syncRelease: (releaseId: string) => Promise<SyncOutcome>;
   /** Push locally-dirty writeable fields back to the external system. */
@@ -475,6 +489,10 @@ export function createActions(ctx: ActionContext): Actions {
 
     discardPendingCreate: (id) => {
       commit((d) => { d.items = d.items.filter((i) => !(i.id === id && i.pendingCreate)); });
+    },
+
+    forgetItem: (id) => {
+      commit((d) => { d.items = d.items.filter((i) => i.id !== id); });
     },
 
     syncRelease: async (releaseId) => {
