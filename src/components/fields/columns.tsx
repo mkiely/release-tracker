@@ -340,8 +340,14 @@ export function resizableWidths(): { defaults: Record<string, number>; mins: Rec
 // ── Catalog-derived columns ────────────────────────────────────────────────
 
 /** Whether a spec can be a table column at all: connector vocabulary, as opposed
- *  to a canonical field (which has its own column) or a ref. */
-const isColumnField = (f: FieldSpec): boolean => isAttributeField(f);
+ *  to a canonical field (which has its own column) or a ref.
+ *
+ *  A `sensitive` field never becomes one. The contract calls it a secret value,
+ *  and the item detail masks it — putting the same value in a table cell, where
+ *  it is visible to everyone at a glance and rides along into shares and
+ *  exports, would undo that. Deliberately not a default the picker can override:
+ *  a "show this column" toggle on a secret is a footgun, not a preference. */
+const isColumnField = (f: FieldSpec): boolean => isAttributeField(f) && f.sensitive !== true;
 
 /** Whether a spec's column starts hidden. `detailOnly` was contract 0.18.0's way
  *  of saying "not worth a column across every item in the release" — with a user

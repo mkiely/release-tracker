@@ -41,6 +41,12 @@ describe('resolveControl', () => {
 });
 
 describe('displayValue', () => {
+  it('masks a sensitive value on every read-only surface', () => {
+    expect(displayValue(f({ key: 'token', kind: 'string', sensitive: true }), 'hunter2')).toBe('••••');
+    // Absent stays an em dash — nothing to hide, and '••••' would imply a value.
+    expect(displayValue(f({ key: 'token', kind: 'string', sensitive: true }), null)).toBe('—');
+  });
+
   it('renders an em dash for absent/empty values', () => {
     expect(displayValue(f({ key: 'a', kind: 'string' }), null)).toBe('—');
     expect(displayValue(f({ key: 'a', kind: 'string' }), undefined)).toBe('—');

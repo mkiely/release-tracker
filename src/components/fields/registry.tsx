@@ -51,6 +51,9 @@ export function resolveControl(field: FieldSpec): ControlKind {
  *  absent/empty value renders an em dash. */
 export function displayValue(field: FieldSpec, value: unknown): string {
   if (value == null || value === '') return '—';
+  // A secret never renders as itself. resolveControl masks the input; this masks
+  // every read-only surface (detail readouts, push preview) so the two agree.
+  if (field.sensitive) return '••••';
   if (field.kind === 'boolean') return value === true || value === 'true' ? 'Yes' : 'No';
   if (field.kind === 'enum') {
     const opt = (field.options ?? []).find((o) => o.value === String(value));
