@@ -61,6 +61,7 @@ export function Menu({
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number; right: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   // Measured on open (and on scroll/resize while open) so the escaped popover
   // tracks a trigger that can move under it.
@@ -85,7 +86,12 @@ export function Menu({
       if (e.key === 'Escape') setOpen(false);
     };
     const onMouse = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // The escaped popover is portalled onto the body, so it is NOT inside the
+      // trigger's ref — without checking it too, pressing an item counts as an
+      // outside click and closes the menu before the click can land on it.
+      if (popoverRef.current?.contains(target)) return;
+      if (ref.current && !ref.current.contains(target)) setOpen(false);
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onMouse);
@@ -110,6 +116,7 @@ export function Menu({
 
   const popover = (
     <div
+      ref={popoverRef}
       className={
         `${styles.menu} ${align === 'left' ? styles.alignLeft : styles.alignRight}` +
         (escapeOverflow ? ` ${styles.menuFixed}` : '')
