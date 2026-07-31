@@ -397,9 +397,17 @@ export function createActions(ctx: ActionContext): Actions {
       commit((d) => {
         d.items = d.items.map((i) => {
           if (i.id !== id || !i.syncedValues || i.dirtyFields.length === 0) return i;
-          const next: WorkItem = { ...i, dirtyFields: [] };
+          // Fields with no baseline keep their local value, so they must also keep
+          // their dirty mark: clearing the list wholesale left the edit in place but
+          // invisible — unpushable, and gone from the review modal. Only what was
+          // actually restored stops being dirty.
+          const unreverted: string[] = [];
+          const next: WorkItem = { ...i, dirtyFields: unreverted };
           for (const f of i.dirtyFields) {
-            if (!(f in i.syncedValues)) continue; // no baseline for this field — keep local
+            if (!(f in i.syncedValues)) {
+              unreverted.push(f);
+              continue;
+            }
             if (f === 'points') next.points = (i.syncedValues.points as number | null) ?? null;
             else if (f === 'sprint') next.sprintId = (i.syncedValues.sprint as string | null) ?? null;
             else if (f === 'status') {
@@ -415,6 +423,10 @@ export function createActions(ctx: ActionContext): Actions {
               } else if (typeof v === 'string' && (STATUSES as readonly string[]).includes(v)) {
                 next.status = v as Status;
                 next.statusNative = null;
+              } else {
+                // A baseline the vocabulary can no longer resolve restores nothing,
+                // so it stays dirty for the same reason a missing one does.
+                unreverted.push(f);
               }
             } else next.attributes = { ...next.attributes, [f]: i.syncedValues[f] };
           }

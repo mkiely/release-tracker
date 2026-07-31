@@ -363,6 +363,48 @@ describe('revertItem', () => {
     expect(reverted.status).toBe('In Progress');
     expect(reverted.statusNative).toEqual({ id: 'in_progress', label: 'Doing' });
   });
+
+  it('restores a dirty sprint to the baseline', () => {
+    const t = A().createTeam({ name: 'T', velocity: 20, members: [] });
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: t.id, connector: { type: 'acme', config: {} } });
+    // A connector release has no sprints until it syncs; revert copies the baseline
+    // value across without resolving it, so a bare id is enough here.
+    const it1 = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'S' })!;
+    A().updateItem(it1.id, {
+      externalId: 'EXT-1',
+      sprintId: null,
+      dirtyFields: ['sprint'],
+      syncedValues: { points: null, sprint: 'sp_baseline' },
+    });
+
+    A().revertItem(it1.id);
+
+    const reverted = getState().items.find((i) => i.id === it1.id)!;
+    expect(reverted.sprintId).toBe('sp_baseline');
+    expect(reverted.dirtyFields).toEqual([]);
+  });
+
+  // A field the baseline can't speak for keeps its local value — so it has to keep
+  // its dirty mark too, or the edit survives while becoming unpushable and invisible
+  // to the push review.
+  it('leaves a field with no baseline dirty, and reverts the rest', () => {
+    const t = A().createTeam({ name: 'T', velocity: 20, members: [] });
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: t.id, connector: { type: 'acme', config: {} } });
+    const it1 = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'S', points: 8 })!;
+    A().updateItem(it1.id, {
+      externalId: 'EXT-1',
+      attributes: { severity: 'critical' },
+      dirtyFields: ['points', 'severity'],
+      syncedValues: { points: 5 }, // severity has no baseline
+    });
+
+    A().revertItem(it1.id);
+
+    const reverted = getState().items.find((i) => i.id === it1.id)!;
+    expect(reverted.points).toBe(5);
+    expect(reverted.attributes).toEqual({ severity: 'critical' });
+    expect(reverted.dirtyFields).toEqual(['severity']);
+  });
 });
 
 describe('pushRelease', () => {

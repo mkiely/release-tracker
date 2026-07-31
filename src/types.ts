@@ -15,7 +15,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 27;
+export const SCHEMA_VERSION = 28;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog, its
  *  status vocabulary (native workflow states mapped to canonical categories),
