@@ -888,7 +888,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const r = useStore((s) => (it ? selRelease(s, it.releaseId) : undefined));
   const team = useStore((s) => (r ? selTeam(s, r.teamId) : undefined));
   const meta = useConnectorMeta(r?.connector?.type);
-  const { notify } = useApp();
+  const { notify, openModal } = useApp();
 
   const [subject, setSubject] = useState(it ? it.subject : '');
   const [desc, setDesc] = useState(it ? it.description : '');
@@ -992,10 +992,39 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
     notify(ok ? 'Link copied' : 'Copy failed');
   };
 
+  // Drop the item locally. The escape hatch for an item the connector has stopped
+  // returning (a narrowed pull query, a moved ticket): without it the only way out
+  // is deleting the whole release. Deliberately worded as "forget", not "delete" —
+  // nothing is sent anywhere, and saying "delete" next to a connector's name would
+  // imply otherwise.
+  const forgetBody = [
+    `Remove ${it.key} — "${it.subject}" — from this release?`,
+    synced
+      ? `This only affects your local copy. Nothing is deleted in ${meta?.label ?? 'the external system'}, and the item will reappear if a future sync returns it.`
+      : 'This item exists only here, so removing it is permanent.',
+    isDirty ? 'Its unpushed local edits will be discarded.' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const forgetTitle = synced
+    ? 'Remove this item from your local copy — nothing is deleted in the external system'
+    : 'Remove this item permanently';
+  const forget = () =>
+    openModal({
+      type: 'confirm',
+      title: 'Forget work item',
+      body: forgetBody,
+      confirmLabel: 'Forget item',
+      onConfirm: () => {
+        getActions().forgetItem(it.id);
+        notify(`${it.key} removed from this release`);
+      },
+    });
+
   // Connector context banner — rendered in the footer (left of the buttons) so it
   // doesn't eat vertical space the description can use.
   const bannerStyle = {
-    display: 'flex', alignItems: 'center', gap: 6, marginRight: 'auto',
+    display: 'flex', alignItems: 'center', gap: 6,
     padding: '5px 10px', fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)',
     background: 'var(--rt-fill)', border: '1.5px solid var(--rt-line)', borderRadius: 7,
     flex: '0 1 auto', minWidth: 0,
@@ -1065,6 +1094,11 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       }
       footer={
         <>
+          {/* Destructive, so it sits apart from Close/Save rather than beside them —
+              the same placement the event and work-stream modals use. */}
+          <PButton variant="danger" onClick={forget} title={forgetTitle} style={{ marginRight: 'auto' }}>
+            Forget
+          </PButton>
           {syncBanner}
           <PButton variant="subtle" onClick={onClose}>
             Close
