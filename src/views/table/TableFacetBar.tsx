@@ -29,8 +29,9 @@ export function TableFacetBar<T>({
   if (visible.length === 0 && !trailing) return null;
   const isFiltered = isAnyFacetActive(groups);
   return (
-    <div className={styles.filterBar}>
-      {visible.map((g, gi) => (
+    <div className={styles.filterBarRow}>
+      <div className={styles.filterBar}>
+        {visible.map((g, gi) => (
         <Fragment key={g.def.key}>
           {gi > 0 && <div className={styles.filterDivider} />}
           <div className={styles.filterGroup}>
@@ -78,15 +79,17 @@ export function TableFacetBar<T>({
           </div>
         </Fragment>
       ))}
-      {isFiltered && (
-        <div className={styles.filterClear}>
-          <ClearFiltersButton onClick={onClear} />
-        </div>
-      )}
+        {isFiltered && (
+          <div className={styles.filterClear}>
+            <ClearFiltersButton onClick={onClear} />
+          </div>
+        )}
+      </div>
       {trailing && (
-        // Pinned to the right edge: the bar scrolls horizontally when the facets
-        // outrun the window, and a column picker parked off-screen is a control
-        // nobody finds.
+        // Outside the scroller, not merely pinned inside it: the facets scroll
+        // when they outrun the window, and a control living in that overflow is
+        // both parked off-screen and unclickable — focusing it makes the browser
+        // scroll the bar, moving the button out from under the pointer mid-click.
         <div className={styles.filterTrailing}>
           {visible.length > 0 && <div className={styles.filterDivider} />}
           {trailing}
