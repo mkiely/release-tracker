@@ -303,7 +303,10 @@ export function catalogItemFacets(catalog: ReleaseCatalog | null | undefined): F
   const byKey = new Map<string, FieldSpec>();
   for (const t of catalog?.itemTypes ?? []) {
     for (const f of t.fields) {
-      if (f.filterable !== true || !isAttributeField(f) || byKey.has(f.key)) continue;
+      // `sensitive` fields are excluded everywhere they'd be readable in bulk:
+      // a filter chip bar lists a facet's observed values, which for a secret
+      // would print them across the top of the screen.
+      if (f.filterable !== true || !isAttributeField(f) || f.sensitive === true || byKey.has(f.key)) continue;
       byKey.set(f.key, f);
     }
   }
@@ -318,7 +321,7 @@ export function catalogItemFacets(catalog: ReleaseCatalog | null | undefined): F
  */
 export function catalogStreamFacets(catalog: ReleaseCatalog | null | undefined): FacetDef<WorkStream>[] {
   return (catalog?.workStreamFields ?? [])
-    .filter((f) => f.filterable === true && isAttributeField(f))
+    .filter((f) => f.filterable === true && isAttributeField(f) && f.sensitive !== true)
     .map((spec) => attrFacet<WorkStream>(spec, 'stream', true));
 }
 

@@ -242,6 +242,17 @@ describe('catalogItemFacets', () => {
     item({ id: 'c', attributes: {} }),
   ];
 
+  it('skips a sensitive field even when the connector marks it filterable', () => {
+    // A chip bar lists a facet's observed values, which for a secret would print
+    // them across the top of the screen.
+    const secret = catalog({
+      itemTypes: [{ id: 'acme_bug', label: 'Bug', fields: [
+        { key: 'token', label: 'Deploy token', kind: 'string' as const, filterable: true, sensitive: true },
+      ] }],
+    });
+    expect(catalogItemFacets(secret)).toEqual([]);
+  });
+
   it('returns no facets for an absent catalog (local releases)', () => {
     expect(catalogItemFacets(null)).toEqual([]);
     expect(catalogItemFacets(undefined)).toEqual([]);

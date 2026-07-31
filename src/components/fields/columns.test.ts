@@ -38,6 +38,7 @@ const catalog: ReleaseCatalog = {
         { key: 'severity', label: 'Severity', kind: 'enum', options: [{ value: 'high', label: 'High' }] },
         { key: 'regression', label: 'Regression', kind: 'boolean' },
         { key: 'repro', label: 'Repro steps', kind: 'string', detailOnly: true },
+        { key: 'token', label: 'Deploy token', kind: 'string', sensitive: true },
       ],
     },
     {
@@ -67,6 +68,12 @@ describe('attributeColumns', () => {
   it('returns no columns without a catalog (local releases)', () => {
     expect(attributeColumns(null)).toEqual([]);
     expect(attributeColumns(undefined)).toEqual([]);
+  });
+
+  it('never projects a sensitive field into a column', () => {
+    // The detail masks it; a table cell would show the secret to the room, and
+    // carry it into shares and exports. Not a default the picker can override.
+    expect(attributeColumns(catalog).map((c) => c.key)).not.toContain('attr:token');
   });
 
   it('offers detailOnly fields as columns that start hidden', () => {
