@@ -1270,11 +1270,7 @@ export function PushReviewModal({
           <PButton variant="subtle" onClick={onClose}>
             Cancel
           </PButton>
-          <PButton
-            onClick={doPush}
-            disabled={busy || total === 0}
-            style={total > 0 ? { color: statusVars('In Progress').text } : undefined}
-          >
+          <PButton onClick={doPush} disabled={busy || total === 0}>
             {busy ? 'Pushing…' : total > 0 ? `Push ${total} change${total !== 1 ? 's' : ''}` : 'Nothing to push'}
           </PButton>
         </>

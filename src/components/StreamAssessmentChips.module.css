@@ -17,6 +17,13 @@
   border-radius: 6px;
 }
 
+/* A ring rather than a fill: the chip already carries its verdict's own color, so
+   tinting behind it would fight that. Needed because both stream presenters tint
+   the whole row on hover — without this the chips have no target of their own. */
+.chipBtn:hover {
+  box-shadow: 0 0 0 2px var(--rt-st-ac-dot);
+}
+
 .chipBtn:focus-visible {
   outline: 2px solid var(--rt-accent);
   outline-offset: 2px;

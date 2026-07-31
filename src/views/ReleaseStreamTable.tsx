@@ -6,6 +6,7 @@ import { ReleaseChrome } from '../components/ReleaseChrome';
 import { Sparkline, CompletionRing } from '../components/Trend';
 import { statusVars } from '../components/statusVars';
 import { StreamAssessmentChips } from '../components/StreamAssessmentChips';
+import { VerdictLine } from '../components/VerdictLine';
 import styles from './ReleaseTable.module.css';
 
 /** Remaining work, broken down by status — the "why" behind what's left. */
@@ -124,7 +125,16 @@ function StreamRow({
         ) : (
           itemCount === 0 && <span className={styles.noItems}>No work items</span>
         )}
-        {ws && <span className={styles.verdictWhy}>{forecast.summary}</span>}
+        {/* Badge-free: the chips above already carry both verdicts. It stays a
+            VerdictLine rather than plain text because the row's own hover tints the
+            whole width — the analysis needs a target that lights up on its own. */}
+        {ws && (
+          <VerdictLine
+            forecast={forecast}
+            badge={false}
+            onOpen={() => (forecast.verdict === 'unconfigured' ? onEditStream(ws.id) : onOpenStreamHealth(ws.id))}
+          />
+        )}
       </div>
     </div>
   );
