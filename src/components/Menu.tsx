@@ -1,5 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Icon } from './Icon';
 import { PButton } from './primitives';
 import styles from './Menu.module.css';
@@ -42,7 +41,6 @@ export function Menu({
   align = 'right',
   title,
   style,
-  escapeOverflow,
 }: {
   label: ReactNode;
   icon?: ReactNode;
@@ -52,33 +50,10 @@ export function Menu({
   align?: 'left' | 'right';
   title?: string;
   style?: CSSProperties;
-  /** Render the popover into the body, positioned against the trigger. Needed
-   *  when an ancestor scrolls (overflow clips an absolutely-positioned child) —
-   *  e.g. the table's facet bar, which scrolls horizontally. */
-  escapeOverflow?: boolean;
 }) {
   const visible = actions.filter((a) => a.visible !== false);
   const [open, setOpen] = useState(false);
-  const [anchor, setAnchor] = useState<{ top: number; left: number; right: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
-
-  // Measured on open (and on scroll/resize while open) so the escaped popover
-  // tracks a trigger that can move under it.
-  useLayoutEffect(() => {
-    if (!open || !escapeOverflow) return;
-    const place = () => {
-      const r = ref.current?.getBoundingClientRect();
-      if (r) setAnchor({ top: r.bottom + 8, left: r.left, right: window.innerWidth - r.right });
-    };
-    place();
-    window.addEventListener('scroll', place, true);
-    window.addEventListener('resize', place);
-    return () => {
-      window.removeEventListener('scroll', place, true);
-      window.removeEventListener('resize', place);
-    };
-  }, [open, escapeOverflow]);
 
   useEffect(() => {
     if (!open) return;
@@ -86,12 +61,7 @@ export function Menu({
       if (e.key === 'Escape') setOpen(false);
     };
     const onMouse = (e: MouseEvent) => {
-      const target = e.target as Node;
-      // The escaped popover is portalled onto the body, so it is NOT inside the
-      // trigger's ref — without checking it too, pressing an item counts as an
-      // outside click and closes the menu before the click can land on it.
-      if (popoverRef.current?.contains(target)) return;
-      if (ref.current && !ref.current.contains(target)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onMouse);
@@ -115,19 +85,7 @@ export function Menu({
   }
 
   const popover = (
-    <div
-      ref={popoverRef}
-      className={
-        `${styles.menu} ${align === 'left' ? styles.alignLeft : styles.alignRight}` +
-        (escapeOverflow ? ` ${styles.menuFixed}` : '')
-      }
-      role="menu"
-      style={
-        escapeOverflow && anchor
-          ? { top: anchor.top, ...(align === 'left' ? { left: anchor.left } : { right: anchor.right }) }
-          : undefined
-      }
-    >
+    <div className={`${styles.menu} ${align === 'left' ? styles.alignLeft : styles.alignRight}`} role="menu">
       {visible.map((a, i) => (
         <Fragment key={a.key}>
           {a.section && a.section !== visible[i - 1]?.section && (
@@ -167,7 +125,7 @@ export function Menu({
           {Icon.chevDown}
         </span>
       </PButton>
-      {open && (escapeOverflow ? createPortal(popover, document.body) : popover)}
+      {open && popover}
     </div>
   );
 }

@@ -126,7 +126,7 @@ describe('itemColumns', () => {
 
   it('orders built-ins, then the catalog columns, then position and title', () => {
     expect(ids(ctx({ sprintName: () => 'Sprint 1', workStream: () => ({ id: null, name: 'None' }) }))).toEqual([
-      'key', 'type', 'pts', 'assignee', 'status', 'build',
+      'key', 'type', 'pts', 'assignee', 'status', 'build', 'created', 'updated',
       'attr:severity', 'attr:regression', 'attr:repro', 'attr:rootCause',
       'sprint', 'workstream', 'title',
     ]);
@@ -144,7 +144,7 @@ describe('itemColumns', () => {
 
   it('yields only built-ins and title for a local release (no catalog)', () => {
     expect(itemColumns(null, ctx()).map((c) => c.key)).toEqual([
-      'key', 'type', 'pts', 'assignee', 'status', 'build', 'title',
+      'key', 'type', 'pts', 'assignee', 'status', 'build', 'created', 'updated', 'title',
     ]);
   });
 
@@ -169,6 +169,8 @@ describe('column preferences — hiding and ordering', () => {
       'key', 'type', 'pts', 'assignee', 'status', 'build',
       'attr:severity', 'attr:regression', 'attr:rootCause', 'title',
     ]);
+    // Created / Last modified are built-ins that start hidden.
+    expect(keys(DEFAULT_COLUMN_PREFS)).not.toContain('created');
   });
 
   it('hides a column the user turned off', () => {
@@ -235,6 +237,27 @@ describe('column preferences — hiding and ordering', () => {
   });
 });
 
+describe('timestamp columns', () => {
+  const col = (key: string) => itemColumns(null, { members: [] }).find((c) => c.key === key)!;
+
+  it('starts hidden — useful for auditing staleness, noise otherwise', () => {
+    expect(col('created').defaultHidden).toBe(true);
+    expect(col('updated').defaultHidden).toBe(true);
+  });
+
+  it('renders an instant for humans and an em dash when unknown', () => {
+    const at = new Date(2026, 3, 13, 14, 3).toISOString();
+    expect(col('created').value!(item({ createdISO: at }), cellCtx)).toBe('Apr 13, 2026, 14:03');
+    expect(col('created').value!(item({ createdISO: null }), cellCtx)).toBe('—');
+  });
+
+  it('sorts chronologically, not by the rendered text', () => {
+    expect(col('updated').sort!.kind).toBe('date');
+    const march = item({ updatedISO: '2026-03-14T09:00:00Z' });
+    expect(col('updated').sort!.valueOf(march, {} as never)).toBe('2026-03-14T09:00:00Z');
+  });
+});
+
 describe('fitSpecs', () => {
   const items = [
     item({ key: 'ORN-1042', status: 'In Progress' }),
@@ -262,8 +285,8 @@ describe('fitSpecs', () => {
 describe('resizableWidths', () => {
   it('derives defaults and floors from the column definitions themselves', () => {
     const { defaults, mins } = resizableWidths();
-    expect(defaults).toEqual({ type: 100, pts: 40, build: 120, sprint: 130, workstream: 130, attr: 104 });
-    expect(mins).toEqual({ type: 50, pts: 30, build: 50, sprint: 60, workstream: 60, attr: 50 });
+    expect(defaults).toEqual({ type: 100, pts: 40, build: 120, created: 140, updated: 140, sprint: 130, workstream: 130, attr: 104 });
+    expect(mins).toEqual({ type: 50, pts: 30, build: 50, created: 60, updated: 60, sprint: 60, workstream: 60, attr: 50 });
   });
 
   it('omits columns that are not user-resizable', () => {

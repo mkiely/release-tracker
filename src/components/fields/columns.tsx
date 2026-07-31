@@ -16,6 +16,7 @@ import type { FieldSpec } from '../../sync/schema';
 import type { SortCtx, SortKind, SortSpec } from '../../views/table/itemSort';
 import type { Member, ReleaseCatalog, WorkItem, WorkStream } from '../../types';
 import { isAttributeField } from '../../lib/connectorFields';
+import { fmtDateValue } from '../../lib/dates';
 import { Avatar } from '../Avatar';
 import { StatusPill } from '../Badges';
 import { DirtyDot } from '../DirtyDot';
@@ -162,6 +163,29 @@ export const BUILD_COLUMN: ItemColumn = {
   value: (i) => i.build ?? '—',
 };
 
+/** When the item came into existence, and when it last changed. Off by default:
+ *  useful when auditing staleness, noise the rest of the time — and on a synced
+ *  item both stay blank until the connector emits them. */
+export const CREATED_COLUMN: ItemColumn = {
+  key: 'created',
+  label: 'Created',
+  width: { base: 140, var: 'created', min: 60, resizable: true },
+  kind: 'text',
+  defaultHidden: true,
+  sort: { kind: 'date', valueOf: (i) => i.createdISO },
+  value: (i) => (i.createdISO ? (fmtDateValue(i.createdISO) ?? i.createdISO) : '—'),
+};
+
+export const UPDATED_COLUMN: ItemColumn = {
+  key: 'updated',
+  label: 'Last modified',
+  width: { base: 140, var: 'updated', min: 60, resizable: true },
+  kind: 'text',
+  defaultHidden: true,
+  sort: { kind: 'date', valueOf: (i) => i.updatedISO },
+  value: (i) => (i.updatedISO ? (fmtDateValue(i.updatedISO) ?? i.updatedISO) : '—'),
+};
+
 /** Sprint — only where the table isn't already scoped to one sprint. */
 export const SPRINT_COLUMN: ItemColumn = {
   key: 'sprint',
@@ -203,6 +227,7 @@ export const TITLE_COLUMN: ItemColumn = {
  *  {@link itemColumns} — which is where they've always rendered. */
 const BUILT_IN_ITEM_COLUMNS: readonly ItemColumn[] = [
   KEY_COLUMN, TYPE_COLUMN, PTS_COLUMN, ASSIGNEE_COLUMN, STATUS_COLUMN, BUILD_COLUMN,
+  CREATED_COLUMN, UPDATED_COLUMN,
 ];
 
 /**

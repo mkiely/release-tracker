@@ -22,12 +22,6 @@
   overflow-y: auto;
 }
 
-/* Escaped variant: positioned in viewport coordinates because the trigger sits
-   inside a scrolling container that would otherwise clip the popover. */
-.menuFixed {
-  position: fixed;
-  top: auto;
-}
 
 .alignRight {
   right: 0;

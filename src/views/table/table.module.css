@@ -67,12 +67,20 @@
 
 
 /* ── Filter bar ──────────────────────────────────────────────────────────── */
-.filterBar {
+.filterBarRow {
   display: flex;
   align-items: stretch;
   border-bottom: 1.5px solid var(--rt-line);
   background: var(--rt-bg);
   flex: 0 0 auto;
+  min-width: 0;
+}
+
+.filterBar {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow-x: auto;
 }
 
@@ -387,18 +395,13 @@
   box-shadow: inset 2px 0 0 var(--rt-st-ac-dot);
 }
 
-/* The facet bar's trailing controls (group-by, column picker). The bar scrolls
-   when its facet groups outrun the window, so these stay pinned to the right
-   edge with the groups passing underneath. */
+/* The facet bar's trailing controls (group-by, column picker). A sibling of the
+   scrolling facet list rather than a child of it, so they keep their place and
+   their clicks however far the facets scroll. */
 .filterTrailing {
-  position: sticky;
-  right: 0;
-  margin-left: auto;
   display: flex;
   align-items: center;
   flex: 0 0 auto;
   padding-right: 12px;
-  background: var(--rt-bg);
   box-shadow: -10px 0 10px -8px var(--rt-shadow);
-  z-index: 1;
 }

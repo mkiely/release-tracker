@@ -29,7 +29,6 @@ export function ColumnMenu({ all, isVisible, onToggleColumn, isCustomized, onRes
   return (
     <Menu
       sm
-      escapeOverflow
       label="Columns"
       icon={Icon.columns}
       title="Choose which columns to show"
