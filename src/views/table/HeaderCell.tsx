@@ -85,7 +85,14 @@ export function HeaderCell({
           {Icon.chevDown}
         </span>
       )}
-      {resizable && <ResizeHandle col={column.width.var!} containerRef={containerRef} />}
+      {resizable && (
+        <ResizeHandle
+          col={column.width.var!}
+          base={column.width.base}
+          min={column.width.min}
+          containerRef={containerRef}
+        />
+      )}
     </div>
   );
 }

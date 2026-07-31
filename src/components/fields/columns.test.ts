@@ -237,6 +237,20 @@ describe('column preferences — hiding and ordering', () => {
   });
 });
 
+describe('vocabulary column widths', () => {
+  it('gives each field its own resize variable', () => {
+    // One shared '--rt-col-attr' meant twenty connector fields resized as a block.
+    const vars = attributeColumns(catalog).map((c) => c.width.var);
+    expect(vars).toEqual(['attr-severity', 'attr-regression', 'attr-repro', 'attr-rootCause']);
+  });
+
+  it('keeps them individually resizable at the shared default width', () => {
+    for (const c of attributeColumns(catalog)) {
+      expect(c.width).toMatchObject({ base: 104, min: 50, resizable: true });
+    }
+  });
+});
+
 describe('timestamp columns', () => {
   const col = (key: string) => itemColumns(null, { members: [] }).find((c) => c.key === key)!;
 
@@ -285,8 +299,12 @@ describe('fitSpecs', () => {
 describe('resizableWidths', () => {
   it('derives defaults and floors from the column definitions themselves', () => {
     const { defaults, mins } = resizableWidths();
-    expect(defaults).toEqual({ type: 100, pts: 40, build: 120, created: 140, updated: 140, sprint: 130, workstream: 130, attr: 104 });
-    expect(mins).toEqual({ type: 50, pts: 30, build: 50, created: 60, updated: 60, sprint: 60, workstream: 60, attr: 50 });
+    expect(defaults).toEqual({ type: 100, pts: 40, build: 120, created: 140, updated: 140, sprint: 130, workstream: 130 });
+    expect(mins).toEqual({ type: 50, pts: 30, build: 50, created: 60, updated: 60, sprint: 60, workstream: 60 });
+  });
+
+  it('leaves vocabulary columns out — their variables are per field, not shared', () => {
+    expect(Object.keys(resizableWidths().defaults)).not.toContain('attr');
   });
 
   it('omits columns that are not user-resizable', () => {

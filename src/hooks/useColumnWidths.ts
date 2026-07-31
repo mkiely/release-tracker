@@ -18,6 +18,8 @@ function loadSaved(): Record<string, number> {
 export function saveColWidth(col: string, px: number): void {
   try {
     const saved = loadSaved();
+    // A width back at its default isn't worth storing — and storing it would
+    // freeze the column if that default ever changes.
     if (px === COL_DEFAULTS[col]) { delete saved[col]; } else { saved[col] = px; }
     localStorage.setItem(LS_KEY, JSON.stringify(saved));
   } catch {
@@ -25,13 +27,13 @@ export function saveColWidth(col: string, px: number): void {
   }
 }
 
-export function getColWidthFromDOM(col: string, el: HTMLElement | null): number {
+export function getColWidthFromDOM(col: string, el: HTMLElement | null, fallback?: number): number {
   if (el) {
     const raw = el.style.getPropertyValue(`--rt-col-${col}`);
     if (raw) return parseInt(raw, 10);
   }
   const saved = loadSaved();
-  return saved[col] ?? COL_DEFAULTS[col] ?? 100;
+  return saved[col] ?? fallback ?? COL_DEFAULTS[col] ?? 100;
 }
 
 /** Applies saved column widths as CSS custom properties on the container element. */

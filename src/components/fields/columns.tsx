@@ -348,13 +348,13 @@ export function fitSpecs(columns: readonly ItemColumn[], items: WorkItem[]) {
   });
 }
 
-/** Default and minimum widths for the resizable columns, keyed by their CSS var
- *  suffix — the single source `useColumnWidths` and `ResizeHandle` read, instead
- *  of a second hand-maintained copy of every column's width. */
+/** Default and minimum widths for the built-in resizable columns, keyed by their
+ *  CSS var suffix. Vocabulary columns aren't listed: their variables are derived
+ *  per field, so the resize handle carries their sizes on the column itself. */
 export function resizableWidths(): { defaults: Record<string, number>; mins: Record<string, number> } {
   const defaults: Record<string, number> = {};
   const mins: Record<string, number> = {};
-  for (const c of [...BUILT_IN_ITEM_COLUMNS, SPRINT_COLUMN, WORK_STREAM_COLUMN, ATTR_WIDTH]) {
+  for (const c of [...BUILT_IN_ITEM_COLUMNS, SPRINT_COLUMN, WORK_STREAM_COLUMN]) {
     if (!c.width.resizable || !c.width.var) continue;
     defaults[c.width.var] = c.width.base;
     if (c.width.min != null) mins[c.width.var] = c.width.min;
@@ -383,9 +383,10 @@ const isColumnField = (f: FieldSpec): boolean => isAttributeField(f) && f.sensit
 const isDefaultHidden = (specs: Iterable<FieldSpec>): boolean =>
   [...specs].every((f) => f.detailOnly === true);
 
-/** Every vocabulary column shares one width (and one resize handle), so a release
- *  with six connector fields doesn't need six drags to read comfortably. */
-const ATTR_WIDTH: Pick<ItemColumn, 'width'> = { width: { base: 104, var: 'attr', min: 50, resizable: true } };
+/** Default width for a vocabulary column. Each gets its own CSS variable, keyed
+ *  by the field, so a release with twenty connector fields can size them
+ *  individually — they used to share one variable and resize as a block. */
+const attrWidth = (key: string): ColWidth => ({ base: 104, var: `attr-${key}`, min: 50, resizable: true });
 
 /** The comparator a field's data kind implies. Dates order chronologically and
  *  enums by their declared catalog order; everything else collates as text. */
@@ -440,7 +441,7 @@ export function attributeColumns(catalog: ReleaseCatalog | null | undefined): It
     return {
       key: `attr:${key}`,
       label: entry.label,
-      ...ATTR_WIDTH,
+      width: attrWidth(key),
       kind: 'text' as const,
       defaultHidden: isDefaultHidden(entry.byType.values()),
       value: (item: WorkItem) => {

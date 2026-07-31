@@ -18,6 +18,9 @@ export interface ItemColumnsResult {
   /** True when anything has been hidden or reordered — enables "Reset". */
   isCustomized: boolean;
   onResetColumns: () => void;
+  /** Show or hide every connector-declared column at once — the one action that
+   *  matters on a release whose catalog runs to dozens of fields. */
+  onSetConnectorColumns: (visible: boolean) => void;
 }
 
 export function useItemColumns(catalog: ReleaseCatalog | null | undefined, ctx: ItemCellCtx): ItemColumnsResult {
@@ -34,5 +37,9 @@ export function useItemColumns(catalog: ReleaseCatalog | null | undefined, ctx: 
     onMoveColumn: (fromKey, toKey) => ColumnPrefsStore.set(moveColumn(prefs, all, fromKey, toKey)),
     isCustomized: prefs.order.length > 0 || Object.keys(prefs.visibility).length > 0,
     onResetColumns: () => ColumnPrefsStore.set({ visibility: {}, order: [] }),
+    onSetConnectorColumns: (show) =>
+      ColumnPrefsStore.set(
+        all.filter((c) => c.key.startsWith('attr:')).reduce((p, c) => setColumnVisible(p, c, show), prefs),
+      ),
   };
 }
