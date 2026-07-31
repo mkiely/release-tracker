@@ -9,6 +9,8 @@ export const Icon: Record<string, ReactElement> = {
   plus: <svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M6 2v8M2 6h8" /></svg>,
   cal: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><rect x="2.5" y="3.5" width="11" height="10" rx="1.5" /><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" strokeLinecap="round" /></svg>,
   sync: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round"><path d="M13 4.5A5.5 5.5 0 0 0 3 6M3 2.5V6h3.5M3 11.5A5.5 5.5 0 0 0 13 10M13 13.5V10H9.5" /></svg>,
+  // Push (send outward), as distinct from `sync`'s two-way round trip.
+  push: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M8 10.2V2.6" /><path d="M5.1 5.5 8 2.6l2.9 2.9" /><path d="M2.9 9.9v2.3a1.2 1.2 0 0 0 1.2 1.2h7.8a1.2 1.2 0 0 0 1.2-1.2V9.9" /></svg>,
   users: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><circle cx="6" cy="5" r="2.4" /><path d="M2 13c0-2.2 1.8-3.6 4-3.6S10 10.8 10 13" strokeLinecap="round" /><path d="M11 3.2A2.2 2.2 0 0 1 12 7.4M11.5 9.6c1.7.3 2.9 1.6 2.9 3.4" strokeLinecap="round" /></svg>,
   close: <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round"><path d="M3 3l6 6M9 3l-6 6" /></svg>,
   trash: <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"><path d="M2.5 4h9M5.5 4V2.8h3V4M3.7 4l.5 7.2h5.6l.5-7.2" /></svg>,

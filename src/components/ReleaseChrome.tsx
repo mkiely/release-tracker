@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ReleaseViewProps, WorkStreamBadgeData } from '../hooks/useReleaseView';
 import type { StatusSeg } from '../types';
 import { missingCapabilities } from '../lib/connectorFields';
-import { SyncMenu } from './AppChrome';
+import { SyncControls } from './AppChrome';
 import chromeStyles from './AppChrome.module.css';
 import { fmtShort } from '../lib/dates';
 import { FacetBar } from './FacetBar';
@@ -330,7 +330,7 @@ export function ReleaseChrome({
           <VDivider />
           {/* Exchange — data in from the connector, data out to people. */}
           <span className={chromeStyles.actionZone}>
-            <SyncMenu release={r} onSync={onSync} onPush={onPush} />
+            <SyncControls release={r} onSync={onSync} onPush={onPush} />
             <ShareMenu
               release={r}
               onExport={onExport}

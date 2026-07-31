@@ -1,4 +1,4 @@
-// Shared chrome — TopBar, Brand, SyncButton, PushButton, SettingsPanel, NotFound.
+// Shared chrome — TopBar, Brand, SyncControls, SettingsPanel, NotFound.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -10,6 +10,7 @@ import type { Release } from '../types';
 import { getActions, selDirtyCount, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
+import { NARROW_CHROME, useMediaQuery } from '../hooks/useMediaQuery';
 import { connectorCreateTypes } from '../sync/client';
 import { Breadcrumb, type Crumb } from './Breadcrumb';
 import { Icon } from './Icon';
@@ -206,13 +207,23 @@ function relTime(iso: string): string {
 }
 
 /**
- * The release header's connector cluster, collapsed behind one trigger: the face
- * reports freshness ("Synced 2h ago") and badges pending changes, the caret holds
- * pull / push / auto-sync cadence. Replaces three separate top-bar controls whose
- * combined 310px was mostly idle state, and stops Push from popping in and out of
- * the row as the dirty count crosses zero.
+ * The release header's connector cluster: a split Pull control and a Push button.
+ *
+ * These were once three separate top-bar buttons whose combined 310px was mostly
+ * idle state, then one menu holding everything. The menu over-corrected. Its face
+ * was a noun — a freshness readout — while every verb lived a click inside it, so
+ * the two actions a connector release runs constantly both cost a click to
+ * discover and a click to do. And Push, shown only while dirty, still popped in
+ * and out; it had merely moved somewhere less predictable, shifting Pull down a
+ * row as it came and went.
+ *
+ * So: the readout keeps its width but gains the verb it was already implying —
+ * click the face to pull, the caret for cadence, which is set-once configuration
+ * and does belong in a menu. Push stands on its own, always rendered and disabled
+ * when clean, which is what actually stops it moving. The pending count rides on
+ * Push, where it means something, rather than on a control that talks about pulls.
  */
-export function SyncMenu({
+export function SyncControls({
   release,
   onSync,
   onPush,
@@ -223,6 +234,7 @@ export function SyncMenu({
 }) {
   const { openModal } = useApp();
   const dirtyCount = useStore((s) => selDirtyCount(s, release.id));
+  const narrow = useMediaQuery(NARROW_CHROME);
   const [busy, setBusy] = useState(false);
   if (!release.connector) return null;
 
@@ -231,7 +243,7 @@ export function SyncMenu({
   const err = sync?.state === 'error';
   const cadence = release.autoSyncMinutes ?? 0;
 
-  const label = busy ? 'Syncing…' : ok ? `Synced ${relTime(sync!.lastISO!)}` : err ? 'Sync failed' : 'Sync';
+  const label = busy ? 'Pulling…' : ok ? `Synced ${relTime(sync!.lastISO!)}` : err ? 'Sync failed' : 'Sync';
   const color = busy ? undefined : err ? statusVars('Blocked').text : ok ? statusVars('Complete').text : undefined;
 
   const pull = async () => {
@@ -241,47 +253,48 @@ export function SyncMenu({
   };
 
   return (
-    <Menu
-      label={
-        <>
-          {label}
-          {dirtyCount > 0 && (
-            <span className={styles.dirtyBadge} title={`${dirtyCount} pending change${dirtyCount !== 1 ? 's' : ''}`}>
-              {dirtyCount}
-            </span>
-          )}
-        </>
-      }
-      icon={Icon.sync}
-      sm
-      title={err && sync?.message ? sync.message : 'Connector sync — pull, push, and automatic pull cadence'}
-      style={color ? { color } : undefined}
-      actions={[
-        {
-          key: 'push',
-          label: `Push ${dirtyCount} change${dirtyCount !== 1 ? 's' : ''}…`,
-          icon: Icon.sync,
-          visible: dirtyCount > 0,
-          onSelect: () => openModal({ type: 'pushReview', releaseId: release.id, onConfirm: onPush }),
-          title: 'Review local edits before sending them to the connector',
-        },
-        {
-          key: 'pull',
-          label: busy ? 'Pulling…' : 'Pull now',
-          icon: Icon.sync,
-          disabled: busy,
+    <>
+      <Menu
+        label={label}
+        icon={Icon.sync}
+        sm
+        primary={{
           onSelect: pull,
-          title: 'Fetch the latest from the connector',
-        },
-        ...AUTO_SYNC_OPTIONS.map((o) => ({
+          disabled: busy,
+          title: err && sync?.message ? `${sync.message} — click to retry` : 'Pull the latest from the connector',
+        }}
+        title="Automatic pull cadence"
+        style={color ? { color } : undefined}
+        actions={AUTO_SYNC_OPTIONS.map((o) => ({
           key: `auto-${o.value}`,
           section: 'Automatic pull',
           label: o.value === 0 ? 'Off' : `Every ${o.label}`,
           checked: cadence === o.value,
           onSelect: () => getActions().setAutoSync(release.id, o.value || null),
-        })),
-      ]}
-    />
+        }))}
+      />
+      {/* The label stays "Push" whether or not anything is pending: a count lives in
+          the badge, so the button never changes width and never moves its neighbours. */}
+      <PButton
+        variant="subtle"
+        sm
+        icon={Icon.push}
+        disabled={dirtyCount === 0}
+        onClick={() => openModal({ type: 'pushReview', releaseId: release.id, onConfirm: onPush })}
+        title={
+          dirtyCount === 0
+            ? 'No local changes to push'
+            : `Review ${dirtyCount} local edit${dirtyCount !== 1 ? 's' : ''} before sending to the connector`
+        }
+      >
+        {!narrow && 'Push'}
+        {dirtyCount > 0 && (
+          <span className={styles.dirtyBadge} title={`${dirtyCount} pending change${dirtyCount !== 1 ? 's' : ''}`}>
+            {dirtyCount}
+          </span>
+        )}
+      </PButton>
+    </>
   );
 }
 
@@ -316,10 +329,10 @@ export function NewItemButton({
  * is the only genuine per-screen difference (the sprint screens put an
  * edit-sprint button first), so it's the only thing passed in.
  *
- * Connector controls go through SyncMenu — one trigger holding pull, push and
- * cadence — rather than the separate Sync and Push buttons these screens used,
- * which reported freshness in a different format from the release header and
- * made Push pop in and out of the row as the dirty count crossed zero.
+ * Connector controls go through SyncControls rather than the ad-hoc Sync and Push
+ * buttons these screens each used to carry, which reported freshness in a
+ * different format from the release header and made Push pop in and out of the
+ * row as the dirty count crossed zero.
  */
 export function ReleaseActions({
   release,
@@ -341,7 +354,7 @@ export function ReleaseActions({
     <>
       {leading}
       <ShareButton release={release} />
-      <SyncMenu release={release} onSync={onSync} onPush={onPush} />
+      <SyncControls release={release} onSync={onSync} onPush={onPush} />
       <NewItemButton release={release} onClick={onNewItem} icon={newItemIcon} />
     </>
   );

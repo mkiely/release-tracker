@@ -23,6 +23,15 @@ export type MenuAction = {
   keepOpen?: boolean;
 };
 
+/** Turns the trigger into a split button: the face runs this action directly and
+ *  only the caret opens the popover. For a cluster with one dominant verb, where
+ *  making that verb cost a click-to-open is the wrong trade. */
+export type MenuPrimary = {
+  onSelect: () => void;
+  title?: string;
+  disabled?: boolean;
+};
+
 /**
  * A trigger button that opens a popover list of actions — the generic grouping
  * control for the top-bar action row. Point it at any cluster of related
@@ -31,11 +40,16 @@ export type MenuAction = {
  * button instead (no caret, no popover); when none are visible it renders
  * nothing. This keeps the abstraction honest as the release-view header grows
  * more groups over time.
+ *
+ * Pass `primary` when the trigger's own label names an action the user takes far
+ * more often than anything in the list — the control then splits, and that verb
+ * costs one click instead of two.
  */
 export function Menu({
   label,
   icon,
   actions,
+  primary,
   sm,
   variant = 'subtle',
   align = 'right',
@@ -45,6 +59,7 @@ export function Menu({
   label: ReactNode;
   icon?: ReactNode;
   actions: MenuAction[];
+  primary?: MenuPrimary;
   sm?: boolean;
   variant?: 'subtle' | 'ghost' | 'danger';
   align?: 'left' | 'right';
@@ -74,8 +89,12 @@ export function Menu({
   // Degenerate cases: a lone action doesn't warrant a menu, and an empty group
   // shouldn't take up space in the action row. A lone action inside a *section*
   // still needs its label for context, so it keeps the popover.
-  if (visible.length === 0) return null;
-  if (visible.length === 1 && !visible[0].section) {
+  //
+  // A primary action suspends both: it justifies the control on its own, and
+  // collapsing to a list item would take away the direct click that is the whole
+  // point of splitting. With nothing left to list, the caret simply goes away.
+  if (visible.length === 0 && !primary) return null;
+  if (!primary && visible.length === 1 && !visible[0].section) {
     const a = visible[0];
     return (
       <PButton variant={variant} sm={sm} icon={a.icon} onClick={a.onSelect} title={a.title} disabled={a.disabled}>
@@ -117,14 +136,33 @@ export function Menu({
     </div>
   );
 
+  const caret = (
+    <span className={styles.caret} data-open={open || undefined}>
+      {Icon.chevDown}
+    </span>
+  );
+
+  const trigger = primary ? (
+    <span className={styles.split}>
+      <PButton variant={variant} sm={sm} icon={icon} onClick={primary.onSelect} title={primary.title} disabled={primary.disabled} style={style}>
+        {label}
+      </PButton>
+      {visible.length > 0 && (
+        <PButton variant={variant} sm={sm} onClick={() => setOpen((o) => !o)} title={title}>
+          {caret}
+        </PButton>
+      )}
+    </span>
+  ) : (
+    <PButton variant={variant} sm={sm} icon={icon} onClick={() => setOpen((o) => !o)} title={title} style={style}>
+      {label}
+      {caret}
+    </PButton>
+  );
+
   return (
     <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
-      <PButton variant={variant} sm={sm} icon={icon} onClick={() => setOpen((o) => !o)} title={title} style={style}>
-        {label}
-        <span className={styles.caret} data-open={open || undefined}>
-          {Icon.chevDown}
-        </span>
-      </PButton>
+      {trigger}
       {open && popover}
     </div>
   );

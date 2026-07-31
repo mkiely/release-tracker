@@ -8,6 +8,37 @@
   transform: rotate(180deg);
 }
 
+/* Split trigger: the action face and the caret read as one control, joined by a
+   single shared border rather than two abutting ones. Styled from here so PButton
+   stays unaware it can be half of something. */
+.split {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.split > button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.split > button:last-child:not(:first-child) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-left: -1.5px;
+  padding-left: 7px;
+  padding-right: 7px;
+}
+
+/* The caret half is the only affordance for the menu, so its hover has to be
+   legible on its own — the shared `.btn:hover` opacity shift alone reads as the
+   whole control lighting up. */
+.split > button:last-child:not(:first-child):hover {
+  background: var(--rt-fill);
+  border-color: var(--rt-line-strong);
+  opacity: 1;
+  z-index: 1;
+}
+
 .menu {
   position: absolute;
   top: calc(100% + 8px);
