@@ -706,6 +706,48 @@ describe('migrate — v26 → current', () => {
   });
 });
 
+describe('migrate — v27 → current', () => {
+  const v27 = (syncedValues: Record<string, unknown> | null) => ({
+    version: 27,
+    teams: [],
+    releases: [{ id: 'r1', name: 'R', startISO: '2026-04-13', teamId: 't1', workStreams: [], events: [], sprints: [], codeFreezeISO: null, externalId: null, connector: null, sync: null, sprintLengthDays: 14 }],
+    items: [{ id: 'it1', releaseId: 'r1', workStreamId: null, sprintId: 'sp_2', key: 'K-1', subject: 'S', description: '', status: 'Not Started', points: 3, externalId: 'EXT-1', assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], syncedValues, itemType: null, attributes: {}, createdISO: null, updatedISO: null }],
+    meta: { lastSyncISO: null },
+  });
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v27(null))?.version).toBe(SCHEMA_VERSION);
+  });
+
+  // The seed minted 'sprintId' long after v14 renamed it, and seeded state was
+  // stamped current — so it never met that step. Everywhere the baseline is read by
+  // name, the stale key reads as no baseline at all.
+  it("re-keys a stale 'sprintId' baseline to 'sprint'", () => {
+    const next = migrate(v27({ points: 3, sprintId: 'sp_1' }))!;
+    expect(next.items[0].syncedValues).toEqual({ points: 3, sprint: 'sp_1' });
+  });
+
+  it('preserves a null sprint baseline through the re-key', () => {
+    const next = migrate(v27({ points: 3, sprintId: null }))!;
+    expect(next.items[0].syncedValues).toEqual({ points: 3, sprint: null });
+  });
+
+  it('leaves an already-correct baseline untouched', () => {
+    const next = migrate(v27({ points: 3, sprint: 'sp_1', severity: 'low' }))!;
+    expect(next.items[0].syncedValues).toEqual({ points: 3, sprint: 'sp_1', severity: 'low' });
+  });
+
+  it('keeps the good baseline when both keys are somehow present', () => {
+    const next = migrate(v27({ points: 3, sprint: 'sp_good', sprintId: 'sp_stale' }))!;
+    expect(next.items[0].syncedValues).toEqual({ points: 3, sprint: 'sp_good' });
+  });
+
+  it('leaves a local item without a baseline alone', () => {
+    const next = migrate(v27(null))!;
+    expect(next.items[0].syncedValues).toBeNull();
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

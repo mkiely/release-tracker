@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { seed } from './seed';
 import { SCHEMA_VERSION } from '../types';
+import { CANONICAL_BY_FIELD } from './connectorFields';
 
 describe('seed', () => {
   it('produces state at the current schema version', () => {
@@ -92,6 +93,39 @@ describe('seed', () => {
         const sprint = release!.sprints.find((s) => s.id === item.sprintId);
         expect(sprint).toBeDefined();
       }
+    }
+  });
+
+  // The baseline is keyed by dirty-field name, and revert / push-preview look it up
+  // by that name. A key the registry doesn't know reads as "no baseline": revert
+  // silently restores nothing, and the push review shows an empty old value. Seeded
+  // state is stamped at the current SCHEMA_VERSION, so no migration ever gets a
+  // chance to correct one — the seed has to be right when it's written.
+  it('keys every synced baseline by a canonical dirty-field name', () => {
+    const { items } = seed();
+    const synced = items.filter((i) => i.externalId != null);
+    expect(synced.length).toBeGreaterThan(0);
+
+    for (const item of synced) {
+      expect(item.syncedValues).not.toBeNull();
+      for (const key of Object.keys(item.syncedValues!)) {
+        expect(CANONICAL_BY_FIELD.has(key)).toBe(true);
+      }
+    }
+  });
+
+  it('gives synced items a sprint baseline that matches their seeded sprint', () => {
+    const { items } = seed();
+    const synced = items.filter((i) => i.externalId != null);
+    for (const item of synced) {
+      expect(item.syncedValues!.sprint).toBe(item.sprintId);
+    }
+  });
+
+  it('leaves local items without a baseline', () => {
+    const { items } = seed();
+    for (const item of items.filter((i) => i.externalId == null)) {
+      expect(item.syncedValues).toBeNull();
     }
   });
 });

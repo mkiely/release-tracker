@@ -408,6 +408,30 @@ export function migrate(persisted: PersistedState): AppState | null {
     };
   }
 
+  // v27 → v28: repair synced baselines still keyed 'sprintId'. The v13 → v14 step
+  // above renamed that key to 'sprint', but the seed kept minting the old one, and
+  // seeded state is stamped at the current SCHEMA_VERSION — so it arrived already
+  // "migrated" and walked past the only step that would have fixed it. Every store
+  // seeded since v14 carries the stale key.
+  //
+  // It reads as a missing baseline everywhere the key is looked up: revert restores
+  // nothing, the push review shows an empty old value, and a sprint drag never marks
+  // the item dirty. Same rename as v14, applied where it never ran.
+  if (s.version === 27) {
+    s = {
+      ...s,
+      version: 28,
+      items: s.items.map((it) => {
+        const sv = it.syncedValues;
+        if (sv == null || !('sprintId' in sv)) return it;
+        const { sprintId, ...rest } = sv as Record<string, unknown> & { sprintId: string | null };
+        // A correct 'sprint' already present wins — never clobber a good baseline
+        // with the stale twin.
+        return { ...it, syncedValues: { ...rest, sprint: 'sprint' in sv ? sv.sprint : sprintId } as WorkItem['syncedValues'] };
+      }),
+    };
+  }
+
   return s.version === SCHEMA_VERSION ? s : null;
 }
 

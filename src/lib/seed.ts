@@ -3,6 +3,7 @@
 
 import { SCHEMA_VERSION, SPRINT_LEN_DAYS, type AppState, type ItemType, type PlanningState, type Release, type Sprint, type Status, type WorkItem, type WorkStream } from '../types';
 import { addDays, buildSprints, dOf, todayISO, uid } from './dates';
+import { canonicalBaseline, writeableLocalFields } from './connectorFields';
 
 // Created / last-modified instants for seeded items. Anchored a few days before the
 // item's sprint and clamped to now, so no demo item claims to have been touched in
@@ -497,9 +498,19 @@ export function seed(): AppState {
 
   // Attach the synced baseline to connector-sourced items so pending-push previews
   // and reverts have a value to diverge from. Local items have no baseline.
+  //
+  // Built through canonicalBaseline rather than written out here: the keys are
+  // dirty-field names owned by the canonical registry, and a hand-written literal
+  // has no way to notice when one is renamed. One did — this object still said
+  // `sprintId` long after v14 renamed it to `sprint`, and because seeded state is
+  // stamped at the current SCHEMA_VERSION it never met the migration that would
+  // have corrected it. There is no catalog yet (it arrives with the first sync),
+  // so the writeable set resolves to the same legacy {points, sprint} fallback the
+  // rest of the app uses for an unresolved type.
+  const seedWriteable = writeableLocalFields(undefined);
   const itemsWithBaseline = items.map((it) => ({
     ...it,
-    syncedValues: it.externalId != null ? { points: it.points, sprintId: it.sprintId } : null,
+    syncedValues: it.externalId != null ? canonicalBaseline(it, seedWriteable, it.attributes) : null,
   }));
 
   return { version: SCHEMA_VERSION, teams, releases: [demo, nexus], items: itemsWithBaseline, meta: { lastSyncISO: null } };

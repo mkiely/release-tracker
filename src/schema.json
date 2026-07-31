@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "27.0.0",
+  "version": "28.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -575,7 +575,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 27,
+      "value": 28,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {
