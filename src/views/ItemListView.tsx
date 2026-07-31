@@ -10,7 +10,9 @@ import { ListChrome } from '../components/ListChrome';
 import { EmptyState } from '../components/EmptyState';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { statusVars } from '../components/statusVars';
-import { fitSpecs, itemColumns, type ItemCellCtx } from '../components/fields/columns';
+import { fitSpecs, type ItemCellCtx } from '../components/fields/columns';
+import { useItemColumns } from '../hooks/useItemColumns';
+import { ColumnMenu } from './table/ColumnMenu';
 import { ColHeaders } from './table/ColHeaders';
 import { ActiveBadge, SprintBand } from './table/SprintBand';
 import { TableFacetBar } from './table/TableFacetBar';
@@ -70,7 +72,8 @@ export function ItemListView(props: ItemListViewProps) {
       ? undefined
       : (it) => (it.sprintId ? (sprintById.get(it.sprintId) ?? '—') : 'No sprint'),
   };
-  const columns = itemColumns(r.catalog, cellCtx);
+  const cols = useItemColumns(r.catalog, cellCtx);
+  const { columns } = cols;
   const sortCtx: SortCtx = {
     memberName: (id) => (id ? (members.find((m) => m.id === id)?.name ?? '') : ''),
     sprintOrder: (id) => (id ? (sprintOrderById.get(id) ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER),
@@ -117,6 +120,7 @@ export function ItemListView(props: ItemListViewProps) {
                   { value: 'sprint', label: 'By sprint', title: 'Group items by sprint' },
                 ]}
               />
+              <ColumnMenu {...cols} />
             </div>
           }
         />
@@ -129,6 +133,7 @@ export function ItemListView(props: ItemListViewProps) {
           containerRef={bodyRef}
           sort={sort}
           onSort={onSort}
+          onMoveColumn={cols.onMoveColumn}
         />
 
         {isEmpty ? (

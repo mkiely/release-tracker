@@ -22,6 +22,7 @@ export function ColHeaders({
   containerRef,
   sort,
   onSort,
+  onMoveColumn,
 }: {
   /** Left column heading; null for an ungrouped (flat) table. */
   groupLabel: string | null;
@@ -31,13 +32,15 @@ export function ColHeaders({
   containerRef: RefObject<HTMLElement | null>;
   sort: ItemSort | null;
   onSort: (col: string) => void;
+  /** Reorder by dragging a header onto another. */
+  onMoveColumn?: (fromKey: string, toKey: string) => void;
 }) {
   const itemCols = columns.map((c) =>
     hideAssigneeLabel && c.key === 'assignee' ? (
       // Blank header over the avatars, but the column still holds its width.
       <div key={c.key} className={`${styles.colHeaderLabel}`} style={{ width: `calc(${c.width.base}px * var(--rt-type-scale))`, flexShrink: 0 }} />
     ) : (
-      <HeaderCell key={c.key} column={c} sort={sort} onSort={onSort} containerRef={containerRef} />
+      <HeaderCell key={c.key} column={c} sort={sort} onSort={onSort} onMoveColumn={onMoveColumn} containerRef={containerRef} />
     ),
   );
 

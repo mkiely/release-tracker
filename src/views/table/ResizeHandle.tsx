@@ -13,6 +13,9 @@ export function ResizeHandle({
   return (
     <div
       className={styles.resizeHandle}
+      // The header is draggable for reordering; without this, grabbing the edge
+      // would start a column move instead of a resize.
+      draggable={false}
       title="Drag to resize · Double-click to reset"
       onMouseDown={(e) => {
         e.preventDefault();

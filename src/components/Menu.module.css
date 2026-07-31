@@ -18,6 +18,15 @@
   box-shadow: 0 8px 28px var(--rt-shadow, rgba(0, 0, 0, 0.12));
   padding: 6px 0;
   min-width: 190px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* Escaped variant: positioned in viewport coordinates because the trigger sits
+   inside a scrolling container that would otherwise clip the popover. */
+.menuFixed {
+  position: fixed;
+  top: auto;
 }
 
 .alignRight {

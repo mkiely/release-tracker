@@ -380,3 +380,25 @@
   justify-content: center;
   flex-shrink: 0;
 }
+
+/* Where a dragged column will land. A leading rule rather than a moved cell —
+   reflowing the whole header on hover made the target jump away from the cursor. */
+.dropBefore {
+  box-shadow: inset 2px 0 0 var(--rt-st-ac-dot);
+}
+
+/* The facet bar's trailing controls (group-by, column picker). The bar scrolls
+   when its facet groups outrun the window, so these stay pinned to the right
+   edge with the groups passing underneath. */
+.filterTrailing {
+  position: sticky;
+  right: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding-right: 12px;
+  background: var(--rt-bg);
+  box-shadow: -10px 0 10px -8px var(--rt-shadow);
+  z-index: 1;
+}

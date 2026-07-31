@@ -12,7 +12,9 @@ import { EventBadge } from '../components/Badges';
 import { Drag, useDrag, useDragAutoScroll } from '../components/Dnd';
 import { statusVars } from '../components/statusVars';
 import { getActions } from '../store/store';
-import { fitSpecs, itemColumns, type ItemCellCtx, type ItemColumn } from '../components/fields/columns';
+import { fitSpecs, type ItemCellCtx, type ItemColumn } from '../components/fields/columns';
+import { useItemColumns } from '../hooks/useItemColumns';
+import { ColumnMenu } from './table/ColumnMenu';
 import { ColHeaders } from './table/ColHeaders';
 import { ActiveBadge, SprintBand } from './table/SprintBand';
 import { TableFacetBar } from './table/TableFacetBar';
@@ -160,7 +162,8 @@ export function WorkStreamTable(props: WorkStreamViewProps) {
   const presentation = usePresentationMode();
   // Scoped to one stream and banded by sprint, so neither position column applies.
   const cellCtx: ItemCellCtx = { members };
-  const columns = itemColumns(r.catalog, cellCtx);
+  const cols = useItemColumns(r.catalog, cellCtx);
+  const { columns } = cols;
 
   // Fit the Key/Status columns to their content (re-measured when the item set
   // or the presentation-mode type scale changes).
@@ -189,10 +192,10 @@ export function WorkStreamTable(props: WorkStreamViewProps) {
   return (
     <WorkStreamChrome
       {...props}
-      toolbar={<TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />}
+      toolbar={<TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} trailing={<ColumnMenu {...cols} />} />}
     >
       <div className={styles.body} ref={bodyRef}>
-        <ColHeaders groupLabel="Sprint" columns={columns} containerRef={bodyRef} sort={sort} onSort={onSort} />
+        <ColHeaders groupLabel="Sprint" columns={columns} containerRef={bodyRef} sort={sort} onSort={onSort} onMoveColumn={cols.onMoveColumn} />
 
         {filteredItems.length === 0 ? (
           <EmptyState>

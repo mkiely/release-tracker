@@ -16,7 +16,9 @@ import { SegmentedToggle } from '../components/SegmentedToggle';
 import { IconButton } from '../components/primitives';
 import { statusVars } from '../components/statusVars';
 import type { Status } from '../types';
-import { fitSpecs, itemColumns, type ItemCellCtx, type ItemColumn } from '../components/fields/columns';
+import { fitSpecs, type ItemCellCtx, type ItemColumn } from '../components/fields/columns';
+import { useItemColumns } from '../hooks/useItemColumns';
+import { ColumnMenu } from './table/ColumnMenu';
 import { ColHeaders } from './table/ColHeaders';
 import { ActiveBadge } from './table/SprintBand';
 import { TableFacetBar } from './table/TableFacetBar';
@@ -188,7 +190,8 @@ export function SprintTable({
         ? (it) => ({ id: it.workStreamId, name: it.workStreamId ? (streamNameById.get(it.workStreamId) ?? 'No stream') : 'No stream' })
         : undefined,
   };
-  const columns = itemColumns(r.catalog, cellCtx);
+  const cols = useItemColumns(r.catalog, cellCtx);
+  const { columns } = cols;
   const sortCtx: SortCtx = {
     memberName: (id) => (id ? (members.find((m) => m.id === id)?.name ?? '') : ''),
     sprintOrder: () => 0, // no Sprint column in this table — never invoked
@@ -268,10 +271,10 @@ export function SprintTable({
         onGo={onGoToSprint}
       />
 
-      <TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />
+      <TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} trailing={<ColumnMenu {...cols} />} />
 
       <div className={styles.body} ref={bodyRef}>
-        <ColHeaders groupLabel={groupBy === 'stream' ? 'Work Stream' : 'Status'} columns={columns} hideAssigneeLabel containerRef={bodyRef} sort={sort} onSort={onSort} />
+        <ColHeaders groupLabel={groupBy === 'stream' ? 'Work Stream' : 'Status'} columns={columns} hideAssigneeLabel containerRef={bodyRef} sort={sort} onSort={onSort} onMoveColumn={cols.onMoveColumn} />
 
         {filteredItems.length === 0 ? (
           <EmptyState>

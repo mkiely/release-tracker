@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 import { PButton } from './primitives';
 import styles from './Menu.module.css';
@@ -18,6 +19,9 @@ export type MenuAction = {
   /** Renders a check on the trailing edge — for a chosen option in a set (e.g. an
    *  auto-sync cadence) rather than a one-shot command. */
   checked?: boolean;
+  /** Leave the popover open after selecting. For toggles a user flips several of
+   *  in a row (column visibility), where closing each time fights the task. */
+  keepOpen?: boolean;
 };
 
 /**
@@ -38,6 +42,7 @@ export function Menu({
   align = 'right',
   title,
   style,
+  escapeOverflow,
 }: {
   label: ReactNode;
   icon?: ReactNode;
@@ -47,10 +52,32 @@ export function Menu({
   align?: 'left' | 'right';
   title?: string;
   style?: CSSProperties;
+  /** Render the popover into the body, positioned against the trigger. Needed
+   *  when an ancestor scrolls (overflow clips an absolutely-positioned child) —
+   *  e.g. the table's facet bar, which scrolls horizontally. */
+  escapeOverflow?: boolean;
 }) {
   const visible = actions.filter((a) => a.visible !== false);
   const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<{ top: number; left: number; right: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Measured on open (and on scroll/resize while open) so the escaped popover
+  // tracks a trigger that can move under it.
+  useLayoutEffect(() => {
+    if (!open || !escapeOverflow) return;
+    const place = () => {
+      const r = ref.current?.getBoundingClientRect();
+      if (r) setAnchor({ top: r.bottom + 8, left: r.left, right: window.innerWidth - r.right });
+    };
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open, escapeOverflow]);
 
   useEffect(() => {
     if (!open) return;
@@ -81,6 +108,50 @@ export function Menu({
     );
   }
 
+  const popover = (
+    <div
+      className={
+        `${styles.menu} ${align === 'left' ? styles.alignLeft : styles.alignRight}` +
+        (escapeOverflow ? ` ${styles.menuFixed}` : '')
+      }
+      role="menu"
+      style={
+        escapeOverflow && anchor
+          ? { top: anchor.top, ...(align === 'left' ? { left: anchor.left } : { right: anchor.right }) }
+          : undefined
+      }
+    >
+      {visible.map((a, i) => (
+        <Fragment key={a.key}>
+          {a.section && a.section !== visible[i - 1]?.section && (
+            <>
+              {i > 0 && <div className={styles.sectionRule} />}
+              <div className={styles.sectionLabel}>{a.section}</div>
+            </>
+          )}
+          <button
+            type="button"
+            // A checkable item that keeps the popover open is a multi-select
+            // toggle (columns); one that closes it is a choice from a set.
+            role={a.checked === undefined ? 'menuitem' : a.keepOpen ? 'menuitemcheckbox' : 'menuitemradio'}
+            aria-checked={a.checked}
+            className={styles.item}
+            disabled={a.disabled}
+            title={a.title}
+            onClick={() => {
+              if (!a.keepOpen) setOpen(false);
+              a.onSelect();
+            }}
+          >
+            {a.icon && <span className={styles.itemIcon}>{a.icon}</span>}
+            <span className={styles.itemLabel}>{a.label}</span>
+            {a.checked && <span className={styles.itemCheck}>{Icon.check}</span>}
+          </button>
+        </Fragment>
+      ))}
+    </div>
+  );
+
   return (
     <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
       <PButton variant={variant} sm={sm} icon={icon} onClick={() => setOpen((o) => !o)} title={title} style={style}>
@@ -89,36 +160,7 @@ export function Menu({
           {Icon.chevDown}
         </span>
       </PButton>
-      {open && (
-        <div className={`${styles.menu} ${align === 'left' ? styles.alignLeft : styles.alignRight}`} role="menu">
-          {visible.map((a, i) => (
-            <Fragment key={a.key}>
-              {a.section && a.section !== visible[i - 1]?.section && (
-                <>
-                  {i > 0 && <div className={styles.sectionRule} />}
-                  <div className={styles.sectionLabel}>{a.section}</div>
-                </>
-              )}
-              <button
-                type="button"
-                role={a.checked === undefined ? 'menuitem' : 'menuitemradio'}
-                aria-checked={a.checked}
-                className={styles.item}
-                disabled={a.disabled}
-                title={a.title}
-                onClick={() => {
-                  setOpen(false);
-                  a.onSelect();
-                }}
-              >
-                {a.icon && <span className={styles.itemIcon}>{a.icon}</span>}
-                <span className={styles.itemLabel}>{a.label}</span>
-                {a.checked && <span className={styles.itemCheck}>{Icon.check}</span>}
-              </button>
-            </Fragment>
-          ))}
-        </div>
-      )}
+      {open && (escapeOverflow ? createPortal(popover, document.body) : popover)}
     </div>
   );
 }
