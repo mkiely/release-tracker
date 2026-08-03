@@ -1,22 +1,19 @@
-// Consolidated release metrics surface. Gathers the three release-level metrics
-// that used to live in scattered chips/modals into one tabbed modal:
+// Consolidated release metrics surface. Gathers the release-level metrics that
+// used to live in scattered chips/modals into one tabbed modal:
 //   · Velocity   — backward attainment (delivered vs. planned) + the safe Apply.
-//   · Capacity   — team allocation / over-allocation explainer.
+//   · Capacity   — team allocation / over-allocation explainer, as of today.
+//   · Whole release — the same allocation question over the release's full cycle,
+//                  plus the scope/capacity ledger. Completion-invariant.
 //   · Runway     — forward planning-runway (is enough work created to fill held
 //                  capacity?), per stream, with the proactive-creation alarm.
-// Backward attainment + forward runway are the spine; capacity sits between them.
-// See docs/metrics.md (Phase 4).
+// Backward attainment + forward runway are the spine; the two allocation readings
+// sit between them, adjacent on purpose — Capacity answers "can we finish from
+// here", Whole release answers "how did this run", and the pair is only legible
+// side by side. See docs/metrics.md (Phase 4) and docs/capacity-history.md.
 
 import { useState, type ReactNode } from 'react';
 import type { Release, Team, WorkItem } from '../types';
-import {
-  releaseCapacity,
-  reservationBalance,
-  streamContention,
-  streamHealth,
-  velocityAttainment,
-  velocitySuggestion,
-} from '../lib/derive';
+import { reservationBalance, velocityAttainment, velocitySuggestion } from '../lib/derive';
 import { getActions, selRelease, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
@@ -24,11 +21,11 @@ import { Modal, PButton } from '../components/primitives';
 import { SegmentedToggle } from '../components/SegmentedToggle';
 import { VelocityTrendChart } from '../components/Trend';
 import { RunwayBadge } from '../components/VerdictLine';
-import { assessStreams } from '../lib/streamAssessment';
+import { assessRelease, assessStreams } from '../lib/streamAssessment';
 import { statusVars, warningVars } from '../components/statusVars';
 import { Row } from './Modals';
 
-export type MetricsSection = 'velocity' | 'capacity' | 'runway';
+export type MetricsSection = 'velocity' | 'capacity' | 'release' | 'runway';
 
 interface SectionProps {
   r: Release;
@@ -151,16 +148,18 @@ function VelocitySection({ r, team, items }: SectionProps) {
 // ── Capacity / allocations ──────────────────────────────────────────────
 function CapacitySection({ r, team, items }: SectionProps) {
   const { openModal } = useApp();
-  const ctx = releaseCapacity(r, team);
+  const { ctx, contention, streams } = assessStreams(r, team, items);
 
-  // Streams with remaining work and a declared engineer need — the ones whose
-  // demand is checked against the team's contributing headcount below.
-  const active = r.workStreams
-    .map((ws) => ({ ws, remainingPts: streamHealth(items.filter((i) => i.workStreamId === ws.id)).remainingPts }))
-    .filter((s) => s.ws.engineersRequired != null && s.remainingPts > 0)
-    .sort((a, b) => (b.ws.engineersRequired ?? 0) - (a.ws.engineersRequired ?? 0));
-
-  const contention = streamContention(active.map((s) => s.ws.engineersRequired!), ctx.contributingCount);
+  // The rows behind `contention`: streams with remaining work and a declared
+  // engineer need. Same predicate assessStreams used to compute it — listed here
+  // only to render the breakdown, never to recompute the total.
+  const active = streams
+    .flatMap((s) =>
+      s.ws != null && s.ws.engineersRequired != null && s.health.remainingPts > 0
+        ? [{ ws: s.ws, eng: s.ws.engineersRequired, remainingPts: s.health.remainingPts }]
+        : [],
+    )
+    .sort((a, b) => b.eng - a.eng);
   const over = contention.totalRequired - ctx.contributingCount;
   const isOver = contention.overAllocated;
   const headroom = ctx.contributingCount - contention.totalRequired;
@@ -191,7 +190,7 @@ function CapacitySection({ r, team, items }: SectionProps) {
         {active.length === 0 ? (
           <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>No active streams have a configured engineer requirement.</span>
         ) : (
-          active.map((s) => <Row key={s.ws.id} k={s.ws.name} v={`${s.ws.engineersRequired} eng · ${s.remainingPts} pts left`} />)
+          active.map((s) => <Row key={s.ws.id} k={s.ws.name} v={`${s.eng} eng · ${s.remainingPts} pts left`} />)
         )}
         <hr className="divider" style={{ margin: '3px 0' }} />
         <Row k="Total requested" v={`${contention.totalRequired} eng`} />
@@ -226,6 +225,138 @@ function CapacitySection({ r, team, items }: SectionProps) {
           {Icon.team} View team
         </PButton>
       )}
+    </>
+  );
+}
+
+// ── Whole release (retrospective) ───────────────────────────────────────
+// The deliberate counterpart to Capacity above. That section reads remaining work
+// against remaining sprints, so a stream finishing releases its engineers and the
+// verdict improves — correct for "can we finish", but it means a release overbooked
+// all cycle ends up reading as comfortable. This one counts every stream that
+// carried work and every sprint that ran, so nothing here moves as work lands.
+function ReleaseSection({ r, team, items }: SectionProps) {
+  const retro = assessRelease(r, team, items);
+  const { ledger, contention } = retro;
+  const isOver = contention.overAllocated;
+  const over = contention.totalRequired - ledger.contributingCount;
+  const headroom = ledger.contributingCount - contention.totalRequired;
+  const scopeGap = Math.round(retro.totalPts - ledger.totalCap);
+  const tone = statusVars(isOver || retro.overCommitted ? 'Blocked' : 'Complete');
+
+  // Every stream that carried work, reserved or not — an unreserved stream still
+  // consumed capacity, and hiding it would understate what the release ran on.
+  const carried = retro.streams.filter((s) => s.totalPts > 0).sort((a, b) => b.totalPts - a.totalPts);
+
+  return (
+    <>
+      <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
+        {ledger.contributingCount === 0 ? (
+          <>This release has no team set, so there is no headcount to measure its streams against.</>
+        ) : isOver ? (
+          <>
+            Across the whole release, the streams that carried work reserved{' '}
+            <strong style={{ color: 'var(--rt-ink)' }}>{contention.totalRequired} engineers</strong> against{' '}
+            <strong style={{ color: 'var(--rt-ink)' }}>{ledger.contributingCount} contributing</strong>
+            {over > 0 ? <> — over by <strong style={{ color: 'var(--rt-ink)' }}>{over}</strong>.</> : '.'} Completed streams are counted
+            here, so this figure can't improve just because work landed.
+          </>
+        ) : (
+          <>
+            Across the whole release, the streams that carried work reserved{' '}
+            <strong style={{ color: 'var(--rt-ink)' }}>
+              {contention.totalRequired} engineer{contention.totalRequired === 1 ? '' : 's'}
+            </strong>{' '}
+            against <strong style={{ color: 'var(--rt-ink)' }}>{ledger.contributingCount} contributing</strong>
+            {headroom > 0 ? <> — <strong style={{ color: 'var(--rt-ink)' }}>{headroom}</strong> to spare.</> : ' — fully allocated throughout.'}
+          </>
+        )}
+      </div>
+
+      <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <span className="tag" style={{ marginBottom: 2 }}>Scope vs. capacity · whole release</span>
+        <Row k="Total scope" v={`${retro.totalPts} pts · ${retro.donePts} done`} />
+        <Row k="Release capacity" v={`${Math.round(ledger.totalCap)} pts across ${ledger.sprintCount} sprint${ledger.sprintCount === 1 ? '' : 's'}`} />
+        <hr className="divider" style={{ margin: '3px 0' }} />
+        {ledger.totalCap === 0 ? (
+          <Row k="Verdict" v="no velocity baseline to measure against" big />
+        ) : (
+          <Row
+            k={retro.overCommitted ? 'Over-committed by' : 'Headroom'}
+            v={<span style={{ color: tone.dot }}>{Math.abs(scopeGap)} pts</span>}
+            big
+          />
+        )}
+      </div>
+
+      <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <span className="tag" style={{ marginBottom: 2 }}>Allocation by sprint</span>
+        <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
+          {retro.judgedSprints === 0
+            ? 'No sprint in this release has a work stream holding work.'
+            : retro.overbookedSprints === 0
+              ? `Within capacity in all ${retro.judgedSprints} sprint${retro.judgedSprints === 1 ? '' : 's'} that carried work.`
+              : `Overbooked in ${retro.overbookedSprints} of ${retro.judgedSprints} sprint${retro.judgedSprints === 1 ? '' : 's'} that carried work.`}
+        </div>
+        <div style={{ display: 'flex', gap: 3 }} role="group" aria-label="Allocation by sprint">
+          {retro.perSprint.map((s, i) => {
+            const seg = s.idle
+              ? { bg: statusVars('Not Started').soft, fg: 'var(--rt-t3)' }
+              : s.contention.overAllocated
+                ? { bg: statusVars('Blocked').soft, fg: statusVars('Blocked').text }
+                : { bg: statusVars('Complete').soft, fg: statusVars('Complete').text };
+            return (
+              <div
+                key={s.sprint.id}
+                title={
+                  s.idle
+                    ? `${s.sprint.name} — no work stream held work`
+                    : `${s.sprint.name} — ${s.contention.totalRequired} reserved across ${s.streamCount} stream${s.streamCount === 1 ? '' : 's'}, ${ledger.contributingCount} contributing`
+                }
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  height: 26,
+                  borderRadius: 3,
+                  background: seg.bg,
+                  color: seg.fg,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 'var(--rt-fs-xs)',
+                  fontWeight: 'var(--rt-fw-semibold)',
+                }}
+              >
+                {i + 1}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <span className="tag" style={{ marginBottom: 2 }}>Reserved vs. what the scope needed</span>
+        {carried.length === 0 ? (
+          <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>No work streams carried any work in this release.</span>
+        ) : (
+          carried.map((s) => (
+            <Row
+              key={s.ws.id}
+              k={s.ws.name}
+              v={
+                s.engineersRequired == null
+                  ? `no reservation · scope needed ${s.engineersImplied.toFixed(1)}`
+                  : `${s.engineersRequired} reserved · scope needed ${s.engineersImplied.toFixed(1)}`
+              }
+            />
+          ))
+        )}
+      </div>
+
+      <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.5 }}>
+        A final-plan reading: reservations, the roster and each item's sprint are taken at today's values, so a change made mid-release
+        reads as though it had always been so. Elapsed sprints do contribute the velocity they actually committed.
+      </div>
     </>
   );
 }
@@ -342,14 +473,13 @@ function RunwaySection({ r, team, items }: SectionProps) {
 /** Which sections currently hold a warning — drives the red tab tint + alert icon,
  *  matching the chip in the release chrome so problems are obvious on open. */
 function sectionWarnings(r: Release, team: Team | undefined, items: WorkItem[]): Record<MetricsSection, boolean> {
-  const ctx = releaseCapacity(r, team);
-  const activeReq = r.workStreams
-    .filter((ws) => ws.engineersRequired != null && streamHealth(items.filter((i) => i.workStreamId === ws.id)).remainingPts > 0)
-    .map((ws) => ws.engineersRequired!);
+  const assessment = assessStreams(r, team, items);
+  const retro = assessRelease(r, team, items);
   return {
     velocity: velocityAttainment(r, team, items).verdict === 'under',
-    capacity: streamContention(activeReq, ctx.contributingCount).overAllocated,
-    runway: buildRunwayRows(r, team, items).some((x) => x.runway.alarm),
+    capacity: assessment.contention.overAllocated,
+    release: retro.contention.overAllocated || retro.overCommitted,
+    runway: assessment.streams.some((s) => s.runway.alarm),
   };
 }
 
@@ -371,7 +501,8 @@ export function MetricsModal({ releaseId, section, onClose }: { releaseId: strin
   const warn = sectionWarnings(r, team, items);
   const options: { value: MetricsSection; label: string; icon: ReactNode; title: string; warn: boolean }[] = [
     { value: 'velocity', label: 'Velocity', icon: warn.velocity ? Icon.alert : Icon.sprint, warn: warn.velocity, title: 'Delivered vs. planned across elapsed sprints' },
-    { value: 'capacity', label: 'Capacity', icon: warn.capacity ? Icon.alert : Icon.users, warn: warn.capacity, title: 'Team allocation across streams' },
+    { value: 'capacity', label: 'Capacity', icon: warn.capacity ? Icon.alert : Icon.users, warn: warn.capacity, title: 'Team allocation across streams, as things stand today' },
+    { value: 'release', label: 'Whole release', icon: warn.release ? Icon.alert : Icon.release, warn: warn.release, title: 'How the release ran across its full cycle — unaffected by what has completed' },
     { value: 'runway', label: 'Runway', icon: warn.runway ? Icon.alert : Icon.stream, warn: warn.runway, title: 'Is enough work created to fill held capacity?' },
   ];
 
@@ -389,6 +520,7 @@ export function MetricsModal({ releaseId, section, onClose }: { releaseId: strin
       <SegmentedToggle<MetricsSection> ariaLabel="Metric" value={tab} onChange={setTab} options={options} />
       {tab === 'velocity' && <VelocitySection r={r} team={team} items={items} />}
       {tab === 'capacity' && <CapacitySection r={r} team={team} items={items} />}
+      {tab === 'release' && <ReleaseSection r={r} team={team} items={items} />}
       {tab === 'runway' && <RunwaySection r={r} team={team} items={items} />}
     </Modal>
   );

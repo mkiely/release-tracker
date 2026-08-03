@@ -16,18 +16,21 @@
 //
 // Pure: `today` is a parameter, nothing reads the store.
 
-import type { PlanningState, Release, Team, WorkItem, WorkStream } from '../types';
+import type { PlanningState, Release, Sprint, Team, WorkItem, WorkStream } from '../types';
 import { todayISO } from './dates';
 import {
   effectiveStreamCodeFreeze,
   releaseCapacity,
+  releaseLedger,
   remainingByFreeze,
   streamCapacityCtx,
   streamContention,
   streamForecast,
   streamHealth,
   streamRunway,
+  sumPoints,
   type ReleaseCapacity,
+  type ReleaseLedger,
   type StreamContention,
   type StreamForecast,
   type StreamHealth,
@@ -137,6 +140,139 @@ export function assessStreams(
   });
 
   return { ctx, contention, streams, byId: new Map(streams.map((s) => [s.ws ? s.ws.id : null, s])) };
+}
+
+// ── Whole-release assessment (retrospective) ────────────────────────────────
+// assessStreams answers "can we finish from here". This answers "how did this
+// release run" — the same contention maths over every stream that carried work
+// rather than only those with work left, plus the points ledger the forward view
+// has no equivalent of. Its verdicts are completion-invariant by construction.
+//
+// The two are deliberately separate functions rather than one with a flag: they
+// share a primitive, not a meaning, and a caller should have to say which question
+// it is asking. See the ReleaseLedger comment in derive.ts for what this reading
+// can and cannot claim.
+
+export interface RetroStream {
+  ws: WorkStream;
+  /** All points the stream carried, complete or not — the figure that doesn't move. */
+  totalPts: number;
+  donePts: number;
+  engineersRequired: number | null;
+  /** Engineer-equivalents the stream's full scope actually demanded across the
+   *  release, from the whole-release per-engineer capacity. Compared against
+   *  `engineersRequired`, this is reservation vs. what the work turned out to need.
+   *  0 when there is no capacity baseline to divide by. */
+  engineersImplied: number;
+}
+
+export interface SprintAllocation {
+  sprint: Sprint;
+  /** Reservations held by the streams that carried work in this sprint, against the
+   *  team's headcount. The release-level figure asks the same question of the whole
+   *  cycle at once; this asks it sprint by sprint. */
+  contention: StreamContention;
+  /** Work streams holding at least one item in this sprint, reserved or not. */
+  streamCount: number;
+  /** No work stream held work here. Reported rather than judged: an empty sprint is
+   *  not an under-allocated one, and counting it as such would flatter the tally. */
+  idle: boolean;
+}
+
+export interface ReleaseRetro {
+  ledger: ReleaseLedger;
+  /** Contention across every stream that carried work — complete streams included,
+   *  so finishing can never improve the verdict. */
+  contention: StreamContention;
+  /** One entry per work stream, release order. The Unassigned bucket is excluded:
+   *  it holds no reservation, so it cannot contend. Its points are still in
+   *  `totalPts` when the caller supplies them. */
+  streams: RetroStream[];
+  /** One entry per sprint, release order — including sprints past the freeze, which
+   *  the ledger's capacity window excludes but which can still hold work. Dropping
+   *  them would quietly shrink the denominator of "overbooked in N of M". */
+  perSprint: SprintAllocation[];
+  /** Sprints whose reservations exceeded the team, over those that can be judged
+   *  (i.e. excluding idle ones) — the "overbooked for 8 of 11 sprints" reading. */
+  overbookedSprints: number;
+  judgedSprints: number;
+  /** Σ points across the release's items, and the completed portion. */
+  totalPts: number;
+  donePts: number;
+  /** Total scope measured against total capacity — the ledger's own verdict, and
+   *  the one figure here that needs no engineer reservations to be configured. */
+  overCommitted: boolean;
+}
+
+/**
+ * Assess a release as a whole, for the retrospective lens.
+ *
+ * `items` must be the release's full item set, as with assessStreams — and here it
+ * matters twice over, since both the contention set and the points ledger are
+ * whole-release figures that a filtered subset would silently understate.
+ */
+export function assessRelease(
+  release: Release,
+  team: Team | undefined,
+  items: WorkItem[],
+): ReleaseRetro {
+  const ledger = releaseLedger(release, team);
+
+  const streams: RetroStream[] = release.workStreams.map((ws) => {
+    const health = streamHealth(items.filter((i) => i.workStreamId === ws.id));
+    return {
+      ws,
+      totalPts: health.totalPts,
+      donePts: health.donePts,
+      engineersRequired: ws.engineersRequired,
+      engineersImplied: ledger.perEngineerCap > 0 ? health.totalPts / ledger.perEngineerCap : 0,
+    };
+  });
+
+  // The one substantive difference from the forward view: `totalPts > 0` where
+  // assessStreams uses `remainingPts > 0`. A stream that finished still consumed
+  // engineers for the part of the release it ran in, so it still counts here.
+  const contention = streamContention(
+    streams.filter((s) => s.engineersRequired != null && s.totalPts > 0).map((s) => s.engineersRequired!),
+    ledger.contributingCount,
+  );
+
+  // Which streams held work in each sprint. Every item counts, complete or not —
+  // the same completion-invariance the release-level figure relies on.
+  const streamsBySprint = new Map<string, Set<string>>();
+  for (const i of items) {
+    if (i.sprintId == null || i.workStreamId == null) continue;
+    const held = streamsBySprint.get(i.sprintId);
+    if (held) held.add(i.workStreamId);
+    else streamsBySprint.set(i.sprintId, new Set([i.workStreamId]));
+  }
+  const reservationOf = new Map(release.workStreams.map((ws) => [ws.id, ws.engineersRequired] as const));
+
+  const perSprint: SprintAllocation[] = release.sprints.map((sprint) => {
+    const held = streamsBySprint.get(sprint.id);
+    const counts = [...(held ?? [])]
+      .map((id) => reservationOf.get(id) ?? null)
+      .filter((n): n is number => n != null);
+    return {
+      sprint,
+      contention: streamContention(counts, ledger.contributingCount),
+      streamCount: held?.size ?? 0,
+      idle: (held?.size ?? 0) === 0,
+    };
+  });
+
+  const totalPts = sumPoints(items);
+  return {
+    ledger,
+    contention,
+    streams,
+    perSprint,
+    overbookedSprints: perSprint.filter((s) => s.contention.overAllocated).length,
+    judgedSprints: perSprint.filter((s) => !s.idle).length,
+    totalPts,
+    donePts: sumPoints(items.filter((i) => i.status === 'Complete')),
+    overCommitted: ledger.totalCap > 0 && totalPts > ledger.totalCap,
+  };
 }
 
 /** One stream's assessment, for callers that only render a single stream (the work

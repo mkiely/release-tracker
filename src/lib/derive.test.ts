@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSprint, capPct, CODE_FREEZE_CHIP_ID, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, freezeOverrides, freezeSprintX, fullCap, groupItemsByStream, parseFreezeChipId, plannedVel, releaseCapacity, remainingByFreeze, remainingSprints, reservationBalance, sprintEventChips, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
+import { activeSprint, capPct, CODE_FREEZE_CHIP_ID, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, freezeOverrides, freezeSprintX, fullCap, groupItemsByStream, parseFreezeChipId, plannedVel, releaseCapacity, releaseLedger, remainingByFreeze, remainingSprints, reservationBalance, sprintEventChips, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
 import { aRelease, aSprint, aStream, aTeamOf, anEvent, anItem } from '../test/factories';
 import type { Release, Sprint, Team, WorkItem, WorkStream } from '../types';
@@ -868,6 +868,65 @@ describe('buildSprints length', () => {
     expect(sps[0].endISO).toBe('2026-05-03'); // 21 days inclusive
     expect(sps[1].startISO).toBe('2026-05-04');
     expect(workdaysInRange(sps[0].startISO, sps[0].endISO)).toBe(15);
+  });
+});
+
+describe('releaseLedger', () => {
+  // One fully-past sprint, the active one, and two future — the same shape the
+  // forward capacity tests use, so the two readings can be compared directly.
+  const calRelease = (over: Partial<Release> = {}): Release => {
+    const today = todayISO();
+    return aRelease({
+      startISO: addDays(today, -28),
+      workStreams: [],
+      sprints: [
+        aSprint({ id: 'p', name: 'P', startISO: addDays(today, -28), endISO: addDays(today, -15) }),
+        aSprint({ id: 'a', name: 'A', startISO: addDays(today, -5), endISO: addDays(today, 9) }),
+        aSprint({ id: 'f1', name: 'F1', startISO: addDays(today, 10), endISO: addDays(today, 23) }),
+        aSprint({ id: 'f2', name: 'F2', startISO: addDays(today, 24), endISO: addDays(today, 37) }),
+      ],
+      ...over,
+    });
+  };
+
+  it('counts every sprint, where releaseCapacity counts only those remaining', () => {
+    const r = calRelease();
+    expect(releaseCapacity(r, team(4, 40)).remainingSprintCount).toBe(3);
+    const led = releaseLedger(r, team(4, 40));
+    expect(led.sprintCount).toBe(4);
+    expect(led.totalCap).toBe(160); // 40 × 4, including the elapsed sprint
+    expect(led.perEngineerCap).toBe(40); // 160 / 4
+  });
+
+  it("honors an elapsed sprint's frozen commitment over the team's current velocity", () => {
+    const r = calRelease();
+    r.sprints[0].plannedVelocity = 25; // what P actually committed, before a re-set
+    // 25 frozen + 3 × 40 live. Lowering or raising team.velocity now cannot rewrite P.
+    expect(releaseLedger(r, team(4, 40)).totalCap).toBe(145);
+  });
+
+  it('excludes sprints starting after the freeze and prorates the straddling one', () => {
+    const r = calRelease();
+    const freeze = addDays(todayISO(), 15); // inside f1
+    r.codeFreezeISO = freeze;
+    const led = releaseLedger(r, team(1, 100));
+    expect(led.sprintCount).toBe(3); // f2 starts after the freeze
+    const f1 = r.sprints[2];
+    const factor = workdaysInRange(f1.startISO, freeze) / workdaysInRange(f1.startISO, f1.endISO);
+    expect(led.totalCap).toBeCloseTo(200 + 100 * factor);
+  });
+
+  it('does not move as the release runs — the property the forward view lacks', () => {
+    // Same release, same inputs: the ledger takes no `today` at all, so there is
+    // no clock for a verdict to drift against.
+    const r = calRelease();
+    expect(releaseLedger(r, team(4, 40))).toEqual(releaseLedger(r, team(4, 40)));
+  });
+
+  it('is 0-safe when there is no team', () => {
+    const led = releaseLedger(calRelease(), undefined);
+    expect(led.totalCap).toBe(0);
+    expect(led.perEngineerCap).toBe(0);
   });
 });
 

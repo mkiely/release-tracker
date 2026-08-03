@@ -289,17 +289,70 @@ export const streamCapacityCtx = (
 ): ReleaseCapacity =>
   ws?.codeFreezeISO != null ? releaseCapacity(release, team, today, effectiveStreamCodeFreeze(release, ws)) : baseCtx;
 
+// ── Whole-release ledger (retrospective) ────────────────────────────────────
+// Every capacity figure above measures what is LEFT: remaining sprints against
+// remaining points. That is the right question for "can we still finish", but it
+// means the verdict improves by completion alone — a release overbooked for its
+// whole cycle reads identically to one comfortably staffed throughout, because
+// finished streams drop out of the numerator.
+//
+// This is the same maths over the release's FULL window: every sprint, every
+// point, complete or not. Nothing here shrinks as work lands, so it answers a
+// question the forward view structurally cannot — how the release ran, not how it
+// ends. See docs/capacity-history.md.
+//
+// It is a final-plan reading, not a time series: engineersRequired, the roster and
+// each item's sprint are read at their current values, so a mid-release change in
+// any of them is reported as though it had always been so. Genuine point-in-time
+// history needs a stored record (that doc's Track C). What makes the capacity side
+// honest anyway is plannedVel — a started sprint's commitment is frozen, so
+// elapsed sprints contribute what they actually committed.
+
+export interface ReleaseLedger {
+  /** Every sprint that can hold work (i.e. starts on/before the freeze), not just
+   *  the ones still to come. */
+  sprintCount: number;
+  /** Σ plannedVel over those sprints, prorated at the freeze — the capacity the
+   *  release had in total, using each started sprint's frozen baseline. */
+  totalCap: number;
+  contributingCount: number;
+  /** Points one engineer could deliver across the whole release. 0-safe. */
+  perEngineerCap: number;
+}
+
+/** Whole-release capacity: the retrospective counterpart to {@link releaseCapacity},
+ *  summing every sprint rather than only those still remaining. Takes no `today` —
+ *  that is the entire point, and is why the figure is stable as the release runs. */
+export const releaseLedger = (
+  release: Release,
+  team: Team | undefined,
+  freezeISO: string = effectiveCodeFreeze(release),
+): ReleaseLedger => {
+  const inWindow = release.sprints.filter((sp) => sp.startISO <= freezeISO);
+  const totalCap = inWindow.reduce((a, sp) => a + plannedVel(team, sp) * sprintFreezeFactor(sp, freezeISO), 0);
+  const contributingCount = team ? team.members.filter((m) => !m.nonContributing).length : 0;
+  return {
+    sprintCount: inWindow.length,
+    totalCap,
+    contributingCount,
+    perEngineerCap: contributingCount > 0 ? totalCap / contributingCount : 0,
+  };
+};
+
 export interface StreamContention {
-  /** Σ engineersRequired over streams that still have remaining work. */
+  /** Σ engineersRequired over the streams the caller supplied — those with work
+   *  REMAINING for the forward view, those that carried any work at all for the
+   *  whole-release one. */
   totalRequired: number;
   overAllocated: boolean;
   /** contributingCount / totalRequired when over-allocated, else 1. In (0, 1]. */
   scale: number;
 }
 
-/** Release-level parallelism check: if the streams with remaining work collectively
- *  demand more engineers than the team has, no stream can be staffed at its full
- *  ask, so effective engineers scale down proportionally. */
+/** Parallelism check: if the supplied streams collectively demand more engineers
+ *  than the team has, no stream can be staffed at its full ask, so effective
+ *  engineers scale down proportionally. Which streams count is the caller's call —
+ *  see assessStreams (remaining work) vs. assessRelease (all work). */
 export const streamContention = (activeEngineerCounts: number[], contributingCount: number): StreamContention => {
   const totalRequired = activeEngineerCounts.reduce((a, n) => a + n, 0);
   const overAllocated = contributingCount > 0 && totalRequired > contributingCount;
