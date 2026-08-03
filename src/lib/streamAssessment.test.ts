@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assessStream, assessStreams } from './streamAssessment';
+import { assessRelease, assessStream, assessStreams } from './streamAssessment';
 import { aRelease, aSprint, aStream, aTeamOf, anItem } from '../test/factories';
 import { addDays, todayISO } from './dates';
 import type { Release } from '../types';
@@ -147,6 +147,140 @@ describe('assessStreams', () => {
     expect(forecast.verdict).toBe('no-work');
     expect(runway.verdict).toBe('unplanned');
     expect(runway.judgeable).toBe(false);
+  });
+});
+
+describe('assessRelease', () => {
+  // Two streams reserving 3 engineers each against a team of 4: overbooked, and
+  // overbooked for the whole cycle no matter what lands.
+  const overbooked = () => {
+    const r = future();
+    r.workStreams = [
+      aStream({ id: 'ws1', name: 'A', engineersRequired: 3 }),
+      aStream({ id: 'ws2', name: 'B', engineersRequired: 3 }),
+    ];
+    return r;
+  };
+
+  it('counts every stream that carried work, so completion cannot improve the verdict', () => {
+    const r = overbooked();
+    const open = [
+      anItem({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 40 }),
+      anItem({ id: 'i2', workStreamId: 'ws2', sprintId: 'sp1', points: 40 }),
+    ];
+    // The same release with stream B entirely finished.
+    const bDone = [open[0], { ...open[1], status: 'Complete' as const }];
+
+    expect(assessRelease(r, team, open).contention.totalRequired).toBe(6);
+    expect(assessRelease(r, team, bDone).contention.totalRequired).toBe(6);
+    expect(assessRelease(r, team, bDone).contention.overAllocated).toBe(true);
+
+    // The forward view moves, correctly — that contrast is the whole point of
+    // having both. B's engineers are genuinely free from here.
+    expect(assessStreams(r, team, open, { today: todayISO() }).contention.totalRequired).toBe(6);
+    expect(assessStreams(r, team, bDone, { today: todayISO() }).contention.totalRequired).toBe(3);
+  });
+
+  it('ignores streams that never carried work, reserved or not', () => {
+    const r = overbooked();
+    // ws2 holds a reservation but no items ever landed in it: nothing to account for.
+    const items = [anItem({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 40 })];
+    expect(assessRelease(r, team, items).contention.totalRequired).toBe(3);
+  });
+
+  it('reports total scope against total capacity, unmoved by how much is done', () => {
+    const r = future();
+    r.workStreams = [aStream({ id: 'ws1' })];
+    const items = [
+      anItem({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 30, status: 'Complete' }),
+      anItem({ id: 'i2', workStreamId: 'ws1', sprintId: 'sp2', points: 30 }),
+    ];
+    const retro = assessRelease(r, team, items);
+    expect(retro.totalPts).toBe(60);
+    expect(retro.donePts).toBe(30);
+    // Three sprints at the team's 40-point velocity, none of it spent yet.
+    expect(retro.ledger.sprintCount).toBe(3);
+    expect(retro.ledger.totalCap).toBe(120);
+    expect(retro.overCommitted).toBe(false);
+  });
+
+  it('flags a release carrying more scope than the team could ever deliver', () => {
+    const r = future();
+    r.workStreams = [aStream({ id: 'ws1' })];
+    const items = [anItem({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 200 })];
+    const retro = assessRelease(r, team, items);
+    expect(retro.overCommitted).toBe(true);
+    // 200 pts against 120 pts of whole-release capacity across 4 engineers:
+    // the scope demanded ~6.7 engineers' worth of the release.
+    expect(retro.streams[0].engineersImplied).toBeCloseTo(200 / 30, 5);
+  });
+
+  it('cannot be judged over-committed without a capacity baseline', () => {
+    const r = future();
+    r.workStreams = [aStream({ id: 'ws1' })];
+    const items = [anItem({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 200 })];
+    const retro = assessRelease(r, undefined, items);
+    expect(retro.ledger.totalCap).toBe(0);
+    expect(retro.overCommitted).toBe(false);
+    expect(retro.streams[0].engineersImplied).toBe(0);
+  });
+
+  it('judges each sprint on the streams that held work in it', () => {
+    const r = overbooked();
+    const items = [
+      // Both streams run in sp1 (3 + 3 against 4): overbooked.
+      anItem({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 10 }),
+      anItem({ id: 'i2', workStreamId: 'ws2', sprintId: 'sp1', points: 10 }),
+      // Only A runs in sp2 (3 against 4): within capacity.
+      anItem({ id: 'i3', workStreamId: 'ws1', sprintId: 'sp2', points: 10 }),
+      // sp3 holds nothing.
+    ];
+    const { perSprint, overbookedSprints, judgedSprints } = assessRelease(r, team, items);
+    expect(perSprint.map((s) => s.sprint.id)).toEqual(['sp1', 'sp2', 'sp3']);
+    expect(perSprint.map((s) => s.contention.overAllocated)).toEqual([true, false, false]);
+    expect(perSprint.map((s) => s.idle)).toEqual([false, false, true]);
+    // The idle sprint is excluded from the denominator, not counted as healthy.
+    expect(overbookedSprints).toBe(1);
+    expect(judgedSprints).toBe(2);
+  });
+
+  it('keeps a completed sprint overbooked — the reading completion cannot flatter', () => {
+    const r = overbooked();
+    const open = [
+      anItem({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 10 }),
+      anItem({ id: 'i2', workStreamId: 'ws2', sprintId: 'sp1', points: 10 }),
+    ];
+    const done = open.map((i) => ({ ...i, status: 'Complete' as const }));
+    expect(assessRelease(r, team, done).perSprint[0].contention.overAllocated).toBe(true);
+    expect(assessRelease(r, team, done).overbookedSprints).toBe(1);
+  });
+
+  it('counts a stream toward its sprint even with no reservation to contend with', () => {
+    const r = future();
+    r.workStreams = [aStream({ id: 'ws1', engineersRequired: null })];
+    const items = [anItem({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 10 })];
+    const sp1 = assessRelease(r, team, items).perSprint[0];
+    expect(sp1.idle).toBe(false); // work happened here
+    expect(sp1.streamCount).toBe(1);
+    expect(sp1.contention.totalRequired).toBe(0); // but nothing was reserved
+  });
+
+  it('treats a sprint holding only unassigned work as idle for allocation', () => {
+    const r = overbooked();
+    const items = [anItem({ id: 'i1', workStreamId: null, sprintId: 'sp1', points: 10 })];
+    expect(assessRelease(r, team, items).perSprint[0].idle).toBe(true);
+  });
+
+  it('counts unassigned points in the ledger but not in contention', () => {
+    const r = overbooked();
+    const items = [
+      anItem({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 40 }),
+      anItem({ id: 'i2', workStreamId: null, sprintId: 'sp1', points: 25 }),
+    ];
+    const retro = assessRelease(r, team, items);
+    expect(retro.totalPts).toBe(65);
+    expect(retro.streams.map((s) => s.ws.id)).toEqual(['ws1', 'ws2']);
+    expect(retro.contention.totalRequired).toBe(3);
   });
 });
 
