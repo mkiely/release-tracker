@@ -29,7 +29,7 @@ import {
   velocityAttainment,
   velocitySuggestion,
 } from './derive';
-import { assessStreams } from './streamAssessment';
+import { assessRelease, assessStreams } from './streamAssessment';
 import { between, dOf, fmtShort, todayISO } from './dates';
 import type { Release, StatusSeg, Team, WorkItem, WorkStream } from '../types';
 
@@ -47,9 +47,9 @@ export const MAX_SNAPSHOT_URL_LENGTH = 8000;
 /** Schema version for the snapshot payload, so a future shape change is detectable.
  *  v2 adds the release `capacity` block and per-stream `doneItems`; v3 adds
  *  `contributingMembers` and a per-capacity-row `verdict`; v5 adds per-stream
- *  `externalUrl` (connector deep link). Older payloads still decode — the viewer
- *  guards the added fields and defaults them. */
-export const SNAPSHOT_VERSION = 5;
+ *  `externalUrl` (connector deep link); v6 adds the `wholeRelease` block. Older
+ *  payloads still decode — the viewer guards the added fields and defaults them. */
+export const SNAPSHOT_VERSION = 6;
 
 /** One sprint's precomputed row in a snapshot. */
 export interface SnapshotSprint {
@@ -164,6 +164,55 @@ export interface SnapshotPayload {
        *  the same at-risk/on-track chip as the status cards below. */
       verdict: HealthVerdict;
     }[];
+  };
+  /** Whole-release (retrospective) analysis — the completion-invariant counterpart to
+   *  `capacity` above, which reads remaining work against remaining sprints and so
+   *  improves as streams finish. See the ReleaseLedger comment in derive.ts for what
+   *  this reading can claim.
+   *
+   *  Optional **because pre-v6 payloads genuinely lack it** — a snapshot decoded from
+   *  an older link, or one already sitting in a recipient's local library, has no such
+   *  block. Typing it optional makes the viewer's guard a compiler obligation rather
+   *  than a convention (`capacity` is the cautionary example: required in the type,
+   *  yet still absent from pre-v2 payloads and guarded by hand). */
+  wholeRelease?: {
+    contributingCount: number;
+    /** Σ engineersRequired over every stream that carried work — complete ones
+     *  included, which is what makes it immune to completion. */
+    totalRequired: number;
+    overAllocated: boolean;
+    /** totalRequired − contributingCount when over (0 otherwise). */
+    over: number;
+    /** contributingCount − totalRequired when within capacity (0 otherwise). */
+    headroom: number;
+    /** Engineers reserved by streams held back from a scoped share. Contention is a
+     *  whole-team figure assessed over the entire release, so on a filtered share the
+     *  headline can exceed the rows listed below it; this is what reconciles the two.
+     *  0 on an unscoped share. */
+    outOfScopeRequired: number;
+    /** Capacity the release had in total: Σ planned velocity over every sprint
+     *  starting on/before the freeze, prorated at it. Started sprints contribute
+     *  their frozen baseline, so this is not a today-rewrite. */
+    totalCap: number;
+    sprintCount: number;
+    /** Points across every item in the release, and the completed portion. */
+    totalPts: number;
+    donePts: number;
+    overCommitted: boolean;
+    /** totalPts − totalCap, signed: positive is over-commitment, negative headroom. */
+    scopeGap: number;
+    /** Sprints whose reservations exceeded the team, over those that can be judged
+     *  (idle sprints excluded) — the "overbooked in N of M sprints" reading. */
+    overbookedSprints: number;
+    judgedSprints: number;
+    /** The allocation strip, **index-aligned with `sprints` above** rather than
+     *  repeating each sprint's name — both are one entry per release sprint, in
+     *  order. Kept lean because the payload rides in a length-capped URL. */
+    perSprint: { totalRequired: number; streamCount: number; overAllocated: boolean; idle: boolean }[];
+    /** Reservation vs. what the scope turned out to need, per stream. Narrowed to the
+     *  shared subset like every other per-stream section; `outOfScopeRequired` above
+     *  accounts for what that narrowing hides. */
+    streams: { name: string; engineersRequired: number | null; engineersImplied: number; totalPts: number }[];
   };
   velocity: {
     verdict: VelocityAttainment['verdict'];
@@ -342,6 +391,20 @@ export function buildSnapshot(
   const headroom = Math.max(0, ctx.contributingCount - contention.totalRequired);
   const contributingMembers = team ? team.members.filter((m) => !m.nonContributing).map((m) => m.name) : [];
 
+  // ── Whole release (retrospective) ────────────────────────────────────────
+  // Assessed over the ENTIRE release, never the share scope: this reading's whole
+  // claim is that nothing has been left out of it, and a scoped assessment would
+  // understate contention exactly as it would in `capacity` above. The per-stream
+  // rows are still narrowed to what's shared, so `outOfScopeRequired` carries what
+  // that narrowing hides and lets the headline reconcile against its own rows.
+  const retro = assessRelease(release, team, items);
+  const visibleRetro = retro.streams.filter((s) => !visible || visible.has(s.ws.id));
+  const outOfScopeRequired = retro.streams
+    .filter((s) => (visible ? !visible.has(s.ws.id) : false) && s.engineersRequired != null && s.totalPts > 0)
+    .reduce((a, s) => a + (s.engineersRequired ?? 0), 0);
+  const retroOver = Math.max(0, retro.contention.totalRequired - retro.ledger.contributingCount);
+  const retroHeadroom = Math.max(0, retro.ledger.contributingCount - retro.contention.totalRequired);
+
   return {
     v: SNAPSHOT_VERSION,
     summaryId: release.id,
@@ -371,6 +434,39 @@ export function buildSnapshot(
       headroom,
       remainingSprintCount: ctx.remainingSprintCount,
       activeStreams,
+    },
+    wholeRelease: {
+      contributingCount: retro.ledger.contributingCount,
+      totalRequired: retro.contention.totalRequired,
+      overAllocated: retro.contention.overAllocated,
+      over: retroOver,
+      headroom: retroHeadroom,
+      outOfScopeRequired,
+      totalCap: Math.round(retro.ledger.totalCap),
+      sprintCount: retro.ledger.sprintCount,
+      totalPts: retro.totalPts,
+      donePts: retro.donePts,
+      overCommitted: retro.overCommitted,
+      scopeGap: retro.totalPts - Math.round(retro.ledger.totalCap),
+      overbookedSprints: retro.overbookedSprints,
+      judgedSprints: retro.judgedSprints,
+      perSprint: retro.perSprint.map((s) => ({
+        totalRequired: s.contention.totalRequired,
+        streamCount: s.streamCount,
+        overAllocated: s.contention.overAllocated,
+        idle: s.idle,
+      })),
+      streams: visibleRetro
+        .filter((s) => s.totalPts > 0)
+        .map((s) => ({
+          name: s.ws.name,
+          engineersRequired: s.engineersRequired,
+          // One decimal is all the viewer renders; carrying full float precision
+          // would spend payload bytes on digits nothing displays.
+          engineersImplied: Math.round(s.engineersImplied * 10) / 10,
+          totalPts: s.totalPts,
+        }))
+        .sort((a, b) => b.totalPts - a.totalPts),
     },
     velocity: {
       verdict: velocity.verdict,

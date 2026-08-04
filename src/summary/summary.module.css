@@ -180,6 +180,25 @@
 .capNum { font-family: var(--rt-mono); font-size: var(--rt-fs-xs); color: var(--rt-t2); }
 .dim { color: var(--rt-t3); }
 
+/* Whole-release section: the per-sprint allocation strip. One segment per release
+   sprint, in order — index-aligned with the payload's `sprints`, which is what lets
+   the segments carry the sprint name in their tooltip without repeating it. */
+.allocStrip { display: flex; gap: 3px; }
+.allocSeg {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--rt-fs-xs);
+  font-weight: var(--rt-fw-semibold);
+}
+.allocOver { background: var(--rt-st-bl-soft); color: var(--rt-st-bl-text); }
+.allocOk { background: var(--rt-st-co-soft); color: var(--rt-st-co-text); }
+.allocIdle { background: var(--rt-st-ns-soft); color: var(--rt-t3); }
+
 /* Contributing-team roster (top section) */
 .contributors {
   font-size: var(--rt-fs-sm);

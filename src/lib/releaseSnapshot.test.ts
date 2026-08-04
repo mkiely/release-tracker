@@ -228,6 +228,69 @@ describe('buildSnapshot', () => {
     expect(snap.streams.length).toBeGreaterThan(0);
   });
 
+  describe('wholeRelease block', () => {
+    it('counts a completed stream, where the capacity block drops it', () => {
+      const items = [
+        item({ workStreamId: 'ws_pay', sprintId: 'sp1', status: 'Complete', points: 5 }),
+        item({ workStreamId: 'ws_auth', sprintId: 'sp1', points: 8 }),
+      ];
+      const snap = buildSnapshot(release(), team(), items, { now: NOW });
+      // Payments (2 eng) has no work left, so the forward capacity block excludes it…
+      expect(snap.capacity.totalRequired).toBe(0);
+      // …but it still ran, so the whole-release reading keeps its reservation.
+      expect(snap.wholeRelease!.totalRequired).toBe(2);
+    });
+
+    it('carries the ledger and scope figures, unscaled by completion', () => {
+      const items = [
+        item({ workStreamId: 'ws_pay', sprintId: 'sp1', status: 'Complete', points: 30 }),
+        item({ workStreamId: 'ws_auth', sprintId: 'sp2', points: 20 }),
+      ];
+      const wr = buildSnapshot(release(), team(), items, { now: NOW }).wholeRelease!;
+      expect(wr.totalPts).toBe(50);
+      expect(wr.donePts).toBe(30);
+      expect(wr.sprintCount).toBe(2);
+      expect(wr.scopeGap).toBe(wr.totalPts - wr.totalCap);
+      expect(wr.overCommitted).toBe(wr.totalPts > wr.totalCap);
+    });
+
+    it('emits a per-sprint entry for every sprint, index-aligned with `sprints`', () => {
+      const items = [item({ workStreamId: 'ws_pay', sprintId: 'sp1', points: 5 })];
+      const snap = buildSnapshot(release(), team(), items, { now: NOW });
+      expect(snap.wholeRelease!.perSprint).toHaveLength(snap.sprints.length);
+      // sp1 carries work, sp2 does not — the alignment the viewer relies on to
+      // label each segment without the payload repeating sprint names.
+      expect(snap.wholeRelease!.perSprint.map((s) => s.idle)).toEqual([false, true]);
+      expect(snap.sprints.map((s) => s.name)).toEqual(['Sprint 1', 'Sprint 2']);
+    });
+
+    it('assesses contention over every stream but lists only the shared ones', () => {
+      const items = [
+        item({ workStreamId: 'ws_pay', sprintId: 'sp1', points: 5 }),
+        item({ workStreamId: 'ws_auth', sprintId: 'sp1', points: 8 }),
+      ];
+      const r = release({
+        workStreams: [
+          aStream({ id: 'ws_pay', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2 }),
+          aStream({ id: 'ws_auth', name: 'Auth', externalId: 'EPIC-2', engineersRequired: 3 }),
+        ],
+      });
+      const wr = buildSnapshot(r, team(), items, { now: NOW, visibleStreamIds: new Set(['ws_pay']) }).wholeRelease!;
+      // The headline counts both streams — a scoped share must not understate what
+      // the whole team was committed to.
+      expect(wr.totalRequired).toBe(5);
+      // But only the shared stream is listed…
+      expect(wr.streams.map((s) => s.name)).toEqual(['Payments']);
+      // …so this is what reconciles the headline against its own rows.
+      expect(wr.outOfScopeRequired).toBe(3);
+    });
+
+    it('reports no out-of-scope reservation on an unscoped share', () => {
+      const items = [item({ workStreamId: 'ws_pay', sprintId: 'sp1', points: 5 })];
+      expect(buildSnapshot(release(), team(), items, { now: NOW }).wholeRelease!.outOfScopeRequired).toBe(0);
+    });
+  });
+
   it('emits burn props only for streams with engineers and estimated work', () => {
     const snap = buildSnapshot(
       release(),
@@ -237,6 +300,20 @@ describe('buildSnapshot', () => {
     );
     expect(snap.streams.find((s) => s.name === 'Payments')!.burn).not.toBeNull(); // engineersRequired: 2
     expect(snap.streams.find((s) => s.name === 'Auth')!.burn).toBeNull(); // engineersRequired: null
+  });
+});
+
+describe('backward compatibility', () => {
+  it('decodes a payload with no wholeRelease block, as pre-v6 links have', () => {
+    const built = buildSnapshot(release(), team(), [item({ sprintId: 'sp1' })], { now: NOW });
+    // Exactly what a link shared before v6 carries: everything else, minus the block.
+    const { wholeRelease: _omitted, ...legacy } = built;
+    const decoded = decodeSnapshot(encodeSnapshot({ ...legacy, v: 5 }));
+    expect(decoded).not.toBeNull();
+    expect(decoded!.wholeRelease).toBeUndefined();
+    // The rest of the payload is unaffected, so the viewer renders every other section.
+    expect(decoded!.capacity).toBeDefined();
+    expect(decoded!.streams.length).toBeGreaterThan(0);
   });
 });
 

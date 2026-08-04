@@ -89,13 +89,26 @@ function velocityTone(v: SnapshotPayload['velocity']): Tone {
 
 /** Release capacity analysis — the highest-level signal, shown first: how the
  *  streams with work left collectively demand engineers vs. the team's headcount,
- *  and (when over-allocated) how each stream's effective staffing is scaled down. */
-function ReleaseCapacity({ cap, teamName }: { cap: SnapshotPayload['capacity']; teamName: string | null }) {
+ *  and (when over-allocated) how each stream's effective staffing is scaled down.
+ *
+ *  The title names its own date because this is a *current-state* reading sitting
+ *  directly above a whole-release one. Undated, the two are actively confusable —
+ *  and this is the section that improves as streams finish, so it is the one that
+ *  has to say when it was taken. */
+function ReleaseCapacity({
+  cap,
+  teamName,
+  asOfISO,
+}: {
+  cap: SnapshotPayload['capacity'];
+  teamName: string | null;
+  asOfISO: string;
+}) {
   const team = teamName ?? 'the team';
   const over = cap.overAllocated;
   return (
     <>
-      <h2 className={styles.sectionTitle}>Release capacity</h2>
+      <h2 className={styles.sectionTitle}>Release capacity as of {generatedOn(asOfISO)}</h2>
       <div className={`card ${styles.capCard} ${over ? styles.capRisk : styles.capOk}`}>
         <div className={styles.capHead}>
           <span className={over ? styles.capBadgeRisk : styles.capBadgeOk}>
@@ -108,7 +121,7 @@ function ReleaseCapacity({ cap, teamName }: { cap: SnapshotPayload['capacity']; 
         <div className={styles.capLede}>
           {over ? (
             <>
-              The streams with work remaining collectively need{' '}
+              The streams with work remaining <strong>today</strong> collectively need{' '}
               <strong>{cap.totalRequired} engineers</strong>, but {team} has only{' '}
               <strong>{cap.contributingCount} contributing</strong> — over by <strong>{cap.over}</strong>. No one can be
               on everything at once, so each stream is effectively staffed at{' '}
@@ -116,7 +129,8 @@ function ReleaseCapacity({ cap, teamName }: { cap: SnapshotPayload['capacity']; 
             </>
           ) : (
             <>
-              The streams with work remaining need <strong>{cap.totalRequired} engineer{cap.totalRequired === 1 ? '' : 's'}</strong>,
+              The streams with work remaining <strong>today</strong> need{' '}
+              <strong>{cap.totalRequired} engineer{cap.totalRequired === 1 ? '' : 's'}</strong>,
               and {team} has <strong>{cap.contributingCount} contributing</strong>
               {cap.headroom > 0 ? (
                 <> — <strong>{cap.headroom}</strong> to spare.</>
@@ -155,6 +169,161 @@ function ReleaseCapacity({ cap, teamName }: { cap: SnapshotPayload['capacity']; 
             ))}
           </div>
         )}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Whole-release (retrospective) analysis — the counterpart to ReleaseCapacity above.
+ * That section reads remaining work against remaining sprints, so it improves as
+ * streams finish; this one counts every stream that carried work and every sprint
+ * that ran, and so cannot be flattered by completion. The two sit adjacent on purpose:
+ * neither is legible about the other's absence.
+ *
+ * `sprintNames` comes from the payload's `sprints`, which `perSprint` is index-aligned
+ * with — the strip carries no names of its own to keep the URL-borne payload lean.
+ */
+function WholeRelease({
+  wr,
+  sprintNames,
+  teamName,
+}: {
+  wr: NonNullable<SnapshotPayload['wholeRelease']>;
+  sprintNames: string[];
+  teamName: string | null;
+}) {
+  const team = teamName ?? 'the team';
+  const over = wr.overAllocated;
+  return (
+    <>
+      <h2 className={styles.sectionTitle}>Whole release</h2>
+      <div className={`card ${styles.capCard} ${over || wr.overCommitted ? styles.capRisk : styles.capOk}`}>
+        <div className={styles.capHead}>
+          <span className={over ? styles.capBadgeRisk : styles.capBadgeOk}>
+            {over ? 'Over capacity all cycle' : 'Within capacity all cycle'}
+          </span>
+          <span className={styles.capNumsLg}>
+            {wr.totalRequired} reserved / {wr.contributingCount} available
+          </span>
+        </div>
+
+        <div className={styles.capLede}>
+          {wr.contributingCount === 0 ? (
+            <>This release has no team set, so there is no headcount to measure its streams against.</>
+          ) : over ? (
+            <>
+              Across the whole release, the streams that carried work reserved <strong>{wr.totalRequired} engineers</strong>,
+              but {team} has only <strong>{wr.contributingCount} contributing</strong>
+              {wr.over > 0 ? <> — over by <strong>{wr.over}</strong>.</> : '.'} Completed streams are counted here, so this
+              figure cannot improve just because work landed.
+              {wr.outOfScopeRequired > 0 && (
+                <> Including <strong>{wr.outOfScopeRequired}</strong> reserved by streams outside this view.</>
+              )}
+            </>
+          ) : (
+            <>
+              Across the whole release, the streams that carried work reserved{' '}
+              <strong>{wr.totalRequired} engineer{wr.totalRequired === 1 ? '' : 's'}</strong>, and {team} has{' '}
+              <strong>{wr.contributingCount} contributing</strong>
+              {wr.headroom > 0 ? <> — <strong>{wr.headroom}</strong> to spare.</> : ' — fully allocated throughout.'}
+              {wr.outOfScopeRequired > 0 && (
+                <> Including <strong>{wr.outOfScopeRequired}</strong> reserved by streams outside this view.</>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className={styles.capTable}>
+          <div className={`${styles.capRow} ${styles.capRowHead}`}>
+            <span>Scope vs. capacity</span>
+            <span />
+            <span />
+          </div>
+          <div className={styles.capRow}>
+            <span className={styles.capStreamName}>Total scope</span>
+            <span className={styles.capNum}>{wr.totalPts} pts</span>
+            <span className={styles.capNum}>
+              <span className={styles.dim}>{wr.donePts} done</span>
+            </span>
+          </div>
+          <div className={styles.capRow}>
+            <span className={styles.capStreamName}>Release capacity</span>
+            <span className={styles.capNum}>{wr.totalCap} pts</span>
+            <span className={styles.capNum}>
+              <span className={styles.dim}>
+                across {wr.sprintCount} sprint{wr.sprintCount === 1 ? '' : 's'}
+              </span>
+            </span>
+          </div>
+          <div className={styles.capRow}>
+            <span className={styles.capStreamName}>{wr.overCommitted ? 'Over-committed by' : 'Headroom'}</span>
+            <span className={styles.capNum}>
+              <span style={{ color: wr.overCommitted ? 'var(--rt-st-bl-text)' : 'var(--rt-st-co-text)' }}>
+                {wr.totalCap === 0 ? '—' : `${Math.abs(wr.scopeGap)} pts`}
+              </span>
+            </span>
+            <span className={styles.capNum}>
+              {wr.totalCap === 0 && <span className={styles.dim}>no velocity baseline</span>}
+            </span>
+          </div>
+        </div>
+
+        {wr.perSprint.length > 0 && (
+          <>
+            <div className={styles.capLede}>
+              {wr.judgedSprints === 0
+                ? 'No sprint in this release has a work stream holding work.'
+                : wr.overbookedSprints === 0
+                  ? `Within capacity in all ${wr.judgedSprints} sprint${wr.judgedSprints === 1 ? '' : 's'} that carried work.`
+                  : `Overbooked in ${wr.overbookedSprints} of ${wr.judgedSprints} sprint${wr.judgedSprints === 1 ? '' : 's'} that carried work.`}
+            </div>
+            <div className={styles.allocStrip} role="group" aria-label="Allocation by sprint">
+              {wr.perSprint.map((s, i) => (
+                <div
+                  key={i}
+                  className={`${styles.allocSeg} ${s.idle ? styles.allocIdle : s.overAllocated ? styles.allocOver : styles.allocOk}`}
+                  title={
+                    s.idle
+                      ? `${sprintNames[i] ?? `Sprint ${i + 1}`} — no work stream held work`
+                      : `${sprintNames[i] ?? `Sprint ${i + 1}`} — ${s.totalRequired} reserved across ${s.streamCount} stream${s.streamCount === 1 ? '' : 's'}, ${wr.contributingCount} contributing`
+                  }
+                >
+                  {i + 1}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {wr.streams.length > 0 && (
+          <div className={styles.capTable}>
+            <div className={`${styles.capRow} ${styles.capRowHead}`}>
+              <span>Stream</span>
+              <span>Reserved</span>
+              <span>Scope needed</span>
+            </div>
+            {wr.streams.map((s, i) => (
+              <div key={i} className={styles.capRow}>
+                <span className={styles.capStreamCell}>
+                  <span className={styles.capStreamName}>{s.name}</span>
+                </span>
+                <span className={styles.capNum}>
+                  {s.engineersRequired == null ? <span className={styles.dim}>none</span> : `${s.engineersRequired} eng`}
+                </span>
+                <span className={styles.capNum}>
+                  {s.engineersImplied.toFixed(1)} eng <span className={styles.dim}>· {s.totalPts} pts</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <span className={styles.caption}>
+          A final-plan reading: reservations, the roster and each item’s sprint are taken at the values they held when this
+          summary was generated, so a change made mid-release reads as though it had always been so. Elapsed sprints do
+          contribute the velocity they actually committed.
+        </span>
       </div>
     </>
   );
@@ -340,9 +509,22 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
       </div>
 
       {/* 1 · Release capacity — the highest-level signal, first. */}
-      {snapshot.capacity && <ReleaseCapacity cap={snapshot.capacity} teamName={snapshot.teamName} />}
+      {snapshot.capacity && (
+        <ReleaseCapacity cap={snapshot.capacity} teamName={snapshot.teamName} asOfISO={snapshot.generatedAtISO} />
+      )}
 
-      {/* 2 · Work-stream status. */}
+      {/* 2 · Whole release — the retrospective counterpart, adjacent on purpose: the
+          section above reads remaining work against remaining sprints and improves as
+          streams finish, this one cannot. Absent on pre-v6 payloads. */}
+      {snapshot.wholeRelease && (
+        <WholeRelease
+          wr={snapshot.wholeRelease}
+          sprintNames={snapshot.sprints.map((sp) => sp.name)}
+          teamName={snapshot.teamName}
+        />
+      )}
+
+      {/* 3 · Work-stream status. */}
       <h2 className={styles.sectionTitle}>Work stream status</h2>
       <div className={styles.streamGrid}>
         {snapshot.streams.map((s, i) => (
@@ -351,7 +533,7 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
       </div>
       <StatusLegend streams={snapshot.streams} />
 
-      {/* 3 · Sprints. */}
+      {/* 4 · Sprints. */}
       <h2 className={styles.sectionTitle}>Sprints</h2>
       <div className={styles.sprintList}>
         {snapshot.sprints.map((sp, i) => {
@@ -401,7 +583,7 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
         })}
       </div>
 
-      {/* 4 · Work-stream burndown charts. */}
+      {/* 5 · Work-stream burndown charts. */}
       {chartStreams.length > 0 && (
         <>
           <h2 className={styles.sectionTitle}>Work stream burndown</h2>
@@ -417,7 +599,7 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
         </>
       )}
 
-      {/* 5 · Velocity. */}
+      {/* 6 · Velocity. */}
       {snapshot.velocity.series.length > 0 && (
         <>
           <h2 className={styles.sectionTitle}>Velocity</h2>
