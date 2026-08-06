@@ -10,12 +10,12 @@
 // *counts*, never items — so a snapshot structurally cannot leak a work item's
 // key, subject, or description. It works for local and connector releases alike.
 //
-// Payload: JSON → LZ-compressed → URL-safe string, carried in the URL *hash*
-// (`#s=`) rather than a query param. The fragment is never sent to any host in a
-// request, so the (potentially large) analysis blob never reaches a server even
+// Payload: JSON → deflate → URL-safe string (see lib/urlCodec), carried in the URL
+// *hash* (`#s=`) rather than a query param. The fragment is never sent to any host
+// in a request, so the (potentially large) analysis blob never reaches a server even
 // if the viewer is hosted somewhere with request logging.
 
-import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
+import { MAX_URL_LENGTH, decodeJson, encodeJson } from './urlCodec';
 import type { HealthVerdict, RunwayVerdict, VelocityAttainment, VelocitySuggestion } from './derive';
 import {
   capPct,
@@ -35,14 +35,6 @@ import type { Release, StatusSeg, Team, WorkItem, WorkStream } from '../types';
 
 /** Hash-fragment key carrying an encoded snapshot payload (`…/summary.html#s=…`). */
 export const SNAPSHOT_PARAM = 's';
-
-/**
- * Ceiling on a snapshot link's length. Far higher than shareRelease's 2000 —
- * these are copy-paste links, not hand-typed, and a snapshot carries per-sprint
- * and per-stream aggregates. A snapshot that would exceed this is reported, not
- * produced.
- */
-export const MAX_SNAPSHOT_URL_LENGTH = 8000;
 
 /** Schema version for the snapshot payload, so a future shape change is detectable.
  *  v2 adds the release `capacity` block and per-stream `doneItems`; v3 adds
@@ -486,31 +478,25 @@ export function buildSnapshot(
 }
 
 /** Compress + URL-safe-encode a payload into the value for the `#s=` fragment. */
-export function encodeSnapshot(payload: SnapshotPayload): string {
-  return compressToEncodedURIComponent(JSON.stringify(payload));
+export function encodeSnapshot(payload: SnapshotPayload): Promise<string> {
+  return encodeJson(payload);
 }
 
 /** Decode + decompress an `#s=` value back into a payload. Returns null if the value
  *  is malformed, truncated, or not a recognized snapshot payload. */
-export function decodeSnapshot(encoded: string): SnapshotPayload | null {
-  try {
-    const json = decompressFromEncodedURIComponent(encoded);
-    if (!json) return null;
-    const p = JSON.parse(json) as Partial<SnapshotPayload>;
-    if (
-      typeof p !== 'object' || p === null ||
-      typeof p.summaryId !== 'string' ||
-      typeof p.generatedAtISO !== 'string' ||
-      typeof p.name !== 'string' ||
-      !p.overall || typeof p.overall !== 'object' ||
-      !Array.isArray(p.sprints) || !Array.isArray(p.streams)
-    ) {
-      return null;
-    }
-    return p as SnapshotPayload;
-  } catch {
+export async function decodeSnapshot(encoded: string): Promise<SnapshotPayload | null> {
+  const p = await decodeJson<Partial<SnapshotPayload>>(encoded);
+  if (
+    typeof p !== 'object' || p === null ||
+    typeof p.summaryId !== 'string' ||
+    typeof p.generatedAtISO !== 'string' ||
+    typeof p.name !== 'string' ||
+    !p.overall || typeof p.overall !== 'object' ||
+    !Array.isArray(p.sprints) || !Array.isArray(p.streams)
+  ) {
     return null;
   }
+  return p as SnapshotPayload;
 }
 
 /** Result of attempting to build a snapshot link. On `too-long`, the raw `encoded`
@@ -526,17 +512,17 @@ export type SnapshotLinkResult =
  * rides in the hash. Reports `too-long` (with the encoded value) rather than
  * producing a truncatable link.
  */
-export function buildSnapshotUrl(
+export async function buildSnapshotUrl(
   release: Release,
   team: Team | undefined,
   items: WorkItem[],
   base: string,
   opts: BuildSnapshotOptions = {},
-): SnapshotLinkResult {
+): Promise<SnapshotLinkResult> {
   const payload = buildSnapshot(release, team, items, opts);
-  const encoded = encodeSnapshot(payload);
+  const encoded = await encodeSnapshot(payload);
   const trimmed = base.replace(/\/+$/, '');
   const url = `${trimmed}/summary.html#${SNAPSHOT_PARAM}=${encoded}`;
-  if (url.length > MAX_SNAPSHOT_URL_LENGTH) return { ok: false, reason: 'too-long', length: url.length, encoded };
+  if (url.length > MAX_URL_LENGTH) return { ok: false, reason: 'too-long', length: url.length, encoded };
   return { ok: true, url, payload };
 }

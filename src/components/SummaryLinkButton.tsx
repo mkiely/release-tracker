@@ -56,7 +56,7 @@ export function useSummaryLink(release: Release, visibleStreamIds?: ReadonlySet<
   return async () => {
     const items = st.items.filter((i) => i.releaseId === release.id);
     const label = release.connector ? connectorLabel(release.connector.type) : null;
-    const result = buildSnapshotUrl(release, team, items, summaryBase(), { connectorLabel: label, visibleStreamIds });
+    const result = await buildSnapshotUrl(release, team, items, summaryBase(), { connectorLabel: label, visibleStreamIds });
     if (!result.ok) {
       // Too long for the address bar — copy the raw encoded value instead. The viewer's
       // "Load from a link" box accepts a bare encoded value, so the recipient pastes it

@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import type { SnapshotPayload } from '../lib/releaseSnapshot';
 import { SNAPSHOT_PARAM, decodeSnapshot } from '../lib/releaseSnapshot';
+import { supportsUrlCodec } from '../lib/urlCodec';
 import { ThemeStore, THEMES, useTheme } from '../store/theme';
 import { fmtLong } from '../lib/dates';
 import { Icon } from '../components/Icon';
@@ -15,10 +16,10 @@ import styles from './summary.module.css';
 
 /** Parse an `#s=<payload>` fragment into a snapshot, or null. Tolerates a leading
  *  `#` and other hash params in any order. */
-function snapshotFromHash(hash: string): SnapshotPayload | null {
+function snapshotFromHash(hash: string): Promise<SnapshotPayload | null> {
   const params = new URLSearchParams(hash.replace(/^#/, ''));
   const encoded = params.get(SNAPSHOT_PARAM);
-  return encoded ? decodeSnapshot(encoded) : null;
+  return encoded ? decodeSnapshot(encoded) : Promise.resolve(null);
 }
 
 /** Cycle to the next theme (light ↔ dark is the common case; the full palette is
@@ -73,8 +74,8 @@ function PasteLoader({ onLoad }: { onLoad: (p: SnapshotPayload) => void }) {
   const [value, setValue] = useState('');
   const [error, setError] = useState(false);
 
-  const submit = () => {
-    const payload = decodeSnapshot(extractEncoded(value));
+  const submit = async () => {
+    const payload = await decodeSnapshot(extractEncoded(value));
     if (!payload) {
       setError(true);
       return;
@@ -171,21 +172,45 @@ export function SummaryApp() {
   // strip the hash so a reload lands on the library rather than re-importing.
   const [openId, setOpenId] = useState<string | null>(null);
   const [invalidLink, setInvalidLink] = useState(false);
+  const [unsupported, setUnsupported] = useState(false);
+
+  // Captured during the first render, before the effect below strips the address
+  // bar — so StrictMode's second invocation decodes the same value rather than an
+  // already-emptied hash and misreporting a good link as invalid.
+  const [linkHash] = useState(() => window.location.hash);
+
+  // Whether a decode is still in flight. Seeded synchronously from the URL so the
+  // first paint of an incoming link renders nothing rather than flashing the empty
+  // library — decoding is async, so the payload isn't known during that first paint.
+  const [pending, setPending] = useState(() => linkHash.includes(`${SNAPSHOT_PARAM}=`));
 
   useEffect(() => {
-    const payload = snapshotFromHash(window.location.hash);
-    if (window.location.hash.includes(`${SNAPSHOT_PARAM}=`) && !payload) {
-      setInvalidLink(true);
+    if (!pending) return;
+    if (!supportsUrlCodec()) {
+      setUnsupported(true);
+      setPending(false);
+      return;
     }
-    if (payload) {
-      rememberSummary(payload);
-      bumpLibrary();
-      setOpenId(payload.summaryId);
-      // Drop the (large) payload from the address bar; the summary now lives in the
-      // local library and is addressed by id.
-      history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
-  }, []);
+    let cancelled = false;
+    void (async () => {
+      const payload = await snapshotFromHash(linkHash);
+      if (cancelled) return;
+      if (payload) {
+        rememberSummary(payload);
+        bumpLibrary();
+        setOpenId(payload.summaryId);
+        // Drop the (large) payload from the address bar; the summary now lives in the
+        // local library and is addressed by id.
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      } else {
+        setInvalidLink(true);
+      }
+      setPending(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pending, linkHash]);
 
   const summaries = useLibrary();
   const open = useCallback((id: string) => setOpenId(id), []);
@@ -200,6 +225,16 @@ export function SummaryApp() {
         <ThemeToggle />
       </div>
 
+      {unsupported && !current && (
+        <div className={styles.empty}>
+          <span className={styles.emptyTitle}>This browser is too old to open summary links</span>
+          <span>
+            Summaries are compressed with a feature added to browsers in 2023. Update your browser, or open the link in
+            a current version of Chrome, Safari, Firefox or Edge.
+          </span>
+        </div>
+      )}
+
       {invalidLink && !current && (
         <div className={styles.empty}>
           <span className={styles.emptyTitle}>That summary link is invalid or expired</span>
@@ -207,7 +242,9 @@ export function SummaryApp() {
         </div>
       )}
 
-      {current ? <SummaryView snapshot={current} onBack={back} /> : <LibraryIndex onOpen={open} />}
+      {/* Nothing renders while an incoming link decodes: showing the library first
+          would flash "No summaries yet" at exactly the person who arrived with one. */}
+      {pending ? null : current ? <SummaryView snapshot={current} onBack={back} /> : <LibraryIndex onOpen={open} />}
     </div>
   );
 }

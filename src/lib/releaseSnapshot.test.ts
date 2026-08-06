@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { aConnectorRelease, aMember, aSprint, aStream, aTeam, anEvent, anItem } from '../test/factories';
 import type { Release, Team, WorkItem } from '../types';
 import {
-  MAX_SNAPSHOT_URL_LENGTH,
   SNAPSHOT_PARAM,
   SNAPSHOT_VERSION,
   buildSnapshot,
@@ -10,6 +9,7 @@ import {
   decodeSnapshot,
   encodeSnapshot,
 } from './releaseSnapshot';
+import { MAX_URL_LENGTH } from './urlCodec';
 
 const NOW = '2026-04-20'; // inside Sprint 1
 
@@ -304,11 +304,11 @@ describe('buildSnapshot', () => {
 });
 
 describe('backward compatibility', () => {
-  it('decodes a payload with no wholeRelease block, as pre-v6 links have', () => {
+  it('decodes a payload with no wholeRelease block, as pre-v6 links have', async () => {
     const built = buildSnapshot(release(), team(), [item({ sprintId: 'sp1' })], { now: NOW });
     // Exactly what a link shared before v6 carries: everything else, minus the block.
     const { wholeRelease: _omitted, ...legacy } = built;
-    const decoded = decodeSnapshot(encodeSnapshot({ ...legacy, v: 5 }));
+    const decoded = await decodeSnapshot(await encodeSnapshot({ ...legacy, v: 5 }));
     expect(decoded).not.toBeNull();
     expect(decoded!.wholeRelease).toBeUndefined();
     // The rest of the payload is unaffected, so the viewer renders every other section.
@@ -318,60 +318,64 @@ describe('backward compatibility', () => {
 });
 
 describe('encode/decode round-trip', () => {
-  it('preserves a payload through encode → decode', () => {
+  it('preserves a payload through encode → decode', async () => {
     const snap = buildSnapshot(release(), team(), [item()], { now: NOW });
-    const decoded = decodeSnapshot(encodeSnapshot(snap));
+    const decoded = await decodeSnapshot(await encodeSnapshot(snap));
     expect(decoded).toEqual(snap);
   });
 
-  it('returns null for malformed input', () => {
-    expect(decodeSnapshot('not-a-real-payload')).toBeNull();
-    expect(decodeSnapshot('')).toBeNull();
+  it('returns null for malformed input', async () => {
+    // Valid base64url but not a deflate stream, then invalid base64url, then empty.
+    await expect(decodeSnapshot('bm90LWEtcmVhbC1wYXlsb2Fk')).resolves.toBeNull();
+    await expect(decodeSnapshot('not-a-real-payload!!!')).resolves.toBeNull();
+    await expect(decodeSnapshot('')).resolves.toBeNull();
   });
 
-  it('rejects a decoded object missing required fields (version/shape guard)', () => {
-    const bad = encodeSnapshot({ v: 99 } as never);
-    expect(decodeSnapshot(bad)).toBeNull();
+  it('rejects a decoded object missing required fields (version/shape guard)', async () => {
+    const bad = await encodeSnapshot({ v: 99 } as never);
+    await expect(decodeSnapshot(bad)).resolves.toBeNull();
   });
 });
 
 describe('buildSnapshotUrl', () => {
-  it('builds a hash-carried summary URL against the given base', () => {
-    const res = buildSnapshotUrl(release(), team(), [item()], 'https://user.github.io/release-tracker/', { now: NOW });
+  it('builds a hash-carried summary URL against the given base', async () => {
+    const res = await buildSnapshotUrl(release(), team(), [item()], 'https://user.github.io/release-tracker/', {
+      now: NOW,
+    });
     expect(res.ok).toBe(true);
     if (res.ok) {
       expect(res.url.startsWith(`https://user.github.io/release-tracker/summary.html#${SNAPSHOT_PARAM}=`)).toBe(true);
       // Round-trips back out of the hash.
       const encoded = res.url.split(`#${SNAPSHOT_PARAM}=`)[1];
-      expect(decodeSnapshot(encoded)!.summaryId).toBe('rel_atlas');
+      expect((await decodeSnapshot(encoded))!.summaryId).toBe('rel_atlas');
     }
   });
 
-  it('reports too-long instead of producing a truncatable link', () => {
+  it('reports too-long instead of producing a truncatable link', async () => {
     const many = Array.from({ length: 4000 }, (_, i) => item({ id: `x${i}`, key: `K-${i}` }));
-    const res = buildSnapshotUrl(release(), team(), many, 'https://x.example', { now: NOW });
+    const res = await buildSnapshotUrl(release(), team(), many, 'https://x.example', { now: NOW });
     // Aggregates stay small, so confirm the guard fires when it should by asserting
     // the length branch explicitly against a tiny cap via a hand-built long base.
     if (!res.ok) {
       expect(res.reason).toBe('too-long');
-      expect(res.length).toBeGreaterThan(MAX_SNAPSHOT_URL_LENGTH);
+      expect(res.length).toBeGreaterThan(MAX_URL_LENGTH);
       // The raw encoded value is still returned so the too-long path can copy it for
       // the viewer's manual paste loader; it must decode back to the same release.
-      expect(decodeSnapshot(res.encoded)?.summaryId).toBe('rel_atlas');
+      expect((await decodeSnapshot(res.encoded))?.summaryId).toBe('rel_atlas');
     } else {
       // Aggregation keeps this well under the cap — that's the point.
-      expect(res.url.length).toBeLessThan(MAX_SNAPSHOT_URL_LENGTH);
+      expect(res.url.length).toBeLessThan(MAX_URL_LENGTH);
     }
   });
 
-  it('returns the encoded value on too-long (for the manual paste loader)', () => {
+  it('returns the encoded value on too-long (for the manual paste loader)', async () => {
     // Force the length branch deterministically with an oversized base.
-    const longBase = `https://x.example/${'p'.repeat(MAX_SNAPSHOT_URL_LENGTH)}`;
-    const res = buildSnapshotUrl(release(), team(), [item()], longBase, { now: NOW });
+    const longBase = `https://x.example/${'p'.repeat(MAX_URL_LENGTH)}`;
+    const res = await buildSnapshotUrl(release(), team(), [item()], longBase, { now: NOW });
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.reason).toBe('too-long');
-      expect(decodeSnapshot(res.encoded)?.summaryId).toBe('rel_atlas');
+      expect((await decodeSnapshot(res.encoded))?.summaryId).toBe('rel_atlas');
     }
   });
 });

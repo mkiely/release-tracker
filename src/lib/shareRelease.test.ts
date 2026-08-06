@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { aConnectorRelease, aMember, aSprint, aStream, aTeam, anEvent } from '../test/factories';
 import type { Release, Team } from '../types';
 import {
-  MAX_SAFE_URL_LENGTH,
   SHARE_PARAM,
   buildSharePayload,
   buildShareUrl,
   decodeSharePayload,
   encodeSharePayload,
 } from './shareRelease';
+import { MAX_URL_LENGTH } from './urlCodec';
 
 const connectorRelease = (overrides: Partial<Release> = {}): Release =>
   aConnectorRelease({
@@ -91,59 +91,67 @@ describe('buildSharePayload', () => {
 });
 
 describe('encode/decode round-trip', () => {
-  it('decodes back to an equivalent payload', () => {
+  it('decodes back to an equivalent payload', async () => {
     const payload = buildSharePayload(connectorRelease())!;
-    const decoded = decodeSharePayload(encodeSharePayload(payload));
+    const decoded = await decodeSharePayload(await encodeSharePayload(payload));
     expect(decoded).toEqual(payload);
   });
 
-  it('preserves member overrides through a round-trip', () => {
+  it('preserves member overrides through a round-trip', async () => {
     const payload = buildSharePayload(connectorRelease(), team())!;
-    const decoded = decodeSharePayload(encodeSharePayload(payload));
+    const decoded = await decodeSharePayload(await encodeSharePayload(payload));
     expect(decoded?.members).toEqual([
       { externalId: 'USR-ADA', nonContributing: false },
       { externalId: 'USR-PETE', nonContributing: true },
     ]);
   });
 
-  it('returns null for malformed input', () => {
-    expect(decodeSharePayload('not-a-valid-lz-string!!!')).toBeNull();
-    expect(decodeSharePayload('')).toBeNull();
+  it('returns null for malformed input', async () => {
+    // Valid base64url but not a deflate stream, then invalid base64url, then empty.
+    await expect(decodeSharePayload('bm90LWEtc2hhcmU')).resolves.toBeNull();
+    await expect(decodeSharePayload('not-a-valid-payload!!!')).resolves.toBeNull();
+    await expect(decodeSharePayload('')).resolves.toBeNull();
   });
 
-  it('rejects a payload missing required fields', () => {
-    const encoded = encodeSharePayload({ v: 1, name: 'X' } as never);
-    expect(decodeSharePayload(encoded)).toBeNull();
+  it('rejects a payload missing required fields', async () => {
+    const encoded = await encodeSharePayload({ v: 1, name: 'X' } as never);
+    await expect(decodeSharePayload(encoded)).resolves.toBeNull();
   });
 });
 
 describe('buildShareUrl', () => {
-  it('produces a ?share= URL under the safe length for a normal release', () => {
-    const result = buildShareUrl(connectorRelease(), 'https://app.example.com');
+  it('produces a #share= URL under the safe length for a normal release', async () => {
+    const result = await buildShareUrl(connectorRelease(), 'https://app.example.com');
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.url.startsWith(`https://app.example.com/?${SHARE_PARAM}=`)).toBe(true);
-      expect(result.url.length).toBeLessThanOrEqual(MAX_SAFE_URL_LENGTH);
+      // The payload rides in the fragment, never a query param: it carries connector
+      // config, which must not reach a server's access log.
+      expect(result.url.startsWith(`https://app.example.com/#${SHARE_PARAM}=`)).toBe(true);
+      expect(result.url).not.toContain('?');
+      expect(result.url.length).toBeLessThanOrEqual(MAX_URL_LENGTH);
     }
   });
 
-  it('reports not-connector for a Local release', () => {
-    const result = buildShareUrl(connectorRelease({ connector: null }), 'https://app.example.com');
+  it('reports not-connector for a Local release', async () => {
+    const result = await buildShareUrl(connectorRelease({ connector: null }), 'https://app.example.com');
     expect(result).toEqual({ ok: false, reason: 'not-connector' });
   });
 
-  it('reports too-long when metadata overflows the safe URL length', () => {
-    const many = Array.from({ length: 400 }, (_, i) => ({
+  it('reports too-long when metadata overflows the safe URL length', async () => {
+    // Labels carry a pseudo-random suffix so the guard is exercised against realistic
+    // entropy: 400 identically-shaped events compress away to almost nothing, which
+    // would test deflate's ratio rather than the length branch.
+    const many = Array.from({ length: 4000 }, (_, i) => ({
       id: `ev${i}`,
-      label: `Milestone number ${i} with a deliberately long descriptive label`,
-      dateISO: '2026-05-01',
-      externalId: `EXT-EVENT-${i}`,
+      label: `Milestone ${i} ${((i * 2654435761) % 2 ** 32).toString(36)}`,
+      dateISO: `2026-05-${String((i % 28) + 1).padStart(2, '0')}`,
+      externalId: `EXT-${((i * 40503) % 2 ** 16).toString(36)}-${i}`,
     }));
-    const result = buildShareUrl(connectorRelease({ events: many }), 'https://app.example.com');
+    const result = await buildShareUrl(connectorRelease({ events: many }), 'https://app.example.com');
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.reason).toBe('too-long');
-      expect(result.length).toBeGreaterThan(MAX_SAFE_URL_LENGTH);
+      expect(result.length).toBeGreaterThan(MAX_URL_LENGTH);
     }
   });
 });

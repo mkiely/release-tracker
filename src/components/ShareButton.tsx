@@ -3,7 +3,8 @@
 // a release. Hidden for Local releases, which have no connector to share.
 
 import type { Release } from '../types';
-import { buildShareUrl, MAX_SAFE_URL_LENGTH } from '../lib/shareRelease';
+import { buildShareUrl } from '../lib/shareRelease';
+import { MAX_URL_LENGTH } from '../lib/urlCodec';
 import { copyText } from '../lib/copyLink';
 import { selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
@@ -22,11 +23,11 @@ export function useShareReleaseLink(release: Release): (() => void) | null {
   if (!release.connector) return null;
 
   return async () => {
-    const result = buildShareUrl(release, window.location.origin, team);
+    const result = await buildShareUrl(release, window.location.origin, team);
     if (!result.ok) {
       notify(
         result.reason === 'too-long'
-          ? `Share link too large (${result.length} chars, max ${MAX_SAFE_URL_LENGTH}) — too many events or sprints to share by link`
+          ? `Share link too large (${result.length} chars, max ${MAX_URL_LENGTH}) — too many events or sprints to share by link`
           : 'This release isn’t connected, so there’s nothing to share',
       );
       return;
