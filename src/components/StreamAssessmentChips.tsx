@@ -17,6 +17,7 @@ export function StreamAssessmentChips({
   forecast,
   runway,
   planningState,
+  muted = false,
   onOpenDelivery,
   onOpenPlanning,
   /** Hides the planning chip where there is no room for it (dense table cells). */
@@ -25,11 +26,30 @@ export function StreamAssessmentChips({
   forecast: StreamForecast;
   runway: StreamRunway;
   planningState: PlanningState;
+  /** The stream is informational only (see WorkStream.muted). */
+  muted?: boolean;
   onOpenDelivery: () => void;
   onOpenPlanning: () => void;
   planning?: boolean;
 }) {
+  // A muted stream took no part in the contention its verdicts would be read
+  // against, so showing them would be stating a judgement the release doesn't act
+  // on — "at-risk" on a stream nobody is staffing is noise, not a warning. The flag
+  // itself is the only honest thing to report here. Not a button: there is nothing
+  // to drill into, and the stream's own screen is one click away on the row.
   const postFreeze = Math.round(forecast.postFreezeRemainingPts);
+  if (muted) {
+    return (
+      <div className={styles.chips}>
+        <span
+          className={styles.muted}
+          title="Muted — informational only. This stream is left out of exports, summaries and the release's capacity maths."
+        >
+          Muted
+        </span>
+      </div>
+    );
+  }
   // When neither side can be assessed they fail for the SAME reason (no engineer
   // count, nothing estimated) and render the same word twice. One chip, one fix.
   const sameStory = verdictVars(forecast.verdict).label === runwayVars(runway.verdict, planningState).label;

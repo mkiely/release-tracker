@@ -748,6 +748,25 @@ describe('migrate — v27 → current', () => {
   });
 });
 
+describe('migrate — v28 → current', () => {
+  const v28 = () => ({
+    version: 28,
+    teams: [],
+    releases: [{ id: 'r1', name: 'R', startISO: '2026-04-13', teamId: 't1', workStreams: [{ id: 'ws1', name: 'API', externalId: null, engineersRequired: 2, planningState: 'open', build: null, externalUrl: null, attributes: {}, codeFreezeISO: null }], events: [], sprints: [], codeFreezeISO: null, externalId: null, connector: null, sync: null, sprintLengthDays: 14 }],
+    items: [],
+    meta: { lastSyncISO: null },
+  });
+
+  it('reaches the current schema version', () => {
+    expect(migrate(v28())?.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('backfills muted: false, so an upgrade never silently un-counts a stream', () => {
+    const next = migrate(v28())!;
+    expect(next.releases[0].workStreams[0].muted).toBe(false);
+  });
+});
+
 describe('migrate — edge cases', () => {
   it('returns null for an unknown schema version', () => {
     const unknown = { version: 999, teams: [], releases: [], items: [], meta: { lastSyncISO: null } };

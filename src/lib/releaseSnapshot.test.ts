@@ -83,8 +83,8 @@ describe('buildSnapshot', () => {
   it('carries each stream\'s connector deep link (externalUrl)', () => {
     const rel = release({
       workStreams: [
-        { id: 'ws_pay', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: 'https://acme.example/epic/1', planningState: 'open' },
-        { id: 'ws_auth', name: 'Auth', externalId: 'EPIC-2', engineersRequired: null, build: null, externalUrl: null, planningState: 'open' },
+        aStream({ id: 'ws_pay', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, externalUrl: 'https://acme.example/epic/1' }),
+        aStream({ id: 'ws_auth', name: 'Auth', externalId: 'EPIC-2' }),
       ],
     });
     const snap = buildSnapshot(rel, team(), [item()], { now: NOW });
@@ -161,8 +161,8 @@ describe('buildSnapshot', () => {
     // only 2 contributing → over-allocated, effective staffing scaled to 50%.
     const overRel = release({
       workStreams: [
-        { id: 'ws_pay', name: 'Payments', externalId: null, engineersRequired: 2, build: null, externalUrl: null, planningState: 'open' },
-        { id: 'ws_auth', name: 'Auth', externalId: null, engineersRequired: 2, build: null, externalUrl: null, planningState: 'open' },
+        aStream({ id: 'ws_pay', name: 'Payments', engineersRequired: 2 }),
+        aStream({ id: 'ws_auth', name: 'Auth', engineersRequired: 2 }),
       ],
     });
     const snap = buildSnapshot(
@@ -377,5 +377,80 @@ describe('buildSnapshotUrl', () => {
       expect(res.reason).toBe('too-long');
       expect((await decodeSnapshot(res.encoded))?.summaryId).toBe('rel_atlas');
     }
+  });
+});
+
+// The timeline's payload (v7). Spans ride as sprint INDICES so the URL carries two
+// small numbers per stream instead of duplicating dates the payload already holds.
+describe('buildSnapshot — timeline spans', () => {
+  it('spans each stream from its first sprinted item to its last', () => {
+    const snap = buildSnapshot(
+      release(),
+      team(),
+      [
+        anItem({ id: 'i1', releaseId: 'rel_atlas', workStreamId: 'ws_pay', sprintId: 'sp1', points: 3 }),
+        anItem({ id: 'i2', releaseId: 'rel_atlas', workStreamId: 'ws_pay', sprintId: 'sp2', points: 5 }),
+        anItem({ id: 'i3', releaseId: 'rel_atlas', workStreamId: 'ws_auth', sprintId: 'sp2', points: 2 }),
+      ],
+      { now: NOW },
+    );
+    expect(snap.streams.find((s) => s.name === 'Payments')!.span).toEqual([0, 1]);
+    expect(snap.streams.find((s) => s.name === 'Auth')!.span).toEqual([1, 1]);
+  });
+
+  it('carries a span for a stream whose items are all unestimated', () => {
+    // The reason `span` exists rather than being read off `series`: series is POINTS
+    // per sprint, so this stream's would be all zeroes and its bar would vanish.
+    const snap = buildSnapshot(
+      release(),
+      team(),
+      [anItem({ id: 'i1', releaseId: 'rel_atlas', workStreamId: 'ws_pay', sprintId: 'sp2', points: null })],
+      { now: NOW },
+    );
+    const pay = snap.streams.find((s) => s.name === 'Payments')!;
+    expect(pay.series.every((n) => n === 0)).toBe(true);
+    expect(pay.span).toEqual([1, 1]);
+  });
+
+  it('gives a stream with no sprinted work a null span, not a zero-width bar', () => {
+    const snap = buildSnapshot(
+      release(),
+      team(),
+      [anItem({ id: 'i1', releaseId: 'rel_atlas', workStreamId: 'ws_pay', sprintId: null, points: 3 })],
+      { now: NOW },
+    );
+    expect(snap.streams.find((s) => s.name === 'Payments')!.span).toBeNull();
+  });
+
+  it('carries each stream\'s effective freeze, honouring a per-stream override', () => {
+    const r = release({ codeFreezeISO: '2026-05-05' });
+    r.workStreams[1] = aStream({ id: 'ws_auth', name: 'Auth', externalId: 'EPIC-2', codeFreezeISO: '2026-04-20' });
+    const snap = buildSnapshot(r, team(), [], { now: NOW });
+    expect(snap.streams.find((s) => s.name === 'Payments')!.freezeISO).toBe('2026-05-05');
+    expect(snap.streams.find((s) => s.name === 'Auth')!.freezeISO).toBe('2026-04-20');
+  });
+
+  it('marks the unassigned bucket so the timeline can skip it — it is not a work stream', () => {
+    const snap = buildSnapshot(
+      release(),
+      team(),
+      [anItem({ id: 'i1', releaseId: 'rel_atlas', workStreamId: null, build: null, sprintId: 'sp1', points: 3 })],
+      { now: NOW },
+    );
+    expect(snap.streams.find((s) => s.name === 'Unassigned')!.unassigned).toBe(true);
+    // The flag costs nothing on real streams: absent, so it never reaches the URL.
+    expect(snap.streams.find((s) => s.name === 'Payments')!.unassigned).toBeUndefined();
+  });
+
+  it('survives an encode/decode round-trip at the current version', async () => {
+    const snap = buildSnapshot(
+      release(),
+      team(),
+      [anItem({ id: 'i1', releaseId: 'rel_atlas', workStreamId: 'ws_pay', sprintId: 'sp2', points: 3 })],
+      { now: NOW },
+    );
+    expect(snap.v).toBe(SNAPSHOT_VERSION);
+    const decoded = await decodeSnapshot(await encodeSnapshot(snap));
+    expect(decoded!.streams.find((s) => s.name === 'Payments')!.span).toEqual([1, 1]);
   });
 });

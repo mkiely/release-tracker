@@ -31,6 +31,8 @@ export const Icon: Record<string, ReactElement> = {
   event:   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M4.1 2.1v11.8"/><path d="M4.1 2.9h7.3l-1.7 2.3 1.7 2.3H4.1z"/></svg>,
   // Bulleted list — the backlog (remaining work)
   backlog: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M5.6 4.2h8M5.6 8h8M5.6 11.8h8"/><path d="M2.4 4.2h.01M2.4 8h.01M2.4 11.8h.01"/></svg>,
+  // Gantt — staggered bars of differing length, the shape the timeline draws.
+  timeline: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><rect x="1.8" y="3" width="7.5" height="2.6" rx="1.1"/><rect x="4.6" y="6.9" width="9.6" height="2.6" rx="1.1"/><rect x="3.2" y="10.8" width="6" height="2.6" rx="1.1"/></svg>,
   member:  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="5.2" r="2.7"/><path d="M2.9 13.4c0-2.7 2.3-4.3 5.1-4.3s5.1 1.6 5.1 4.3"/></svg>,
   // Person with a minus — "exclude from capacity"
   memberOff: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><circle cx="6.5" cy="4.5" r="2.5"/><path d="M1.5 13c0-2.5 2.2-4 5-4"/><path d="M10.5 11h5"/></svg>,

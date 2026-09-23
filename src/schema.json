@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "28.0.0",
+  "version": "29.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -109,6 +109,10 @@
           "enum": ["open", "deferred", "complete"],
           "description": "App-owned enrichment: the stream's planning posture, driving how the planning-runway signal reads. 'open' (default) = planning in progress, unclaimed reserved capacity flags under-planned and can raise the alarm. 'deferred' = tickets intentionally not written yet (research pending): silences the alarm only, still un-judgeable/under-planned, never green. 'complete' = scope fully defined, created work is the whole scope: under-planned/alarm suppressed and leftover reserved capacity reads as OVER-reservation (engineers held beyond scope). Survives connector sync."
         },
+        "muted": {
+          "type": "boolean",
+          "description": "App-owned enrichment: the stream is informational only — pulled and visible, but not work this team plans or delivers. A muted stream is excluded from TSV exports, executive-summary snapshots, and the release-level capacity maths (its engineer reservation is not contended for and its points are not counted as scope). Distinct from planningState 'deferred', which means real-but-unwritten work and stays in every total. Survives connector sync. Defaults false."
+        },
         "build": {
           "type": ["string", "null"],
           "description": "Connector-owned provenance: the build/release this stream was carried in from, when it differs from this release. Null = native to this release. Drives the 'on-build only' lens."
@@ -127,7 +131,7 @@
           "description": "App-owned enrichment: overrides the release's code freeze for this stream alone (e.g. an infra stream that must lock down ahead of feature streams). Optional — absence/null means it inherits Release.codeFreezeISO. Survives connector sync."
         }
       },
-      "required": ["id", "name", "externalId", "engineersRequired", "planningState", "build", "externalUrl"],
+      "required": ["id", "name", "externalId", "engineersRequired", "planningState", "muted", "build", "externalUrl"],
       "additionalProperties": false
     },
     "Sprint": {
@@ -575,7 +579,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 28,
+      "value": 29,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {

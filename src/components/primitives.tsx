@@ -177,6 +177,28 @@ export function Modal({
   );
 }
 
+/** A validation message under a field's control. Same treatment whether the rule
+ *  was checked locally or handed back by the connector as a 422 field error. */
+export function PFieldError({ children }: { children: ReactNode }) {
+  return <span className={fieldStyles.error}>{children}</span>;
+}
+
+/** Two-column body for the work-item modals: `main` carries the description (the
+ *  one field whose usefulness scales with the space it gets), `rail` the metadata
+ *  fields that read fine at half the width. Collapses to a single stacked column on
+ *  narrow viewports, which is what every other modal does unconditionally.
+ *
+ *  A separate component rather than a `Modal` prop, so the split stays opt-in at the
+ *  one call site that wants it and `Modal` keeps a single body shape. */
+export function ModalSplit({ main, rail }: { main: ReactNode; rail: ReactNode }) {
+  return (
+    <div className={modalStyles.splitBody}>
+      <div className={modalStyles.splitMain}>{main}</div>
+      <div className={modalStyles.splitRail}>{rail}</div>
+    </div>
+  );
+}
+
 /** A transient, bottom-anchored status message (e.g. after a sync or item move). */
 export const Toast = ({ children }: { children: ReactNode }): ReactElement => (
   <div className={toastStyles.toast}>

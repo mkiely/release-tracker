@@ -304,3 +304,73 @@ describe('assessStream', () => {
     expect(assessStream(future(), team, [], 'nope', { today: todayISO() })).toBeUndefined();
   });
 });
+
+// A muted stream is not this team's work (see WorkStream.muted): it must leave the
+// release-level figures entirely — reservation AND points — in both the forward and
+// the retrospective reading. These tests pin the "in any way" part of that rule,
+// which a partial exclusion would satisfy in the forward view and quietly break in
+// the ledger.
+describe('muted work streams leave the capacity maths', () => {
+  it('excludes a muted stream reservation from forward contention', () => {
+    const r = future();
+    r.workStreams = [
+      aStream({ id: 'ws1', name: 'Real', engineersRequired: 3 }),
+      aStream({ id: 'ws2', name: 'Roll-up', engineersRequired: 3, muted: true }),
+    ];
+    const items = [
+      anItem({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 40 }),
+      anItem({ id: 'i2', workStreamId: 'ws2', sprintId: 'sp1', points: 40 }),
+    ];
+    const a = assessStreams(r, team, items, { today: todayISO() });
+    // 3 of the team's 4, not 6 of 4 — the muted stream holds nobody.
+    expect(a.contention.totalRequired).toBe(3);
+    expect(a.contention.overAllocated).toBe(false);
+  });
+
+  it('still assesses the muted stream itself, flagged so presenters can say so', () => {
+    const r = future();
+    r.workStreams = [aStream({ id: 'ws1', name: 'Roll-up', engineersRequired: 2, muted: true })];
+    const a = assessStreams(r, team, [anItem({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 5 })], {
+      today: todayISO(),
+    });
+    // Present and keyed as usual — muting hides a stream from the maths, not the app.
+    expect(a.byId.get('ws1')?.muted).toBe(true);
+    expect(a.byId.has('ws1')).toBe(true);
+  });
+
+  it('reports the unassigned bucket as unmuted — it is a bucket, not a stream', () => {
+    const r = future();
+    r.workStreams = [aStream({ id: 'ws1', muted: true })];
+    const orphan = anItem({ id: 'i1', workStreamId: null, sprintId: 'sp1', points: 5 });
+    const a = assessStreams(r, team, [orphan], { today: todayISO(), unassignedItems: [orphan] });
+    expect(a.byId.get(null)?.muted).toBe(false);
+  });
+
+  it('drops a muted stream from the retrospective ledger — rows, reservation and points', () => {
+    const r = future();
+    r.workStreams = [
+      aStream({ id: 'ws1', name: 'Real', engineersRequired: 3 }),
+      aStream({ id: 'ws2', name: 'Roll-up', engineersRequired: 3, muted: true }),
+    ];
+    const retro = assessRelease(r, team, [
+      anItem({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 10 }),
+      anItem({ id: 'i2', workStreamId: 'ws2', sprintId: 'sp1', points: 900 }),
+    ]);
+    expect(retro.streams.map((s) => s.ws.id)).toEqual(['ws1']);
+    expect(retro.contention.totalRequired).toBe(3);
+    // The 900 phantom points are gone: an abandoned stream cannot make the release
+    // read as over-committed, which is the reading muting exists to correct.
+    expect(retro.totalPts).toBe(10);
+    expect(retro.overCommitted).toBe(false);
+  });
+
+  it('leaves a muted stream out of the per-sprint allocation strip', () => {
+    const r = future();
+    r.workStreams = [aStream({ id: 'ws1', engineersRequired: 9, muted: true })];
+    const retro = assessRelease(r, team, [anItem({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 5 })]);
+    // sp1 would otherwise hold one stream reserving 9 against a team of 4.
+    expect(retro.perSprint[0].streamCount).toBe(0);
+    expect(retro.perSprint[0].idle).toBe(true);
+    expect(retro.overbookedSprints).toBe(0);
+  });
+});

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { releaseToTSV } from './exportRelease';
+import { scopeStreamIds } from './exportScope';
 import { aRelease, aSprint, aStream, anItem } from '../test/factories';
 import type { AppState, Release, WorkItem } from '../types';
 
@@ -108,6 +109,29 @@ describe('releaseToTSV', () => {
     expect(rows[5][0]).toBe('Planned');
     expect(rows[5][1]).toBe('3');
     expect(rows[5][2]).toBe('5');
+  });
+
+  it('leaves a muted stream out of both its own section and the release-wide Planned row', () => {
+    // ws2 is muted: kept for reporting, not work this team delivers. It must vanish
+    // from the export entirely — a section of its own AND the points it contributes
+    // to the sprint totals, which is the figure a planner actually reads.
+    const r = release();
+    r.workStreams[1] = aStream({ id: 'ws2', name: 'Auth', muted: true });
+    const st: AppState = {
+      version: 1,
+      teams: [],
+      releases: [r],
+      items: [
+        item({ id: 'i1', workStreamId: 'ws1', sprintId: 'sp1', points: 3 }),
+        item({ id: 'i2', workStreamId: 'ws2', sprintId: 'sp1', points: 90 }),
+      ],
+      meta: { lastSyncISO: null },
+    };
+    const tsv = releaseToTSV(st, 'rel', scopeStreamIds('all-builds', r.workStreams, undefined));
+    const rows = parseRows(tsv);
+    expect(rows[5][0]).toBe('Planned');
+    expect(rows[5][1]).toBe('3');
+    expect(tsv).not.toContain('Auth');
   });
 
   it('emits a stream header row with stats in col 0 and empty sprint columns', () => {

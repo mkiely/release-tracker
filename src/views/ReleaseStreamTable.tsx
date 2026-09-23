@@ -119,6 +119,7 @@ function StreamRow({
             forecast={forecast}
             runway={runway}
             planningState={ws.planningState}
+            muted={ws.muted}
             onOpenDelivery={() => (forecast.verdict === 'unconfigured' ? onEditStream(ws.id) : onOpenStreamHealth(ws.id))}
             onOpenPlanning={() => (runway.verdict === 'unconfigured' ? onEditStream(ws.id) : onOpenStreamHealth(ws.id))}
           />

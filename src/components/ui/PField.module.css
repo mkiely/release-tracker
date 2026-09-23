@@ -11,3 +11,10 @@
   text-transform: uppercase;
   color: var(--rt-t3);
 }
+/* A validation message under a field's control — client-side (a required field left
+   blank) or connector-side (a 422 field error handed back by the sync service). */
+.error {
+  font-size: var(--rt-fs-xs);
+  color: var(--rt-st-bl-text);
+  line-height: var(--rt-lh-snug);
+}

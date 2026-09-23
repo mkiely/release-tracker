@@ -143,6 +143,8 @@ export interface ReleaseViewProps {
   onOpenTeam: () => void;
   /** Opens the consolidated Metrics modal, optionally at a given section. */
   onOpenMetrics: (section?: MetricsSection) => void;
+  /** Opens the work-stream timeline (Gantt) panel. */
+  onOpenTimeline: () => void;
   onExport: () => void;
   /** Ids of the streams currently visible under the active stream facets, or undefined
    *  when no facet is active. This is what the VIEW shows — it is deliberately no
@@ -357,7 +359,9 @@ export function useReleaseView(): ReleaseViewProps | null {
     runwayAlarmCount: streamRows.filter((row) => row.runway.alarm).length,
     reservationRebalance: (() => {
       const bal = reservationBalance(
-        streamRows.map((row) => ({
+        // Muted streams hold no engineers anyone could move, so a rebalance that
+        // named one would suggest a reallocation that isn't there to make.
+        streamRows.filter((row) => !row.ws?.muted).map((row) => ({
           name: row.ws ? row.ws.name : 'Unassigned',
           shortfallPts: row.forecast.shortfallPts,
           atRisk: row.forecast.verdict === 'at-risk',
@@ -381,6 +385,7 @@ export function useReleaseView(): ReleaseViewProps | null {
     onEditStream: (wsId) => openModal({ type: 'stream', releaseId: id, wsId }),
     onOpenTeam: () => { if (r.teamId) openModal({ type: 'team', teamId: r.teamId }); },
     onOpenMetrics: (section) => openModal({ type: 'metrics', releaseId: id, section }),
+    onOpenTimeline: () => openModal({ type: 'timeline', releaseId: id }),
     onExport,
     facetVisibleStreamIds,
     exportScope,

@@ -410,9 +410,7 @@ describe('forward capacity-fit health', () => {
       workStreams: [], events: [], sprints: [sp1, sp2], codeFreezeISO,
       externalId: null, connector: null, sync: null, sprintLengthDays: 14,
     });
-    const ws = (codeFreezeISO?: string | null): WorkStream => ({
-      id: 'ws', name: 'W', externalId: null, engineersRequired: null, planningState: 'open', build: null, externalUrl: null, codeFreezeISO,
-    });
+    const ws = (codeFreezeISO?: string | null): WorkStream => aStream({ id: 'ws', name: 'W', codeFreezeISO });
     const before = '2026-04-01'; // "today" earlier than both sprints — both are remaining
 
     describe('effectiveCodeFreeze', () => {

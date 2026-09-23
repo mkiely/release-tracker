@@ -97,6 +97,7 @@ export function WorkStreamChrome({
             forecast={forecast}
             runway={runway}
             planningState={ws.planningState}
+            muted={ws.muted}
             onOpenDelivery={() => (forecast.verdict === 'unconfigured' ? onEditStream() : onOpenHealth())}
             onOpenPlanning={() => (runway.verdict === 'unconfigured' ? onEditStream() : onOpenHealth())}
           />

@@ -12,7 +12,7 @@ import {
   type ColumnPrefs,
   type ItemCellCtx,
 } from './columns';
-import { anItem } from '../../test/factories';
+import { aStream, anItem } from '../../test/factories';
 import type { ReleaseCatalog, WorkItem, WorkStream } from '../../types';
 
 const cellCtx: ItemCellCtx = { members: [] };
@@ -357,10 +357,7 @@ describe('attributeColumns — sort specs', () => {
 });
 
 describe('streamAttributeColumns', () => {
-  const stream = (attributes: WorkStream['attributes']): WorkStream => ({
-    id: 'ws_1', name: 'API', externalId: null, engineersRequired: null,
-    planningState: 'open', build: null, externalUrl: null, attributes,
-  });
+  const stream = (attributes: WorkStream['attributes']): WorkStream => aStream({ id: 'ws_1', attributes });
 
   it('projects vocabulary stream fields flat, skipping non-attribute shapes', () => {
     expect(streamAttributeColumns(catalog).map((c) => [c.key, c.label])).toEqual([

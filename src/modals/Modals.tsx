@@ -17,7 +17,7 @@ import { RichTextEditor } from '../components/RichTextEditor';
 import { copyRich, linkClipboard } from '../lib/copyLink';
 import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
-import { IconButton, Modal, PButton, PField, PInput, PMetaLine, PointSeg, PSelect, PTextarea } from '../components/primitives';
+import { IconButton, Modal, ModalSplit, PButton, PField, PInput, PMetaLine, PointSeg, PSelect, PTextarea } from '../components/primitives';
 import { CalcCard, Callout, MetaChip } from '../components/ui/Callout';
 import { FreezeOverrideList } from '../components/ui/FreezeOverrideList';
 import { assessStreams } from '../lib/streamAssessment';
@@ -251,6 +251,7 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
   );
   const [planning, setPlanning] = useState<PlanningState>(existing ? existing.planningState : 'open');
   const [codeFreeze, setCodeFreeze] = useState(existing?.codeFreezeISO ?? '');
+  const [muted, setMuted] = useState(existing ? existing.muted : false);
   const parseEngineers = (): number | null => {
     const n = Number(engineers);
     return engineers.trim() && Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
@@ -259,12 +260,12 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
     if (!name.trim()) return;
     const codeFreezeISO = codeFreeze || null;
     if (editing && wsId) {
-      getActions().updateWorkStream(releaseId, wsId, { name: name.trim(), engineersRequired: parseEngineers(), planningState: planning, codeFreezeISO });
+      getActions().updateWorkStream(releaseId, wsId, { name: name.trim(), engineersRequired: parseEngineers(), planningState: planning, codeFreezeISO, muted });
     } else {
       const ws = getActions().createWorkStream(releaseId, name.trim());
       const er = parseEngineers();
-      if (ws && (er != null || planning !== 'open' || codeFreezeISO)) {
-        getActions().updateWorkStream(releaseId, ws.id, { engineersRequired: er, planningState: planning, codeFreezeISO });
+      if (ws && (er != null || planning !== 'open' || codeFreezeISO || muted)) {
+        getActions().updateWorkStream(releaseId, ws.id, { engineersRequired: er, planningState: planning, codeFreezeISO, muted });
       }
     }
     onClose();
@@ -341,6 +342,22 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
           min={r?.sprints.length ? r.sprints[0].startISO : undefined}
           onChange={(e) => setCodeFreeze(e.target.value)}
         />
+      </PField>
+      <PField label="Counts toward this release">
+        <SegmentedToggle
+          value={muted ? 'muted' : 'counted'}
+          onChange={(v) => setMuted(v === 'muted')}
+          ariaLabel="Whether this stream counts toward the release"
+          options={[
+            { value: 'counted', label: 'Counted', title: 'Normal: this stream is the team’s work and appears in every export, summary and capacity figure' },
+            { value: 'muted', label: 'Muted', title: 'Informational only: kept and browsable, but left out of exports, summaries and the release’s capacity maths' },
+          ]}
+        />
+        <span style={{ display: 'block', marginTop: 6, fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.45 }}>
+          {muted
+            ? 'Muted. Still synced and browsable, but left out of TSV exports, summary reports, and the release’s capacity maths — its engineer reservation isn’t contended for and its points aren’t counted as scope.'
+            : 'Counted normally. Mute a stream that exists for reporting rather than for work this team delivers — a vestigial epic, or a roll-up someone else owns.'}
+        </span>
       </PField>
       <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
         {nameLocked
@@ -816,68 +833,74 @@ export function WorkItemModal({
         </>
       }
     >
-      <PField label="Subject">
-        <PInput autoFocus value={subject} placeholder="Short summary of the work" onChange={(e) => setSubject(e.target.value)} />
-      </PField>
-      <PField label="Description" hint="supports markdown pasted content">
-        <RichTextEditor value={desc} onChange={setDesc} />
-      </PField>
-      <div style={{ display: 'flex', gap: 12 }}>
-        <PField label="Work stream" style={{ flex: 1 }}>
-          <PSelect value={wsId ?? ''} onChange={(e) => setWsId(e.target.value || null)}>
-            <option value="">None (unassigned)</option>
-            {r.workStreams.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </PSelect>
-        </PField>
-        <PField label="Sprint" style={{ flex: 1 }}>
-          <PSelect value={sprintId ?? ''} onChange={(e) => setSprintId(e.target.value || null)}>
-            <option value="">No sprint</option>
-            {r.sprints.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </PSelect>
-        </PField>
-      </div>
-      <div style={{ display: 'flex', gap: 12 }}>
-        <PField label="Assignee" style={{ flex: 1 }}>
-          <PSelect value={assignedMemberId ?? ''} onChange={(e) => setAssignedMemberId(e.target.value || null)}>
-            <option value="">Unassigned</option>
-            {(team?.members ?? []).map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </PSelect>
-        </PField>
-        <PField label="Status" style={{ flex: 1 }}>
-          <PSelect value={status} onChange={(e) => setStatus(e.target.value as Status)}>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </PSelect>
-        </PField>
-      </div>
-      {!r.connector && (
-        <PField label="Type">
-          <PSelect value={typeLabel} onChange={(e) => setTypeLabel(e.target.value)}>
-            <option value="">None</option>
-            {LOCAL_ITEM_TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </PSelect>
-        </PField>
-      )}
-      <PField label="Points" hint="approximate effort">
-        <PointSeg value={points} onChange={setPoints} />
-      </PField>
+      <ModalSplit
+        main={
+          <>
+            <PField label="Subject">
+              <PInput autoFocus value={subject} placeholder="Short summary of the work" onChange={(e) => setSubject(e.target.value)} />
+            </PField>
+            <PField label="Description" hint="supports markdown pasted content">
+              <RichTextEditor value={desc} onChange={setDesc} />
+            </PField>
+          </>
+        }
+        rail={
+          <>
+            <PField label="Work stream">
+              <PSelect value={wsId ?? ''} onChange={(e) => setWsId(e.target.value || null)}>
+                <option value="">None (unassigned)</option>
+                {r.workStreams.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </PSelect>
+            </PField>
+            <PField label="Sprint">
+              <PSelect value={sprintId ?? ''} onChange={(e) => setSprintId(e.target.value || null)}>
+                <option value="">No sprint</option>
+                {r.sprints.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </PSelect>
+            </PField>
+            <PField label="Assignee">
+              <PSelect value={assignedMemberId ?? ''} onChange={(e) => setAssignedMemberId(e.target.value || null)}>
+                <option value="">Unassigned</option>
+                {(team?.members ?? []).map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </PSelect>
+            </PField>
+            <PField label="Status">
+              <PSelect value={status} onChange={(e) => setStatus(e.target.value as Status)}>
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </PSelect>
+            </PField>
+            {!r.connector && (
+              <PField label="Type">
+                <PSelect value={typeLabel} onChange={(e) => setTypeLabel(e.target.value)}>
+                  <option value="">None</option>
+                  {LOCAL_ITEM_TYPES.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </PSelect>
+              </PField>
+            )}
+            <PField label="Points" hint="approximate effort">
+              <PointSeg value={points} onChange={setPoints} />
+            </PField>
+          </>
+        }
+      />
     </Modal>
   );
 }
@@ -1107,123 +1130,127 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
         </>
       }
     >
-      <PField label="Subject">
-        <PInput value={subject} disabled={!canWrite('subject')} onChange={(e) => setSubject(e.target.value)} />
-      </PField>
-      <PField label="Description">
-        {it.descriptionFormat === 'html' ? (
-          <RichTextEditor value={desc} editable={canWrite('description')} onChange={setDesc} />
-        ) : (
-          <PTextarea
-            value={desc}
-            disabled={!canWrite('description')}
-            placeholder="No description yet — add detail, acceptance criteria, links…"
-            onChange={(e) => setDesc(e.target.value)}
-            style={{ minHeight: 140 }}
-          />
-        )}
-      </PField>
-      <div style={{ display: 'flex', gap: 12 }}>
-        <PField label="Work stream" style={{ flex: 1 }}>
-          <PSelect value={wsId ?? ''} disabled={!canWrite('workStream')} onChange={(e) => setWsId(e.target.value || null)}>
-            <option value="">None (unassigned)</option>
-            {r.workStreams.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </PSelect>
-        </PField>
-        <PField label="Sprint" style={{ flex: 1 }}>
-          <PSelect value={sprintId ?? ''} disabled={!canWrite('sprint')} onChange={(e) => setSprintId(e.target.value || null)}>
-            <option value="">No sprint</option>
-            {r.sprints.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </PSelect>
-        </PField>
-      </div>
-      <div style={{ display: 'flex', gap: 12 }}>
-        <PField label="Assignee" style={{ flex: 1 }}>
-          <PSelect value={assignedMemberId ?? ''} disabled={!canWrite('assignee')} onChange={(e) => setAssignedMemberId(e.target.value || null)}>
-            <option value="">Unassigned</option>
-            {(team?.members ?? []).map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </PSelect>
-        </PField>
-        <PField label="Status" style={{ flex: 1 }}>
-          {vocabStatus ? (
-            <PSelect value={statusNativeId} disabled={!canWrite('status')} onChange={(e) => setStatusNativeId(e.target.value)}>
-              {/* Pre-vocabulary item: show its bare category until a native state is chosen. */}
-              {!statusNativeId && <option value="">{it.status}</option>}
-              {statusVocab.map((sd) => (
-                <option key={sd.id} value={sd.id}>
-                  {sd.label}
-                </option>
-              ))}
-            </PSelect>
-          ) : (
-            <PSelect value={status} disabled={!canWrite('status')} onChange={(e) => setStatus(e.target.value as Status)}>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </PSelect>
-          )}
-        </PField>
-      </div>
-      {!connectorRelease && (
-        <PField label="Type">
-          <PSelect value={typeLabel} onChange={(e) => setTypeLabel(e.target.value)}>
-            <option value="">None</option>
-            {LOCAL_ITEM_TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </PSelect>
-        </PField>
-      )}
-      <PField label="Points">
-        <PointSeg value={points} onChange={setPoints} disabled={!canWrite('points')} />
-      </PField>
-      {attrFields.length > 0 && (
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          {attrFields.map((f) =>
-            attrEditable(f.key) ? (
-              <PField key={f.key} label={f.label ?? f.key} style={{ flex: 1, minWidth: 140 }}>
-                <FieldControl
-                  field={f}
-                  value={attrs[f.key] ?? null}
-                  onChange={(v) => setAttrs((a) => ({ ...a, [f.key]: (v === '' ? null : v) as AttrValue }))}
-                  ctx={{ workStreams: [], sprints: [], members: [] }}
+      <ModalSplit
+        main={
+          <>
+            <PField label="Subject">
+              <PInput value={subject} disabled={!canWrite('subject')} onChange={(e) => setSubject(e.target.value)} />
+            </PField>
+            <PField label="Description">
+              {it.descriptionFormat === 'html' ? (
+                <RichTextEditor value={desc} editable={canWrite('description')} onChange={setDesc} />
+              ) : (
+                <PTextarea
+                  value={desc}
+                  disabled={!canWrite('description')}
+                  placeholder="No description yet — add detail, acceptance criteria, links…"
+                  onChange={(e) => setDesc(e.target.value)}
+                  // Taller than the create form's default: this is the field the
+                  // two-column layout exists to serve, and the rail beside it is
+                  // what pays for the height.
+                  style={{ minHeight: 320 }}
                 />
+              )}
+            </PField>
+            {/* Timestamps are never edited here — on a synced item they belong to the
+                backend, on a local one the app stamps them — so they read as a footnote,
+                not as fields. Hidden entirely when neither is known (items predating the
+                field; connectors that send no timestamps). */}
+            {(it.createdISO || it.updatedISO) && (
+              <PMetaLine
+                items={[
+                  { label: 'Created', value: fmtDateTime(it.createdISO), title: it.createdISO ?? undefined },
+                  { label: 'Last modified', value: fmtDateTime(it.updatedISO), title: it.updatedISO ?? undefined },
+                ]}
+              />
+            )}
+          </>
+        }
+        rail={
+          <>
+            <PField label="Work stream">
+              <PSelect value={wsId ?? ''} disabled={!canWrite('workStream')} onChange={(e) => setWsId(e.target.value || null)}>
+                <option value="">None (unassigned)</option>
+                {r.workStreams.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </PSelect>
+            </PField>
+            <PField label="Sprint">
+              <PSelect value={sprintId ?? ''} disabled={!canWrite('sprint')} onChange={(e) => setSprintId(e.target.value || null)}>
+                <option value="">No sprint</option>
+                {r.sprints.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </PSelect>
+            </PField>
+            <PField label="Assignee">
+              <PSelect value={assignedMemberId ?? ''} disabled={!canWrite('assignee')} onChange={(e) => setAssignedMemberId(e.target.value || null)}>
+                <option value="">Unassigned</option>
+                {(team?.members ?? []).map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </PSelect>
+            </PField>
+            <PField label="Status">
+              {vocabStatus ? (
+                <PSelect value={statusNativeId} disabled={!canWrite('status')} onChange={(e) => setStatusNativeId(e.target.value)}>
+                  {/* Pre-vocabulary item: show its bare category until a native state is chosen. */}
+                  {!statusNativeId && <option value="">{it.status}</option>}
+                  {statusVocab.map((sd) => (
+                    <option key={sd.id} value={sd.id}>
+                      {sd.label}
+                    </option>
+                  ))}
+                </PSelect>
+              ) : (
+                <PSelect value={status} disabled={!canWrite('status')} onChange={(e) => setStatus(e.target.value as Status)}>
+                  {STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </PSelect>
+              )}
+            </PField>
+            {!connectorRelease && (
+              <PField label="Type">
+                <PSelect value={typeLabel} onChange={(e) => setTypeLabel(e.target.value)}>
+                  <option value="">None</option>
+                  {LOCAL_ITEM_TYPES.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </PSelect>
               </PField>
-            ) : (
-              <PField key={f.key} label={f.label ?? f.key} style={{ flex: 1, minWidth: 140 }}>
-                <PInput value={displayValue(f, it.attributes?.[f.key])} disabled title="Connector field (read-only)" />
-              </PField>
-            ),
-          )}
-        </div>
-      )}
-      {/* Timestamps are never edited here — on a synced item they belong to the
-          backend, on a local one the app stamps them — so they read as a footnote,
-          not as fields: a full form row would cost the description its height for
-          two values nobody edits. Hidden entirely when neither is known (items
-          predating the field; connectors that send no timestamps). */}
-      {(it.createdISO || it.updatedISO) && (
-        <PMetaLine
-          items={[
-            { label: 'Created', value: fmtDateTime(it.createdISO), title: it.createdISO ?? undefined },
-            { label: 'Last modified', value: fmtDateTime(it.updatedISO), title: it.updatedISO ?? undefined },
-          ]}
-        />
-      )}
+            )}
+            <PField label="Points">
+              <PointSeg value={points} onChange={setPoints} disabled={!canWrite('points')} />
+            </PField>
+            {attrFields.map((f) =>
+              attrEditable(f.key) ? (
+                <PField key={f.key} label={f.label ?? f.key}>
+                  <FieldControl
+                    field={f}
+                    value={attrs[f.key] ?? null}
+                    onChange={(v) => setAttrs((a) => ({ ...a, [f.key]: (v === '' ? null : v) as AttrValue }))}
+                    ctx={{ workStreams: [], sprints: [], members: [] }}
+                  />
+                </PField>
+              ) : (
+                <PField key={f.key} label={f.label ?? f.key}>
+                  <PInput value={displayValue(f, it.attributes?.[f.key])} disabled title="Connector field (read-only)" />
+                </PField>
+              ),
+            )}
+          </>
+        }
+      />
     </Modal>
   );
 }

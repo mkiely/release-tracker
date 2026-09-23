@@ -442,11 +442,18 @@ function RunwaySection({ r, team, items }: SectionProps) {
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 'var(--rt-fs-sm)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-ink)' }}>{ws.name}</span>
                   <RunwayBadge verdict={runway.verdict} />
+                  {/* "deferred", not "muted": WorkStream.muted is now a separate flag
+                      meaning "not this team's work at all", and this list would
+                      otherwise show the same word for two near-opposite states one
+                      row apart. The prose below already calls this state Deferred. */}
                   {ws.planningState === 'deferred' && (
-                    <span className="tag" style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>muted</span>
+                    <span className="tag" style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>deferred</span>
                   )}
                   {ws.planningState === 'complete' && (
                     <span className="tag" style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>scope complete</span>
+                  )}
+                  {ws.muted && (
+                    <span className="tag" style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>muted</span>
                   )}
                 </span>
                 <span style={{ fontSize: 'var(--rt-fs-xs)', color: runway.alarm ? alertTone.text : 'var(--rt-t3)', lineHeight: 1.4 }}>

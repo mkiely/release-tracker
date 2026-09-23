@@ -14,7 +14,7 @@ import { useApp } from '../app-context';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import { Icon } from '../components/Icon';
 import { FieldControl } from '../components/fields/registry';
-import { Modal, PButton, PField, PSelect } from '../components/primitives';
+import { Modal, ModalSplit, PButton, PField, PFieldError, PSelect } from '../components/primitives';
 
 export function ConnectorItemModal({
   releaseId,
@@ -142,6 +142,24 @@ export function ConnectorItemModal({
   const ctx = { workStreams: r.workStreams, sprints: r.sprints, members: team?.members ?? [] };
   const connectorName = r.connector ? connectorLabel(r.connector.type) : 'the external system';
 
+  // Which column a creatable field lands in. The catalog describes fields as data,
+  // so the split is by declared ROLE, not by key: subject and description are the
+  // two that reward width, everything else reads fine in the rail. A connector that
+  // declares neither simply gets an empty main column and a full rail.
+  const isMainField = (f: FieldSpec) => f.role === 'subject' || f.role === 'description';
+  const mainFields = createFields.filter(isMainField);
+  const railFields = createFields.filter((f) => !isMainField(f));
+
+  const renderField = (f: FieldSpec) => {
+    const fieldError = showErrors ? errors[f.key] : undefined;
+    return (
+      <PField key={f.key} label={f.label ?? f.key} hint={f.required ? undefined : 'optional'}>
+        <FieldControl field={f} value={values[f.key]} onChange={(v) => set(f.key, v)} ctx={ctx} />
+        {fieldError && <PFieldError>{fieldError}</PFieldError>}
+      </PField>
+    );
+  };
+
   return (
     <Modal
       title="New work item"
@@ -162,29 +180,25 @@ export function ConnectorItemModal({
         </>
       }
     >
-      {types.length > 1 && (
-        <PField label="Type">
-          <PSelect value={selectedType.id} onChange={(e) => setTypeId(e.target.value)}>
-            {types.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
-            ))}
-          </PSelect>
-        </PField>
-      )}
-
-      {createFields.map((f) => {
-        const fieldError = showErrors ? errors[f.key] : undefined;
-        return (
-          <PField key={f.key} label={f.label ?? f.key} hint={f.required ? undefined : 'optional'}>
-            <FieldControl field={f} value={values[f.key]} onChange={(v) => set(f.key, v)} ctx={ctx} />
-            {fieldError && (
-              <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-st-bl-text)', marginTop: 2 }}>{fieldError}</span>
+      <ModalSplit
+        main={mainFields.map(renderField)}
+        rail={
+          <>
+            {types.length > 1 && (
+              <PField label="Type">
+                <PSelect value={selectedType.id} onChange={(e) => setTypeId(e.target.value)}>
+                  {types.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </PSelect>
+              </PField>
             )}
-          </PField>
-        );
-      })}
+            {railFields.map(renderField)}
+          </>
+        }
+      />
     </Modal>
   );
 }

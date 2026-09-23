@@ -151,6 +151,7 @@ type ReleaseChromeProps = Pick<
   | 'onNavigateToUnassigned'
   | 'onOpenTeam'
   | 'onOpenMetrics'
+  | 'onOpenTimeline'
   | 'velocity'
   | 'overAllocated'
   | 'runwayAlarmCount'
@@ -193,6 +194,7 @@ export function ReleaseChrome({
   onNavigateToUnassigned,
   onOpenTeam,
   onOpenMetrics,
+  onOpenTimeline,
   velocity,
   overAllocated,
   runwayAlarmCount,
@@ -304,6 +306,15 @@ export function ReleaseChrome({
           <span className={`${chromeStyles.actionZone} ${chromeStyles.navZone}`}>
             <PButton variant="subtle" sm icon={Icon.backlog} onClick={onNavigateToBacklog} title="All incomplete work in this release">
               Backlog
+            </PButton>
+            <PButton
+              variant="subtle"
+              sm
+              icon={Icon.timeline}
+              onClick={onOpenTimeline}
+              title="Work streams on a date axis — where each one's work is scheduled, against today and the code freeze"
+            >
+              Timeline
             </PButton>
             <PButton
               variant="subtle"

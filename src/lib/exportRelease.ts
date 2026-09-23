@@ -65,12 +65,21 @@ export function releaseToTSV(
 
   // Pre-compute per-stream metrics. Assessed across every stream even when the export
   // is scoped to a subset — contention is a release-level figure, so a scoped export
-  // must still report the verdicts the app itself shows.
+  // must still report the verdicts the app itself shows. (Muted streams are the one
+  // exception, and assessStreams drops them itself — they're not scoped out, they're
+  // not this team's work at all. See WorkStream.muted.)
   const today = todayISO();
   const releaseItems = state.items.filter((i) => i.releaseId === releaseId);
   const unassignedItems = releaseItems.filter((i) => i.workStreamId === null);
   const assessment = assessStreams(release, team, releaseItems, { today, unassignedItems });
   const { ctx, contention } = assessment;
+
+  // The release-wide rows below are deliberately NOT scoped — they describe the
+  // release, not the selection. Muted streams still come out of them: a "Planned"
+  // figure inflated by an abandoned stream's tickets misreports the sprint, which is
+  // the whole reason the flag exists.
+  const mutedStreamIds = new Set(release.workStreams.filter((ws) => ws.muted).map((ws) => ws.id));
+  const countedItems = releaseItems.filter((i) => i.workStreamId == null || !mutedStreamIds.has(i.workStreamId));
 
   /** Multi-line string for the stream header cell: name + compact metric lines. */
   const streamHeaderCell = (wsId: string | null, name: string): string => {
@@ -117,7 +126,7 @@ export function releaseToTSV(
     serializeRow(['Days off', ...sprints.map((s) => String(s.daysOff))]),
     serializeRow(['Events', ...sprints.map((s) => cell(eventsIn(release, s).map((e) => `${e.label} (${fmtShort(e.dateISO)})`).join('; ')))]),
     serializeRow(['Capacity', ...sprints.map((s) => String(sprintVel(team, s, s.daysOff)))]),
-    serializeRow(['Planned', ...sprints.map((s) => String(sumPoints(state.items.filter((i) => i.releaseId === releaseId && i.sprintId === s.id))))]),
+    serializeRow(['Planned', ...sprints.map((s) => String(sumPoints(countedItems.filter((i) => i.sprintId === s.id))))]),
   ];
 
   const streamsToExport: Array<{ name: string; matchId: string | null }> = [

@@ -77,6 +77,43 @@
   gap: 16px;
   overflow: auto;
 }
+/* Two-column body for the work-item modals: the description gets the width AND
+   the height, the metadata fields move into a rail beside it. Opt-in (see
+   ModalSplit) — every other modal keeps the single stacked column.
+
+   Both tracks carry minmax(0, …) because grid items default to min-content width,
+   which a long unbroken token in a description would otherwise push the whole
+   dialog past. align-items:start keeps the rail at the top instead of stretching
+   its fields to match a tall description. */
+.splitBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 22px;
+}
+/* Below the breakpoint the rail would be too narrow for a select to read, so the
+   two tracks become one and the rail sits under the description. */
+@media (max-width: 980px) {
+  .splitBody {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+/* Each column stacks its own fields at the body's own rhythm. min-width:0 repeats
+   here for the same reason it does on the tracks — these are grid items too. */
+.splitMain,
+.splitRail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+/* Past ~90ch a line is harder to read, not easier, so the extra dialog width goes
+   to the rail rather than stretching prose further. */
+.splitMain {
+  max-width: 90ch;
+}
+
 /* Buttons don't shrink (their labels are whole phrases — "Use default (last
    sprint end)"), so the row wraps instead of breaking out of the dialog. */
 .foot {

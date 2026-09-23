@@ -42,6 +42,12 @@ import {
 export interface StreamAssessment {
   ws: WorkStream | null;
   items: WorkItem[];
+  /** This stream is informational only (see WorkStream.muted) — it took no part in
+   *  the release-level figures above, so its own forecast/runway were computed
+   *  against a contention it isn't in. Presenters surface the flag instead of those
+   *  verdicts rather than showing a judgement the release doesn't act on. Always
+   *  false for the Unassigned bucket. */
+  muted: boolean;
   health: StreamHealth;
   forecast: StreamForecast;
   runway: StreamRunway;
@@ -98,9 +104,12 @@ export function assessStreams(
   const withHealth = inputs.map((s) => ({ ...s, health: streamHealth(s.items) }));
 
   // Only streams that still have work compete for engineers — a finished stream's
-  // reservation isn't taken from anyone.
+  // reservation isn't taken from anyone, and neither is a muted one's: muted means
+  // the stream is not this team's work, so nobody is held by it (see WorkStream.muted).
   const contention = streamContention(
-    withHealth.filter((s) => s.ws?.engineersRequired != null && s.health.remainingPts > 0).map((s) => s.ws!.engineersRequired!),
+    withHealth
+      .filter((s) => s.ws?.engineersRequired != null && !s.ws.muted && s.health.remainingPts > 0)
+      .map((s) => s.ws!.engineersRequired!),
     ctx.contributingCount,
   );
 
@@ -126,6 +135,7 @@ export function assessStreams(
     return {
       ws,
       items: streamItems,
+      muted: !!ws?.muted,
       health,
       ctx: streamCtx,
       preFreezePts,
@@ -184,9 +194,10 @@ export interface ReleaseRetro {
   /** Contention across every stream that carried work — complete streams included,
    *  so finishing can never improve the verdict. */
   contention: StreamContention;
-  /** One entry per work stream, release order. The Unassigned bucket is excluded:
-   *  it holds no reservation, so it cannot contend. Its points are still in
-   *  `totalPts` when the caller supplies them. */
+  /** One entry per *counted* work stream, release order. Two exclusions: the
+   *  Unassigned bucket, which holds no reservation and so cannot contend (its points
+   *  are still in `totalPts` when the caller supplies them), and muted streams, which
+   *  are out of this reading entirely — reservation and points alike. */
   streams: RetroStream[];
   /** One entry per sprint, release order — including sprints past the freeze, which
    *  the ledger's capacity window excludes but which can still hold work. Dropping
@@ -196,7 +207,8 @@ export interface ReleaseRetro {
    *  (i.e. excluding idle ones) — the "overbooked for 8 of 11 sprints" reading. */
   overbookedSprints: number;
   judgedSprints: number;
-  /** Σ points across the release's items, and the completed portion. */
+  /** Σ points across the release's items, and the completed portion. Items in muted
+   *  streams are excluded — they are not scope this team committed to. */
   totalPts: number;
   donePts: number;
   /** Total scope measured against total capacity — the ledger's own verdict, and
@@ -209,7 +221,9 @@ export interface ReleaseRetro {
  *
  * `items` must be the release's full item set, as with assessStreams — and here it
  * matters twice over, since both the contention set and the points ledger are
- * whole-release figures that a filtered subset would silently understate.
+ * whole-release figures that a filtered subset would silently understate. Muted
+ * streams are dropped here rather than by the caller for exactly that reason: it is
+ * the one exclusion that is a property of the release, not of a caller's view.
  */
 export function assessRelease(
   release: Release,
@@ -218,8 +232,16 @@ export function assessRelease(
 ): ReleaseRetro {
   const ledger = releaseLedger(release, team);
 
-  const streams: RetroStream[] = release.workStreams.map((ws) => {
-    const health = streamHealth(items.filter((i) => i.workStreamId === ws.id));
+  // Muted streams are not this team's work (see WorkStream.muted), so they leave
+  // this reading whole — reservation AND points. Dropping only the reservation
+  // would let an abandoned stream's leftover tickets still move `overCommitted`,
+  // which is precisely the phantom scope muting exists to remove.
+  const countedStreams = release.workStreams.filter((ws) => !ws.muted);
+  const mutedStreamIds = new Set(release.workStreams.filter((ws) => ws.muted).map((ws) => ws.id));
+  const countedItems = items.filter((i) => i.workStreamId == null || !mutedStreamIds.has(i.workStreamId));
+
+  const streams: RetroStream[] = countedStreams.map((ws) => {
+    const health = streamHealth(countedItems.filter((i) => i.workStreamId === ws.id));
     return {
       ws,
       totalPts: health.totalPts,
@@ -240,13 +262,13 @@ export function assessRelease(
   // Which streams held work in each sprint. Every item counts, complete or not —
   // the same completion-invariance the release-level figure relies on.
   const streamsBySprint = new Map<string, Set<string>>();
-  for (const i of items) {
+  for (const i of countedItems) {
     if (i.sprintId == null || i.workStreamId == null) continue;
     const held = streamsBySprint.get(i.sprintId);
     if (held) held.add(i.workStreamId);
     else streamsBySprint.set(i.sprintId, new Set([i.workStreamId]));
   }
-  const reservationOf = new Map(release.workStreams.map((ws) => [ws.id, ws.engineersRequired] as const));
+  const reservationOf = new Map(countedStreams.map((ws) => [ws.id, ws.engineersRequired] as const));
 
   const perSprint: SprintAllocation[] = release.sprints.map((sprint) => {
     const held = streamsBySprint.get(sprint.id);
@@ -261,7 +283,7 @@ export function assessRelease(
     };
   });
 
-  const totalPts = sumPoints(items);
+  const totalPts = sumPoints(countedItems);
   return {
     ledger,
     contention,
@@ -270,7 +292,7 @@ export function assessRelease(
     overbookedSprints: perSprint.filter((s) => s.contention.overAllocated).length,
     judgedSprints: perSprint.filter((s) => !s.idle).length,
     totalPts,
-    donePts: sumPoints(items.filter((i) => i.status === 'Complete')),
+    donePts: sumPoints(countedItems.filter((i) => i.status === 'Complete')),
     overCommitted: ledger.totalCap > 0 && totalPts > ledger.totalCap,
   };
 }

@@ -100,7 +100,7 @@ export interface Actions {
    *  <= 0 or null turns it off. No-op for Local releases in practice (they never sync). */
   setAutoSync: (releaseId: string, minutes: number | null) => void;
   createWorkStream: (releaseId: string, name: string) => WorkStream | null;
-  updateWorkStream: (releaseId: string, wsId: string, patch: Partial<Pick<WorkStream, 'name' | 'engineersRequired' | 'planningState' | 'codeFreezeISO'>>) => void;
+  updateWorkStream: (releaseId: string, wsId: string, patch: Partial<Pick<WorkStream, 'name' | 'engineersRequired' | 'planningState' | 'codeFreezeISO' | 'muted'>>) => void;
   createEvent: (releaseId: string, input: { label: string; dateISO: string }) => void;
   updateEvent: (releaseId: string, eventId: string, patch: Partial<Pick<ReleaseEvent, 'label' | 'dateISO'>>) => void;
   deleteEvent: (releaseId: string, eventId: string) => void;
@@ -235,6 +235,7 @@ export function createActions(ctx: ActionContext): Actions {
             externalId: ws.externalId,
             engineersRequired: ws.engineersRequired ?? null,
             planningState: 'open',
+            muted: ws.muted ?? false,
             build: null,
             externalUrl: null,
             attributes: {},
@@ -294,7 +295,7 @@ export function createActions(ctx: ActionContext): Actions {
 
     createWorkStream: (releaseId, name) => {
       if (!release(releaseId)) return null;
-      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null, planningState: 'open', build: null, externalUrl: null, attributes: {} };
+      const ws: WorkStream = { id: uid('ws'), name: name || 'Untitled stream', externalId: null, engineersRequired: null, planningState: 'open', muted: false, build: null, externalUrl: null, attributes: {} };
       commit((d) => {
         d.releases = d.releases.map((r) =>
           r.id === releaseId ? { ...r, workStreams: [...r.workStreams, ws] } : r,

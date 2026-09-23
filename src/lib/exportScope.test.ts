@@ -36,11 +36,44 @@ describe('scopeStreamIds', () => {
   });
 });
 
+describe('scopeStreamIds — muted streams', () => {
+  // `b` is muted: the team keeps it for reporting but doesn't deliver it.
+  const withMuted = [
+    { id: 'a', name: 'API Gateway', build: null },
+    { id: 'b', name: 'Exec Roll-up', build: null, muted: true },
+    { id: 'c', name: 'Beta 2 Carryover', build: '264.1' },
+  ] as unknown as WorkStream[];
+
+  it('drops a muted stream from every scope, including all-builds', () => {
+    expect([...scopeStreamIds('all-builds', withMuted, undefined)!].sort()).toEqual(['a', 'c']);
+    expect([...scopeStreamIds('current-build', withMuted, undefined)!]).toEqual(['a']);
+  });
+
+  it('drops a muted stream even when a facet explicitly selected it', () => {
+    // Muting is a property of the stream, not a scope the facets can override:
+    // asking to export exactly the muted stream must still export nothing.
+    expect([...scopeStreamIds('filters', withMuted, new Set(['b']))!]).toEqual([]);
+    expect([...scopeStreamIds('filters', withMuted, new Set(['a', 'b']))!]).toEqual(['a']);
+  });
+
+  it('keeps the cheap undefined signal when nothing is muted', () => {
+    expect(scopeStreamIds('all-builds', streams, undefined)).toBeUndefined();
+  });
+});
+
 describe('scopeStreamCount', () => {
   it('counts the selected streams, falling back to all for the undefined signal', () => {
     expect(scopeStreamCount('current-build', streams, undefined)).toBe(2);
     expect(scopeStreamCount('all-builds', streams, undefined)).toBe(3);
     expect(scopeStreamCount('filters', streams, new Set(['c']))).toBe(1);
+  });
+
+  it('counts only the unmuted streams, so the menu states the real export size', () => {
+    const withMuted = [
+      { id: 'a', name: 'API Gateway', build: null },
+      { id: 'b', name: 'Exec Roll-up', build: null, muted: true },
+    ] as unknown as WorkStream[];
+    expect(scopeStreamCount('all-builds', withMuted, undefined)).toBe(1);
   });
 });
 

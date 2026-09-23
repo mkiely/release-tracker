@@ -24,9 +24,10 @@ import { MAX_URL_LENGTH, decodeJson, encodeJson } from './urlCodec';
 export const SHARE_PARAM = 'share';
 
 /** Schema version for the share payload, so a future shape change can be detected.
- *  v2 adds `members` (non-contributing overrides). v1 links still decode — `members`
- *  is simply absent, and the recipient's sync seeds member flags from the connector. */
-const SHARE_VERSION = 2;
+ *  v2 adds `members` (non-contributing overrides). v3 adds `muted` on each carried
+ *  work stream. Older links still decode — the added fields are simply absent, and
+ *  the recipient's sync seeds those flags from the connector's own defaults. */
+const SHARE_VERSION = 3;
 
 /** Per-sprint metadata that travels in a share. Dates/name are for pre-sync
  *  display; `externalId` + `daysOff` are what make days off reattach on sync. */
@@ -45,11 +46,14 @@ interface ShareEvent {
   externalId: string | null;
 }
 
-/** Per-stream local metadata that travels in a share. `externalId` is the key
- *  used to reattach `engineersRequired` after the recipient syncs. */
+/** Per-stream local metadata that travels in a share. `externalId` is the key used
+ *  to reattach these app-owned values after the recipient syncs. */
 interface ShareWorkStream {
   externalId: string | null;
   engineersRequired: number | null;
+  /** The sharer's muted flag (see WorkStream.muted). Absent on pre-v3 links, where
+   *  it reattaches as false — the same default a never-shared stream gets. */
+  muted?: boolean;
 }
 
 /** The decoded contents of a share link: enough to recreate a connector release
@@ -95,9 +99,12 @@ export function buildSharePayload(release: Release, team?: Team): SharePayload |
       daysOff: s.daysOff,
       externalId: s.externalId,
     })),
+    // A stream travels when it carries ANY app-owned value worth reattaching. Testing
+    // engineersRequired alone would drop a muted stream that never had an engineer
+    // count — which is exactly the stream most likely to be muted.
     workStreams: release.workStreams
-      .filter((ws) => ws.engineersRequired !== null)
-      .map((ws) => ({ externalId: ws.externalId, engineersRequired: ws.engineersRequired })),
+      .filter((ws) => ws.engineersRequired !== null || ws.muted)
+      .map((ws) => ({ externalId: ws.externalId, engineersRequired: ws.engineersRequired, muted: ws.muted })),
     // Every synced member's current (app-owned) flag, keyed by externalId — reattaches
     // on the recipient's first sync. Members with no externalId can't be matched there.
     members: (team?.members ?? [])

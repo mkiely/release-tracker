@@ -30,6 +30,7 @@ import {
   velocitySuggestion,
 } from './derive';
 import { assessRelease, assessStreams } from './streamAssessment';
+import { spanOfItems, sprintIndex } from './streamTimeline';
 import { between, dOf, fmtShort, todayISO } from './dates';
 import type { Release, StatusSeg, Team, WorkItem, WorkStream } from '../types';
 
@@ -39,9 +40,10 @@ export const SNAPSHOT_PARAM = 's';
 /** Schema version for the snapshot payload, so a future shape change is detectable.
  *  v2 adds the release `capacity` block and per-stream `doneItems`; v3 adds
  *  `contributingMembers` and a per-capacity-row `verdict`; v5 adds per-stream
- *  `externalUrl` (connector deep link); v6 adds the `wholeRelease` block. Older
- *  payloads still decode — the viewer guards the added fields and defaults them. */
-export const SNAPSHOT_VERSION = 6;
+ *  `externalUrl` (connector deep link); v6 adds the `wholeRelease` block; v7 adds
+ *  per-stream `span` / `freezeISO` / `unassigned` (the timeline). Older payloads
+ *  still decode — the viewer guards the added fields and defaults them. */
+export const SNAPSHOT_VERSION = 7;
 
 /** One sprint's precomputed row in a snapshot. */
 export interface SnapshotSprint {
@@ -85,6 +87,24 @@ export interface SnapshotStream {
   /** Points per sprint across the release, for the trend sparkline. */
   series: number[];
   engineersRequired: number | null;
+  /**
+   * The sprint range this stream's work occupies, as `[startIdx, endIdx]` into
+   * `sprints` — the timeline's bar. Null when nothing of the stream is in a sprint.
+   *
+   * Two numbers rather than two dates, because the payload rides a length-capped
+   * URL and the sprints it indexes are already in it. It could ALMOST be derived
+   * from `series` (first and last non-zero), which is why it isn't obvious it needs
+   * to be here: `series` is points per sprint, so a stream of entirely unestimated
+   * items is all zeroes and would silently lose its bar. Absent on pre-v7 payloads.
+   */
+  span?: [number, number] | null;
+  /** This stream's effective code freeze (its own override, or the release's) — the
+   *  tick on its timeline bar. Absent on pre-v7 payloads. */
+  freezeISO?: string;
+  /** Marks the Unassigned bucket, which is a catch-all and not a work stream. The
+   *  timeline skips it; the status cards still show it. Absent on every real stream
+   *  (and on pre-v7 payloads), so it costs nothing in the URL. */
+  unassigned?: true;
   /** Forward capacity-fit verdict + its plain-language "why". */
   forecast: { verdict: HealthVerdict; summary: string };
   /** Planning-runway verdict + alarm + "why". */
@@ -323,11 +343,17 @@ export function buildSnapshot(
   const activeIndex = release.sprints.findIndex((sp) => between(today, sp.startISO, sp.endISO));
   const friClamped = firstRemainingIndex < 0 ? release.sprints.length : firstRemainingIndex;
 
+  const sprintIdxById = sprintIndex(release.sprints);
+
   const outStreams: SnapshotStream[] = computed.map(({ ws, items: streamItems, series, health, forecast, runway }) => {
     const canForecast = (ws ? ws.engineersRequired : null) != null && health.totalPts > 0;
+    const span = spanOfItems(streamItems, sprintIdxById);
     return {
       name: ws ? ws.name : 'Unassigned',
       externalUrl: ws ? ws.externalUrl : null,
+      span: span ? [span.startIdx, span.endIdx] : null,
+      freezeISO: effectiveStreamCodeFreeze(release, ws),
+      ...(ws ? {} : { unassigned: true as const }),
       itemCount: streamItems.length,
       doneItems: streamItems.filter((i) => i.status === 'Complete').length,
       totalPts: health.totalPts,

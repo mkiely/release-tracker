@@ -13,20 +13,40 @@ import type { ExportScope } from '../store/exportScope';
  *
  * `filters` falls back to every stream when nothing is selected, so a stale
  * preference can never silently export an empty release.
+ *
+ * Muted streams are subtracted from whatever the scope selects, including
+ * 'all-builds' — muting is not a fourth scope but a property of the stream, so it
+ * holds regardless of which scope the user picked (see WorkStream.muted). This is
+ * the single place that rule is applied: both consumers read their stream set from
+ * here, so neither can drift from the other.
  */
 export function scopeStreamIds(
   scope: ExportScope,
   workStreams: readonly WorkStream[],
   facetVisibleIds: ReadonlySet<string> | undefined,
 ): ReadonlySet<string> | undefined {
-  switch (scope) {
-    case 'all-builds':
-      return undefined;
-    case 'filters':
-      return facetVisibleIds;
-    case 'current-build':
-      return new Set(workStreams.filter((ws) => ws.build == null).map((ws) => ws.id));
-  }
+  const scoped = ((): ReadonlySet<string> | undefined => {
+    switch (scope) {
+      case 'all-builds':
+        return undefined;
+      case 'filters':
+        return facetVisibleIds;
+      case 'current-build':
+        return new Set(workStreams.filter((ws) => ws.build == null).map((ws) => ws.id));
+    }
+  })();
+  return withoutMuted(scoped, workStreams);
+}
+
+/** Drop muted streams from a scope's selection. Returns the input untouched when
+ *  nothing is muted, so the common case keeps the cheap `undefined` = all signal. */
+function withoutMuted(
+  scoped: ReadonlySet<string> | undefined,
+  workStreams: readonly WorkStream[],
+): ReadonlySet<string> | undefined {
+  if (!workStreams.some((ws) => ws.muted)) return scoped;
+  const unmuted = workStreams.filter((ws) => !ws.muted);
+  return new Set(scoped ? unmuted.filter((ws) => scoped.has(ws.id)).map((ws) => ws.id) : unmuted.map((ws) => ws.id));
 }
 
 /** Human label for a scope. Used both in the Share menu and in the confirmation

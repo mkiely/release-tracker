@@ -82,6 +82,7 @@ export function aStream(over: Partial<WorkStream> = {}): WorkStream {
     externalId: null,
     engineersRequired: null,
     planningState: 'open',
+    muted: false,
     build: null,
     externalUrl: null,
     attributes: {},

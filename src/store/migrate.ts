@@ -432,6 +432,21 @@ export function migrate(persisted: PersistedState): AppState | null {
     };
   }
 
+  // v28 → v29: work streams gain `muted` — the informational/not-our-work flag that
+  // drops a stream from exports, summaries and the release-level capacity maths.
+  // Backfilled false: every stream a past build wrote was counted, and silently
+  // un-counting one would rewrite a release's reported scope on upgrade.
+  if (s.version === 28) {
+    s = {
+      ...s,
+      version: 29,
+      releases: s.releases.map((r) => ({
+        ...r,
+        workStreams: r.workStreams.map((ws) => ({ ...ws, muted: false })),
+      })),
+    };
+  }
+
   return s.version === SCHEMA_VERSION ? s : null;
 }
 

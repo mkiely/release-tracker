@@ -1,0 +1,179 @@
+/* Work-stream timeline. Shared by the in-app panel and the standalone summary
+   viewer, so everything here is driven by tokens and props — no store, no app-only
+   assumptions. */
+
+.gantt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Label column + plot column. The label width is a variable because the summary
+   viewer runs narrower than the app panel and wants a tighter gutter. */
+.row {
+  display: grid;
+  grid-template-columns: var(--gantt-label-w, 190px) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--rt-fs-sm);
+  font-weight: var(--rt-fw-semibold);
+  color: var(--rt-t2);
+}
+.labelMeta {
+  font-weight: var(--rt-fw-normal);
+  color: var(--rt-t3);
+}
+
+/* The plot area. position:relative is what every bar and marker is placed against,
+   so percentages from lib/streamTimeline map straight onto it. */
+.track {
+  position: relative;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--rt-fill);
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Sprint boundaries, drawn under the bars so a bar never looks cut in half. */
+.gridline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--rt-line);
+  left: var(--at);
+}
+
+.bar {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: var(--bar-left);
+  width: var(--bar-width);
+  border-radius: 5px;
+  background: var(--bar-bg);
+  border: 1.5px solid var(--bar-border);
+  overflow: hidden;
+}
+
+/* Completed share of the bar, as a solid fill from the left. The bar's own
+   background is the remainder, so the two together read as one progress bar rather
+   than as two separate marks. */
+.barFill {
+  position: absolute;
+  inset: 0;
+  width: var(--fill-width);
+  background: var(--bar-border);
+  opacity: 0.55;
+}
+
+.barLabel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 7px;
+  font-size: var(--rt-fs-micro);
+  font-weight: var(--rt-fw-semibold);
+  color: var(--rt-t2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* No sprinted work: say so in the track rather than leaving a blank row that reads
+   as a rendering failure. */
+.unscheduled {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 9px;
+  font-size: var(--rt-fs-micro);
+  color: var(--rt-t3);
+  font-style: italic;
+}
+
+/* Today. The one marker that must win the z-order — it's the reference every bar is
+   read against. */
+.today {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--rt-st-ac-dot);
+  left: var(--at);
+  z-index: 2;
+}
+
+/* A stream's effective code freeze, on its own row. Amber and dashed, matching the
+   freeze chip everywhere else in the app. */
+.freeze {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1.5px dashed var(--freeze-color);
+  left: var(--at);
+  z-index: 1;
+}
+
+/* ── Axis ──────────────────────────────────────────────────────────────── */
+
+.axis {
+  position: relative;
+  height: 18px;
+  min-width: 0;
+}
+.axisTick {
+  position: absolute;
+  top: 0;
+  left: var(--at);
+  transform: translateX(-50%);
+  font-size: var(--rt-fs-micro);
+  color: var(--rt-t3);
+  white-space: nowrap;
+}
+/* The first and last labels would otherwise hang off the ends of the track. */
+.axisTickStart { transform: none; }
+.axisTickEnd { transform: translateX(-100%); }
+
+.legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 10px;
+  font-size: var(--rt-fs-xs);
+  color: var(--rt-t3);
+}
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legendSwatch {
+  width: 14px;
+  height: 0;
+  border-top: 2px solid var(--swatch);
+}
+.legendSwatchDashed {
+  width: 14px;
+  height: 0;
+  border-top: 1.5px dashed var(--swatch);
+}
+
+.empty {
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-t3);
+  padding: 18px 0;
+}

@@ -3,6 +3,8 @@ import type { Status, StatusSeg } from '../types';
 import { SegBar } from '../components/Badges';
 import { VerdictBadge, RunwayBadge } from '../components/VerdictLine';
 import { StreamBurnChart, VelocityTrendChart } from '../components/Trend';
+import { StreamGantt } from '../components/StreamGantt';
+import type { TimelineRow } from '../lib/streamTimeline';
 import { statusVars, warningVars } from '../components/statusVars';
 import { Icon } from '../components/Icon';
 import { fmtLong } from '../lib/dates';
@@ -331,6 +333,54 @@ function WholeRelease({
 
 /** Split a forecast "why" line into its clauses (comma / middot separated) so it
  *  renders as scannable bullets instead of one dense run-on string. */
+/**
+ * The work streams on a date axis — the same component the app's Timeline panel
+ * uses, fed from the frozen payload.
+ *
+ * "Today" here is the snapshot's own generation date, not the reader's clock: this
+ * is a point-in-time analysis, and a line that crept forward every time somebody
+ * reopened the link would be the one mark on the page claiming to be live.
+ *
+ * Returns null on pre-v7 payloads, which carry no spans. Guarding on `freezeISO`
+ * rather than on `v` keeps the check where the data is — a row without it cannot be
+ * drawn regardless of what the version says.
+ */
+function StreamTimeline({ snapshot }: { snapshot: SnapshotPayload }) {
+  const drawable = snapshot.streams.filter((s) => !s.unassigned && s.freezeISO !== undefined);
+  if (drawable.length === 0 || snapshot.sprints.length === 0) return null;
+
+  const rows: TimelineRow[] = drawable.map((s, i) => ({
+    id: String(i),
+    name: s.name,
+    span: s.span ? { startIdx: s.span[0], endIdx: s.span[1] } : null,
+    pct: s.pct,
+    freezeISO: s.freezeISO!,
+    itemCount: s.itemCount,
+    totalPts: s.totalPts,
+    remainingPts: s.totalPts - s.donePts,
+    tone:
+      s.forecast.verdict === 'at-risk'
+        ? 'risk'
+        : s.forecast.verdict === 'on-track' || s.forecast.verdict === 'complete'
+          ? 'ok'
+          : 'neutral',
+  }));
+
+  return (
+    <>
+      <h2 className={styles.sectionTitle}>Timeline</h2>
+      <div className={`card ${styles.timelineCard}`}>
+        <StreamGantt
+          sprints={snapshot.sprints}
+          rows={rows}
+          todayISO={snapshot.generatedAtISO.slice(0, 10)}
+          labelWidth={160}
+        />
+      </div>
+    </>
+  );
+}
+
 function whyLines(summary: string): string[] {
   return summary
     .split(/\s*[,·]\s*/)
@@ -524,7 +574,11 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
         />
       )}
 
-      {/* 3 · Work-stream status. */}
+      {/* 3 · Timeline — where each stream's work sits on the calendar. Spatial, so it
+          comes before the per-stream detail it summarizes. Absent on pre-v7 payloads. */}
+      <StreamTimeline snapshot={snapshot} />
+
+      {/* 4 · Work-stream status. */}
       <h2 className={styles.sectionTitle}>Work stream status</h2>
       <div className={styles.streamGrid}>
         {snapshot.streams.map((s, i) => (
@@ -533,7 +587,7 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
       </div>
       <StatusLegend streams={snapshot.streams} />
 
-      {/* 4 · Sprints. */}
+      {/* 5 · Sprints. */}
       <h2 className={styles.sectionTitle}>Sprints</h2>
       <div className={styles.sprintList}>
         {snapshot.sprints.map((sp, i) => {

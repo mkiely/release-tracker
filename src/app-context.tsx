@@ -17,6 +17,7 @@ export type ModalSpec =
   | { type: 'stream'; releaseId: string; wsId?: string }
   | { type: 'streamHealth'; releaseId: string; wsId: string }
   | { type: 'metrics'; releaseId: string; section?: MetricsSection }
+  | { type: 'timeline'; releaseId: string }
   | { type: 'event'; releaseId: string; eventId?: string }
   | { type: 'codeFreeze'; releaseId: string }
   | { type: 'sprint'; releaseId: string; sprintId: string }

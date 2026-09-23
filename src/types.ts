@@ -15,7 +15,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 28;
+export const SCHEMA_VERSION = 29;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog, its
  *  status vocabulary (native workflow states mapped to canonical categories),
@@ -83,6 +83,23 @@ export interface WorkStream {
    *    verdict + release-level rebalancing roll-up).
    *  Survives connector sync (sync only owns name). */
   planningState: PlanningState;
+  /**
+   * App-owned: this stream is informational only — it exists in the connector for
+   * reporting, but is not work this team plans or delivers (a vestigial epic, a
+   * roll-up someone else owns). A muted stream is still pulled, still visible and
+   * still browsable; what it stops doing is *counting*. It leaves every export and
+   * summary, and it leaves the release-level capacity maths entirely — its engineer
+   * reservation is not contended for, and its points are not scope. Excluding only
+   * the reservation would still let an abandoned stream move `overCommitted`.
+   *
+   * Distinct from `planningState: 'deferred'`, which this field is easy to confuse
+   * with and is nearly its opposite: deferred says "this is real work we haven't
+   * written tickets for yet, stop nagging"; muted says "this is not our work at all,
+   * stop counting it". Deferred streams stay in every total.
+   *
+   * Survives connector sync (sync only owns name). Defaults false.
+   */
+  muted: boolean;
   /** Connector-owned provenance: the build/release this stream was carried in from,
    *  when it differs from this release. null = native to this release. Drives the
    *  "on-build only" lens (hide carried-in streams). Mirrors WorkItem.build; set by

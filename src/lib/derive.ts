@@ -532,9 +532,12 @@ export interface StreamRunway {
    *  unclaimed capacity reads as under-planned (open), muted (deferred), or
    *  over-reserved (complete). */
   planningState: PlanningState;
-  /** User muted the proactive-creation alarm (planningState === 'deferred'). Never promotes to green. */
-  muted: boolean;
-  /** Under-planned AND nothing created beyond the next sprint AND not muted — the "only one sprint ahead" smell. */
+  /** User silenced the proactive-creation alarm (planningState === 'deferred').
+   *  Never promotes to green. Named for the alarm, not the stream: WorkStream.muted
+   *  is an unrelated flag meaning "not this team's work at all". */
+  alarmMuted: boolean;
+  /** Under-planned AND nothing created beyond the next sprint AND the alarm isn't
+   *  silenced — the "only one sprint ahead" smell. */
   alarm: boolean;
   /** Release is over-allocated, so this stream's reserved capacity was scaled down. */
   contended: boolean;
@@ -569,7 +572,7 @@ export function streamRunway(
   opts: { itemsBeyondNext: number; planningState: PlanningState; remainingPreFreezePts?: number },
 ): StreamRunway {
   const { itemsBeyondNext, planningState } = opts;
-  const muted = planningState === 'deferred';
+  const alarmMuted = planningState === 'deferred';
   const scopeComplete = planningState === 'complete';
   const contended = contention.overAllocated;
   const base = {
@@ -579,7 +582,7 @@ export function streamRunway(
     perEngineerCap: ctx.perEngineerCap,
     itemsBeyondNext,
     planningState,
-    muted,
+    alarmMuted,
     contended,
   };
   const inert = { availableCap: 0, createdRemainingPts: health.remainingPts, unclaimedRunway: 0, unclaimedSprints: 0, alarm: false };
@@ -637,11 +640,11 @@ export function streamRunway(
     // The "only planning one sprint ahead" smell: holding 2+ sprints of capacity
     // with nothing created beyond the next sprint. Mute silences the alarm only —
     // the verdict stays under-planned (never promoted to green).
-    alarm = underPlanned && itemsBeyondNext === 0 && ctx.remainingSprintCount > 1 && !muted;
+    alarm = underPlanned && itemsBeyondNext === 0 && ctx.remainingSprintCount > 1 && !alarmMuted;
     if (underPlanned) {
       summary = `~${r0(unclaimedRunway)} pts over ${ctx.remainingSprintCount} sprint${ctx.remainingSprintCount === 1 ? '' : 's'} remaining at ${engineersRequired} eng capacity remaining`;
       if (alarm) summary += ' \xb7 nothing created beyond the next sprint';
-      else if (muted && itemsBeyondNext === 0 && ctx.remainingSprintCount > 1) summary += ' \xb7 alarm muted (planning deferred)';
+      else if (alarmMuted && itemsBeyondNext === 0 && ctx.remainingSprintCount > 1) summary += ' \xb7 alarm muted (planning deferred)';
       else if (contended) summary += ' \xb7 capacity scaled for team overbooking';
     } else {
       summary = unclaimedRunway > 0 ? `Reserved capacity is planned (~${r0(unclaimedRunway)} pts headroom)` : 'Reserved capacity fully planned';

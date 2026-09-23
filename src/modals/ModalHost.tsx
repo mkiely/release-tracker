@@ -5,6 +5,7 @@ import type { ModalSpec } from '../app-context';
 import { CodeFreezeModal, ConfirmModal, EventModal, LoadShareModal, PushReviewModal, SprintModal, StreamHealthModal, TeamModal, WorkItemDetailModal, WorkItemModal, WorkStreamModal } from './Modals';
 import { ConnectorItemModal } from './ConnectorItemModal';
 import { MetricsModal } from './MetricsModal';
+import { TimelineModal } from './TimelineModal';
 
 export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose: () => void }) {
   if (!modal) return null;
@@ -17,6 +18,8 @@ export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose
       return <StreamHealthModal releaseId={modal.releaseId} wsId={modal.wsId} onClose={onClose} />;
     case 'metrics':
       return <MetricsModal releaseId={modal.releaseId} section={modal.section} onClose={onClose} />;
+    case 'timeline':
+      return <TimelineModal releaseId={modal.releaseId} onClose={onClose} />;
     case 'event':
       return <EventModal releaseId={modal.releaseId} eventId={modal.eventId} onClose={onClose} />;
     case 'codeFreeze':

@@ -223,6 +223,12 @@
   margin: 4px 0 -4px;
 }
 
+/* The timeline sits in its own card so the axis and the bars share one frame,
+   rather than each row looking like a separate element. */
+.timelineCard {
+  padding: 16px;
+}
+
 .chartCard {
   padding: 14px 14px 8px;
   display: flex;

@@ -70,7 +70,7 @@ describe('buildSharePayload', () => {
     expect(payload.sprints.map((s) => s.externalId)).toEqual(['JIRA-S1', 'JIRA-S2']);
     // Per-stream local metadata travels keyed by externalId, so engineersRequired
     // reattaches after the recipient's first sync (names/items come from sync).
-    expect(payload.workStreams).toEqual([{ externalId: 'EPIC-1', engineersRequired: 2 }]);
+    expect(payload.workStreams).toEqual([{ externalId: 'EPIC-1', engineersRequired: 2, muted: false }]);
     // The frozen plannedVelocity baseline is app-local and is NOT shared — the
     // recipient stamps their own once a sprint starts.
     expect(payload.sprints.every((s) => !('plannedVelocity' in s))).toBe(true);
@@ -81,12 +81,12 @@ describe('buildSharePayload', () => {
     const payload = buildSharePayload(
       connectorRelease({
         workStreams: [
-          { id: 'ws1', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2, build: null, externalUrl: null, planningState: 'open' },
-          { id: 'ws2', name: 'Search', externalId: 'EPIC-2', engineersRequired: null, build: null, externalUrl: null, planningState: 'open' },
+          aStream({ id: 'ws1', name: 'Payments', externalId: 'EPIC-1', engineersRequired: 2 }),
+          aStream({ id: 'ws2', name: 'Search', externalId: 'EPIC-2' }),
         ],
       }),
     )!;
-    expect(payload.workStreams).toEqual([{ externalId: 'EPIC-1', engineersRequired: 2 }]);
+    expect(payload.workStreams).toEqual([{ externalId: 'EPIC-1', engineersRequired: 2, muted: false }]);
   });
 });
 
