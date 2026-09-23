@@ -4,7 +4,7 @@
 
 import type { Release } from '../types';
 import { buildSnapshotUrl } from '../lib/releaseSnapshot';
-import { copyText } from '../lib/copyLink';
+import { copyTextLazy } from '../lib/copyLink';
 import { connectorLabel } from '../sync/client';
 import { selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
@@ -56,16 +56,31 @@ export function useSummaryLink(release: Release, visibleStreamIds?: ReadonlySet<
   return async () => {
     const items = st.items.filter((i) => i.releaseId === release.id);
     const label = release.connector ? connectorLabel(release.connector.type) : null;
-    const result = await buildSnapshotUrl(release, team, items, summaryBase(), { connectorLabel: label, visibleStreamIds });
+    // Deliberately NOT awaited here: building the snapshot deflates it, and awaiting
+    // that before touching the clipboard spends the click's user activation, which is
+    // what made this action report success over an untouched clipboard. copyTextLazy
+    // issues the write now and lets the browser wait on the payload. See copyLink.ts.
+    const built = buildSnapshotUrl(release, team, items, summaryBase(), { connectorLabel: label, visibleStreamIds });
+    // Both outcomes copy something, so the clipboard write doesn't need the verdict
+    // first — only the toast does.
+    const copied = await copyTextLazy(built.then((r) => (r.ok ? r.url : r.encoded)));
+    const result = await built;
+
     if (!result.ok) {
-      // Too long for the address bar — copy the raw encoded value instead. The viewer's
+      // Too long for the address bar — the raw encoded value goes instead. The viewer's
       // "Load from a link" box accepts a bare encoded value, so the recipient pastes it
       // there rather than opening a (truncatable) link.
-      await copyText(result.encoded);
-      notify('Summary too large for a link — encoded value copied. Open summary.html and paste it into “Load from a link”.');
+      notify(
+        copied
+          ? 'Summary too large for a link — encoded value copied. Open summary.html and paste it into “Load from a link”.'
+          : 'Summary too large for a link, and the clipboard couldn’t be written. Check the browser’s clipboard permission for this site.',
+      );
       return;
     }
-    await copyText(result.url);
+    if (!copied) {
+      notify('Couldn’t write to the clipboard — check the browser’s clipboard permission for this site.');
+      return;
+    }
     const scoped = visibleStreamIds ? ` · ${visibleStreamIds.size} stream${visibleStreamIds.size === 1 ? '' : 's'}` : '';
     notify(`Summary link copied — a frozen, read-only view with no work-item detail${scoped}`);
   };

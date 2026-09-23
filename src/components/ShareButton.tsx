@@ -5,7 +5,7 @@
 import type { Release } from '../types';
 import { buildShareUrl } from '../lib/shareRelease';
 import { MAX_URL_LENGTH } from '../lib/urlCodec';
-import { copyText } from '../lib/copyLink';
+import { copyTextLazy } from '../lib/copyLink';
 import { selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { Icon } from './Icon';
@@ -23,7 +23,17 @@ export function useShareReleaseLink(release: Release): (() => void) | null {
   if (!release.connector) return null;
 
   return async () => {
-    const result = await buildShareUrl(release, window.location.origin, team);
+    // Not awaited before the clipboard is touched — see copyTextLazy. Building the
+    // payload deflates it, and that await is long enough to lose the click's user
+    // activation, which is what silently broke this copy.
+    const built = buildShareUrl(release, window.location.origin, team);
+    // A rejection means "nothing to copy": copyTextLazy reports false rather than
+    // writing an empty string over whatever the user already had.
+    const copied = await copyTextLazy(
+      built.then((r) => (r.ok ? r.url : Promise.reject(new Error('no share link to copy')))),
+    );
+    const result = await built;
+
     if (!result.ok) {
       notify(
         result.reason === 'too-long'
@@ -32,8 +42,11 @@ export function useShareReleaseLink(release: Release): (() => void) | null {
       );
       return;
     }
-    await copyText(result.url);
-    notify('Share link copied — the recipient confirms, then syncs to fetch data');
+    notify(
+      copied
+        ? 'Share link copied — the recipient confirms, then syncs to fetch data'
+        : 'Couldn’t write to the clipboard — check the browser’s clipboard permission for this site.',
+    );
   };
 }
 

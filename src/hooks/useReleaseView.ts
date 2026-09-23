@@ -335,9 +335,17 @@ export function useReleaseView(): ReleaseViewProps | null {
   const exportStreamIds = scopeStreamIds(exportScope, r.workStreams, facetVisibleStreamIds);
   const exportStreamCount = exportStreamIds ? exportStreamIds.size : r.workStreams.length;
 
+  // The TSV is built synchronously, so a plain copyText still holds the click's
+  // activation (this is the one copy action that was never broken). It still has to
+  // check the result: the clipboard can be refused for reasons that have nothing to
+  // do with how the payload was built.
   const onExport = async () => {
-    await copyText(releaseToTSV(st, id, exportStreamIds));
-    notify(`Release copied as TSV — ${scopeLabel(exportScope, exportStreamCount)}`);
+    const copied = await copyText(releaseToTSV(st, id, exportStreamIds));
+    notify(
+      copied
+        ? `Release copied as TSV — ${scopeLabel(exportScope, exportStreamCount)}`
+        : 'Couldn’t write to the clipboard — check the browser’s clipboard permission for this site.',
+    );
   };
 
   return {
