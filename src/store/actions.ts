@@ -26,8 +26,8 @@ import { seed } from '../lib/seed';
 import { applyCreatedItem, applySync } from '../sync/applySync';
 import { buildCreateRequest, buildPushChanges } from '../sync/push';
 import { allWriteableLocalFields, canonicalBaseline, writeableLocalFieldsForItem } from '../lib/connectorFields';
-import { syncClient } from '../sync/client';
-import type { PushResult, SyncResult } from '../sync/schema';
+import { SyncValidationError, syncClient } from '../sync/client';
+import type { SyncResult } from '../sync/schema';
 import type { SharePayload } from '../lib/shareRelease';
 import { stampStartedSprints } from './migrate';
 
@@ -36,10 +36,41 @@ export type SyncOutcome =
   | { ok: true; result: SyncResult }
   | { ok: false; reason: 'no-connector' | 'error'; message: string };
 
-/** Result of a push attempt. */
+/**
+ * One item a push could not write.
+ *
+ * Carries the LOCAL item id, not just prose: the point of the whole structure is
+ * that the UI can put the failure back on the item it belongs to — open it, mark
+ * its fields — instead of printing the service's sentence in a toast and leaving
+ * the user to work out which of their edits didn't land.
+ */
+export interface PushFailure {
+  /** Local item id, so the UI can navigate to it. */
+  itemId: string;
+  key: string;
+  subject: string;
+  /** Creating the item vs. updating an existing one; the remedies differ. */
+  kind: 'create' | 'update';
+  message: string;
+  /** Field-keyed detail where the connector attributed it; empty otherwise. */
+  fieldErrors: { field: string; message: string }[];
+}
+
+/** What a push actually did. `failures` is the part that used to be lost: the old
+ *  shape joined everything into one string, and a partial success reported `ok`
+ *  with no mention of what failed. */
+export interface PushSummary {
+  /** Items written successfully (edits pushed + creates reconciled). */
+  pushed: number;
+  failures: PushFailure[];
+}
+
+/** Result of a push attempt. `ok: true` with a non-empty `failures` is the case
+ *  callers most often get wrong — it means SOME of the push landed, and reporting
+ *  it as a plain success is the bug this type exists to make hard. */
 export type PushOutcome =
-  | { ok: true; result: PushResult }
-  | { ok: false; reason: 'no-connector' | 'nothing-to-push' | 'error'; message: string };
+  | { ok: true; result: PushSummary }
+  | { ok: false; reason: 'no-connector' | 'nothing-to-push' | 'error'; message: string; failures?: PushFailure[] };
 
 /** A locally-assembled connector item to queue for creation. Carries LOCAL ref ids
  *  and canonical/vocabulary values; the external ids and wire `fields` are derived
@@ -553,6 +584,21 @@ export function createActions(ctx: ActionContext): Actions {
       const connector = r.connector;
 
       const stamp = () => new Date().toISOString();
+      const at = stamp();
+      const failures: PushFailure[] = [];
+
+      /** Record a failure on the item itself, so it survives the toast and a reload. */
+      const recordFailure = (f: PushFailure) => {
+        failures.push(f);
+        commit((d) => {
+          d.items = d.items.map((i) =>
+            i.id === f.itemId
+              ? { ...i, lastPushError: { atISO: at, message: f.message, fieldErrors: f.fieldErrors, kind: f.kind } }
+              : i,
+          );
+        });
+      };
+
       try {
         const connectors = await syncClient.listConnectors();
         const meta = connectors.find((c) => c.type === connector.type);
@@ -570,18 +616,38 @@ export function createActions(ctx: ActionContext): Actions {
           return { ok: false, reason: 'nothing-to-push', message: 'No pending changes to push' };
         }
 
-        // 1) Edits — one batched push; clear dirtyFields and advance the synced
-        // baseline on success (the external system now matches).
+        // 1) Edits — one batched push. Only the items the service actually wrote are
+        // cleared: this used to clear dirtyFields for every item in the batch, so a
+        // partial failure marked unlanded edits clean and the user lost them with no
+        // way to tell. Attributing errors by externalId is what makes the correct
+        // behaviour expressible at all.
         let pushed = 0;
         if (changes.length > 0) {
           const result = await syncClient.push(connector, changes);
           pushed = result.pushed;
-          const pushedExternalIds = new Set(changes.map((c) => c.externalId));
+          const failedById = new Map(result.errors.map((e) => [e.externalId, e]));
+          for (const it of dirtyItems) {
+            const err = it.externalId ? failedById.get(it.externalId) : undefined;
+            if (!err) continue;
+            recordFailure({
+              itemId: it.id,
+              key: it.key,
+              subject: it.subject,
+              kind: 'update',
+              message: err.message,
+              fieldErrors: err.fieldErrors ?? [],
+            });
+          }
+          const wroteExternalIds = new Set(
+            changes.map((c) => c.externalId).filter((extId) => !failedById.has(extId)),
+          );
           commit((d) => {
             d.items = d.items.map((i) => {
-              if (!(i.releaseId === releaseId && i.externalId && pushedExternalIds.has(i.externalId))) return i;
+              if (!(i.releaseId === releaseId && i.externalId && wroteExternalIds.has(i.externalId))) return i;
               const baseline = canonicalBaseline(i, writeableLocalFieldsForItem(i, meta?.itemTypes), i.attributes);
-              return { ...i, dirtyFields: [], syncedValues: baseline };
+              // A success clears any failure recorded on a previous attempt — the
+              // error is a state, and this is the state ending.
+              return { ...i, dirtyFields: [], syncedValues: baseline, lastPushError: null };
             });
           });
         }
@@ -591,7 +657,6 @@ export function createActions(ctx: ActionContext): Actions {
         // placeholder queued so nothing is lost.
         const writeableItemFields = [...allWriteableLocalFields(meta?.itemTypes)];
         let created = 0;
-        const createErrors: string[] = [];
         for (const p of pendingItems) {
           try {
             const mapped = await syncClient.createItem(connector, buildCreateRequest(p, refs, meta?.itemTypes));
@@ -599,17 +664,29 @@ export function createActions(ctx: ActionContext): Actions {
             const withoutPlaceholder = { ...base, items: base.items.filter((i) => i.id !== p.id) };
             const { next, item, warning } = applyCreatedItem(withoutPlaceholder, releaseId, mapped, writeableItemFields);
             if (!item) {
-              createErrors.push(warning ?? `Could not place created item ${p.key}`);
-              continue; // placeholder stays (base still holds it) — don't drop the queued create
+              // placeholder stays (base still holds it) — don't drop the queued create
+              recordFailure({
+                itemId: p.id, key: p.key, subject: p.subject, kind: 'create',
+                message: warning ?? `Could not place created item ${p.key}`,
+                fieldErrors: [],
+              });
+              continue;
             }
             ctx.replace(next);
             created++;
           } catch (e) {
-            createErrors.push(`${p.subject}: ${e instanceof Error ? e.message : String(e)}`);
+            // The 422 path: the service attributed the rejection to specific fields,
+            // and that attribution is the useful part. Flattening it into a string —
+            // which is what this did — threw away the only thing that tells the user
+            // which input to fix.
+            recordFailure({
+              itemId: p.id, key: p.key, subject: p.subject, kind: 'create',
+              message: e instanceof Error ? e.message : String(e),
+              fieldErrors: e instanceof SyncValidationError ? e.fieldErrors : [],
+            });
           }
         }
 
-        const at = stamp();
         const parts: string[] = [];
         if (pushed > 0) parts.push(`${pushed} change${pushed !== 1 ? 's' : ''} pushed`);
         if (created > 0) parts.push(`${created} created`);
@@ -621,28 +698,33 @@ export function createActions(ctx: ActionContext): Actions {
                   ...rel,
                   sync: {
                     lastISO: at,
-                    state: createErrors.length ? ('error' as const) : ('ok' as const),
-                    message: createErrors.length ? createErrors.join('; ') : summary,
+                    state: failures.length ? ('error' as const) : ('ok' as const),
+                    message: failures.length
+                      ? `${summary || 'Nothing pushed'} \u00b7 ${failures.length} failed`
+                      : summary,
                   },
                 }
               : rel,
           );
         });
 
-        // A total failure (nothing pushed, nothing created, only errors) is reported as
-        // an error; partial success still returns ok with the failure count/messages.
-        if (createErrors.length > 0 && pushed === 0 && created === 0) {
-          return { ok: false, reason: 'error', message: createErrors.join('; ') };
+        // Nothing landed at all → an outright failure. Anything landed → ok, but the
+        // failures ride along: a caller that ignores them is the bug this shape is
+        // meant to make obvious.
+        if (failures.length > 0 && pushed === 0 && created === 0) {
+          return { ok: false, reason: 'error', message: failures[0].message, failures };
         }
-        return { ok: true, result: { pushed: pushed + created, failed: createErrors.length, errors: createErrors } };
+        return { ok: true, result: { pushed: pushed + created, failures } };
       } catch (e) {
+        // The batch itself failed (transport, a 4xx on the whole request) — no item
+        // can be blamed, so nothing is recorded against one.
         const message = e instanceof Error ? e.message : String(e);
         commit((d) => {
           d.releases = d.releases.map((rel) =>
             rel.id === releaseId ? { ...rel, sync: { lastISO: stamp(), state: 'error', message } } : rel,
           );
         });
-        return { ok: false, reason: 'error', message };
+        return { ok: false, reason: 'error', message, failures };
       }
     },
   };

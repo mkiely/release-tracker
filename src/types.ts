@@ -15,7 +15,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 29;
+export const SCHEMA_VERSION = 30;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog, its
  *  status vocabulary (native workflow states mapped to canonical categories),
@@ -293,6 +293,34 @@ export interface WorkItem {
    * `buildCreateRequest` and the store's `pushRelease` flush.
    */
   pendingCreate?: boolean;
+  /**
+   * Why this item's last push failed, kept until the next push of this item
+   * succeeds. Absent/null when the item is clean or last pushed fine.
+   *
+   * Persisted rather than held in memory because a push failure is not a moment,
+   * it is a state: the edit is still queued, still unsent, and still the user's to
+   * resolve. The failure used to live in a 2.4-second toast that named no item, so
+   * a partial push left the user knowing something had gone wrong and nothing
+   * about what. Surviving a reload is the whole point.
+   *
+   * `fieldErrors` mirrors the connector's own attribution (contract `FieldError`)
+   * so the item modal can mark the offending inputs rather than printing prose;
+   * empty when the service couldn't attribute the failure to a field.
+   */
+  lastPushError?: PushError | null;
+}
+
+/** A failed push, recorded on the item it belongs to. */
+export interface PushError {
+  /** When the push that failed was attempted. */
+  atISO: string;
+  /** Stands alone — shown whether or not `fieldErrors` has anything. */
+  message: string;
+  /** Field-keyed detail, where the connector could attribute it. */
+  fieldErrors: { field: string; message: string }[];
+  /** Whether the failure was creating the item or updating an existing one. The
+   *  remedies differ: a failed create still has nothing in the external system. */
+  kind: 'create' | 'update';
 }
 
 /** The entire persisted application state — the single object the store holds

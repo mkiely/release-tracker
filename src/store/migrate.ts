@@ -447,6 +447,13 @@ export function migrate(persisted: PersistedState): AppState | null {
     };
   }
 
+  // v29 → v30: work items gain `lastPushError`. Nothing to backfill — absence is
+  // "no failure recorded", which is the right reading for every item written by a
+  // build that couldn't record one. A pure version bump.
+  if (s.version === 29) {
+    s = { ...s, version: 30 };
+  }
+
   return s.version === SCHEMA_VERSION ? s : null;
 }
 

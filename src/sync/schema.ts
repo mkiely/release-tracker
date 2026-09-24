@@ -16,6 +16,8 @@ export type {
   ContractStatus,
   PushItemChange,
   PushResult,
+  PushItemError,
+  FieldError,
   FieldSpec,
   ConnectorItemType,
   StatusDef,

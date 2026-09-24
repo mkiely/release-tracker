@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "29.0.0",
+  "version": "30.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -414,6 +414,30 @@
         "pendingCreate": {
           "type": "boolean",
           "description": "A locally-created item on a connector release not yet created in the external system: it sits in the push queue (with externalId null) and is sent via the connector's create endpoint on the next Push, then reconciled into a synced item (externalId assigned, flag cleared). False/absent for synced items and items on local releases. Optional — absence implies false."
+        },
+        "lastPushError": {
+          "type": ["object", "null"],
+          "description": "Why this item's last push failed, kept until a later push of the item succeeds. Absent/null when clean or last pushed fine. Persisted because a push failure is a STATE, not a moment: the edit is still queued, still unsent, and still the user's to resolve. fieldErrors mirrors the sync contract's FieldError so the item modal can mark the offending inputs; empty when the service could not attribute the failure to a field.",
+          "properties": {
+            "atISO": { "type": "string", "description": "When the failed push was attempted (full ISO 8601 instant)." },
+            "message": { "type": "string", "description": "Human-readable summary. Stands alone — shown whether or not fieldErrors has anything." },
+            "fieldErrors": {
+              "type": "array",
+              "description": "Field-keyed detail from the connector.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "field": { "type": "string" },
+                  "message": { "type": "string" }
+                },
+                "required": ["field", "message"],
+                "additionalProperties": false
+              }
+            },
+            "kind": { "type": "string", "enum": ["create", "update"], "description": "Whether the failure was creating the item or updating an existing one — the remedies differ, since a failed create left nothing in the external system." }
+          },
+          "required": ["atISO", "message", "fieldErrors", "kind"],
+          "additionalProperties": false
         }
       },
       "required": ["id", "releaseId", "workStreamId", "sprintId", "key", "subject", "description", "status", "points", "externalId", "assignedMemberId", "build", "externalUrl", "dirtyFields", "itemType", "createdISO", "updatedISO"],
@@ -579,7 +603,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 29,
+      "value": 30,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {
