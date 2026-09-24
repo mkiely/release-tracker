@@ -60,13 +60,20 @@
   min-width: 0;
 }
 
-/* Sprint boundaries, drawn under the bars so a bar never looks cut in half. */
+/* Sprint boundaries, drawn under the bars so a bar never looks cut in half.
+
+   Derived from --rt-t3 rather than from a border token, which is what fixes the
+   contrast: the line sits on --rt-fill, and on the darker themes the border
+   tokens are almost the same colour as that fill (midnight-navy is #1E3450 on
+   #102235 — invisible). --rt-t3 is *text* colour, so every theme already
+   guarantees it reads against its own surfaces; mixing it back toward transparent
+   gives a boundary that is clearly there without competing with the bars. */
 .gridline {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 1px;
-  background: var(--rt-line);
+  width: 2px;
+  background: color-mix(in srgb, var(--rt-t3) 68%, transparent);
   left: var(--at);
 }
 
