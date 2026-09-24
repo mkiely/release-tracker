@@ -88,6 +88,10 @@
      is a literal there rather than a token — a custom property can't be read
      inside a media query, so a token would look authoritative without applying. */
   --rt-modal-w-work-item: min(1240px, 94vw);
+  /* The timeline panel runs wider than the item modals: it is a chart of the whole
+     release, so every extra pixel buys both calendar resolution and room for a long
+     work-stream name before it truncates. Near-full-bleed on purpose. */
+  --rt-modal-w-timeline: min(1680px, 96vw);
 }
 
 :root[data-theme="dark"] {

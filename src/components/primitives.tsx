@@ -132,13 +132,16 @@ export function IconButton({
 
 /** Modal shell: a centered dialog with a titled header, scrollable body, and
  *  optional footer. Closes on Escape and on backdrop click. `width` caps the
- *  dialog's max width. */
+ *  dialog's max width; `minHeight` reserves vertical presence for dialogs that are
+ *  a workspace rather than a form (the timeline panel), so they don't collapse to a
+ *  letterbox when the content happens to be short. The 92vh cap still applies. */
 export function Modal({
   title,
   icon,
   onClose,
   footer,
   width = 480,
+  minHeight,
   children,
 }: {
   title: ReactNode;
@@ -146,6 +149,7 @@ export function Modal({
   onClose: () => void;
   footer?: ReactNode;
   width?: number | string;
+  minHeight?: number | string;
   children: ReactNode;
 }) {
   useEffect(() => {
@@ -162,7 +166,7 @@ export function Modal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={modalStyles.modal} role="dialog" aria-modal="true" style={{ maxWidth: width }}>
+      <div className={modalStyles.modal} role="dialog" aria-modal="true" style={{ maxWidth: width, minHeight }}>
         <div className={modalStyles.head}>
           <div className={modalStyles.titleWrap}>
             {icon}

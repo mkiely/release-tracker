@@ -33,13 +33,20 @@ export function StreamGantt({
   rows,
   todayISO,
   labelWidth,
+  trackHeight,
   onSelectRow,
 }: {
   sprints: readonly TimelineSprint[];
   rows: readonly TimelineRow[];
   todayISO: string;
-  /** Label gutter width; the summary viewer runs narrower than the app panel. */
-  labelWidth?: number;
+  /** Label gutter width — any CSS length, so a caller can cap it against the
+   *  viewport. The in-app panel is a wide modal and spends it on stream names:
+   *  connector epic names run long, and truncation eats the END, which is usually
+   *  the distinguishing part. The summary viewer sits in a narrow reading column
+   *  and takes the default. */
+  labelWidth?: number | string;
+  /** Row height. Taller rows in the app panel, where there is screen to use. */
+  trackHeight?: number;
   /** Optional drill-through. Omitted in the summary viewer, which has nowhere to go. */
   onSelectRow?: (id: string) => void;
 }) {
@@ -67,7 +74,14 @@ export function StreamGantt({
   // is the track's own left edge).
   const boundaries = sprints.slice(1).map((sp) => clampPct(pctOfDate(sp.startISO, window)));
 
-  const rootVars: Vars | undefined = labelWidth ? { '--gantt-label-w': `${labelWidth}px` } : undefined;
+  const rootVars: Vars = {};
+  if (labelWidth) rootVars['--gantt-label-w'] = typeof labelWidth === 'number' ? `${labelWidth}px` : labelWidth;
+  if (trackHeight) {
+    rootVars['--gantt-track-h'] = `${trackHeight}px`;
+    // Row spacing tracks row height, so a taller timeline doesn't read as one solid
+    // block of bars with hairlines between them.
+    rootVars['--gantt-row-gap'] = `${Math.round(trackHeight / 5)}px`;
+  }
 
   return (
     <div className={styles.gantt} style={rootVars}>
@@ -115,7 +129,7 @@ export function StreamGantt({
         ].join('\n');
 
         return (
-          <div className={styles.row} key={row.id}>
+          <div className={`${styles.row} ${styles.rowGrow}`} key={row.id}>
             <span className={styles.label} title={row.name}>
               {row.name}{' '}
               <span className={styles.labelMeta}>
