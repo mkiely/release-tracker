@@ -382,8 +382,19 @@ describe('buildSnapshotUrl', () => {
 
 // The timeline's payload (v7). Spans ride as sprint INDICES so the URL carries two
 // small numbers per stream instead of duplicating dates the payload already holds.
-describe('buildSnapshot — timeline spans', () => {
-  it('spans each stream from its first sprinted item to its last', () => {
+describe('buildSnapshot — timeline segments', () => {
+  // The two-sprint default can't express a gap, so the gap cases get their own.
+  const fourSprints = (): Release =>
+    release({
+      sprints: [
+        aSprint({ id: 'sp1', name: 'S1', startISO: '2026-04-13', endISO: '2026-04-26' }),
+        aSprint({ id: 'sp2', name: 'S2', startISO: '2026-04-27', endISO: '2026-05-10' }),
+        aSprint({ id: 'sp3', name: 'S3', startISO: '2026-05-11', endISO: '2026-05-24' }),
+        aSprint({ id: 'sp4', name: 'S4', startISO: '2026-05-25', endISO: '2026-06-07' }),
+      ],
+    });
+
+  it('merges adjacent sprints into one segment', () => {
     const snap = buildSnapshot(
       release(),
       team(),
@@ -394,13 +405,48 @@ describe('buildSnapshot — timeline spans', () => {
       ],
       { now: NOW },
     );
-    expect(snap.streams.find((s) => s.name === 'Payments')!.span).toEqual([0, 1]);
-    expect(snap.streams.find((s) => s.name === 'Auth')!.span).toEqual([1, 1]);
+    expect(snap.streams.find((s) => s.name === 'Payments')!.segments).toEqual([[0, 1, 8, 0]]);
+    expect(snap.streams.find((s) => s.name === 'Auth')!.segments).toEqual([[1, 1, 2, 0]]);
   });
 
-  it('carries a span for a stream whose items are all unestimated', () => {
-    // The reason `span` exists rather than being read off `series`: series is POINTS
-    // per sprint, so this stream's would be all zeroes and its bar would vanish.
+  // The reported bug, at the payload level: a single late ticket must not stretch
+  // one bar across the whole release.
+  it('emits a separate segment either side of a gap', () => {
+    const snap = buildSnapshot(
+      fourSprints(),
+      team(),
+      [
+        anItem({ id: 'i1', releaseId: 'rel_atlas', workStreamId: 'ws_pay', sprintId: 'sp1', points: 5 }),
+        anItem({ id: 'i2', releaseId: 'rel_atlas', workStreamId: 'ws_pay', sprintId: 'sp4', points: 1 }),
+      ],
+      { now: NOW },
+    );
+    expect(snap.streams.find((s) => s.name === 'Payments')!.segments).toEqual([
+      [0, 0, 5, 0],
+      [3, 3, 1, 0],
+    ]);
+  });
+
+  it('carries each segment\'s completed points, so runs fill independently', () => {
+    const snap = buildSnapshot(
+      fourSprints(),
+      team(),
+      [
+        anItem({ id: 'i1', releaseId: 'rel_atlas', workStreamId: 'ws_pay', sprintId: 'sp1', points: 4, status: 'Complete' }),
+        anItem({ id: 'i2', releaseId: 'rel_atlas', workStreamId: 'ws_pay', sprintId: 'sp4', points: 6 }),
+      ],
+      { now: NOW },
+    );
+    // First run done, later run untouched — averaging them would show neither.
+    expect(snap.streams.find((s) => s.name === 'Payments')!.segments).toEqual([
+      [0, 0, 4, 4],
+      [3, 3, 6, 0],
+    ]);
+  });
+
+  it('carries a segment for a stream whose items are all unestimated', () => {
+    // The reason `segments` exists rather than being read off `series`: series is
+    // POINTS per sprint, so this stream's would be all zeroes and its bar would vanish.
     const snap = buildSnapshot(
       release(),
       team(),
@@ -409,17 +455,17 @@ describe('buildSnapshot — timeline spans', () => {
     );
     const pay = snap.streams.find((s) => s.name === 'Payments')!;
     expect(pay.series.every((n) => n === 0)).toBe(true);
-    expect(pay.span).toEqual([1, 1]);
+    expect(pay.segments).toEqual([[1, 1, 0, 0]]);
   });
 
-  it('gives a stream with no sprinted work a null span, not a zero-width bar', () => {
+  it('gives a stream with no sprinted work no segments, not a zero-width bar', () => {
     const snap = buildSnapshot(
       release(),
       team(),
       [anItem({ id: 'i1', releaseId: 'rel_atlas', workStreamId: 'ws_pay', sprintId: null, points: 3 })],
       { now: NOW },
     );
-    expect(snap.streams.find((s) => s.name === 'Payments')!.span).toBeNull();
+    expect(snap.streams.find((s) => s.name === 'Payments')!.segments).toEqual([]);
   });
 
   it('carries each stream\'s effective freeze, honouring a per-stream override', () => {
@@ -444,13 +490,19 @@ describe('buildSnapshot — timeline spans', () => {
 
   it('survives an encode/decode round-trip at the current version', async () => {
     const snap = buildSnapshot(
-      release(),
+      fourSprints(),
       team(),
-      [anItem({ id: 'i1', releaseId: 'rel_atlas', workStreamId: 'ws_pay', sprintId: 'sp2', points: 3 })],
+      [
+        anItem({ id: 'i1', releaseId: 'rel_atlas', workStreamId: 'ws_pay', sprintId: 'sp1', points: 3 }),
+        anItem({ id: 'i2', releaseId: 'rel_atlas', workStreamId: 'ws_pay', sprintId: 'sp4', points: 3 }),
+      ],
       { now: NOW },
     );
     expect(snap.v).toBe(SNAPSHOT_VERSION);
     const decoded = await decodeSnapshot(await encodeSnapshot(snap));
-    expect(decoded!.streams.find((s) => s.name === 'Payments')!.span).toEqual([1, 1]);
+    expect(decoded!.streams.find((s) => s.name === 'Payments')!.segments).toEqual([
+      [0, 0, 3, 0],
+      [3, 3, 3, 0],
+    ]);
   });
 });

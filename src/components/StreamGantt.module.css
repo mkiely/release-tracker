@@ -5,17 +5,33 @@
 .gantt {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--gantt-row-gap, 2px);
   min-width: 0;
+  /* Fill whatever height the container gives, so the chart spans a tall panel
+     instead of clustering at the top of it. Inert where the container is
+     content-sized (the summary viewer), which is why it needs no opt-in. */
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-/* Label column + plot column. The label width is a variable because the summary
-   viewer runs narrower than the app panel and wants a tighter gutter. */
+/* Only the stream rows share out spare height — the axis and the legend keep
+   their natural size, or a short release would push them to opposite ends of the
+   panel with the bars marooned in between. The cap stops three streams in a tall
+   window from turning into three widely-spaced bands. */
+.rowGrow {
+  flex: 1 1 auto;
+  max-height: 96px;
+}
+
+/* Label column + plot column. The label width is a variable because the two callers
+   have very different room: the in-app panel is a wide modal and spends it on stream
+   names, the summary viewer sits in a narrow reading column and wants a tighter
+   gutter. `minmax(0, …)` on the plot track keeps a long name from pushing it out. */
 .row {
   display: grid;
   grid-template-columns: var(--gantt-label-w, 190px) minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 
@@ -37,7 +53,7 @@
    so percentages from lib/streamTimeline map straight onto it. */
 .track {
   position: relative;
-  height: 26px;
+  height: var(--gantt-track-h, 26px);
   border-radius: 6px;
   background: var(--rt-fill);
   overflow: hidden;

@@ -70,12 +70,19 @@
   font-size: var(--rt-fs-lg);
   font-weight: var(--rt-fw-heading);
 }
+/* The body is what absorbs spare height, so the footer stays pinned to the bottom
+   of a dialog given a `minHeight` instead of floating up under short content. The
+   min-height:0 is what actually lets it scroll: a flex item defaults to
+   min-height:auto, which refuses to shrink below its content and pushes the footer
+   out of a tall dialog rather than overflowing here. */
 .body {
   padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 16px;
   overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 /* Two-column body for the work-item modals: the description gets the width AND
    the height, the metadata fields move into a rail beside it. Opt-in (see

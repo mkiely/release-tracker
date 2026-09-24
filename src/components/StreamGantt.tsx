@@ -16,6 +16,7 @@ import {
   barGeometry,
   clampPct,
   pctOfDate,
+  segmentPct,
   timelineWindow,
   type TimelineRow,
   type TimelineSprint,
@@ -32,13 +33,20 @@ export function StreamGantt({
   rows,
   todayISO,
   labelWidth,
+  trackHeight,
   onSelectRow,
 }: {
   sprints: readonly TimelineSprint[];
   rows: readonly TimelineRow[];
   todayISO: string;
-  /** Label gutter width; the summary viewer runs narrower than the app panel. */
-  labelWidth?: number;
+  /** Label gutter width — any CSS length, so a caller can cap it against the
+   *  viewport. The in-app panel is a wide modal and spends it on stream names:
+   *  connector epic names run long, and truncation eats the END, which is usually
+   *  the distinguishing part. The summary viewer sits in a narrow reading column
+   *  and takes the default. */
+  labelWidth?: number | string;
+  /** Row height. Taller rows in the app panel, where there is screen to use. */
+  trackHeight?: number;
   /** Optional drill-through. Omitted in the summary viewer, which has nowhere to go. */
   onSelectRow?: (id: string) => void;
 }) {
@@ -66,7 +74,14 @@ export function StreamGantt({
   // is the track's own left edge).
   const boundaries = sprints.slice(1).map((sp) => clampPct(pctOfDate(sp.startISO, window)));
 
-  const rootVars: Vars | undefined = labelWidth ? { '--gantt-label-w': `${labelWidth}px` } : undefined;
+  const rootVars: Vars = {};
+  if (labelWidth) rootVars['--gantt-label-w'] = typeof labelWidth === 'number' ? `${labelWidth}px` : labelWidth;
+  if (trackHeight) {
+    rootVars['--gantt-track-h'] = `${trackHeight}px`;
+    // Row spacing tracks row height, so a taller timeline doesn't read as one solid
+    // block of bars with hairlines between them.
+    rootVars['--gantt-row-gap'] = `${Math.round(trackHeight / 5)}px`;
+  }
 
   return (
     <div className={styles.gantt} style={rootVars}>
@@ -93,22 +108,28 @@ export function StreamGantt({
       </div>
 
       {rows.map((row) => {
-        const geo = row.span ? barGeometry(row.span, sprints, window) : null;
         const freezePct = pctOfDate(row.freezeISO, window);
         // A freeze outside the window is clamped to the edge it overshot — it still
         // tells you which side of the release it lands on, which is the useful part.
         const freezeInWindow = freezePct >= 0 && freezePct <= 100;
         const color = toneColor(row.tone);
-        const scheduled = row.span ? `${fmtShort(sprints[row.span.startIdx].startISO)} – ${fmtShort(sprints[row.span.endIdx].endISO)}` : 'not scheduled';
+        // Each run of sprints reads as its own period of work. The row's tooltip
+        // lists them rather than collapsing to first-start..last-end, which would
+        // restate exactly the span the segmentation exists to avoid drawing.
+        const scheduled = row.segments.length
+          ? row.segments
+              .map((s) => `${fmtShort(sprints[s.startIdx].startISO)} – ${fmtShort(sprints[s.endIdx].endISO)}`)
+              .join(', ')
+          : 'not scheduled';
         const title = [
           row.name,
           `Scheduled: ${scheduled}`,
-          `${row.itemCount} item${row.itemCount === 1 ? '' : 's'} · ${row.pct}% done (${row.totalPts - row.remainingPts}/${row.totalPts} pts)`,
+          `${row.itemCount} item${row.itemCount === 1 ? '' : 's'} · ${row.totalPts - row.remainingPts}/${row.totalPts} pts done`,
           `Code freeze: ${fmtShort(row.freezeISO)}`,
         ].join('\n');
 
         return (
-          <div className={styles.row} key={row.id}>
+          <div className={`${styles.row} ${styles.rowGrow}`} key={row.id}>
             <span className={styles.label} title={row.name}>
               {row.name}{' '}
               <span className={styles.labelMeta}>
@@ -135,21 +156,32 @@ export function StreamGantt({
               {boundaries.map((at, i) => (
                 <span key={i} className={styles.gridline} style={{ '--at': `${at}%` } as Vars} />
               ))}
-              {geo ? (
-                <div
-                  className={styles.bar}
-                  style={
-                    {
-                      '--bar-left': `${geo.leftPct}%`,
-                      '--bar-width': `${geo.widthPct}%`,
-                      '--bar-bg': 'var(--rt-paper)',
-                      '--bar-border': color,
-                    } as Vars
-                  }
-                >
-                  <span className={styles.barFill} style={{ '--fill-width': `${clampPct(row.pct)}%` } as Vars} />
-                  <span className={styles.barLabel}>{row.pct}%</span>
-                </div>
+              {row.segments.length > 0 ? (
+                row.segments.map((seg, i) => {
+                  const geo = barGeometry(seg, sprints, window);
+                  const pct = segmentPct(seg);
+                  const span = `${fmtShort(sprints[seg.startIdx].startISO)} – ${fmtShort(sprints[seg.endIdx].endISO)}`;
+                  return (
+                    <div
+                      key={i}
+                      className={styles.bar}
+                      style={
+                        {
+                          '--bar-left': `${geo.leftPct}%`,
+                          '--bar-width': `${geo.widthPct}%`,
+                          '--bar-bg': 'var(--rt-paper)',
+                          '--bar-border': color,
+                        } as Vars
+                      }
+                      // Its own tooltip: with several bars on a row, the row-level one
+                      // can't say which period the pointer is over.
+                      title={`${row.name}\n${span}\n${seg.pts} pts · ${pct}% done`}
+                    >
+                      <span className={styles.barFill} style={{ '--fill-width': `${clampPct(pct)}%` } as Vars} />
+                      <span className={styles.barLabel}>{pct}%</span>
+                    </div>
+                  );
+                })
               ) : (
                 <span className={styles.unscheduled}>No sprinted work</span>
               )}

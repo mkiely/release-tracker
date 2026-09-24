@@ -30,9 +30,10 @@ import {
   velocitySuggestion,
 } from './derive';
 import { assessRelease, assessStreams } from './streamAssessment';
-import { spanOfItems, sprintIndex } from './streamTimeline';
+import { segmentsOfItems, sprintIndex } from './streamTimeline';
+import { sortStreams } from './streamOrder';
 import { between, dOf, fmtShort, todayISO } from './dates';
-import type { Release, StatusSeg, Team, WorkItem, WorkStream } from '../types';
+import type { Release, StatusSeg, Team, WorkItem } from '../types';
 
 /** Hash-fragment key carrying an encoded snapshot payload (`…/summary.html#s=…`). */
 export const SNAPSHOT_PARAM = 's';
@@ -41,9 +42,10 @@ export const SNAPSHOT_PARAM = 's';
  *  v2 adds the release `capacity` block and per-stream `doneItems`; v3 adds
  *  `contributingMembers` and a per-capacity-row `verdict`; v5 adds per-stream
  *  `externalUrl` (connector deep link); v6 adds the `wholeRelease` block; v7 adds
- *  per-stream `span` / `freezeISO` / `unassigned` (the timeline). Older payloads
- *  still decode — the viewer guards the added fields and defaults them. */
-export const SNAPSHOT_VERSION = 7;
+ *  `freezeISO` / `unassigned` and a single-range `span`; v8 replaces `span` with
+ *  `segments`, one per unbroken run of work. Older payloads still decode — the
+ *  viewer guards the added fields and defaults them. */
+export const SNAPSHOT_VERSION = 8;
 
 /** One sprint's precomputed row in a snapshot. */
 export interface SnapshotSprint {
@@ -88,16 +90,18 @@ export interface SnapshotStream {
   series: number[];
   engineersRequired: number | null;
   /**
-   * The sprint range this stream's work occupies, as `[startIdx, endIdx]` into
-   * `sprints` — the timeline's bar. Null when nothing of the stream is in a sprint.
+   * The timeline's bars: one per unbroken run of sprints holding this stream's work,
+   * as `[startIdx, endIdx, pts, donePts]` into `sprints`. Empty when nothing of the
+   * stream is in a sprint.
    *
-   * Two numbers rather than two dates, because the payload rides a length-capped
-   * URL and the sprints it indexes are already in it. It could ALMOST be derived
-   * from `series` (first and last non-zero), which is why it isn't obvious it needs
-   * to be here: `series` is points per sprint, so a stream of entirely unestimated
-   * items is all zeroes and would silently lose its bar. Absent on pre-v7 payloads.
+   * Indices rather than dates, because the payload rides a length-capped URL and the
+   * sprints they index are already in it. It could ALMOST be derived from `series`
+   * (the non-zero runs), which is why it isn't obvious it needs to be here: `series`
+   * is points per sprint, so a run of entirely unestimated items is all zeroes and
+   * would silently lose its bar. Absent on pre-v8 payloads, which carried a single
+   * `span` instead — the viewer hides the timeline rather than guessing.
    */
-  span?: [number, number] | null;
+  segments?: [number, number, number, number][];
   /** This stream's effective code freeze (its own override, or the release's) — the
    *  tick on its timeline bar. Absent on pre-v7 payloads. */
   freezeISO?: string;
@@ -257,11 +261,6 @@ export interface BuildSnapshotOptions {
   visibleStreamIds?: ReadonlySet<string> | null;
 }
 
-/** Alphabetical (case-insensitive) stream order, matching the release view. */
-function byName(a: WorkStream, b: WorkStream): number {
-  return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-}
-
 /** Remove streamForecast's trailing "· team overbooked (N req / M avail)" clause.
  *  The release capacity section states the over-allocation once, so repeating it on
  *  every stream's why-line is redundant. Matches the exact suffix derive.ts appends. */
@@ -297,7 +296,7 @@ export function buildSnapshot(
   // Active stream facets (build + connector-declared): drop hidden streams from the
   // per-stream sections and the contention math, exactly as the TSV export does.
   const visible = opts.visibleStreamIds ?? null;
-  const streams = [...release.workStreams].filter((ws) => !visible || visible.has(ws.id)).sort(byName);
+  const streams = sortStreams(release.workStreams.filter((ws) => !visible || visible.has(ws.id)));
   const unassigned = items.filter((i) => i.workStreamId === null && i.build === null);
 
   // Points-per-sprint series for each stream (and the unassigned bucket), sliced
@@ -347,11 +346,12 @@ export function buildSnapshot(
 
   const outStreams: SnapshotStream[] = computed.map(({ ws, items: streamItems, series, health, forecast, runway }) => {
     const canForecast = (ws ? ws.engineersRequired : null) != null && health.totalPts > 0;
-    const span = spanOfItems(streamItems, sprintIdxById);
     return {
       name: ws ? ws.name : 'Unassigned',
       externalUrl: ws ? ws.externalUrl : null,
-      span: span ? [span.startIdx, span.endIdx] : null,
+      segments: segmentsOfItems(streamItems, sprintIdxById).map(
+        (s) => [s.startIdx, s.endIdx, s.pts, s.donePts] as [number, number, number, number],
+      ),
       freezeISO: effectiveStreamCodeFreeze(release, ws),
       ...(ws ? {} : { unassigned: true as const }),
       itemCount: streamItems.length,

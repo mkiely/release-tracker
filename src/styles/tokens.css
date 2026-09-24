@@ -44,6 +44,14 @@
   --rt-cat-7: #C4589E;  /* magenta */
   --rt-cat-8: #7A4A28;  /* brown   */
 
+  /* The muted-work-stream marker. Authored once and theme-independent, like the
+     categorical ramp above and for the same reason — but kept OUT of that ramp on
+     purpose: `.muted-stream` in base.css greys every --rt-cat-* out, and this is
+     the one hue on such a row that must not go with them. Purple sits clear of
+     every status hue's meaning (red/amber/green), so a muted stream reads as
+     deliberately set aside rather than as a state to worry about. */
+  --rt-muted-accent: #8B5FC4;
+
   /* type — families */
   --rt-sans: "Hanken Grotesk", system-ui, sans-serif;
   --rt-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
@@ -80,6 +88,10 @@
      is a literal there rather than a token — a custom property can't be read
      inside a media query, so a token would look authoritative without applying. */
   --rt-modal-w-work-item: min(1240px, 94vw);
+  /* The timeline panel runs wider than the item modals: it is a chart of the whole
+     release, so every extra pixel buys both calendar resolution and room for a long
+     work-stream name before it truncates. Near-full-bleed on purpose. */
+  --rt-modal-w-timeline: min(1680px, 96vw);
 }
 
 :root[data-theme="dark"] {

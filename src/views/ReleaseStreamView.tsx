@@ -34,7 +34,7 @@ function StreamRow({
 
   return (
     <div
-      className={['card', releaseStyles.sprintrow].join(' ')}
+      className={['card', releaseStyles.sprintrow, ws?.muted && 'muted-stream'].filter(Boolean).join(' ')}
       onClick={handleClick}
       style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }}
     >

@@ -15,7 +15,7 @@ import { Modal, PButton } from '../components/primitives';
 import { useApp } from '../app-context';
 import { effectiveStreamCodeFreeze } from '../lib/derive';
 import { todayISO } from '../lib/dates';
-import { spanOfItems, sprintIndex, type TimelineRow } from '../lib/streamTimeline';
+import { segmentsOfItems, sprintIndex, type TimelineRow } from '../lib/streamTimeline';
 import { assessStreams } from '../lib/streamAssessment';
 import { selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 
@@ -49,8 +49,7 @@ export function TimelineModal({ releaseId, onClose }: { releaseId: string; onClo
       return {
         id: ws.id,
         name: ws.name,
-        span: spanOfItems(streamItems, byId),
-        pct: health?.pct ?? 0,
+        segments: segmentsOfItems(streamItems, byId),
         freezeISO: effectiveStreamCodeFreeze(r, ws),
         itemCount: health?.itemCount ?? 0,
         totalPts: health?.totalPts ?? 0,
@@ -73,7 +72,10 @@ export function TimelineModal({ releaseId, onClose }: { releaseId: string; onClo
       title="Timeline"
       icon={Icon.timeline}
       onClose={onClose}
-      width="var(--rt-modal-w-work-item)"
+      width="var(--rt-modal-w-timeline)"
+      // A workspace, not a form: it holds a consistent share of the screen rather
+      // than collapsing around however many streams a release happens to have.
+      minHeight="min(72vh, 840px)"
       footer={
         <>
           <span style={{ marginRight: 'auto', fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>
@@ -90,6 +92,13 @@ export function TimelineModal({ releaseId, onClose }: { releaseId: string; onClo
         sprints={r.sprints}
         rows={rows}
         todayISO={today}
+        // The panel is wide, so the label gutter can afford a real stream name —
+        // connector epics run long and it is usually the END of the name that
+        // distinguishes them, which is exactly what truncation eats.
+        // Capped against the viewport as well as in absolute terms: 320px is a
+        // generous gutter on a wide screen and 40% of a narrow one.
+        labelWidth="min(320px, 26vw)"
+        trackHeight={36}
         onSelectRow={(wsId) => openModal({ type: 'streamHealth', releaseId, wsId })}
       />
     </Modal>

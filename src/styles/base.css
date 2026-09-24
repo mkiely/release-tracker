@@ -95,6 +95,40 @@ body { margin: 0; }
   color: var(--rt-t3);
 }
 
+/* ── Muted work streams ──────────────────────────────────────────────────── */
+
+/* A muted stream (see WorkStream.muted) reads greyscale: it is real and browsable,
+   but it took no part in any figure on the screen, so it should not compete for the
+   eye with the streams that did.
+
+   This works by REDEFINING the status hue tokens on the row rather than by filtering
+   pixels. `statusVars()` returns `var(--rt-st-*)` references, not resolved colours,
+   so every consumer beneath this element — segmented bars, sparklines, the progress
+   ring, verdict pills, inline styles computed in JS — resolves them against this
+   cascade and goes grey together. A `filter: grayscale()` would have desaturated the
+   subtree too, but nothing inside could then opt back out, and the muted chip has to.
+
+   Authored once: the greys are neutrals, which every theme already redefines, so
+   this needs no per-theme variant. */
+.muted-stream {
+  --rt-st-ns-dot: var(--rt-line-strong); --rt-st-ns-soft: var(--rt-fill); --rt-st-ns-text: var(--rt-t3);
+  --rt-st-ac-dot: var(--rt-line-strong); --rt-st-ac-soft: var(--rt-fill); --rt-st-ac-text: var(--rt-t3);
+  --rt-st-ur-dot: var(--rt-line-strong); --rt-st-ur-soft: var(--rt-fill); --rt-st-ur-text: var(--rt-t3);
+  --rt-st-bl-dot: var(--rt-line-strong); --rt-st-bl-soft: var(--rt-fill); --rt-st-bl-text: var(--rt-t3);
+  --rt-st-co-dot: var(--rt-line-strong); --rt-st-co-soft: var(--rt-fill); --rt-st-co-text: var(--rt-t3);
+  --rt-st-wn-dot: var(--rt-line-strong); --rt-st-wn-soft: var(--rt-fill); --rt-st-wn-text: var(--rt-t3);
+  /* Work-item type dots are categorical, not status, and come from their own ramp. */
+  --rt-cat-1: var(--rt-line-strong); --rt-cat-2: var(--rt-line-strong);
+  --rt-cat-3: var(--rt-line-strong); --rt-cat-4: var(--rt-line-strong);
+  --rt-cat-5: var(--rt-line-strong); --rt-cat-6: var(--rt-line-strong);
+  --rt-cat-7: var(--rt-line-strong); --rt-cat-8: var(--rt-line-strong);
+}
+
+/* The chip keeps its colour — and gains some. It is the row's explanation, so it
+   has to survive the greyscale it is explaining; it reads `--rt-muted-accent`,
+   which the rule above deliberately leaves alone. This is the reason the greyscale
+   is a token override rather than a `filter`: nothing can escape a filter. */
+
 /* ── Status / item primitives ────────────────────────────────────────────── */
 
 /* status pill */
