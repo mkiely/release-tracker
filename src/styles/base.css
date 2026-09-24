@@ -111,6 +111,17 @@ body { margin: 0; }
    Authored once: the greys are neutrals, which every theme already redefines, so
    this needs no per-theme variant. */
 .muted-stream {
+  /* Text drops a level too, so the WHOLE row recedes rather than just its chart
+     furniture: a muted stream should be skippable at a glance, and a full-strength
+     name over greyed metrics still pulls the eye back. Hierarchy inside the row
+     survives on type — the name keeps its size and weight — rather than on colour.
+
+     --rt-t3 is deliberately NOT redefined here. These two read it, and a custom
+     property resolves against this element's own computed values, so greying t3 in
+     the same block would collapse all three to one flat tone. --rt-on-ink is left
+     alone for the same reason: it is what the muted chip's label is drawn in. */
+  --rt-ink: var(--rt-t3);
+  --rt-t2: var(--rt-t3);
   --rt-st-ns-dot: var(--rt-line-strong); --rt-st-ns-soft: var(--rt-fill); --rt-st-ns-text: var(--rt-t3);
   --rt-st-ac-dot: var(--rt-line-strong); --rt-st-ac-soft: var(--rt-fill); --rt-st-ac-text: var(--rt-t3);
   --rt-st-ur-dot: var(--rt-line-strong); --rt-st-ur-soft: var(--rt-fill); --rt-st-ur-text: var(--rt-t3);
