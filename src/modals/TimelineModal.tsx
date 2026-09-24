@@ -15,7 +15,7 @@ import { Modal, PButton } from '../components/primitives';
 import { useApp } from '../app-context';
 import { effectiveStreamCodeFreeze } from '../lib/derive';
 import { todayISO } from '../lib/dates';
-import { spanOfItems, sprintIndex, type TimelineRow } from '../lib/streamTimeline';
+import { segmentsOfItems, sprintIndex, type TimelineRow } from '../lib/streamTimeline';
 import { assessStreams } from '../lib/streamAssessment';
 import { selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 
@@ -49,8 +49,7 @@ export function TimelineModal({ releaseId, onClose }: { releaseId: string; onClo
       return {
         id: ws.id,
         name: ws.name,
-        span: spanOfItems(streamItems, byId),
-        pct: health?.pct ?? 0,
+        segments: segmentsOfItems(streamItems, byId),
         freezeISO: effectiveStreamCodeFreeze(r, ws),
         itemCount: health?.itemCount ?? 0,
         totalPts: health?.totalPts ?? 0,

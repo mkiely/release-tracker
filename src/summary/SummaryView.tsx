@@ -346,14 +346,13 @@ function WholeRelease({
  * drawn regardless of what the version says.
  */
 function StreamTimeline({ snapshot }: { snapshot: SnapshotPayload }) {
-  const drawable = snapshot.streams.filter((s) => !s.unassigned && s.freezeISO !== undefined);
+  const drawable = snapshot.streams.filter((s) => !s.unassigned && s.freezeISO !== undefined && s.segments !== undefined);
   if (drawable.length === 0 || snapshot.sprints.length === 0) return null;
 
   const rows: TimelineRow[] = drawable.map((s, i) => ({
     id: String(i),
     name: s.name,
-    span: s.span ? { startIdx: s.span[0], endIdx: s.span[1] } : null,
-    pct: s.pct,
+    segments: s.segments!.map(([startIdx, endIdx, pts, donePts]) => ({ startIdx, endIdx, pts, donePts })),
     freezeISO: s.freezeISO!,
     itemCount: s.itemCount,
     totalPts: s.totalPts,

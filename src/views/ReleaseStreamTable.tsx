@@ -75,7 +75,7 @@ function StreamRow({
 
   return (
     <div
-      className={styles.row}
+      className={[styles.row, ws?.muted && 'muted-stream'].filter(Boolean).join(' ')}
       onClick={handleClick}
     >
       <div className={styles.rowLeft}>

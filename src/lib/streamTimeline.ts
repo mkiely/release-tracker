@@ -21,31 +21,75 @@
 import type { Sprint, WorkItem } from '../types';
 import { dOf } from './dates';
 
-/** The sprint range a stream's planned work occupies, as indices into the release's
- *  sprint list (inclusive both ends). */
-export interface StreamSpan {
+/**
+ * One unbroken run of sprints holding a stream's work, as indices into the
+ * release's sprint list (inclusive both ends), plus what sits in it.
+ *
+ * A stream is a LIST of these, not a single range. The distinction is the whole
+ * point of the view: a stream with work in sprints 1–2 and again in 5–8 is not
+ * working through sprints 3–4, and drawing one bar from 1 to 8 asserts that it is.
+ * Worse, a single stray item late in the release — one ticket parked near the code
+ * freeze — stretched the old single-span bar across the entire calendar, which is
+ * precisely the reading a timeline exists to prevent.
+ */
+export interface StreamSegment {
   startIdx: number;
   endIdx: number;
+  /** Points scheduled in this run, and the completed share of them. Per-segment
+   *  rather than per-stream so a finished early run and an untouched later one
+   *  don't average into one misleading fill. */
+  pts: number;
+  donePts: number;
 }
 
+/** Completed share of a segment, 0–100. An unestimated run (no points at all) reads
+ *  0 rather than dividing by zero — "nothing measured", which is what it is. */
+export const segmentPct = (s: StreamSegment): number =>
+  s.pts > 0 ? Math.round((s.donePts / s.pts) * 100) : 0;
+
 /**
- * The span a set of items occupies, or null when none of them is in a sprint.
+ * The runs of sprints a set of items occupies. Empty when none of them is in a
+ * sprint.
  *
- * Unsprinted items (backlog) are ignored rather than widening the span to the whole
- * release: a stream whose work is entirely unscheduled has no position on a calendar,
- * and drawing it as a full-width bar would claim a plan that doesn't exist.
+ * Unsprinted items (backlog) are ignored rather than widening a run to the whole
+ * release: a stream whose work is entirely unscheduled has no position on a
+ * calendar, and drawing it as a full-width bar would claim a plan that doesn't
+ * exist. A sprint with items but no estimates still opens a run — there IS work
+ * there, and its bar simply renders unfilled.
  */
-export function spanOfItems(items: readonly WorkItem[], sprintIndexById: ReadonlyMap<string, number>): StreamSpan | null {
-  let startIdx = Infinity;
-  let endIdx = -Infinity;
+export function segmentsOfItems(
+  items: readonly WorkItem[],
+  sprintIndexById: ReadonlyMap<string, number>,
+): StreamSegment[] {
+  // Points per occupied sprint index. A sprint is "occupied" by presence of an item,
+  // never by its points — that is the null-points case above.
+  const pts = new Map<number, { pts: number; donePts: number }>();
   for (const it of items) {
     if (it.sprintId == null) continue;
     const i = sprintIndexById.get(it.sprintId);
     if (i === undefined) continue; // item points at a sprint this release no longer has
-    if (i < startIdx) startIdx = i;
-    if (i > endIdx) endIdx = i;
+    const cell = pts.get(i) ?? { pts: 0, donePts: 0 };
+    cell.pts += it.points ?? 0;
+    if (it.status === 'Complete') cell.donePts += it.points ?? 0;
+    pts.set(i, cell);
   }
-  return endIdx < 0 ? null : { startIdx, endIdx };
+
+  const occupied = [...pts.keys()].sort((a, b) => a - b);
+  const segments: StreamSegment[] = [];
+  for (const i of occupied) {
+    const last = segments[segments.length - 1];
+    // Contiguous means "the very next sprint". A single empty sprint is a real gap:
+    // it is a fortnight in which this stream is planned to do nothing, and the user
+    // asked to see exactly that.
+    if (last && i === last.endIdx + 1) {
+      last.endIdx = i;
+      last.pts += pts.get(i)!.pts;
+      last.donePts += pts.get(i)!.donePts;
+    } else {
+      segments.push({ startIdx: i, endIdx: i, ...pts.get(i)! });
+    }
+  }
+  return segments;
 }
 
 /** Sprint id → its index in release order. Built once per render and passed down. */
@@ -66,12 +110,11 @@ export interface TimelineRow {
   /** Stable key for React, and the stream id when the row came from one. */
   id: string;
   name: string;
-  /** null = no sprinted work, so no bar. Rendered as an explicit "unscheduled" row
-   *  rather than dropped, because a stream with reserved engineers and nothing on
-   *  the calendar is exactly what a planner needs to see. */
-  span: StreamSpan | null;
-  /** Points-based completion, 0–100 — the filled portion of the bar. */
-  pct: number;
+  /** One bar per unbroken run of sprints holding work; empty = nothing scheduled,
+   *  which renders as an explicit "unscheduled" row rather than being dropped,
+   *  because a stream with reserved engineers and nothing on the calendar is exactly
+   *  what a planner needs to see. */
+  segments: StreamSegment[];
   /** This stream's effective code freeze (its own override, or the release's), as a
    *  tick on its bar. */
   freezeISO: string;
@@ -126,22 +169,22 @@ export interface BarGeometry {
 }
 
 /**
- * Place a span's bar. The bar runs from the start of its first sprint to the end of
- * its last, so it covers the days the work is actually scheduled across rather than
- * the distance between two sprint midpoints.
+ * Place a segment's bar. The bar runs from the start of its first sprint to the end
+ * of its last, so it covers the days the work is actually scheduled across rather
+ * than the distance between two sprint midpoints.
  *
  * A minimum width keeps a single short sprint from rendering as an invisible sliver
  * on a long release — a bar too thin to see reads as "no work here", which is the one
  * thing it must not say.
  */
 export function barGeometry(
-  span: StreamSpan,
+  segment: { startIdx: number; endIdx: number },
   sprints: readonly TimelineSprint[],
   window: TimelineWindow,
   minWidthPct = 1.5,
 ): BarGeometry {
-  const first = sprints[span.startIdx];
-  const last = sprints[span.endIdx];
+  const first = sprints[segment.startIdx];
+  const last = sprints[segment.endIdx];
   if (!first || !last) return { leftPct: 0, widthPct: 0 };
   const leftPct = clampPct(pctOfDate(first.startISO, window));
   const rightPct = clampPct(pctOfDate(last.endISO, window));

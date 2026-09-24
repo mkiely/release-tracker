@@ -4,7 +4,8 @@ import {
   barGeometry,
   clampPct,
   pctOfDate,
-  spanOfItems,
+  segmentPct,
+  segmentsOfItems,
   sprintIndex,
   timelineWindow,
   type TimelineSprint,
@@ -23,36 +24,87 @@ const byId = sprintIndex([
   { id: 'sp1' } as Sprint,
   { id: 'sp2' } as Sprint,
   { id: 'sp3' } as Sprint,
+  { id: 'sp4' } as Sprint,
+  { id: 'sp5' } as Sprint,
 ]);
 
-describe('spanOfItems', () => {
-  it('spans the first through the last sprint holding work', () => {
+describe('segmentsOfItems', () => {
+  it('merges adjacent sprints into one run', () => {
     const items = [
-      anItem({ id: 'a', sprintId: 'sp3' }),
-      anItem({ id: 'b', sprintId: 'sp1' }),
-      anItem({ id: 'c', sprintId: 'sp2' }),
+      anItem({ id: 'a', sprintId: 'sp3', points: 1 }),
+      anItem({ id: 'b', sprintId: 'sp1', points: 2 }),
+      anItem({ id: 'c', sprintId: 'sp2', points: 3 }),
     ];
-    expect(spanOfItems(items, byId)).toEqual({ startIdx: 0, endIdx: 2 });
+    expect(segmentsOfItems(items, byId)).toEqual([{ startIdx: 0, endIdx: 2, pts: 6, donePts: 0 }]);
   });
 
-  it('collapses to a single sprint when all the work is in one', () => {
-    expect(spanOfItems([anItem({ id: 'a', sprintId: 'sp2' })], byId)).toEqual({ startIdx: 1, endIdx: 1 });
+  // The reported bug. One stray late ticket used to stretch a single bar from the
+  // first sprint to the last, which read as "this stream works right up to the
+  // freeze" when in fact it does nothing for the middle of the release.
+  it('splits at a gap instead of spanning it', () => {
+    const items = [
+      anItem({ id: 'a', sprintId: 'sp1', points: 5 }),
+      anItem({ id: 'b', sprintId: 'sp4', points: 1 }),
+    ];
+    expect(segmentsOfItems(items, byId)).toEqual([
+      { startIdx: 0, endIdx: 0, pts: 5, donePts: 0 },
+      { startIdx: 3, endIdx: 3, pts: 1, donePts: 0 },
+    ]);
   });
 
-  it('is null when nothing is in a sprint — an unscheduled stream has no position', () => {
-    // A backlog item must not stretch the bar across the whole release: that would
-    // claim a plan the stream doesn't have.
-    expect(spanOfItems([anItem({ id: 'a', sprintId: null })], byId)).toBeNull();
-    expect(spanOfItems([], byId)).toBeNull();
+  it('treats a single empty sprint as a real gap', () => {
+    // A fortnight in which the stream is planned to do nothing is exactly what the
+    // view is for; merging across it would hide the only thing worth seeing.
+    const items = [anItem({ id: 'a', sprintId: 'sp1' }), anItem({ id: 'b', sprintId: 'sp3' })];
+    expect(segmentsOfItems(items, byId).map((s) => [s.startIdx, s.endIdx])).toEqual([[0, 0], [2, 2]]);
+  });
+
+  it('handles several runs, in sprint order, whatever order the items arrive in', () => {
+    const items = [
+      anItem({ id: 'd', sprintId: 'sp4' }),
+      anItem({ id: 'a', sprintId: 'sp1' }),
+      anItem({ id: 'e', sprintId: 'sp5' }),
+      anItem({ id: 'b', sprintId: 'sp2' }),
+    ];
+    expect(segmentsOfItems(items, byId).map((s) => [s.startIdx, s.endIdx])).toEqual([[0, 1], [3, 4]]);
+  });
+
+  it('sums points per run, and counts only completed items as done', () => {
+    const items = [
+      anItem({ id: 'a', sprintId: 'sp1', points: 3, status: 'Complete' }),
+      anItem({ id: 'b', sprintId: 'sp1', points: 5 }),
+      anItem({ id: 'c', sprintId: 'sp4', points: 8, status: 'Complete' }),
+    ];
+    expect(segmentsOfItems(items, byId)).toEqual([
+      { startIdx: 0, endIdx: 0, pts: 8, donePts: 3 },
+      { startIdx: 3, endIdx: 3, pts: 8, donePts: 8 },
+    ]);
+  });
+
+  it('opens a run for unestimated work — presence of an item, never its points', () => {
+    // The case that makes `segments` un-derivable from the points series.
+    const segs = segmentsOfItems([anItem({ id: 'a', sprintId: 'sp2', points: null })], byId);
+    expect(segs).toEqual([{ startIdx: 1, endIdx: 1, pts: 0, donePts: 0 }]);
+  });
+
+  it('is empty when nothing is in a sprint — an unscheduled stream has no position', () => {
+    expect(segmentsOfItems([anItem({ id: 'a', sprintId: null })], byId)).toEqual([]);
+    expect(segmentsOfItems([], byId)).toEqual([]);
   });
 
   it('ignores an item pointing at a sprint the release no longer has', () => {
     const items = [anItem({ id: 'a', sprintId: 'sp_deleted' }), anItem({ id: 'b', sprintId: 'sp2' })];
-    expect(spanOfItems(items, byId)).toEqual({ startIdx: 1, endIdx: 1 });
+    expect(segmentsOfItems(items, byId).map((s) => [s.startIdx, s.endIdx])).toEqual([[1, 1]]);
+  });
+});
+
+describe('segmentPct', () => {
+  it('is the completed share of the run', () => {
+    expect(segmentPct({ startIdx: 0, endIdx: 0, pts: 8, donePts: 2 })).toBe(25);
   });
 
-  it('is null when every item points at a missing sprint', () => {
-    expect(spanOfItems([anItem({ id: 'a', sprintId: 'sp_deleted' })], byId)).toBeNull();
+  it('is 0 for an unestimated run rather than dividing by zero', () => {
+    expect(segmentPct({ startIdx: 0, endIdx: 0, pts: 0, donePts: 0 })).toBe(0);
   });
 });
 

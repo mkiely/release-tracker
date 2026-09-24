@@ -13,6 +13,7 @@ import { useApp } from '../app-context';
 import { dOf, fmtShort, todayISO } from '../lib/dates';
 import { activeSprint, freezeOverrides, sprintEventChips, effectiveCodeFreeze, reservationBalance, sprintVel, statusSegs, sumPoints, velocityAttainment, type EventChip, type StreamForecast, type StreamHealth, type StreamRunway, type VelocityAttainment } from '../lib/derive';
 import { assessStreams } from '../lib/streamAssessment';
+import { sortStreams } from '../lib/streamOrder';
 import { freezeChipModal } from './freezeChipModal';
 import { connectorLabel } from '../sync/client';
 import type { MetricsSection } from '../modals/MetricsModal';
@@ -216,13 +217,10 @@ export function useReleaseView(): ReleaseViewProps | null {
   );
   const isStreamFiltered = isAnyFacetActive(streamFacetGroups);
   const facetsActive = isStreamFiltered && axis === 'stream';
-  // Default stream order is alphabetical (case-insensitive) so a release with many
-  // streams stays scannable; the unassigned bucket (ws: null) is appended after
-  // these everywhere it appears, so it always sorts to the bottom. Copy before
-  // sorting — r.workStreams is shared store state.
-  const streams = [...(facetsActive ? applyFacets(r.workStreams, streamFacetGroups) : r.workStreams)].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-  );
+  // Muted streams last, then alphabetical (see lib/streamOrder). The unassigned
+  // bucket (ws: null) is appended after these everywhere it appears, so it stays
+  // below even the muted ones. sortStreams copies — r.workStreams is store state.
+  const streams = sortStreams(facetsActive ? applyFacets(r.workStreams, streamFacetGroups) : r.workStreams);
 
   const dateRange = last
     ? `${fmtShort(r.startISO)} – ${fmtShort(last.endISO)}, ${dOf(last.endISO).getFullYear()}`

@@ -386,9 +386,12 @@ function RunwaySection({ r, team, items }: SectionProps) {
   const { openModal } = useApp();
   const rows = buildRunwayRows(r, team, items);
 
-  // Order by urgency: alarms → under-planned → over-reserved → the rest.
+  // Order by urgency: alarms → under-planned → over-reserved → the rest → muted.
+  // Muted outranks every verdict because it isn't one: the stream took no part in
+  // the figures this list is ranking, so however its runway reads, it is not the
+  // thing to act on.
   const rank = (x: (typeof rows)[number]) =>
-    x.runway.alarm ? 0 : x.runway.verdict === 'under-planned' ? 1 : x.runway.verdict === 'over-reserved' ? 2 : 3;
+    x.ws.muted ? 4 : x.runway.alarm ? 0 : x.runway.verdict === 'under-planned' ? 1 : x.runway.verdict === 'over-reserved' ? 2 : 3;
   const ordered = [...rows].sort((a, b) => rank(a) - rank(b));
   const alarms = rows.filter((x) => x.runway.alarm).length;
   const alertTone = statusVars('Blocked');
