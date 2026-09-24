@@ -6,6 +6,7 @@
 
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import { getActions } from './store/store';
+import type { PushFailure } from './store/actions';
 import type { SharePayload } from './lib/shareRelease';
 import type { MetricsSection } from './modals/MetricsModal';
 import { Toast } from './components/primitives';
@@ -25,6 +26,14 @@ export type ModalSpec =
   | { type: 'connectorItem'; releaseId: string; presetStreamId?: string; presetSprintId?: string }
   | { type: 'itemDetail'; itemId: string }
   | { type: 'pushReview'; releaseId: string; onConfirm: () => void | Promise<void> }
+  | {
+      type: 'pushResult';
+      releaseId: string;
+      pushed: number;
+      failures: PushFailure[];
+      onOpenItem: (itemId: string) => void;
+      onRetry: () => void;
+    }
   | { type: 'confirm'; title: string; body: string; confirmLabel: string; onConfirm: () => void }
   | { type: 'loadShare'; payload: SharePayload; onConfirm: () => void };
 
@@ -70,18 +79,59 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  /**
+   * Push, and surface what actually happened.
+   *
+   * The failure path is a modal, not a toast: a push is not all-or-nothing, so the
+   * interesting outcome is usually "some landed, these didn't", which needs item
+   * names, field-level detail and somewhere to click. The toast stays for the clean
+   * case, where there is nothing to act on.
+   */
   const onPush = async (releaseId: string) => {
     const outcome = await getActions().pushRelease(releaseId);
+    const showResult = (pushed: number, failures: PushFailure[]) =>
+      setModal({
+        type: 'pushResult',
+        releaseId,
+        pushed,
+        failures,
+        onOpenItem: (itemId) => setModal({ type: 'itemDetail', itemId }),
+        onRetry: () => {
+          setModal(null);
+          void onPush(releaseId);
+        },
+      });
+
     if (!outcome.ok) {
-      if (outcome.reason === 'nothing-to-push') return; // button already hides itself
-      notify(
-        outcome.reason === 'no-connector'
-          ? 'This release isn’t connected to an external system'
-          : `Push failed: ${outcome.message}`,
-      );
+      // Every path from here closes or replaces the review modal — it stays open
+      // across the request on purpose and cannot dismiss itself.
+      if (outcome.reason === 'nothing-to-push') {
+        setModal(null);
+        return;
+      }
+      if (outcome.reason === 'no-connector') {
+        setModal(null);
+        notify('This release isn’t connected to an external system');
+        return;
+      }
+      // Attributed failures get the modal; an unattributable one (transport, a
+      // whole-request rejection) has no item to point at, so it stays a toast.
+      if (outcome.failures && outcome.failures.length > 0) {
+        showResult(0, outcome.failures);
+        return;
+      }
+      setModal(null);
+      notify(`Push failed: ${outcome.message}`);
       return;
     }
-    notify(`Pushed \xb7 ${outcome.result.pushed} change${outcome.result.pushed !== 1 ? 's' : ''}`);
+
+    const { pushed, failures } = outcome.result;
+    if (failures.length > 0) {
+      showResult(pushed, failures);
+      return;
+    }
+    setModal(null);
+    notify(`Pushed \xb7 ${pushed} change${pushed !== 1 ? 's' : ''}`);
   };
 
   return (

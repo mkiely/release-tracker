@@ -28,7 +28,7 @@ vi.mock('../sync/client', async (importOriginal) => {
 });
 
 import { getActions, getState, selDirtyCount, useStore } from './store';
-import { syncClient } from '../sync/client';
+import { SyncValidationError, syncClient } from '../sync/client';
 
 const client = syncClient as unknown as {
   listConnectors: ReturnType<typeof vi.fn>;
@@ -466,6 +466,72 @@ describe('pushRelease', () => {
     expect(getState().releases[0].sync?.state).toBe('ok');
   });
 
+  // A push is not all-or-nothing. These pin the two halves the old string[] shape
+  // could not express: which item failed, and that the ones that DIDN'T fail are
+  // the only ones allowed to be marked clean.
+  it('reports a partial failure as ok-with-failures, not as a plain success', async () => {
+    client.listConnectors.mockResolvedValue([acmeMeta()]);
+    client.push.mockResolvedValue({
+      pushed: 0,
+      failed: 1,
+      errors: [{ externalId: 'EXT-1', message: 'Sprint is locked on a closed ticket', fieldErrors: [{ field: 'sprint', message: 'Ticket is closed' }] }],
+    });
+    const { itemId } = setupDirty();
+
+    const out = await A().pushRelease(getState().releases[0].id);
+
+    // Nothing landed at all, so this one is an outright failure — but it carries
+    // the attribution rather than a joined string.
+    expect(out.ok).toBe(false);
+    if (!out.ok) {
+      expect(out.failures).toHaveLength(1);
+      expect(out.failures![0]).toMatchObject({ itemId, kind: 'update', message: 'Sprint is locked on a closed ticket' });
+      expect(out.failures![0].fieldErrors).toEqual([{ field: 'sprint', message: 'Ticket is closed' }]);
+    }
+  });
+
+  it('leaves a FAILED item dirty while clearing the ones that landed', async () => {
+    // The bug this shape exists to fix: dirtyFields used to be cleared for every
+    // item in the batch, so a partial failure marked unlanded edits clean and the
+    // user silently lost them.
+    client.listConnectors.mockResolvedValue([acmeMeta()]);
+    const r = A().createRelease({ name: 'Orion', startISO: '2026-04-13', teamId: 't1', connector: { type: 'acme', config: {} } });
+    const good = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'lands', points: 8 })!;
+    const bad = A().createItem(r.id, { workStreamId: null, sprintId: null, subject: 'rejected', points: 13 })!;
+    A().updateItem(good.id, { externalId: 'EXT-OK', dirtyFields: ['points'], syncedValues: { points: 1, sprint: null } });
+    A().updateItem(bad.id, { externalId: 'EXT-BAD', dirtyFields: ['points'], syncedValues: { points: 2, sprint: null } });
+
+    client.push.mockResolvedValue({
+      pushed: 1,
+      failed: 1,
+      errors: [{ externalId: 'EXT-BAD', message: 'Estimate exceeds the cap' }],
+    });
+
+    const out = await A().pushRelease(r.id);
+
+    expect(out.ok).toBe(true);
+    if (out.ok) {
+      expect(out.result.pushed).toBe(1);
+      expect(out.result.failures.map((f) => f.itemId)).toEqual([bad.id]);
+    }
+    expect(getState().items.find((i) => i.id === good.id)!.dirtyFields).toEqual([]);
+    expect(getState().items.find((i) => i.id === bad.id)!.dirtyFields).toEqual(['points']);
+  });
+
+  it('records the failure on the item and clears it once a later push succeeds', async () => {
+    client.listConnectors.mockResolvedValue([acmeMeta()]);
+    client.push.mockResolvedValue({ pushed: 0, failed: 1, errors: [{ externalId: 'EXT-1', message: 'Rejected' }] });
+    const { r, itemId } = setupDirty();
+
+    await A().pushRelease(r.id);
+    // Durable: this is a state the item is in, not a toast that has gone.
+    expect(getState().items.find((i) => i.id === itemId)!.lastPushError).toMatchObject({ message: 'Rejected', kind: 'update' });
+
+    client.push.mockResolvedValue({ pushed: 1, failed: 0, errors: [] });
+    await A().pushRelease(r.id);
+    expect(getState().items.find((i) => i.id === itemId)!.lastPushError).toBeNull();
+  });
+
   it("returns { ok: false, reason: 'error' } and records the error when push throws", async () => {
     client.listConnectors.mockResolvedValue([acmeMeta()]);
     client.push.mockRejectedValue(new Error('network down'));
@@ -628,6 +694,32 @@ describe('pushRelease (flush queued creates)', () => {
     expect(items[0].externalId).toBe('EXT-900');
     expect(items[0].key).toBe('ORI-900');
     expect(selDirtyCount(getState(), r.id)).toBe(0);
+  });
+
+  it("preserves a 422's field errors instead of flattening them into prose", async () => {
+    // The whole point of the create path's structured errors: the service already
+    // said WHICH field it rejected, and that attribution used to be thrown away at
+    // the catch, leaving the user with "Acme rejected the new item (1 field error)".
+    client.listConnectors.mockResolvedValue([acmeMeta({ itemTypes: [creatableStory] })]);
+    client.createItem.mockRejectedValue(
+      new SyncValidationError('Acme rejected the new item', [
+        { field: 'description', message: 'Critical bugs require reproduction steps' },
+      ]),
+    );
+    const r = connectorRelease();
+    A().createConnectorItem(r.id, draft());
+
+    const out = await A().pushRelease(r.id);
+
+    expect(out.ok).toBe(false);
+    if (!out.ok) {
+      expect(out.failures![0]).toMatchObject({ kind: 'create', message: 'Acme rejected the new item' });
+      expect(out.failures![0].fieldErrors).toEqual([
+        { field: 'description', message: 'Critical bugs require reproduction steps' },
+      ]);
+    }
+    // And it is on the item, so the form can mark the field after a reload.
+    expect(getState().items[0].lastPushError?.fieldErrors).toHaveLength(1);
   });
 
   it('leaves the queued item in place and reports an error when the create fails', async () => {

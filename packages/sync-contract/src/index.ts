@@ -48,14 +48,21 @@ export type ValidateRequest = Schemas['ValidateRequest'];
 export type PushItemChange = Schemas['PushItemChange'];
 export type PushRequest = Schemas['PushRequest'];
 export type PushResult = Schemas['PushResult'];
+/** One item a push could not write, with the id of the item it failed on. */
+export type PushItemError = Schemas['PushItemError'];
 export type CreateItemRequest = Schemas['CreateItemRequest'];
 
 /** Raw generated paths/components, for codegen-heavy consumers (e.g. typed fetch). */
 export type { paths, components, operations } from './generated';
 
 /**
- * Contract version. Must match `info.version` in openapi.yaml. Distinct from the
- * app's localStorage SCHEMA_VERSION — this versions the wire contract between the
- * app and the sync service.
+ * Contract version. Must match `info.version` in openapi.yaml — and now actually
+ * does: the two had drifted to 0.17.0 against a spec at 0.19.0, because nothing
+ * read this constant and nothing checked it. `contractVersion.test.ts` pins them
+ * together so the next drift fails a test instead of quietly misreporting which
+ * contract a build speaks.
+ *
+ * Distinct from the app's localStorage SCHEMA_VERSION — this versions the wire
+ * contract between the app and the sync service.
  */
-export const SYNC_CONTRACT_VERSION = '0.17.0';
+export const SYNC_CONTRACT_VERSION = '0.20.0';

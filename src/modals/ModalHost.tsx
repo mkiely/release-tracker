@@ -6,6 +6,7 @@ import { CodeFreezeModal, ConfirmModal, EventModal, LoadShareModal, PushReviewMo
 import { ConnectorItemModal } from './ConnectorItemModal';
 import { MetricsModal } from './MetricsModal';
 import { TimelineModal } from './TimelineModal';
+import { PushResultModal } from './PushResultModal';
 
 export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose: () => void }) {
   if (!modal) return null;
@@ -48,6 +49,17 @@ export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose
       return <WorkItemDetailModal itemId={modal.itemId} onClose={onClose} />;
     case 'pushReview':
       return <PushReviewModal releaseId={modal.releaseId} onConfirm={modal.onConfirm} onClose={onClose} />;
+    case 'pushResult':
+      return (
+        <PushResultModal
+          releaseId={modal.releaseId}
+          pushed={modal.pushed}
+          failures={modal.failures}
+          onOpenItem={modal.onOpenItem}
+          onRetry={modal.onRetry}
+          onClose={onClose}
+        />
+      );
     case 'confirm':
       return <ConfirmModal title={modal.title} body={modal.body} confirmLabel={modal.confirmLabel} onConfirm={modal.onConfirm} onClose={onClose} />;
     case 'loadShare':

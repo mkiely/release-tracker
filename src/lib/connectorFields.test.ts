@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { allWriteableLocalFields, attributeFields, capabilitySummary, conceptWriteable, isAttributeField, itemTypeFor, missingCapabilities, writeableAttributeFields, writeableLocalFields } from './connectorFields';
+import {
+  allWriteableLocalFields,
+  attributeFields,
+  capabilitySummary,
+  conceptWriteable,
+  fieldLabel,
+  isAttributeField,
+  itemTypeFor,
+  missingCapabilities,
+  recomputeDirty,
+  writeableAttributeFields,
+  writeableLocalFields,
+  type CanonicalView,
+} from './connectorFields';
 import type { ConnectorItemType } from '../sync/schema';
+import type { WorkItem } from '../types';
+import { anItem } from '../test/factories';
 
 const story: ConnectorItemType = {
   id: 'acme_story',
@@ -200,5 +215,121 @@ describe('status writeability', () => {
 
   it('legacy fallback (unknown type) still excludes status', () => {
     expect(writeableLocalFields(undefined).has('status')).toBe(false);
+  });
+});
+
+// One resolver, because there were briefly two: the push-result modal read the
+// catalog while the item modal read only attribute fields, so the same rejection
+// said "Cycle" in one place and "sprint" in the other.
+describe('fieldLabel', () => {
+  const acmeStory: ConnectorItemType = {
+    id: 'acme_story',
+    label: 'Story',
+    fields: [
+      // Acme's own word for a sprint — the whole reason the catalog wins.
+      { key: 'sprint', label: 'Cycle', kind: 'ref', target: 'sprint', writeable: true },
+      { key: 'severity', label: 'Severity', kind: 'enum', options: [], writeable: true },
+      { key: 'unlabelled', kind: 'string' },
+    ],
+  };
+
+  it("prefers the connector's own label over the app's canonical one", () => {
+    expect(fieldLabel(acmeStory, 'sprint')).toBe('Cycle');
+  });
+
+  it('uses a vocabulary label where the concept is only the connector’s', () => {
+    expect(fieldLabel(acmeStory, 'severity')).toBe('Severity');
+  });
+
+  it('falls back to the canonical label when the catalog declares no label', () => {
+    expect(fieldLabel(acmeStory, 'points')).toBe('Points');
+    expect(fieldLabel(undefined, 'workStream')).toBe('Work stream');
+  });
+
+  it('falls back to the raw key rather than rendering nothing', () => {
+    // A poor label is recoverable; a hidden error is not.
+    expect(fieldLabel(acmeStory, 'unlabelled')).toBe('unlabelled');
+    expect(fieldLabel(undefined, 'somethingNew')).toBe('somethingNew');
+  });
+});
+
+// Dirt is divergence from the SYNCED BASELINE. Comparing against the item's current
+// value — which the item modal used to do — can only ever add flags, so a field
+// edited away and back stayed dirty forever and every push re-sent a change the
+// backend already had.
+describe('recomputeDirty', () => {
+  const synced = (over: Partial<WorkItem> = {}): WorkItem =>
+    anItem({
+      id: 'it_1',
+      externalId: 'EXT-1',
+      sprintId: 'sp_1',
+      points: 5,
+      dirtyFields: [],
+      syncedValues: { points: 5, sprint: 'sp_1' },
+      ...over,
+    });
+
+  const view = (over: Partial<CanonicalView> = {}): CanonicalView => ({
+    points: 5,
+    sprintId: 'sp_1',
+    workStreamId: null,
+    assignedMemberId: null,
+    status: 'Not Started',
+    subject: 'S',
+    description: '',
+    ...over,
+  });
+
+  const writeable = new Set(['points', 'sprint']);
+
+  it('marks a field dirty once it leaves the baseline', () => {
+    const out = recomputeDirty(synced(), view({ sprintId: 'sp_2' }), writeable, {}, new Set());
+    expect(out).toContain('sprint');
+  });
+
+  it('CLEARS a field edited back to its baseline', () => {
+    // The bug: the item currently sits at sp_2 and is flagged; editing it back to
+    // sp_1 must leave it clean, not merely "still dirty because it changed again".
+    const item = synced({ sprintId: 'sp_2', dirtyFields: ['sprint'] });
+    const out = recomputeDirty(item, view({ sprintId: 'sp_1' }), writeable, {}, new Set());
+    expect(out).not.toContain('sprint');
+  });
+
+  it('leaves an untouched dirty field alone', () => {
+    const item = synced({ points: 8, dirtyFields: ['points'] });
+    const out = recomputeDirty(item, view({ points: 8 }), writeable, {}, new Set());
+    expect(out).toEqual(['points']);
+  });
+
+  it('never touches a flag for a field outside the writeable set', () => {
+    // Something that knew more than this call set it; it is not ours to clear.
+    const item = synced({ dirtyFields: ['description'] });
+    const out = recomputeDirty(item, view(), writeable, {}, new Set());
+    expect(out).toContain('description');
+  });
+
+  it('tracks vocabulary fields against the baseline too', () => {
+    const item = synced({
+      attributes: { severity: 'critical' },
+      syncedValues: { points: 5, sprint: 'sp_1', severity: 'low' },
+      dirtyFields: ['severity'],
+    });
+    // Back to the synced value → clean.
+    expect(recomputeDirty(item, view(), writeable, { severity: 'low' }, new Set(['severity']))).not.toContain('severity');
+    // Away from it → dirty.
+    expect(recomputeDirty(item, view(), writeable, { severity: 'high' }, new Set(['severity']))).toContain('severity');
+  });
+
+  it('falls back to the current value when the baseline lacks the field', () => {
+    // A pre-registry item: declaring it clean would silently drop a real edit.
+    const item = synced({ syncedValues: { points: 5 } });
+    expect(recomputeDirty(item, view({ sprintId: 'sp_9' }), writeable, {}, new Set())).toContain('sprint');
+  });
+
+  it('reports nothing dirty when an unbaselined item is saved unchanged', () => {
+    // No syncedValues at all (a never-synced item): every field falls back to
+    // comparing against itself, so an unchanged save must stay clean.
+    const local = anItem({ id: 'it_2', externalId: null, syncedValues: null, sprintId: 'sp_1', points: 5, dirtyFields: [] });
+    expect(recomputeDirty(local, view({ sprintId: 'sp_1', points: 5 }), writeable, {}, new Set())).toEqual([]);
   });
 });

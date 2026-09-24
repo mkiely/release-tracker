@@ -95,6 +95,54 @@ export function canonicalBaseline(
   return b;
 }
 
+/**
+ * The dirty-field set an edited item should carry: every writeable field whose new
+ * value DIVERGES FROM THE SYNCED BASELINE.
+ *
+ * Divergence is measured against `item.syncedValues`, not against the item's
+ * current local value, and that distinction is the whole reason this is a function
+ * rather than four lines in the editor. Comparing against the current value can
+ * only ever add flags: editing sprint A→B→A left 'sprint' dirty forever, so every
+ * push re-sent a change the backend already had — and once a connector can REJECT
+ * such a change, the item fails every push with nothing the user can do about it.
+ *
+ * Lives here rather than in the modal so it can be tested: the drag path
+ * (moveItemToSprint) has always had this right and has the tests to prove it, while
+ * the modal's copy sat in a presenter where the house rules say no test would look.
+ *
+ * Flags for fields outside `writeable` are preserved untouched — they were set by
+ * something that knew more than this call does.
+ */
+export function recomputeDirty(
+  item: WorkItem,
+  next: CanonicalView,
+  writeable: Set<string>,
+  nextAttributes: Record<string, AttrValue>,
+  editableAttrKeys: Set<string>,
+): string[] {
+  const out = [...item.dirtyFields];
+  const baseline = item.syncedValues;
+  const set = (field: string, diverged: boolean) => {
+    const at = out.indexOf(field);
+    if (diverged && at < 0) out.push(field);
+    else if (!diverged && at >= 0) out.splice(at, 1);
+  };
+
+  for (const c of CANONICAL_FIELDS) {
+    if (!writeable.has(c.field)) continue;
+    // No baseline for this field (an item predating the registry) — compare against
+    // the current value rather than declaring it clean, which would drop a real edit.
+    const against = baseline && c.field in baseline ? baseline[c.field] : c.read(item);
+    set(c.field, canonicalChanged(c, c.read(next), against));
+  }
+  for (const key of editableAttrKeys) {
+    const value = nextAttributes[key] ?? null;
+    const against = baseline && key in baseline ? baseline[key] : (item.attributes?.[key] ?? null);
+    set(key, value !== against);
+  }
+  return out;
+}
+
 /** Resolve an item's catalog type by its connector type id. */
 export function itemTypeFor(
   typeId: string | null | undefined,
@@ -155,6 +203,28 @@ export function isAttributeField(f: FieldSpec): boolean {
 }
 
 /** The vocabulary (attribute) fields a type declares, in catalog order. */
+/**
+ * Display label for a field key, in the CONNECTOR's own vocabulary where it has
+ * one — Acme calls a sprint a "Cycle", and an error about it should say Cycle.
+ *
+ * Reads the item type's catalog first, because a key means whatever that type says
+ * it means, then falls back to the app's canonical name, then to the raw key. The
+ * raw key is a poor label but never a hidden error, which is the one outcome worth
+ * ruling out.
+ *
+ * Shared because it was briefly not: the push-result modal resolved through the
+ * catalog while the item modal looked only at attribute fields, so the same
+ * rejection read "Cycle" in one place and "sprint" in the other.
+ */
+export function fieldLabel(type: ConnectorItemType | undefined, key: string): string {
+  const declared = type?.fields.find((f) => f.key === key);
+  if (declared?.label) return declared.label;
+  // The canonical registry above already carries a label per concept — the push
+  // preview renders from it — so this reads that rather than keeping a third copy
+  // of the same eight strings.
+  return CANONICAL_BY_FIELD.get(key)?.label ?? key;
+}
+
 export function attributeFields(type: ConnectorItemType | undefined): FieldSpec[] {
   return (type?.fields ?? []).filter(isAttributeField);
 }

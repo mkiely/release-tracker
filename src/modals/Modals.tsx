@@ -7,7 +7,7 @@ import { between, fmtDateTime, fmtShort, todayISO, workdaysInRange } from '../li
 import { capPct, effectiveCodeFreeze, effectiveStreamCodeFreeze, freezeOverrides, freezeSprintX, fullCap, sprintVel, sumPoints } from '../lib/derive';
 import { getActions, selItem, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
-import { attributeFields, CANONICAL_FIELDS, canonicalChanged, conceptWriteable, itemTypeFor, writeableAttributeFields, writeableLocalFields, type CanonicalView, type EditConcept } from '../lib/connectorFields';
+import { attributeFields, conceptWriteable, fieldLabel, itemTypeFor, recomputeDirty, writeableAttributeFields, writeableLocalFields, type CanonicalView, type EditConcept } from '../lib/connectorFields';
 import { htmlToText } from '../lib/htmlNormalize';
 import { displayValue, FieldControl } from '../components/fields/registry';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
@@ -962,7 +962,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const nextStatusNative = chosenDef ? { id: chosenDef.id, label: chosenDef.label } : (it.statusNative ?? null);
 
   const save = () => {
-    const nextDirty = [...it.dirtyFields];
+    let nextDirty = [...it.dirtyFields];
     const nextAttrs = { ...it.attributes };
     if (synced) {
       // Accumulate dirty flags for any writeable canonical field whose value
@@ -979,17 +979,10 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
         subject: subject.trim() || it.subject,
         description: desc,
       };
-      for (const c of CANONICAL_FIELDS) {
-        if (!writeableLocal.has(c.field)) continue;
-        if (canonicalChanged(c, c.read(nextView), c.read(it)) && !nextDirty.includes(c.field)) nextDirty.push(c.field);
-      }
       for (const f of attrFields) {
-        if (!attrEditable(f.key)) continue;
-        const v = attrs[f.key] ?? null;
-        if (v === (it.attributes?.[f.key] ?? null)) continue;
-        nextAttrs[f.key] = v;
-        if (!nextDirty.includes(f.key)) nextDirty.push(f.key);
+        if (attrEditable(f.key)) nextAttrs[f.key] = attrs[f.key] ?? null;
       }
+      nextDirty = recomputeDirty(it, nextView, writeableLocal, nextAttrs, editableAttrKeys);
     }
     getActions().updateItem(itemId, {
       subject: subject.trim() || it.subject,
@@ -1133,6 +1126,29 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       <ModalSplit
         main={
           <>
+            {/* A failed push is a state the item is IN, not an event that happened —
+                the edit is still queued and still the user's to resolve — so it sits
+                at the top of the item it belongs to, not in a toast that has long
+                since gone. Cleared automatically when a later push of this item
+                succeeds. */}
+            {it.lastPushError && (
+              <Callout tone="warning">
+                <strong>
+                  {it.lastPushError.kind === 'create' ? 'Not created' : 'Not updated'} in{' '}
+                  {meta?.label ?? 'the external system'}
+                </strong>{' '}
+                &mdash; {it.lastPushError.message}
+                {it.lastPushError.fieldErrors.length > 0 && (
+                  <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                    {it.lastPushError.fieldErrors.map((fe, i) => (
+                      <li key={`${fe.field}-${i}`} style={{ fontSize: 'var(--rt-fs-sm)' }}>
+                        <strong>{fieldLabel(itype, fe.field)}</strong> &mdash; {fe.message}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Callout>
+            )}
             <PField label="Subject">
               <PInput value={subject} disabled={!canWrite('subject')} onChange={(e) => setSubject(e.target.value)} />
             </PField>
@@ -1305,12 +1321,17 @@ export function PushReviewModal({
   const creates = items.filter((i) => i.pendingCreate);
   const total = previews.length + creates.length;
 
+  // Deliberately does NOT close itself. The push's outcome decides what should be
+  // on screen next — a toast over nothing, or the result modal listing what failed
+  // — and only the provider that runs the push knows which. This used to `await
+  // onConfirm(); onClose();`, which tore down the result modal the handler had just
+  // opened, so a failed push looked like a silent no-op. Staying open until told
+  // otherwise also keeps `busy` meaningful while the request is in flight.
   const doPush = async () => {
     if (busy || total === 0) return;
     setBusy(true);
     try {
       await onConfirm();
-      onClose();
     } finally {
       setBusy(false);
     }
