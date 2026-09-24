@@ -56,7 +56,7 @@ describe('seed', () => {
 
   it('all items with a non-null build belong to an expected build label', () => {
     const { items } = seed();
-    const knownBuilds = new Set(['Orion 1.5', 'Nexus Beta 2']);
+    const knownBuilds = new Set(['Orion 1.5', 'Nexus Beta 2', 'Edge 0.9']);
     const unknown = items.filter((i) => i.build !== null && !knownBuilds.has(i.build));
     expect(unknown).toHaveLength(0);
   });

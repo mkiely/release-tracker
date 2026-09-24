@@ -1,9 +1,12 @@
-// Seed data. Builds a primary demo
-// release plus two lighter releases so the home list feels real.
+// Seed data. Builds a primary demo release plus two lighter releases so the home
+// list feels real, and — from seedEdgeCases — a third release that is not a demo at
+// all: one work stream per awkward shape, for validating against. See that module
+// for why the demos can't do that job.
 
 import { SCHEMA_VERSION, SPRINT_LEN_DAYS, type AppState, type ItemType, type PlanningState, type Release, type Sprint, type Status, type WorkItem, type WorkStream } from '../types';
 import { addDays, buildSprints, dOf, todayISO, uid } from './dates';
 import { canonicalBaseline, writeableLocalFields } from './connectorFields';
+import { EDGE_TEAM_ID, buildEdgeCaseRelease } from './seedEdgeCases';
 
 // Created / last-modified instants for seeded items. Anchored a few days before the
 // item's sprint and clamped to now, so no demo item claims to have been touched in
@@ -115,6 +118,19 @@ export function seed(): AppState {
       ],
     },
   ];
+
+  // A dedicated team for the edge-case release, deliberately small: four
+  // contributing engineers against three reserved by the streams that still have
+  // work, so the release sits just inside capacity — and un-muting the roll-up's
+  // four blows straight through it. See seedEdgeCases for why that contrast is the
+  // point. The EM is non-contributing, so the roster is never the headcount.
+  teams.push({
+    id: EDGE_TEAM_ID, name: 'Edge Case Crew', velocity: 26, externalId: 'ACME-TEAM-EDG',
+    members: [
+      ...['Rui M.', 'Sam K.', 'Nils A.', 'Priya V.'].map((n) => mkMember(n)),
+      mkMember('Quinn D.', true),
+    ],
+  });
 
   const streamNames = ['Checkout API', 'Search Revamp', 'Mobile Onboarding', 'Billing Migration', 'Notifications', 'Admin Console'];
   // engineersRequired drives the capacity-fit forecast; values chosen to give a mix
@@ -513,5 +529,18 @@ export function seed(): AppState {
     syncedValues: it.externalId != null ? canonicalBaseline(it, seedWriteable, it.attributes) : null,
   }));
 
-  return { version: SCHEMA_VERSION, teams, releases: [demo, nexus], items: itemsWithBaseline, meta: { lastSyncISO: null } };
+  const edge = buildEdgeCaseRelease(today);
+
+  return {
+    version: SCHEMA_VERSION,
+    teams,
+    // Edge cases last: the home list should open on the two demos, with the
+    // validation release sitting below them rather than competing for attention.
+    releases: [demo, nexus, edge.release],
+    items: [...itemsWithBaseline, ...edge.items.map((it) => ({
+      ...it,
+      syncedValues: it.externalId != null ? canonicalBaseline(it, seedWriteable, it.attributes) : null,
+    }))],
+    meta: { lastSyncISO: null },
+  };
 }
