@@ -1,10 +1,12 @@
 // App root. The browser URL is the single source of routing truth, which is
 // what makes every screen linkable and survives a reload:
-//   /                          → Home / Releases
-//   /teams                     → Teams
-//   /releases/:id              → Release Overview (release plan view)
+//   /                               → Home / Releases
+//   /teams                          → Teams
+//   /releases/:id                   → Release Overview (release plan view)
 //   /releases/:id/sprints/:sprintId → Sprint view
-//   /releases/:id/streams/:wsId→ Work Stream view
+//   /releases/:id/streams/:wsId     → Work Stream view
+//   /releases/:id/backlog           → every incomplete item in the release
+//   /releases/:id/unassigned        → native-build items with no work stream
 // The browser URL persists routing across reloads.
 
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';

@@ -40,7 +40,7 @@ Release Tracker helps engineering teams organize sprint-based releases. You defi
 | Routing | React Router v6 |
 | State | Zustand |
 | Styling | CSS Modules + CSS custom-property design tokens (`src/styles/tokens.css`) |
-| Testing | Vitest (593 tests), jsdom opt-in per file |
+| Testing | Vitest, jsdom opt-in per file |
 | Sync contract | OpenAPI 3.0 + generated TypeScript types |
 
 ## Getting started
@@ -63,6 +63,16 @@ VITE_SYNC_BASE_URL=http://localhost:8787 npm run dev
 When no `VITE_SYNC_BASE_URL` is set the app runs in local mode — all data is created and managed within the app. If the sync service returns no connectors, the app stays in local mode automatically and no connector UI is shown.
 
 The reference sync service is **work-truck** (sibling repo): its `acme` connector is a self-contained dev backend exercising every contract capability, and the template for implementing new connectors.
+
+## Environment variables
+
+All optional — the defaults cover dev and same-origin serving.
+
+| Variable | Read at | Purpose |
+|---|---|---|
+| `VITE_SYNC_BASE_URL` | runtime | Origin of the sync service. Empty means same-origin; set it for the cross-origin dev path (`http://localhost:8787`). Unset ⇒ local mode |
+| `VITE_SUMMARY_BASE` | build | Base URL the standalone summary viewer is published at, baked into generated summary links. A host can override it at serve time with `window.__RELEASE_TRACKER__.summaryBase`, which wins; falling back to the current origin |
+| `VITE_BASE_PATH` | build | Asset path prefix (`vite.config.ts`). Set it when deploying to a subpath, e.g. `/release-tracker/` for GitHub Pages |
 
 ## Project structure
 
