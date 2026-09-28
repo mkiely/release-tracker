@@ -18,7 +18,6 @@
 
 import type {
   AppState,
-  ItemType,
   Member,
   Release,
   ReleaseCatalog,
@@ -32,13 +31,9 @@ import type {
 } from '../types';
 import { SCHEMA_VERSION } from '../types';
 
-/** Monotonic suffix for factories that must not collide within a test. Reset it
- *  in a beforeEach when a test asserts on generated ids. */
+/** Monotonic suffix for factories that must not collide within a test. */
 let seq = 0;
-export const nextId = (prefix: string): string => `${prefix}_${++seq}`;
-export const resetIds = (): void => {
-  seq = 0;
-};
+const nextId = (prefix: string): string => `${prefix}_${++seq}`;
 
 export function aMember(over: Partial<Member> = {}): Member {
   return {
@@ -117,10 +112,6 @@ export function anEvent(over: Partial<ReleaseEvent> = {}): ReleaseEvent {
 
 export function aCatalog(over: Partial<ReleaseCatalog> = {}): ReleaseCatalog {
   return { itemTypes: [], statuses: [], workStreamFields: [], ...over };
-}
-
-export function anItemType(over: Partial<ItemType> = {}): ItemType {
-  return { id: null, label: 'Story', ...over };
 }
 
 /** A Local release (no connector) with two sprints and one work stream. */

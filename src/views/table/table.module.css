@@ -61,11 +61,6 @@
   flex-wrap: wrap;
 }
 
-.identityDot {
-  opacity: 0.45;
-}
-
-
 /* ── Filter bar ──────────────────────────────────────────────────────────── */
 .filterBarRow {
   display: flex;
@@ -120,22 +115,6 @@
   display: flex;
   align-items: flex-end;
   padding: 8px 12px;
-}
-
-.clearBtn {
-  font-size: var(--rt-fs-xs);
-  font-weight: var(--rt-fw-semibold);
-  color: var(--rt-t3);
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: var(--rt-sans);
-  padding: 2px 4px;
-  white-space: nowrap;
-}
-
-.clearBtn:hover {
-  color: var(--rt-ink);
 }
 
 /* ── Column headers (sticky) ─────────────────────────────────────────────── */

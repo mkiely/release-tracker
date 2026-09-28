@@ -94,14 +94,6 @@
   align-self: flex-start;
 }
 
-.localNote {
-  font-size: var(--rt-fs-xs);
-  color: var(--rt-t3);
-  line-height: 1.5;
-  max-width: 68ch;
-  margin: -8px 0 0;
-}
-
 /* Stat row */
 .stats {
   display: grid;
