@@ -38,6 +38,92 @@ export function useDrag(): WorkItem | null {
 }
 
 /**
+ * Everything a sprint needs to accept a dragged work item: the highlight state,
+ * the four drag handlers, and the move itself.
+ *
+ * There were three copies of this — the sprint rail's pills, the work-stream
+ * board's columns and the work-stream table's sprint bands — and they had drifted
+ * on the one part that is genuinely hard to get right. Native drag fires bubbling
+ * dragenter/dragleave for every child the pointer crosses, and reports a null
+ * `relatedTarget` often enough that the obvious `currentTarget.contains(...)`
+ * check flickers the highlight off mid-drop. Counting enters against leaves is
+ * what actually holds, so that's what all three do now; before this, one of them
+ * still ran the `contains()` version the others had already abandoned.
+ *
+ * Owning the move here is also what keeps `getActions` out of `views/`: a
+ * presenter asks for a drop target and gets one, without reaching for the store.
+ *
+ * `canDrop` is for policy a sprint's identity can't express — the rail doubles as
+ * a navigation control, so its pill for the sprint you're already on refuses the
+ * drop. The "already in this sprint" case is guarded here for everyone.
+ */
+export function useSprintDropTarget(
+  sprint: Sprint,
+  notify: (msg: string) => void,
+  canDrop?: (item: WorkItem) => boolean,
+): {
+  /** The pointer is over this target with a droppable item in hand. */
+  over: boolean;
+  /** A droppable drag is in flight — for affordances shown before the pointer
+   *  arrives ("MOVE", "Drop to move here"). */
+  active: boolean;
+  handlers: React.HTMLAttributes<HTMLDivElement>;
+} {
+  const draggingItem = useDrag();
+  const [over, setOver] = useState(false);
+  const depth = useRef(0);
+
+  const accepts = (item: WorkItem | null): item is WorkItem =>
+    !!item && item.sprintId !== sprint.id && (canDrop?.(item) ?? true);
+
+  // Reset when any drag ends — dropped elsewhere, or cancelled — so a stray enter
+  // without a matching leave can't strand the highlight on.
+  useEffect(() => {
+    if (!draggingItem) {
+      depth.current = 0;
+      setOver(false);
+    }
+  }, [draggingItem]);
+
+  return {
+    over,
+    active: accepts(draggingItem),
+    handlers: {
+      onDragEnter: (e) => {
+        if (!accepts(Drag.get())) return;
+        e.preventDefault();
+        depth.current += 1;
+        setOver(true);
+      },
+      onDragOver: (e) => {
+        if (!accepts(Drag.get())) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setOver(true);
+      },
+      onDragLeave: () => {
+        depth.current -= 1;
+        if (depth.current <= 0) {
+          depth.current = 0;
+          setOver(false);
+        }
+      },
+      onDrop: (e) => {
+        const item = Drag.get();
+        if (accepts(item)) {
+          e.preventDefault();
+          getActions().moveItemToSprint(item.id, sprint.id);
+          notify(`Moved ${item.key} → ${sprint.name}`);
+        }
+        depth.current = 0;
+        setOver(false);
+        Drag.end();
+      },
+    },
+  };
+}
+
+/**
  * Continuously scrolls `ref`'s element while a work-item drag is in flight and
  * the pointer is near its top/bottom edge. Native HTML5 auto-scroll only nudges
  * when the pointer keeps moving, so dragging an item to a far-off sprint in a
@@ -133,7 +219,7 @@ function SprintPill({
   isCur,
   draggingItem,
   onGo,
-  onDropItem,
+  notify,
 }: {
   sp: Sprint;
   planned: number;
@@ -141,10 +227,11 @@ function SprintPill({
   isCur: boolean;
   draggingItem: WorkItem | null;
   onGo: () => void;
-  onDropItem: (it: WorkItem) => void;
+  notify: (msg: string) => void;
 }) {
-  const [over, setOver] = useState(false);
-  const canDrop = !!draggingItem && !isCur;
+  // The rail is a navigation control as well as a drop target, so the pill for the
+  // sprint you're already on takes you nowhere and accepts nothing.
+  const { over, active: canDrop, handlers } = useSprintDropTarget(sp, notify, () => !isCur);
   return (
     <div
       className={styles.pill}
@@ -152,21 +239,7 @@ function SprintPill({
       data-can-drop={canDrop}
       data-over={over}
       onClick={() => !isCur && onGo()}
-      onDragOver={(e) => {
-        const it = Drag.get();
-        if (it && !isCur) {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-          if (!over) setOver(true);
-        }
-      }}
-      onDragLeave={() => { if (over) setOver(false); }}
-      onDrop={(e) => {
-        const it = Drag.get();
-        if (it && !isCur) { e.preventDefault(); onDropItem(it); }
-        setOver(false);
-        Drag.end();
-      }}
+      {...handlers}
       title={isCur ? 'Current sprint' : canDrop ? `Move ${draggingItem!.key} here` : `Go to ${sp.name}`}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -214,12 +287,7 @@ export function SprintRail({
             isCur={sp.id === currentSprintId}
             draggingItem={draggingItem}
             onGo={() => onGo(sp.id)}
-            onDropItem={(it) => {
-              if (it.sprintId !== sp.id) {
-                getActions().moveItemToSprint(it.id, sp.id);
-                notify(`Moved ${it.key} → ${sp.name}`);
-              }
-            }}
+            notify={notify}
           />
         );
       })}
@@ -248,12 +316,10 @@ export function StreamSprintColumn({
   notify: (msg: string) => void;
   renderCard: (it: WorkItem) => ReactNode;
 }) {
-  const draggingItem = useDrag();
-  const [over, setOver] = useState(false);
+  const { over, active: canDrop, handlers } = useSprintDropTarget(sp, notify);
   const planned = sumPoints(allItems.filter((i) => i.sprintId === sp.id));
   const cap = sprintVel(team, sp, sp.daysOff);
   const streamPts = sumPoints(streamItems);
-  const canDrop = !!draggingItem && draggingItem.sprintId !== sp.id;
   return (
     <div style={{ flex: 1, minWidth: 158, display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div className={styles.columnHeader} data-cur={isCur}>
@@ -278,27 +344,7 @@ export function StreamSprintColumn({
       </div>
       <div
         className={over ? `${styles.dropZone} ${styles.dropZoneOver}` : styles.dropZone}
-        onDragOver={(e) => {
-          const it = Drag.get();
-          if (it && it.sprintId !== sp.id) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            if (!over) setOver(true);
-          }
-        }}
-        onDragLeave={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(false);
-        }}
-        onDrop={(e) => {
-          const it = Drag.get();
-          if (it && it.sprintId !== sp.id) {
-            e.preventDefault();
-            getActions().moveItemToSprint(it.id, sp.id);
-            notify(`Moved ${it.key} → ${sp.name}`);
-          }
-          setOver(false);
-          Drag.end();
-        }}
+        {...handlers}
       >
         {streamItems.map((it) => renderCard(it))}
         {streamItems.length === 0 && (

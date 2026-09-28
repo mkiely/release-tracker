@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { WorkStreamViewProps } from '../hooks/useWorkStreamView';
 import { itemColumnsDep, useFitColumns } from '../hooks/useFitColumns';
 import { useColumnWidths } from '../hooks/useColumnWidths';
@@ -9,9 +9,8 @@ import { streamCodeFreezeChip, sumPoints } from '../lib/derive';
 import { WorkStreamChrome } from '../components/WorkStreamChrome';
 import { EmptyState } from '../components/EmptyState';
 import { EventBadge } from '../components/Badges';
-import { Drag, useDrag, useDragAutoScroll } from '../components/Dnd';
+import { useDragAutoScroll, useSprintDropTarget } from '../components/Dnd';
 import { statusVars } from '../components/statusVars';
-import { getActions } from '../store/store';
 import { fitSpecs, type ItemCellCtx, type ItemColumn } from '../components/fields/columns';
 import { useItemColumns } from '../hooks/useItemColumns';
 import { ColumnMenu } from './table/ColumnMenu';
@@ -51,26 +50,7 @@ function SprintSection({
   const items = sortItems(rawItems, sort, sortCtx);
   const pts = sumPoints(items);
   const sv = statusVars('In Progress');
-  const draggingItem = useDrag();
-  const [over, setOver] = useState(false);
-
-  // Highlight state is driven by an enter/leave depth counter rather than
-  // inspecting `relatedTarget`: during a real drag the browser fires bubbling
-  // dragenter/dragleave for every child row the pointer crosses, and reports a
-  // null `relatedTarget` often enough that a `contains()` check flickers the
-  // highlight off mid-drop. Counting enters vs leaves keeps `over` true until
-  // the pointer has truly left the whole band. See useDragAutoScroll for the
-  // scroll-to-far-sprint half of the reliability fix.
-  const dragDepth = useRef(0);
-
-  // Reset when any drag ends (dropped elsewhere, or cancelled) so a stray
-  // enter without a matching leave can't leave the band stuck highlighted.
-  useEffect(() => {
-    if (!draggingItem) {
-      dragDepth.current = 0;
-      setOver(false);
-    }
-  }, [draggingItem]);
+  const { over, handlers } = useSprintDropTarget(sp, notify);
 
   return (
     <SprintBand
@@ -96,45 +76,7 @@ function SprintSection({
       renderRow={(it) => (
         <ItemRow key={it.id} item={it} columns={columns} ctx={cellCtx} onOpen={() => onOpenItem(it.id)} />
       )}
-      dropTarget={{
-        over,
-        handlers: {
-          onDragEnter: (e) => {
-            const it = Drag.get();
-            if (it && it.sprintId !== sp.id) {
-              e.preventDefault();
-              dragDepth.current += 1;
-              if (!over) setOver(true);
-            }
-          },
-          onDragOver: (e) => {
-            const it = Drag.get();
-            if (it && it.sprintId !== sp.id) {
-              e.preventDefault();
-              e.dataTransfer.dropEffect = 'move';
-              if (!over) setOver(true);
-            }
-          },
-          onDragLeave: () => {
-            dragDepth.current -= 1;
-            if (dragDepth.current <= 0) {
-              dragDepth.current = 0;
-              setOver(false);
-            }
-          },
-          onDrop: (e) => {
-            const it = Drag.get();
-            if (it && it.sprintId !== sp.id) {
-              e.preventDefault();
-              getActions().moveItemToSprint(it.id, sp.id);
-              notify(`Moved ${it.key} → ${sp.name}`);
-            }
-            dragDepth.current = 0;
-            setOver(false);
-            Drag.end();
-          },
-        },
-      }}
+      dropTarget={{ over, handlers }}
     />
   );
 }
