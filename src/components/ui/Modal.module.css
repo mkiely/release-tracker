@@ -29,7 +29,7 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  max-height: 92vh;
+  max-height: 95vh;
   animation: modalPop 0.16s ease;
   transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
 }
@@ -88,13 +88,18 @@
    the height, the metadata fields move into a rail beside it. Opt-in (see
    ModalSplit) — every other modal keeps the single stacked column.
 
+   The rail is a fixed track rather than a second fraction: it holds selects and
+   point buttons, which read no better for being wider, so a ratio would have spent
+   every extra pixel of dialog width on both columns when only the description
+   wants them. Widening the dialog now widens the description alone.
+
    Both tracks carry minmax(0, …) because grid items default to min-content width,
    which a long unbroken token in a description would otherwise push the whole
    dialog past. align-items:start keeps the rail at the top instead of stretching
    its fields to match a tall description. */
 .splitBody {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
   align-items: start;
   gap: 22px;
 }
@@ -115,10 +120,12 @@
   gap: 16px;
   min-width: 0;
 }
-/* Past ~90ch a line is harder to read, not easier, so the extra dialog width goes
-   to the rail rather than stretching prose further. */
+/* The ~90ch line-length rule is for prose you read; this column is a column you
+   WRITE in, and the description carries tables, lists and pasted markdown that a
+   reading measure squeezes for no benefit. The cap stays only as a backstop against
+   a genuinely enormous viewport. */
 .splitMain {
-  max-width: 90ch;
+  max-width: 120ch;
 }
 
 /* Buttons don't shrink (their labels are whole phrases — "Use default (last

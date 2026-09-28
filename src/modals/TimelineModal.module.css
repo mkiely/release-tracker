@@ -1,0 +1,14 @@
+/* The panel's own controls row, above the chart. Right-aligned so it sits over the
+   plot column rather than over the stream-name gutter it doesn't affect. */
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.controlLabel {
+  font-size: var(--rt-fs-xs);
+  color: var(--rt-t3);
+}
