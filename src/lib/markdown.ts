@@ -6,9 +6,7 @@
 // re-serialized away by ProseMirror's schema anyway. Not a spec-complete parser
 // — it handles the everyday Markdown people paste, and degrades to plain text.
 
-const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
-const escapeHtml = (s: string) => s.replace(/[&<>]/g, (c) => ESC[c]);
-const escapeAttr = (s: string) => escapeHtml(s).replace(/"/g, '&quot;');
+import { escapeAttr, escapeText as escapeHtml } from './escapeHtml';
 
 /** Apply bold/italic/strike/link marks to a code-free run of text. */
 function marks(run: string): string {

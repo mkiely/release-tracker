@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { GroupBy, SprintViewProps, StreamColumn, StatusColumn } from '../hooks/useSprintView';
+import type { SprintViewProps, StreamColumn, StatusColumn } from '../hooks/useSprintView';
 import { itemColumnsDep, useFitColumns } from '../hooks/useFitColumns';
 import { useColumnWidths } from '../hooks/useColumnWidths';
 import { usePresentationMode } from '../store/presentationMode';
@@ -12,7 +12,7 @@ import { EmptyState } from '../components/EmptyState';
 import { EventBadge } from '../components/Badges';
 import { Icon } from '../components/Icon';
 import { SprintRail } from '../components/Dnd';
-import { SegmentedToggle } from '../components/SegmentedToggle';
+import { GroupToggle } from '../components/GroupToggle';
 import { IconButton } from '../components/primitives';
 import { statusVars } from '../components/statusVars';
 import type { Status } from '../types';
@@ -31,23 +31,6 @@ import styles from './table/table.module.css';
 const TABLE_STATUS_ORDER: Status[] = ['In Progress', 'Under Review', 'Blocked', 'Not Started', 'Complete'];
 
 // ── Sub-components ────────────────────────────────────────────────────────
-
-// Was a hand-rolled pair of buttons with its own .groupToggle/.groupBtn styles,
-// while the card presenter used the SegmentedToggle primitive for the same
-// control. Same control, one implementation.
-function GroupToggle({ value, onChange }: { value: GroupBy; onChange: (v: GroupBy) => void }) {
-  return (
-    <SegmentedToggle<GroupBy>
-      ariaLabel="Group work items by"
-      value={value}
-      onChange={onChange}
-      options={[
-        { value: 'stream', label: 'By stream', title: 'Group by work stream' },
-        { value: 'status', label: 'By status', title: 'Group by status' },
-      ]}
-    />
-  );
-}
 
 function StreamSection({
   col,

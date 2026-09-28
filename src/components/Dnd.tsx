@@ -7,6 +7,7 @@ import { fmtShort } from '../lib/dates';
 import { sprintVel, sumPoints, type EventChip } from '../lib/derive';
 import { getActions } from '../store/store';
 import { EventBadge } from './Badges';
+import { capacityBar } from './capacityBar';
 import styles from './Dnd.module.css';
 
 // ── external drag store so any drop target can react to an in-flight drag ──
@@ -102,10 +103,10 @@ export function setDragGhost(e: React.DragEvent, text: string) {
 }
 
 // ── planned-vs-capacity meter ───────────────────────────────────────────
+// The numbers-above-track framing of the same reading CapBarInline draws inline;
+// the arithmetic they share lives in capacityBar.
 function CapacityMeter({ planned, cap, style }: { planned: number; cap: number; style?: CSSProperties }) {
-  const over = planned > cap;
-  const ratio = cap > 0 ? Math.min(planned / cap, 1) : planned > 0 ? 1 : 0;
-  const overW = over && cap > 0 ? Math.min((planned - cap) / cap, 0.6) : 0;
+  const { over, ratio, overW } = capacityBar(planned, cap);
   return (
     <div className={styles.capacityMeter} style={style}>
       <div className={styles.capNumbers}>
