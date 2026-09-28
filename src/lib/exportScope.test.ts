@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { scopeLabel, scopeOptionLabel, scopeStreamCount, scopeStreamIds } from './exportScope';
-import type { WorkStream } from '../types';
+import { releaseToTSV } from './exportRelease';
+import { buildSnapshot } from './releaseSnapshot';
+import { aRelease, aSprint, aStream, anItem } from '../test/factories';
+import type { Release, WorkItem, WorkStream } from '../types';
 
 /** Minimal streams: `build === null` is native to this release, anything else is
  *  carried in from a prior build (the build facet prefix-groups those). */
@@ -88,6 +91,47 @@ describe('labels', () => {
     expect(scopeOptionLabel('current-build')).toBe('Current build only');
     expect(scopeOptionLabel('all-builds')).toBe('All builds');
     expect(scopeOptionLabel('filters')).toBe('Match current filters');
+  });
+});
+
+describe('the TSV export and the summary snapshot agree', () => {
+  // Both read their stream set from scopeStreamIds, but each computes its own
+  // release-wide sprint figures — those rows ignore the scope by design, so they
+  // cannot inherit its muted subtraction and have to repeat it. That is exactly
+  // where the two drifted: the summary once reported a sprint's planned points with
+  // a muted stream's 90 still in them, next to a stream board that didn't list it.
+  const sprints = [
+    aSprint({ id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26' }),
+    aSprint({ id: 'sp2', name: 'Sprint 2', startISO: '2026-04-27', endISO: '2026-05-10' }),
+  ];
+  const withMuted = (): Release =>
+    aRelease({
+      id: 'rel',
+      teamId: 't',
+      workStreams: [aStream({ id: 'ws1', name: 'Payments' }), aStream({ id: 'ws2', name: 'Auth', muted: true })],
+      sprints,
+    });
+  const items: WorkItem[] = [
+    anItem({ id: 'i1', releaseId: 'rel', workStreamId: 'ws1', sprintId: 'sp1', points: 3 }),
+    anItem({ id: 'i2', releaseId: 'rel', workStreamId: 'ws2', sprintId: 'sp1', points: 90 }),
+  ];
+
+  it('report the same planned points for a sprint when a stream is muted', () => {
+    const r = withMuted();
+    const scoped = scopeStreamIds('all-builds', r.workStreams, undefined);
+
+    const tsv = releaseToTSV(
+      { version: 1, teams: [], releases: [r], items, meta: { lastSyncISO: null } },
+      'rel',
+      scoped,
+    );
+    // Row 5 is "Planned", col 1 is Sprint 1 — see exportRelease.test.ts.
+    const tsvPlanned = Number(tsv.split('\n')[5].split('\t')[1]);
+    const snapPlanned = buildSnapshot(r, undefined, items, { now: '2026-04-20', visibleStreamIds: scoped }).sprints[0]
+      .planned;
+
+    expect(tsvPlanned).toBe(3);
+    expect(snapPlanned).toBe(tsvPlanned);
   });
 });
 

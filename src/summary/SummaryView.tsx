@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import type { SnapshotPayload, SnapshotStream } from '../lib/releaseSnapshot';
 import type { Status, StatusSeg } from '../types';
 import { SegBar } from '../components/Badges';
+import { SegmentedToggle } from '../components/SegmentedToggle';
 import { VerdictBadge, RunwayBadge } from '../components/VerdictLine';
 import { StreamBurnChart, VelocityTrendChart } from '../components/Trend';
 import { StreamGantt } from '../components/StreamGantt';
@@ -344,8 +346,13 @@ function WholeRelease({
  * Returns null on pre-v7 payloads, which carry no spans. Guarding on `freezeISO`
  * rather than on `v` keeps the check where the data is — a row without it cannot be
  * drawn regardless of what the version says.
+ *
+ * The axis-label choice is local state, not a stored preference: the viewer holds
+ * one snapshot a reader was sent, and a setting that outlived the tab would be the
+ * app's kind of memory in a page whose whole promise is that it keeps nothing.
  */
 function StreamTimeline({ snapshot }: { snapshot: SnapshotPayload }) {
+  const [axis, setAxis] = useState<'date' | 'sprint'>('date');
   const drawable = snapshot.streams.filter((s) => !s.unassigned && s.freezeISO !== undefined && s.segments !== undefined);
   if (drawable.length === 0 || snapshot.sprints.length === 0) return null;
 
@@ -367,12 +374,24 @@ function StreamTimeline({ snapshot }: { snapshot: SnapshotPayload }) {
 
   return (
     <>
-      <h2 className={styles.sectionTitle}>Timeline</h2>
+      <div className={styles.sectionHead}>
+        <h2 className={styles.sectionTitle}>Timeline</h2>
+        <SegmentedToggle
+          ariaLabel="Timeline axis labels"
+          value={axis}
+          onChange={setAxis}
+          options={[
+            { value: 'date', label: 'Dates', title: 'Label each sprint boundary with its start date' },
+            { value: 'sprint', label: 'Sprints', title: 'Name each sprint across the days it covers' },
+          ]}
+        />
+      </div>
       <div className={`card ${styles.timelineCard}`}>
         <StreamGantt
           sprints={snapshot.sprints}
           rows={rows}
           todayISO={snapshot.generatedAtISO.slice(0, 10)}
+          axisLabel={axis}
           labelWidth={160}
         />
       </div>

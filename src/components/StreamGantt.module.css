@@ -170,6 +170,50 @@
 .axisTickStart { transform: none; }
 .axisTickEnd { transform: translateX(-100%); }
 
+/* Named axis: labels are bands over each sprint's own days, not points at its start.
+   Height is fixed at two lines rather than sized to content — the bands are
+   absolutely positioned (nothing else can hold them in register with the gridlines),
+   so they give the row no height of their own, and a height that changed with the
+   longest name would make the whole chart jump on every toggle. */
+.axisNamed {
+  height: 32px;
+}
+.axisBand {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--at);
+  width: var(--band-w);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  min-width: 0;
+  font-size: var(--rt-fs-micro);
+  color: var(--rt-t3);
+  text-align: center;
+}
+/* Each band opens where a gridline falls, so its edge doubles as the boundary mark —
+   except the first, whose boundary is the track's own left edge. Mixed down from the
+   text colour rather than taken from a border token, for the reason .gridline gives:
+   on the darker themes the border tokens all but vanish against their own surface. */
+.axisBand + .axisBand {
+  border-left: 1px solid color-mix(in srgb, var(--rt-t3) 35%, transparent);
+}
+/* Two lines, then ellipsis: connector sprint names run long, and one line truncates
+   so much of them that neighbouring sprints stop being distinguishable. The full name
+   stays in the band's title. */
+.axisBandName {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  line-height: var(--rt-lh-snug);
+  min-width: 0;
+}
+
 .legend {
   display: flex;
   align-items: center;

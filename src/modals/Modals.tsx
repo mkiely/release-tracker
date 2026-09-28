@@ -1164,7 +1164,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
                   // Taller than the create form's default: this is the field the
                   // two-column layout exists to serve, and the rail beside it is
                   // what pays for the height.
-                  style={{ minHeight: 320 }}
+                  style={{ minHeight: 380 }}
                 />
               )}
             </PField>

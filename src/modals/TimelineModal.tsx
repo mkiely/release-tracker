@@ -10,19 +10,23 @@
 // team is delivering, which is exactly what muting says a stream is not.
 
 import { Icon } from '../components/Icon';
+import { SegmentedToggle } from '../components/SegmentedToggle';
 import { StreamGantt } from '../components/StreamGantt';
 import { Modal, PButton } from '../components/primitives';
+import styles from './TimelineModal.module.css';
 import { useApp } from '../app-context';
 import { effectiveStreamCodeFreeze } from '../lib/derive';
 import { todayISO } from '../lib/dates';
 import { segmentsOfItems, sprintIndex, type TimelineRow } from '../lib/streamTimeline';
 import { assessStreams } from '../lib/streamAssessment';
 import { selItemsFor, selRelease, selTeam, useStore } from '../store/store';
+import { TimelineAxisStore, useTimelineAxis } from '../store/timelineAxis';
 
 export function TimelineModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId));
   const team = useStore((s) => (r ? selTeam(s, r.teamId) : undefined));
   const items = useStore((s) => selItemsFor(s, releaseId));
+  const axis = useTimelineAxis();
   const { openModal } = useApp();
 
   if (!r) {
@@ -88,10 +92,23 @@ export function TimelineModal({ releaseId, onClose }: { releaseId: string; onClo
         </>
       }
     >
+      <div className={styles.controls}>
+        <span className={styles.controlLabel}>Label axis by</span>
+        <SegmentedToggle
+          ariaLabel="Timeline axis labels"
+          value={axis}
+          onChange={TimelineAxisStore.set}
+          options={[
+            { value: 'date', label: 'Dates', title: 'Label each sprint boundary with its start date' },
+            { value: 'sprint', label: 'Sprints', title: 'Name each sprint across the days it covers' },
+          ]}
+        />
+      </div>
       <StreamGantt
         sprints={r.sprints}
         rows={rows}
         todayISO={today}
+        axisLabel={axis}
         // The panel is wide, so the label gutter can afford a real stream name —
         // connector epics run long and it is usually the END of the name that
         // distinguishes them, which is exactly what truncation eats.

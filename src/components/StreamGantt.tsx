@@ -32,6 +32,7 @@ export function StreamGantt({
   sprints,
   rows,
   todayISO,
+  axisLabel = 'date',
   labelWidth,
   trackHeight,
   onSelectRow,
@@ -39,6 +40,13 @@ export function StreamGantt({
   sprints: readonly TimelineSprint[];
   rows: readonly TimelineRow[];
   todayISO: string;
+  /** What the axis is labelled with. 'date' pins a start date at each sprint
+   *  boundary; 'sprint' names the span between two boundaries instead. Geometry is
+   *  identical either way — bars stay on the continuous date axis, because that is
+   *  the reading this chart exists for. The union is spelled out here rather than
+   *  imported from store/timelineAxis, which keeps the chart store-free for the
+   *  summary viewer. */
+  axisLabel?: 'date' | 'sprint';
   /** Label gutter width — any CSS length, so a caller can cap it against the
    *  viewport. The in-app panel is a wide modal and spends it on stream names:
    *  connector epic names run long, and truncation eats the END, which is usually
@@ -85,11 +93,30 @@ export function StreamGantt({
 
   return (
     <div className={styles.gantt} style={rootVars}>
-      {/* Axis first: the dates every bar below is read against. */}
+      {/* Axis first: what every bar below is read against. */}
       <div className={styles.row}>
         <span />
-        <div className={styles.axis}>
+        <div className={`${styles.axis} ${axisLabel === 'sprint' ? styles.axisNamed : ''}`}>
           {sprints.map((sp, i) => {
+            const title = `${sp.name}: ${fmtShort(sp.startISO)} – ${fmtShort(sp.endISO)}`;
+            // A sprint NAME can't hang off a boundary the way a date can: two names
+            // pinned to adjacent starts would overlap, and centring one on a point
+            // says nothing about how far its sprint reaches. So a named axis draws
+            // each sprint as a band covering its own days — the same geometry the
+            // bars use, which is what keeps label and boundary aligned.
+            if (axisLabel === 'sprint') {
+              const geo = barGeometry({ startIdx: i, endIdx: i }, sprints, window, 0);
+              return (
+                <span
+                  key={`${sp.name}-${i}`}
+                  className={styles.axisBand}
+                  style={{ '--at': `${geo.leftPct}%`, '--band-w': `${geo.widthPct}%` } as Vars}
+                  title={title}
+                >
+                  <span className={styles.axisBandName}>{sp.name}</span>
+                </span>
+              );
+            }
             const at = clampPct(pctOfDate(sp.startISO, window));
             const isFirst = i === 0;
             const isLast = i === sprints.length - 1;
@@ -98,7 +125,7 @@ export function StreamGantt({
                 key={`${sp.name}-${i}`}
                 className={`${styles.axisTick} ${isFirst ? styles.axisTickStart : isLast ? styles.axisTickEnd : ''}`}
                 style={{ '--at': `${at}%` } as Vars}
-                title={`${sp.name}: ${fmtShort(sp.startISO)} – ${fmtShort(sp.endISO)}`}
+                title={title}
               >
                 {fmtShort(sp.startISO)}
               </span>

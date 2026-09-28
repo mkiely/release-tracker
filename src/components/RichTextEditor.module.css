@@ -11,8 +11,12 @@
   border: 1.5px solid var(--rt-line-strong);
   background: var(--rt-paper);
   border-radius: 9px;
-  min-height: 140px;
-  max-height: 38vh;
+  /* Deep enough that an empty description still reads as the modal's main workspace
+     — it sits beside a metadata rail that is taller than the old 140px box on its
+     own, and a short editor made the dialog look like a form with a stray note field
+     rather than a description with fields beside it. */
+  min-height: 260px;
+  max-height: 46vh;
   overflow: hidden;
   cursor: text;
   transition: background-color 0.25s ease, border-color 0.25s ease;

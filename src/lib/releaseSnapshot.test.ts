@@ -210,6 +210,56 @@ describe('buildSnapshot', () => {
     expect(snap.overall.donePts).toBe(5);
   });
 
+  it('leaves a muted stream out of the sprint table, not just the stream sections', () => {
+    // The sprint table is release-wide, so a SCOPED-out stream's points stay in it —
+    // it reports the sprint the team ran, not the share. Muted points are different:
+    // they are not this team's work at all, so a "planned" figure carrying them
+    // describes a sprint nobody worked. This is the same rule (and the same
+    // fixture shape) as exportRelease's 'leaves a muted stream out of both its own
+    // section and the release-wide Planned row' — the two exports must agree.
+    const r = release();
+    r.workStreams[1] = aStream({ id: 'ws_auth', name: 'Auth', externalId: 'EPIC-2', muted: true });
+    const items = [
+      item({ workStreamId: 'ws_pay', sprintId: 'sp1', points: 3 }),
+      item({ workStreamId: 'ws_auth', sprintId: 'sp1', points: 90 }),
+    ];
+    // What the app hands in: the scope helper has already dropped the muted stream.
+    const snap = buildSnapshot(r, team(), items, { now: NOW, visibleStreamIds: new Set(['ws_pay']) });
+
+    expect(snap.sprints[0].planned).toBe(3);
+    expect(snap.sprints[0].itemCount).toBe(1);
+    expect(snap.overall.totalPts).toBe(3);
+    expect(snap.streams.map((s) => s.name)).not.toContain('Auth');
+  });
+
+  it('drops muted points from the sprint table even when no scope is passed', () => {
+    // The rows ignore visibleStreamIds by design, so they cannot lean on the scope
+    // helper having subtracted muted for them.
+    const r = release();
+    r.workStreams[1] = aStream({ id: 'ws_auth', name: 'Auth', externalId: 'EPIC-2', muted: true });
+    const items = [
+      item({ workStreamId: 'ws_pay', sprintId: 'sp1', points: 3 }),
+      item({ workStreamId: 'ws_auth', sprintId: 'sp1', points: 90 }),
+    ];
+    const snap = buildSnapshot(r, team(), items, { now: NOW });
+
+    expect(snap.sprints[0].planned).toBe(3);
+    expect(snap.overall.totalPts).toBe(3);
+  });
+
+  it('keeps a scoped-out (unmuted) stream in the sprint table', () => {
+    // The counterpart to the muted case: scoping is about what is SHOWN, so the
+    // sprint the team ran is reported in full. Regression guard — "fix" this by
+    // scoping the sprint rows and the capacity verdicts silently understate load.
+    const items = [
+      item({ workStreamId: 'ws_pay', sprintId: 'sp1', points: 3 }),
+      item({ workStreamId: 'ws_auth', sprintId: 'sp1', points: 90 }),
+    ];
+    const snap = buildSnapshot(release(), team(), items, { now: NOW, visibleStreamIds: new Set(['ws_pay']) });
+
+    expect(snap.sprints[0].planned).toBe(93);
+  });
+
   it('lists the contributing team members, excluding non-contributors', () => {
     const t = team({
       members: [

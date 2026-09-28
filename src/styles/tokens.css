@@ -83,11 +83,13 @@
   --rt-lh-normal: 1.5;
 
   /* layout — shared max width for the work-item modals (single source of truth).
-     Wide enough that the description and the metadata rail sit side by side; the
+     Wide enough that the description and the metadata rail sit side by side, with
+     the surplus going to the description: the rail is a fixed track, so widening
+     this token buys editor width and nothing else (see .splitBody). The
      split itself lives in Modal.module.css (.splitBody). Its stacking breakpoint
      is a literal there rather than a token — a custom property can't be read
      inside a media query, so a token would look authoritative without applying. */
-  --rt-modal-w-work-item: min(1240px, 94vw);
+  --rt-modal-w-work-item: min(1480px, 95vw);
   /* The timeline panel runs wider than the item modals: it is a chart of the whole
      release, so every extra pixel buys both calendar resolution and room for a long
      work-stream name before it truncates. Near-full-bleed on purpose. */
