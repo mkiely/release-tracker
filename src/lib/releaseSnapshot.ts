@@ -299,6 +299,19 @@ export function buildSnapshot(
   const streams = sortStreams(release.workStreams.filter((ws) => !visible || visible.has(ws.id)));
   const unassigned = items.filter((i) => i.workStreamId === null && i.build === null);
 
+  // The sprint table below is deliberately NOT scoped — it describes the release, not
+  // the share, so a scoped summary still reports the sprint the team actually ran.
+  // Muted streams are the exception: their points are not this team's work, so a
+  // "planned" figure inflated by an abandoned stream's tickets misreports the sprint,
+  // which is the whole reason the flag exists (see WorkStream.muted). Computed here
+  // rather than leaned on `visible` — scopeStreamIds already subtracts muted from
+  // every scope, but these rows ignore the scope by design and must hold even when a
+  // caller passes none. releaseToTSV does exactly this, for exactly this reason.
+  const mutedStreamIds = new Set(release.workStreams.filter((ws) => ws.muted).map((ws) => ws.id));
+  const countedItems = mutedStreamIds.size
+    ? items.filter((i) => i.workStreamId == null || !mutedStreamIds.has(i.workStreamId))
+    : items;
+
   // Points-per-sprint series for each stream (and the unassigned bucket), sliced
   // by sprint id — the trend sparkline / burn input.
   const seriesFor = (pred: (i: WorkItem) => boolean): number[] =>
@@ -309,7 +322,7 @@ export function buildSnapshot(
 
   // ── Sprints ────────────────────────────────────────────────────────────
   const sprints: SnapshotSprint[] = release.sprints.map((sp) => {
-    const spItems = items.filter((i) => i.sprintId === sp.id);
+    const spItems = countedItems.filter((i) => i.sprintId === sp.id);
     const isActive = !!active && active.id === sp.id;
     return {
       name: sp.name,
@@ -386,7 +399,11 @@ export function buildSnapshot(
   // Completion is scoped to the visible streams (+ the never-filtered Unassigned
   // bucket) so the headline agrees with the streams shown. Velocity below stays
   // team-level and unfiltered — it measures the team's throughput, not a stream.
-  const scopedItems = visible ? items.filter((i) => i.workStreamId === null || visible.has(i.workStreamId)) : items;
+  // From countedItems, not items: with no scope passed, `visible` is null and a muted
+  // stream's points would otherwise walk back into the headline they were just taken out of.
+  const scopedItems = visible
+    ? countedItems.filter((i) => i.workStreamId === null || visible.has(i.workStreamId))
+    : countedItems;
   const releaseHealth = streamHealth(scopedItems);
   const velocity = velocityAttainment(release, team, items, today);
   const runwayAlarmCount = outStreams.filter((s) => s.runway.alarm).length;
