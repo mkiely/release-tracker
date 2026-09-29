@@ -139,13 +139,25 @@ Each step is `calc(<px> * var(--rt-type-scale))`. Sizes snap to this 7-step ramp
 
 `tight` 1.15 · `snug` 1.3 · `normal` 1.5
 
-### Role classes — `.t-*`
+### Utility classes
 
-Apply a complete role (size + weight + line-height, sometimes colour) with a single class instead of setting each property:
+A CSS Module references the raw `var(--rt-fs-*)` / `var(--rt-fw-*)` tokens directly. TSX can't — reaching for a token from a component means an inline style — so `base.css` carries a small set of global classes for the cases that come up constantly.
 
-`.t-display` · `.t-title` · `.t-heading` · `.t-subhead` · `.t-body` · `.t-body-sm` · `.t-meta` · `.t-micro` · `.t-label` · `.t-num`
+**Text colour** — the three levels, named after the tokens they set:
 
-For example, `className="t-meta"` replaces `style={{ fontSize: 11.5, color: 'var(--rt-t3)' }}`. CSS Modules reference the raw `var(--rt-fs-*)` / `var(--rt-fw-*)` tokens directly.
+`.ink` · `.t2` · `.t3`
+
+These are the ones you'll reach for most. A span that wants nothing but a colour is by far the commonest case, and every role class below bundles a size and a weight, so without these it had to inline one.
+
+**Roles** — a complete role (size + weight + line-height, sometimes colour) in one class:
+
+`.t-display` · `.t-title` · `.t-heading` · `.t-subhead` · `.t-body` · `.t-body-sm` · `.t-meta` · `.t-micro` · `.t-num`
+
+Adoption of the roles is partial, and `base.css` explains why at the definitions — worth reading before adding to them. In short: they arrived in the same commit that migrated 136 inline font declarations, and that migration converted to token *strings* rather than deciding a role per site, so the set shipped unexercised. Compose a role with a colour class where it doesn't imply one.
+
+Older `.tag` (uppercase section label) and `.mono` predate these and are widely used; prefer them over re-deriving the same thing as a role.
+
+Beyond the globals, screens with a repeated layout keep a shared module rather than inlining it per file — `views/table/table.module.css` for the three table screens, `modals/modals.module.css` for the dialogs.
 
 ### Enforcement
 
