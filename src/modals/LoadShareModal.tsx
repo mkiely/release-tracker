@@ -42,8 +42,8 @@ export function LoadShareModal({
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 'var(--rt-lh-normal)' }}>
         <span>
-          Load <strong style={{ color: 'var(--rt-ink)' }}>{payload.name}</strong> as a new release connected to{' '}
-          <strong style={{ color: 'var(--rt-ink)' }}>{connName}</strong>?
+          Load <strong className="ink">{payload.name}</strong> as a new release connected to{' '}
+          <strong className="ink">{connName}</strong>?
         </span>
         <span style={{ color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-sm)' }}>
           This brings over the connector configuration{eventCount > 0 ? `, ${eventCount} event${eventCount !== 1 ? 's' : ''}` : ''}

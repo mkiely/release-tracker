@@ -70,7 +70,7 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
             'Pick a date within the release to place this event on a sprint.'
           ) : sp ? (
             <>
-              Falls inside <strong style={{ color: 'var(--rt-ink)' }}>{sp.name}</strong> ({fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}) — it'll
+              Falls inside <strong className="ink">{sp.name}</strong> ({fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}) — it'll
               show on that sprint row.
             </>
           ) : (

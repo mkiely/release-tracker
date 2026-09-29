@@ -62,7 +62,7 @@ export function CodeFreezeModal({ releaseId, onClose }: { releaseId: string; onC
             'Pick the date code must be checked in for this release.'
           ) : sp ? (
             <>
-              Falls inside <strong style={{ color: 'var(--rt-ink)' }}>{sp.name}</strong> ({fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}) — it'll
+              Falls inside <strong className="ink">{sp.name}</strong> ({fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}) — it'll
               show as a critical chip on that sprint and cap forward capacity for streams still working past it. Individual
               work streams can override this in their own settings.
             </>

@@ -13,7 +13,7 @@ import { SegBar } from '../components/Badges';
 import { StreamBurnChart } from '../components/Trend';
 import { RunwayBadge, VerdictBadge } from '../components/VerdictLine';
 import { verdictVars, warningVars } from '../components/statusVars';
-import { Row } from './parts';
+import { Row, GoneModal } from './parts';
 
 export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: string; wsId: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId));
@@ -24,9 +24,7 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
   const ws = r?.workStreams.find((w) => w.id === wsId);
   if (!r || !ws) {
     return (
-      <Modal title="Work stream" icon={Icon.stream} onClose={onClose} width={520}>
-        <span style={{ color: 'var(--rt-t3)' }}>This work stream no longer exists.</span>
-      </Modal>
+      <GoneModal title="Work stream" icon={Icon.stream} noun="work stream" onClose={onClose} />
     );
   }
 
@@ -114,9 +112,9 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
       ) : (
         <div className="card dash" style={{ padding: '18px 16px', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-sm)', lineHeight: 1.5 }}>
           {!configured ? (
-            <>Set <strong style={{ color: 'var(--rt-t2)' }}>engineers required</strong> for this stream to compute a capacity-fit forecast.</>
+            <>Set <strong className="t2">engineers required</strong> for this stream to compute a capacity-fit forecast.</>
           ) : (
-            <>Add <strong style={{ color: 'var(--rt-t2)' }}>points</strong> to this stream’s items to compute a capacity-fit forecast.</>
+            <>Add <strong className="t2">points</strong> to this stream’s items to compute a capacity-fit forecast.</>
           )}
         </div>
       )}
@@ -184,7 +182,7 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
       {forecast.postFreezeRemainingPts > 0 && (
         <Callout tone="warning">
           <>
-            <strong style={{ color: 'var(--rt-ink)' }}>{Math.round(forecast.postFreezeRemainingPts)} pts</strong> are scheduled
+            <strong className="ink">{Math.round(forecast.postFreezeRemainingPts)} pts</strong> are scheduled
             into sprints starting after this stream's code freeze ({fmtShort(effectiveStreamCodeFreeze(r, ws))}). That work sits
             outside both assessments above — as planned, it won't land by the freeze.
           </>

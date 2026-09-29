@@ -40,7 +40,7 @@ function ReleaseCard({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
           <span style={{ fontSize: 'var(--rt-fs-sm)', fontWeight: 'var(--rt-fw-bold)', color: 'var(--rt-t2)' }}>{Math.round(doneRatio * 100)}%</span>
-          <IconButton icon={Icon.trash} title="Delete release" onClick={onDelete} style={{ color: 'var(--rt-t3)' }} />
+          <IconButton icon={Icon.trash} title="Delete release" onClick={onDelete} className="t3" />
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-base)', whiteSpace: 'nowrap' }}>
@@ -215,7 +215,7 @@ export function HomeView({
                     semantic concept. */}
                 {(capabilitySummary(meta) || missingCapabilities(meta.itemTypes).length > 0) && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 'var(--rt-fs-xs)', lineHeight: 'var(--rt-lh-normal)' }}>
-                    {capabilitySummary(meta) && <span style={{ color: 'var(--rt-t3)' }}>{capabilitySummary(meta)}</span>}
+                    {capabilitySummary(meta) && <span className="t3">{capabilitySummary(meta)}</span>}
                     {missingCapabilities(meta.itemTypes).map((m) => (
                       <span key={m.concept} style={{ color: 'var(--rt-st-bl-text)' }}>
                         {m.impact}

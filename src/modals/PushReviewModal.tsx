@@ -11,6 +11,7 @@ import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import { Icon } from '../components/Icon';
 import { Modal, PButton } from '../components/primitives';
 import { statusVars } from '../components/statusVars';
+import { GoneModal } from './parts';
 
 // Summarizes the pending push: per item, which writeable fields are changing
 // (synced → local) before anything is sent. Writeability is derived per item from
@@ -33,9 +34,7 @@ export function PushReviewModal({
 
   if (!r) {
     return (
-      <Modal title="Push changes" icon={Icon.sync} onClose={onClose} width={520}>
-        <span style={{ color: 'var(--rt-t3)' }}>This release no longer exists.</span>
-      </Modal>
+      <GoneModal title="Push changes" icon={Icon.sync} noun="release" onClose={onClose} />
     );
   }
 
@@ -144,9 +143,9 @@ export function PushReviewModal({
                     </span>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 14px', fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)' }}>
-                    <span><span style={{ color: 'var(--rt-t3)' }}>Stream</span> {streamName(c.workStreamId)}</span>
-                    <span><span style={{ color: 'var(--rt-t3)' }}>Sprint</span> {sprintName(c.sprintId)}</span>
-                    {c.points != null && <span><span style={{ color: 'var(--rt-t3)' }}>Points</span> {c.points}</span>}
+                    <span><span className="t3">Stream</span> {streamName(c.workStreamId)}</span>
+                    <span><span className="t3">Sprint</span> {sprintName(c.sprintId)}</span>
+                    {c.points != null && <span><span className="t3">Points</span> {c.points}</span>}
                   </div>
                 </div>
                 <PButton

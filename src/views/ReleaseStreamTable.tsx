@@ -21,7 +21,7 @@ function RemainingChips({ health }: { health: StreamHealth }) {
           <span key={s.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t2)', whiteSpace: 'nowrap' }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: sv.dot, flexShrink: 0 }} />
             <span className="mono" style={{ fontWeight: 'var(--rt-fw-bold)' }}>{s.v}</span>
-            <span style={{ color: 'var(--rt-t3)' }}>{s.k}</span>
+            <span className="t3">{s.k}</span>
           </span>
         );
       })}

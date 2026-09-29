@@ -23,7 +23,7 @@ import { VelocityTrendChart } from '../components/Trend';
 import { RunwayBadge } from '../components/VerdictLine';
 import { assessRelease, assessStreams } from '../lib/streamAssessment';
 import { statusVars, warningVars } from '../components/statusVars';
-import { Row } from './parts';
+import { Row, GoneModal } from './parts';
 
 export type MetricsSection = 'velocity' | 'capacity' | 'release' | 'runway';
 
@@ -67,9 +67,9 @@ function VelocitySection({ r, team, items }: SectionProps) {
     return (
       <div className="card dash" style={{ padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ color: 'var(--rt-t2)', fontSize: 'var(--rt-fs-sm)', lineHeight: 1.5 }}>
-          The team delivered <strong style={{ color: 'var(--rt-ink)' }}>{v.totalActual}</strong> point
+          The team delivered <strong className="ink">{v.totalActual}</strong> point
           {v.totalActual !== 1 ? 's' : ''} across {v.perSprint.length} elapsed sprint
-          {v.perSprint.length !== 1 ? 's' : ''}, but <strong style={{ color: 'var(--rt-ink)' }}>{team ? team.name : 'the team'}</strong> has
+          {v.perSprint.length !== 1 ? 's' : ''}, but <strong className="ink">{team ? team.name : 'the team'}</strong> has
           no velocity set — so there's no planned baseline to measure attainment against yet.
         </div>
         {suggestion && suggestion.recentAvg > 0 ? (
@@ -169,17 +169,17 @@ function CapacitySection({ r, team, items }: SectionProps) {
       <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
         {isOver ? (
           <>
-            The active work streams collectively ask for <strong style={{ color: 'var(--rt-ink)' }}>{contention.totalRequired} engineers</strong>, but{' '}
-            {team ? team.name : 'the team'} has only <strong style={{ color: 'var(--rt-ink)' }}>{ctx.contributingCount} contributing</strong>
-            {over > 0 ? <> — over by <strong style={{ color: 'var(--rt-ink)' }}>{over}</strong>.</> : '.'} Everyone can't be on everything at once, so
+            The active work streams collectively ask for <strong className="ink">{contention.totalRequired} engineers</strong>, but{' '}
+            {team ? team.name : 'the team'} has only <strong className="ink">{ctx.contributingCount} contributing</strong>
+            {over > 0 ? <> — over by <strong className="ink">{over}</strong>.</> : '.'} Everyone can't be on everything at once, so
             each stream's <em>effective</em> staffing is scaled down and its forecast reflects that contention.
           </>
         ) : (
           <>
             The active work streams collectively ask for{' '}
-            <strong style={{ color: 'var(--rt-ink)' }}>{contention.totalRequired} engineer{contention.totalRequired === 1 ? '' : 's'}</strong>, and{' '}
-            {team ? team.name : 'the team'} has <strong style={{ color: 'var(--rt-ink)' }}>{ctx.contributingCount} contributing</strong>
-            {headroom > 0 ? <> — <strong style={{ color: 'var(--rt-ink)' }}>{headroom}</strong> to spare.</> : ' — fully allocated, with no contention.'} Each
+            <strong className="ink">{contention.totalRequired} engineer{contention.totalRequired === 1 ? '' : 's'}</strong>, and{' '}
+            {team ? team.name : 'the team'} has <strong className="ink">{ctx.contributingCount} contributing</strong>
+            {headroom > 0 ? <> — <strong className="ink">{headroom}</strong> to spare.</> : ' — fully allocated, with no contention.'} Each
             stream can be staffed at its full request.
           </>
         )}
@@ -256,19 +256,19 @@ function ReleaseSection({ r, team, items }: SectionProps) {
         ) : isOver ? (
           <>
             Across the whole release, the streams that carried work reserved{' '}
-            <strong style={{ color: 'var(--rt-ink)' }}>{contention.totalRequired} engineers</strong> against{' '}
-            <strong style={{ color: 'var(--rt-ink)' }}>{ledger.contributingCount} contributing</strong>
-            {over > 0 ? <> — over by <strong style={{ color: 'var(--rt-ink)' }}>{over}</strong>.</> : '.'} Completed streams are counted
+            <strong className="ink">{contention.totalRequired} engineers</strong> against{' '}
+            <strong className="ink">{ledger.contributingCount} contributing</strong>
+            {over > 0 ? <> — over by <strong className="ink">{over}</strong>.</> : '.'} Completed streams are counted
             here, so this figure can't improve just because work landed.
           </>
         ) : (
           <>
             Across the whole release, the streams that carried work reserved{' '}
-            <strong style={{ color: 'var(--rt-ink)' }}>
+            <strong className="ink">
               {contention.totalRequired} engineer{contention.totalRequired === 1 ? '' : 's'}
             </strong>{' '}
-            against <strong style={{ color: 'var(--rt-ink)' }}>{ledger.contributingCount} contributing</strong>
-            {headroom > 0 ? <> — <strong style={{ color: 'var(--rt-ink)' }}>{headroom}</strong> to spare.</> : ' — fully allocated throughout.'}
+            against <strong className="ink">{ledger.contributingCount} contributing</strong>
+            {headroom > 0 ? <> — <strong className="ink">{headroom}</strong> to spare.</> : ' — fully allocated throughout.'}
           </>
         )}
       </div>
@@ -471,9 +471,9 @@ function RunwaySection({ r, team, items }: SectionProps) {
 
       <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.5 }}>
         Reserved capacity = engineers required × per-engineer velocity over the remaining sprints, up to each stream's code
-        freeze. A stream with no items, no estimates, or no engineer count reads as <strong style={{ color: 'var(--rt-t2)' }}>un-judgeable</strong> —
-        never on-track — because there's nothing to measure yet. <strong style={{ color: 'var(--rt-t2)' }}>Deferred</strong> silences the
-        alarm (research pending) but keeps a stream un-judgeable; <strong style={{ color: 'var(--rt-t2)' }}>scope complete</strong> treats
+        freeze. A stream with no items, no estimates, or no engineer count reads as <strong className="t2">un-judgeable</strong> —
+        never on-track — because there's nothing to measure yet. <strong className="t2">Deferred</strong> silences the
+        alarm (research pending) but keeps a stream un-judgeable; <strong className="t2">scope complete</strong> treats
         the created work as the whole scope, so leftover capacity reads as over-reserved and can be offered to at-risk streams.
       </div>
     </>
@@ -501,9 +501,7 @@ export function MetricsModal({ releaseId, section, onClose }: { releaseId: strin
 
   if (!r) {
     return (
-      <Modal title="Release analysis" icon={Icon.sprint} onClose={onClose} width={620}>
-        <span style={{ color: 'var(--rt-t3)' }}>This release no longer exists.</span>
-      </Modal>
+      <GoneModal title="Release analysis" icon={Icon.sprint} noun="release" onClose={onClose} width={620} />
     );
   }
 

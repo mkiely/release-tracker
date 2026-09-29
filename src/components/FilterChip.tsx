@@ -50,7 +50,7 @@ export function FilterChip({
         color: active ? activeColor : 'var(--rt-t3)',
         cursor: 'pointer',
         fontSize: 'var(--rt-fs-xs)',
-        fontWeight: active ? 700 : 500,
+        fontWeight: active ? 'var(--rt-fw-bold)' : 'var(--rt-fw-medium)',
         fontFamily: 'var(--rt-sans)',
         whiteSpace: 'nowrap',
       }}

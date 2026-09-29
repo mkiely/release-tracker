@@ -15,6 +15,7 @@ import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
 import { Modal, ModalSplit, PButton, PField, PInput, PMetaLine, PointSeg, PSelect, PTextarea } from '../components/primitives';
 import { Callout, MetaChip } from '../components/ui/Callout';
+import { GoneModal } from './parts';
 
 export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClose: () => void }) {
   const it = useStore((s) => selItem(s, itemId));
@@ -36,9 +37,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
 
   if (!it || !r) {
     return (
-      <Modal title="Work item" icon={Icon.item} onClose={onClose} width={520}>
-        <span style={{ color: 'var(--rt-t3)' }}>This item no longer exists.</span>
-      </Modal>
+      <GoneModal title="Work item" icon={Icon.item} noun="item" onClose={onClose} />
     );
   }
 

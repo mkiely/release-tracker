@@ -109,16 +109,19 @@ export function IconButton({
   title,
   style,
   active,
+  className,
 }: {
   icon: ReactNode;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   title?: string;
   style?: CSSProperties;
   active?: boolean;
+  /** Extra classes, e.g. a text-colour utility. Appended, never replacing. */
+  className?: string;
 }) {
   return (
     <button
-      className={`${iconBtnStyles.iconbtn} ${active ? iconBtnStyles.iconbtnActive : ''}`}
+      className={`${iconBtnStyles.iconbtn} ${active ? iconBtnStyles.iconbtnActive : ''} ${className ?? ''}`}
       onClick={onClick}
       title={title}
       aria-label={title}

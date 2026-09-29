@@ -15,6 +15,7 @@ import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import { Icon } from '../components/Icon';
 import { FieldControl } from '../components/fields/registry';
 import { Modal, ModalSplit, PButton, PField, PFieldError, PSelect } from '../components/primitives';
+import { GoneModal } from './parts';
 
 export function ConnectorItemModal({
   releaseId,
@@ -68,16 +69,14 @@ export function ConnectorItemModal({
 
   if (!r) {
     return (
-      <Modal title="New work item" icon={Icon.item} onClose={onClose} width={520}>
-        <span style={{ color: 'var(--rt-t3)' }}>This release no longer exists.</span>
-      </Modal>
+      <GoneModal title="New work item" icon={Icon.item} noun="release" onClose={onClose} />
     );
   }
 
   if (!selectedType) {
     return (
       <Modal title="New work item" icon={Icon.item} onClose={onClose} width={520}>
-        <span style={{ color: 'var(--rt-t3)' }}>
+        <span className="t3">
           {meta ? 'This connector does not support creating work items.' : 'Loading connector…'}
         </span>
       </Modal>

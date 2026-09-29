@@ -177,8 +177,11 @@ export function setDragGhost(e: React.DragEvent, text: string) {
     borderRadius: '6px',
     padding: '5px 12px',
     fontFamily: cs.getPropertyValue('--rt-mono').trim() || 'ui-monospace,monospace',
-    fontSize: '12.5px',
-    fontWeight: '700',
+    // Read off the ramp like the colours above, rather than restated as literals:
+    // the ghost is a copy of a key badge, so it has to track the type scale (and
+    // so presentation mode) the same way the badge it stands in for does.
+    fontSize: cs.getPropertyValue('--rt-fs-sm').trim() || '12.5px',
+    fontWeight: cs.getPropertyValue('--rt-fw-bold').trim() || '700',
     boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
     pointerEvents: 'none',
     whiteSpace: 'nowrap',

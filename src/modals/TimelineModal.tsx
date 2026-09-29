@@ -21,6 +21,7 @@ import { segmentsOfItems, sprintIndex, type TimelineRow } from '../lib/streamTim
 import { assessStreams } from '../lib/streamAssessment';
 import { selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { TimelineAxisStore, useTimelineAxis } from '../store/timelineAxis';
+import { GoneModal } from './parts';
 
 export function TimelineModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId));
@@ -31,9 +32,7 @@ export function TimelineModal({ releaseId, onClose }: { releaseId: string; onClo
 
   if (!r) {
     return (
-      <Modal title="Timeline" icon={Icon.timeline} onClose={onClose} width={520}>
-        <span style={{ color: 'var(--rt-t3)' }}>This release no longer exists.</span>
-      </Modal>
+      <GoneModal title="Timeline" icon={Icon.timeline} noun="release" onClose={onClose} />
     );
   }
 
