@@ -82,6 +82,7 @@ export function PButton({
   disabled,
   title,
   style,
+  className,
 }: {
   children: ReactNode;
   variant?: 'subtle' | 'ghost' | 'danger';
@@ -91,8 +92,10 @@ export function PButton({
   disabled?: boolean;
   title?: string;
   style?: CSSProperties;
+  /** Extra classes, e.g. a layout utility from the calling screen. Appended. */
+  className?: string;
 }) {
-  const cls = [btnStyles.btn, variant && btnStyles[variant], sm && btnStyles.sm].filter(Boolean).join(' ');
+  const cls = [btnStyles.btn, variant && btnStyles[variant], sm && btnStyles.sm, className].filter(Boolean).join(' ');
   return (
     <button className={cls} onClick={onClick} disabled={disabled} title={title} style={style}>
       {icon}

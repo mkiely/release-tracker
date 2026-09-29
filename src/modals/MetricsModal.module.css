@@ -1,0 +1,200 @@
+/* The metrics modal's four sections share one layout grammar: a lede paragraph,
+   then a stack of labelled blocks of Rows, with notes and footnotes hung off
+   them. These classes name that grammar, so the sections read as four variations
+   on one shape rather than four independent compositions.
+
+   Line heights of 1.4 / 1.45 are preserved from the inline styles they replace
+   rather than snapped to --rt-lh-* — this pass moved values, it did not retune
+   them. They are the only off-ramp type values left in here. */
+
+/* ── Prose ──────────────────────────────────────────────────────────────── */
+
+/* A section's opening paragraph — the sentence that says what the numbers mean. */
+.lede {
+  font-size: var(--rt-fs-md);
+  color: var(--rt-t2);
+  line-height: var(--rt-lh-normal);
+}
+
+.ledeSm {
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-t2);
+  line-height: var(--rt-lh-normal);
+}
+
+/* A qualifying remark under a block: same voice, dropped a level. */
+.note {
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-t3);
+  line-height: var(--rt-lh-normal);
+}
+
+.noteBare {
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-t3);
+}
+
+/* The smallest tier — what a chart's bars mean, what an Apply will and won't touch. */
+.footnote {
+  font-size: var(--rt-fs-micro);
+  color: var(--rt-t3);
+  line-height: 1.4;
+}
+
+.footnoteBare {
+  font-size: var(--rt-fs-micro);
+  color: var(--rt-t3);
+}
+
+/* ── Blocks ─────────────────────────────────────────────────────────────── */
+
+/* A labelled panel of Rows. Composes with .card. */
+.block {
+  background: var(--rt-bg);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.blockRoomy { padding: 15px 16px; }
+.blockChart { padding: 14px 14px 8px; gap: 6px; }
+.blockLoose { gap: 10px; }
+.blockCompact { padding: 12px 14px; gap: 4px; }
+
+/* The .tag heading a block needs a hair more room than the gap gives it. */
+.blockLabel { margin-bottom: 2px; }
+
+/* The rule between a block's rows and its total. */
+.rule { margin: 3px 0; }
+
+/* ── Empty states ───────────────────────────────────────────────────────── */
+
+/* Composes with .card .dash — nothing to measure yet. */
+.emptyCard {
+  padding: 18px 16px;
+  color: var(--rt-t3);
+  font-size: var(--rt-fs-sm);
+  line-height: var(--rt-lh-normal);
+}
+
+/* Same frame, but carrying an action rather than only a sentence. */
+.emptyCardAction {
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Rows of controls ───────────────────────────────────────────────────── */
+
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.actionRowWrap { flex-wrap: wrap; }
+
+.chipRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* The per-sprint allocation strip: one flexible segment per sprint. */
+.sprintStrip {
+  display: flex;
+  gap: 3px;
+}
+
+.selfStart { align-self: flex-start; }
+
+/* ── Runway callouts ────────────────────────────────────────────────────── */
+
+.calloutIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.calloutIconMuted {
+  display: inline-flex;
+  color: var(--rt-t3);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.calloutBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calloutText {
+  font-size: var(--rt-fs-sm);
+  line-height: 1.45;
+}
+
+.calloutFootnote {
+  font-size: var(--rt-fs-xs);
+  line-height: 1.4;
+}
+
+.streamName {
+  font-size: var(--rt-fs-sm);
+  font-weight: var(--rt-fw-semibold);
+  color: var(--rt-ink);
+}
+
+.figure {
+  font-size: var(--rt-fs-lg);
+  font-weight: var(--rt-fw-heading);
+}
+
+/* One sprint's segment in the allocation strip. Only the two colours are runtime
+   (which verdict the sprint landed on), so they stay inline as custom properties. */
+.sprintSeg {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--rt-fs-xs);
+  font-weight: var(--rt-fw-semibold);
+  background: var(--seg-bg);
+  color: var(--seg-fg);
+}
+
+/* A stream row in the runway list: a button, styled as a row rather than a button. */
+.streamRow {
+  appearance: none;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--rt-line);
+}
+
+/* The runway alarm / warning banner. Tone colours are runtime. */
+.toneCard {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--tone-soft);
+  border: 1.5px solid var(--tone-soft);
+}
+
+.listLabel { margin-bottom: 4px; }
+
+/* A .tag dropped to the smallest tier, for the state chips beside a stream name. */
+.tagMicro { font-size: var(--rt-fs-micro); }
