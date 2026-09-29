@@ -23,7 +23,7 @@ import { VelocityTrendChart } from '../components/Trend';
 import { RunwayBadge } from '../components/VerdictLine';
 import { assessRelease, assessStreams } from '../lib/streamAssessment';
 import { statusVars, warningVars } from '../components/statusVars';
-import { Row } from './Modals';
+import { Row } from './parts';
 
 export type MetricsSection = 'velocity' | 'capacity' | 'release' | 'runway';
 
