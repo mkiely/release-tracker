@@ -1,7 +1,7 @@
 // Part of the app's modal set. Reads what it needs from the store and commits
 // through getActions(), so callers supply only ids and an onClose.
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { type AttrValue } from '../types';
 import { getActions, selItemsFor, selRelease, useStore } from '../store/store';
 import { buildPushPreview, type PushItemPreview } from '../sync/push';
@@ -12,6 +12,8 @@ import { Icon } from '../components/Icon';
 import { Modal, PButton } from '../components/primitives';
 import { statusVars } from '../components/statusVars';
 import { GoneModal } from './parts';
+import modalStyles from './modals.module.css';
+import styles from './PushReviewModal.module.css';
 
 // Summarizes the pending push: per item, which writeable fields are changing
 // (synced → local) before anything is sent. Writeability is derived per item from
@@ -77,7 +79,7 @@ export function PushReviewModal({
   };
 
   const arrow = (
-    <span style={{ color: 'var(--rt-t3)', fontWeight: 'var(--rt-fw-semibold)' }} aria-label="changes to">→</span>
+    <span className={modalStyles.emMuted} aria-label="changes to">→</span>
   );
 
   return (
@@ -98,51 +100,44 @@ export function PushReviewModal({
       }
     >
       {total === 0 ? (
-        <span style={{ color: 'var(--rt-t2)', fontSize: 'var(--rt-fs-md)', lineHeight: 'var(--rt-lh-normal)' }}>
+        <span className={modalStyles.lede}>
           No pending changes to push — everything is in sync with the external system.
         </span>
       ) : (
         <>
-          <div style={{ marginBottom: 12, fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 'var(--rt-lh-normal)' }}>
+          <div className={`${modalStyles.note} ${modalStyles.introNote}`}>
             {total} item{total !== 1 ? 's' : ''} will be written back to{' '}
-            <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>{r.name}</strong>
+            <strong className={modalStyles.em}>{r.name}</strong>
             {creates.length > 0 && (
-              <> — including <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>{creates.length} new item{creates.length !== 1 ? 's' : ''}</strong> to create</>
+              <> — including <strong className={modalStyles.em}>{creates.length} new item{creates.length !== 1 ? 's' : ''}</strong> to create</>
             )}
             . Review each change, or remove one to drop it from the push.
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '52vh', overflowY: 'auto' }}>
+          <div className={`${modalStyles.stack} ${modalStyles.stackRow} ${modalStyles.scrollList}`}>
             {creates.map((c) => (
               <div
                 key={c.id}
-                style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 12,
-                  padding: '10px 12px',
-                  border: '1.5px solid var(--rt-line)', borderRadius: 9, background: 'var(--rt-paper)',
-                }}
+                className={styles.itemCard}
               >
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <div className={modalStyles.grow}>
+                  <div className={`${modalStyles.row} ${modalStyles.rowTight} ${modalStyles.rowHeader}`}>
                     <span
-                      style={{
-                        fontSize: 'var(--rt-fs-xs)', fontWeight: 'var(--rt-fw-semibold)',
-                        color: statusVars('In Progress').text, background: statusVars('In Progress').soft,
-                        padding: '2px 6px', borderRadius: 5, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.04em',
-                      }}
+                      className={styles.newChip}
+                      style={{ '--chip-text': statusVars('In Progress').text, '--chip-soft': statusVars('In Progress').soft } as CSSProperties}
                     >
                       New
                     </span>
                     {c.itemType && (
-                      <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', flexShrink: 0 }}>{c.itemType.label}</span>
+                      <span className={styles.typeChip}>{c.itemType.label}</span>
                     )}
                     <span
                       title={c.subject}
-                      style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t1)', fontWeight: 'var(--rt-fw-semibold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      className={styles.subjectStrong}
                     >
                       {c.subject}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 14px', fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)' }}>
+                  <div className={styles.createMeta}>
                     <span><span className="t3">Stream</span> {streamName(c.workStreamId)}</span>
                     <span><span className="t3">Sprint</span> {sprintName(c.sprintId)}</span>
                     {c.points != null && <span><span className="t3">Points</span> {c.points}</span>}
@@ -154,7 +149,7 @@ export function PushReviewModal({
                   onClick={() => getActions().discardPendingCreate(c.id)}
                   disabled={busy}
                   title="Remove this queued item from the push"
-                  style={{ flexShrink: 0 }}
+                  className={modalStyles.fixed}
                 >
                   Remove
                 </PButton>
@@ -163,44 +158,37 @@ export function PushReviewModal({
             {previews.map((p) => (
               <div
                 key={p.itemId}
-                style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 12,
-                  padding: '10px 12px',
-                  border: '1.5px solid var(--rt-line)', borderRadius: 9, background: 'var(--rt-paper)',
-                }}
+                className={styles.itemCard}
               >
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <div className={modalStyles.grow}>
+                  <div className={`${modalStyles.row} ${modalStyles.rowTight} ${modalStyles.rowHeader}`}>
                     <span
-                      className="mono"
-                      style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', background: 'var(--rt-fill)', padding: '2px 6px', borderRadius: 5, flexShrink: 0 }}
+                      className={`mono ${styles.keyChip}`}
                     >
                       {p.key}
                     </span>
                     <span
                       title={p.subject}
-                      style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      className={styles.subject}
                     >
                       {p.subject}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <div className={`${modalStyles.stack} ${modalStyles.stackTight}`}>
                     {p.diffs.map((d) => {
                       // Long free-text values (description) clip to one ellipsized
                       // line so a row stays a single line; the full text is on the
                       // title tooltip.
                       const clip = d.field === 'description';
-                      const clipStyle = clip
-                        ? { maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' as const }
-                        : undefined;
+                      const clipCls = clip ? ` ${styles.clip}` : '';
                       const fromText = valueText(d, d.from);
                       const toText = valueText(d, d.to);
                       return (
-                        <div key={d.field} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--rt-fs-sm)' }}>
-                          <span style={{ color: 'var(--rt-t3)', minWidth: 52, flexShrink: 0 }}>{d.label}</span>
-                          <span title={clip ? fromText : undefined} style={{ color: 'var(--rt-t3)', textDecoration: 'line-through', ...clipStyle }}>{fromText}</span>
+                        <div key={d.field} className={styles.diff}>
+                          <span className={styles.diffLabel}>{d.label}</span>
+                          <span title={clip ? fromText : undefined} className={`${styles.diffFrom}${clipCls}`}>{fromText}</span>
                           {arrow}
-                          <span title={clip ? toText : undefined} style={{ color: 'var(--rt-t1)', fontWeight: 'var(--rt-fw-semibold)', ...clipStyle }}>{toText}</span>
+                          <span title={clip ? toText : undefined} className={`${styles.diffTo}${clipCls}`}>{toText}</span>
                         </div>
                       );
                     })}
@@ -212,7 +200,7 @@ export function PushReviewModal({
                   onClick={() => getActions().revertItem(p.itemId)}
                   disabled={busy}
                   title="Revert this item to its synced value"
-                  style={{ flexShrink: 0 }}
+                  className={modalStyles.fixed}
                 >
                   Remove
                 </PButton>

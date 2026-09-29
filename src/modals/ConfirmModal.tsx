@@ -3,6 +3,7 @@
 
 import { Icon } from '../components/Icon';
 import { Modal, PButton } from '../components/primitives';
+import modalStyles from './modals.module.css';
 
 export function ConfirmModal({
   title,
@@ -35,7 +36,7 @@ export function ConfirmModal({
         </>
       }
     >
-      <span style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 'var(--rt-lh-normal)' }}>{body}</span>
+      <span className={modalStyles.lede}>{body}</span>
     </Modal>
   );
 }

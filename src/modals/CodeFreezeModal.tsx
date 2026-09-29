@@ -10,6 +10,7 @@ import { Icon } from '../components/Icon';
 import { Modal, PButton, PField, PInput } from '../components/primitives';
 import { Callout } from '../components/ui/Callout';
 import { FreezeOverrideList } from '../components/ui/FreezeOverrideList';
+import modalStyles from './modals.module.css';
 
 export function CodeFreezeModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId))!;
@@ -40,7 +41,7 @@ export function CodeFreezeModal({ releaseId, onClose }: { releaseId: string; onC
       footer={
         <>
           {isOverride && (
-            <PButton variant="subtle" onClick={useDefault} style={{ marginRight: 'auto' }}>
+            <PButton variant="subtle" onClick={useDefault} className={modalStyles.pushRight}>
               Use default (last sprint end)
             </PButton>
           )}

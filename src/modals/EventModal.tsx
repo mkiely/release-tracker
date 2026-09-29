@@ -7,6 +7,7 @@ import { getActions, selRelease, useStore } from '../store/store';
 import { Icon } from '../components/Icon';
 import { Modal, PButton, PField, PInput } from '../components/primitives';
 import { Callout } from '../components/ui/Callout';
+import modalStyles from './modals.module.css';
 
 export function EventModal({ releaseId, eventId, onClose }: { releaseId: string; eventId?: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId))!;
@@ -39,7 +40,7 @@ export function EventModal({ releaseId, eventId, onClose }: { releaseId: string;
       footer={
         <>
           {editing && (
-            <PButton variant="danger" onClick={remove} style={{ marginRight: 'auto' }}>
+            <PButton variant="danger" onClick={remove} className={modalStyles.pushRight}>
               Delete
             </PButton>
           )}

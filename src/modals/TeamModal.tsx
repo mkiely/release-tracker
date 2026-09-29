@@ -1,11 +1,13 @@
 // Part of the app's modal set. Reads what it needs from the store and commits
 // through getActions(), so callers supply only ids and an onClose.
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { type Member } from '../types';
 import { getActions, selTeam, useStore } from '../store/store';
 import { Icon } from '../components/Icon';
 import { IconButton, Modal, PButton, PField, PInput } from '../components/primitives';
+import modalStyles from './modals.module.css';
+import styles from './TeamModal.module.css';
 
 export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () => void }) {
   const editing = !!teamId;
@@ -70,15 +72,15 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
       <PField label="Velocity (points / sprint)" hint="points the team finishes at full capacity">
         <PInput type="number" min="0" value={velocity} placeholder="e.g. 40" onChange={(e) => setVelocity(e.target.value)} />
       </PField>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className={modalStyles.stack}>
+        <div className={`${modalStyles.row} ${modalStyles.rowSplit}`}>
           <span className="flabel">Members</span>
-          <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>{named}</span>
+          <span className={modalStyles.noteBare}>{named}</span>
         </div>
         {members.map((m, i) => {
           const isSynced = !!m.externalId;
           return (
-            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <div key={m.id} className={modalStyles.row}>
               <span className="avatar">
                 {m.name.trim() ? m.name.trim().split(' ').map((p) => p[0]).slice(0, 2).join('') : i + 1}
               </span>
@@ -93,20 +95,20 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
                     addMember();
                   }
                 }}
-                style={{ flex: 1 }}
+                className={modalStyles.grow}
               />
               <IconButton
                 icon={m.nonContributing ? Icon.memberOff : Icon.member}
                 title={m.nonContributing ? 'Non-contributing (click to mark contributing)' : 'Contributing (click to mark non-contributing)'}
                 onClick={() => toggleNonContrib(i)}
+                className={styles.contribToggle}
                 style={{
-                  border: 'none',
-                  color: m.nonContributing ? 'var(--rt-t3)' : 'var(--rt-accent)',
-                  opacity: m.nonContributing ? 0.5 : 1,
-                }}
+                  '--toggle-color': m.nonContributing ? 'var(--rt-t3)' : 'var(--rt-accent)',
+                  '--toggle-opacity': m.nonContributing ? 0.5 : 1,
+                } as CSSProperties}
               />
               {isSynced ? (
-                <span className="tag" style={{ flex: '0 0 auto', fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>
+                <span className={`tag ${styles.memberIndex}`}>
                   synced
                 </span>
               ) : (
@@ -120,7 +122,7 @@ export function TeamModal({ teamId, onClose }: { teamId?: string; onClose: () =>
             </div>
           );
         })}
-        <PButton variant="subtle" sm onClick={addMember} style={{ alignSelf: 'flex-start' }}>
+        <PButton variant="subtle" sm onClick={addMember} className={modalStyles.selfStart}>
           {Icon.plus} Add member
         </PButton>
       </div>

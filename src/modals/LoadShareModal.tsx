@@ -5,6 +5,7 @@ import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import type { SharePayload } from '../lib/shareRelease';
 import { Icon } from '../components/Icon';
 import { Modal, PButton } from '../components/primitives';
+import modalStyles from './modals.module.css';
 
 // Shown when the app opens with a `?share=` link. Confirms loading a release
 // from a decoded share payload (config + events + days off); work items and
@@ -40,12 +41,12 @@ export function LoadShareModal({
         </>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 'var(--rt-lh-normal)' }}>
+      <div className={`${modalStyles.stack} ${modalStyles.stackWide} ${modalStyles.lede}`}>
         <span>
           Load <strong className="ink">{payload.name}</strong> as a new release connected to{' '}
           <strong className="ink">{connName}</strong>?
         </span>
-        <span style={{ color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-sm)' }}>
+        <span className={modalStyles.noteBare}>
           This brings over the connector configuration{eventCount > 0 ? `, ${eventCount} event${eventCount !== 1 ? 's' : ''}` : ''}
           {sprintCount > 0 ? `, and ${sprintCount} sprint${sprintCount !== 1 ? 's' : ''} with days off` : ''}. Work items and
           work streams aren’t included — click Sync after loading to fetch them from your backend.

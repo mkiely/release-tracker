@@ -9,6 +9,7 @@ import { getActions, selRelease, useStore } from '../store/store';
 import { Icon } from '../components/Icon';
 import { Modal, PButton, PField, PInput } from '../components/primitives';
 import { SegmentedToggle } from '../components/SegmentedToggle';
+import modalStyles from './modals.module.css';
 
 export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: string; wsId?: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId));
@@ -97,7 +98,7 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
             { value: 'complete', label: 'Scope complete', title: 'All work is defined — reserved capacity beyond the scope reads as over-reservation' },
           ]}
         />
-        <span style={{ display: 'block', marginTop: 6, fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.45 }}>
+        <span className={modalStyles.fieldHint}>
           {planning === 'open'
             ? 'Planning in progress. Reserved capacity with little created work flags as under-planned.'
             : planning === 'deferred'
@@ -126,13 +127,13 @@ export function WorkStreamModal({ releaseId, wsId, onClose }: { releaseId: strin
             { value: 'muted', label: 'Muted', title: 'Informational only: kept and browsable, but left out of exports, summaries and the release’s capacity maths' },
           ]}
         />
-        <span style={{ display: 'block', marginTop: 6, fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.45 }}>
+        <span className={modalStyles.fieldHint}>
           {muted
             ? 'Muted. Still synced and browsable, but left out of TSV exports, summary reports, and the release’s capacity maths — its engineer reservation isn’t contended for and its points aren’t counted as scope.'
             : 'Counted normally. Mute a stream that exists for reporting rather than for work this team delivers — a vestigial epic, or a roll-up someone else owns.'}
         </span>
       </PField>
-      <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
+      <span className={modalStyles.noteBare}>
         {nameLocked
           ? "This stream's name is managed by the connector. Engineers required is kept locally and survives sync."
           : "A work stream groups related work items across the release's sprints. Engineers required is kept locally and survives connector sync."}

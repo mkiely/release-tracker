@@ -9,6 +9,8 @@ import { Icon } from '../components/Icon';
 import { Modal, PButton, PField, PInput } from '../components/primitives';
 import { CalcCard } from '../components/ui/Callout';
 import { Row } from './parts';
+import modalStyles from './modals.module.css';
+import styles from './SprintModal.module.css';
 
 export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: string; sprintId: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId))!;
@@ -45,9 +47,9 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
       }
     >
       {isConnector && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', marginBottom: 4, fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', background: 'var(--rt-fill)', border: `1.5px solid ${'var(--rt-line)'}`, borderRadius: 7 }}>
+        <div className={styles.connectorNote}>
           {Icon.sync}
-          <span>Sprint details are managed by the connector. <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>Days off</strong> is stored locally.</span>
+          <span>Sprint details are managed by the connector. <strong className={modalStyles.em}>Days off</strong> is stored locally.</span>
         </div>
       )}
       {!isConnector && (
@@ -55,23 +57,17 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
           <PInput autoFocus value={name} onChange={(e) => setName(e.target.value)} />
         </PField>
       )}
-      <div style={{ display: 'flex', gap: 12 }}>
-        <PField label="Days off (person-days)" style={{ flex: 1 }}>
+      <div className={`${modalStyles.row} ${modalStyles.rowWide}`}>
+        <PField label="Days off (person-days)" className={modalStyles.grow}>
           <PInput autoFocus={isConnector} type="number" min="0" value={daysOff} onChange={(e) => setDaysOff(e.target.value)} />
         </PField>
-        <PField label="Sprint dates" style={{ flex: 1 }}>
-          <span style={{
-            display: 'flex', alignItems: 'center',
-            width: '100%', border: '1.5px solid var(--rt-line-strong)',
-            background: 'var(--rt-paper)', borderRadius: 9,
-            padding: '11px 13px', fontSize: 'var(--rt-fs-md)', fontFamily: 'inherit',
-            color: 'var(--rt-t2)', minHeight: 46,
-          }}>
+        <PField label="Sprint dates" className={modalStyles.grow}>
+          <span className={styles.readonlyField}>
             {fmtShort(sp.startISO)} – {fmtShort(sp.endISO)}
           </span>
         </PField>
       </div>
-      <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', marginTop: -4 }}>
+      <span className={styles.fieldFootnote}>
         One holiday for a team of {memberCount} = {memberCount} days off.
       </span>
       <CalcCard label="Expected velocity">
@@ -79,7 +75,7 @@ export function SprintModal({ releaseId, sprintId, onClose }: { releaseId: strin
         <Row k="Full capacity" v={`${memberCount} × ${workdays} = ${full} person-days`} />
         <Row k="Days off" v={`− ${off}`} />
         <Row k="% of capacity" v={`${full - off} / ${full} = ${pct}%`} />
-        <hr className="divider" style={{ margin: '3px 0' }} />
+        <hr className={`divider ${modalStyles.rule}`} />
         <Row k="Sprint velocity" v={`${team ? team.velocity : 0} × ${pct}% = ${vel} pts`} big />
       </CalcCard>
     </Modal>

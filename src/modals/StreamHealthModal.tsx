@@ -14,6 +14,8 @@ import { StreamBurnChart } from '../components/Trend';
 import { RunwayBadge, VerdictBadge } from '../components/VerdictLine';
 import { verdictVars, warningVars } from '../components/statusVars';
 import { Row, GoneModal } from './parts';
+import modalStyles from './modals.module.css';
+import styles from './StreamHealthModal.module.css';
 
 export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: string; wsId: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId));
@@ -58,16 +60,16 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
       title={
         // The badge holds its size; the name truncates (the shell's title styling
         // covers the whole node, so this span only needs the ellipsis rules).
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        <span className={`${modalStyles.row} ${modalStyles.rowLoose} ${modalStyles.grow}`}>
           <VerdictBadge verdict={forecast.verdict} />
-          <span title={ws.name} style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <span title={ws.name} className={`${modalStyles.grow} ${modalStyles.truncate}`}>
             {ws.name}
           </span>
         </span>
       }
       footer={
         <>
-          <PButton variant="subtle" onClick={editStream} style={{ marginRight: 'auto' }}>
+          <PButton variant="subtle" onClick={editStream} className={modalStyles.pushRight}>
             {Icon.stream} Edit stream
           </PButton>
           <PButton variant="subtle" onClick={onClose}>
@@ -77,14 +79,14 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
       }
     >
       {/* Plain-language verdict */}
-      <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>{forecast.summary}</div>
+      <div className={modalStyles.lede}>{forecast.summary}</div>
 
       {/* Current-state breakdown */}
       {health.totalPts > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <div className={`${modalStyles.stack} ${modalStyles.stackSnug}`}>
+          <div className={`${modalStyles.row} ${modalStyles.rowBaseline} ${modalStyles.rowSplit}`}>
             <span className="tag">Progress</span>
-            <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>{health.donePts} / {health.totalPts} pts · {health.pct}%</span>
+            <span className={`mono ${modalStyles.footnoteXs}`}>{health.donePts} / {health.totalPts} pts · {health.pct}%</span>
           </div>
           <SegBar segs={health.pointsByStatus} height={10} radius={5} />
         </div>
@@ -92,7 +94,7 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
 
       {/* The chart */}
       {canForecast ? (
-        <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 14px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className={`card ${modalStyles.block} ${modalStyles.blockChart}`}>
           <span className="tag">Remaining work burndown vs capacity</span>
           <StreamBurnChart
             series={series}
@@ -103,14 +105,14 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
             effectiveCap={forecast.effectiveCap}
             tone={v.tone === 'risk' ? 'risk' : 'ok'}
           />
-          <span style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)', lineHeight: 1.4 }}>
+          <span className={modalStyles.footnote}>
             Bars show planned points per sprint (x-axis = sprint assignment, not completion history — an approximation).
             The line burns the remaining {health.remainingPts} pts down by the stream's capacity up to the amber <strong style={{ color: warningVars().dot }}>code freeze</strong>;
             where it reaches zero is the projected finish, and any gap at the freeze is the shortfall. Sprints past the freeze are faded — no work can land there.
           </span>
         </div>
       ) : (
-        <div className="card dash" style={{ padding: '18px 16px', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-sm)', lineHeight: 1.5 }}>
+        <div className={`card dash ${modalStyles.emptyCard}`}>
           {!configured ? (
             <>Set <strong className="t2">engineers required</strong> for this stream to compute a capacity-fit forecast.</>
           ) : (
@@ -140,7 +142,7 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
               sprints the EXISTING work takes to clear, not how much held capacity
               has no work against it. Two different questions, one word. */}
           <Row k="Burn-down runway" v={Number.isFinite(forecast.runwaySprints) ? `~${n1(forecast.runwaySprints)} sprints` : '—'} />
-          <hr className="divider" style={{ margin: '3px 0' }} />
+          <hr className={`divider ${modalStyles.rule}`} />
           <Row
             k={shortfall > 0.5 ? 'Shortfall' : 'Surplus'}
             v={`${shortfall > 0.5 ? '' : '+'}${Math.round(Math.abs(shortfall))} pts`}
@@ -152,24 +154,21 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
       {/* Planning runway — the inverse question, and the one the row's planning chip
           raises. Without this the chip had nowhere to explain itself. */}
       <CalcCard label="Planning runway">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div className={`${modalStyles.row} ${modalStyles.rowLoose} ${modalStyles.rowWrap}`}>
           <RunwayBadge verdict={runway.verdict} planningState={ws.planningState} />
           <button
             type="button"
             onClick={editStream}
             title="Edit this stream's planning status"
-            style={{
-              appearance: 'none', background: 'transparent', border: 'none', padding: 0,
-              font: 'inherit', fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', cursor: 'pointer', textDecoration: 'underline',
-            }}
+            className={styles.inlineEdit}
           >
             planning {ws.planningState === 'complete' ? 'scope complete' : ws.planningState}
           </button>
         </div>
-        <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)', lineHeight: 1.45 }}>{runway.summary}</span>
+        <span className={modalStyles.summaryLine}>{runway.summary}</span>
         {runway.judgeable && (
           <>
-            <hr className="divider" style={{ margin: '3px 0' }} />
+            <hr className={`divider ${modalStyles.rule}`} />
             <Row k="Reserved capacity" v={`${Math.round(runway.availableCap)} pts`} />
             <Row k="Created work remaining" v={`${Math.round(runway.createdRemainingPts)} pts`} />
             <Row k="Unclaimed" v={`${Math.round(runway.unclaimedRunway)} pts (~${n1(runway.unclaimedSprints)} sprints)`} big />

@@ -16,6 +16,8 @@ import { Icon } from '../components/Icon';
 import { Modal, ModalSplit, PButton, PField, PInput, PMetaLine, PointSeg, PSelect, PTextarea } from '../components/primitives';
 import { Callout, MetaChip } from '../components/ui/Callout';
 import { GoneModal } from './parts';
+import modalStyles from './modals.module.css';
+import styles from './WorkItemDetailModal.module.css';
 
 export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClose: () => void }) {
   const it = useStore((s) => selItem(s, itemId));
@@ -164,13 +166,13 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       {Icon.sync}
       <span>
         Synced — most fields refresh on sync. Writeable:{' '}
-        <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>{writeableLabels.join(', ')}</strong>.
+        <strong className={modalStyles.em}>{writeableLabels.join(', ')}</strong>.
       </span>
     </div>
   ) : connectorRelease ? (
     <div style={bannerStyle}>
       {Icon.sync}
-      <span>Connector release — <strong style={{ color: 'var(--rt-t2)', fontWeight: 'var(--rt-fw-semibold)' }}>status</strong> editing is coming soon.</span>
+      <span>Connector release — <strong className={modalStyles.em}>status</strong> editing is coming soon.</span>
     </div>
   ) : null;
 
@@ -179,8 +181,8 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
       onClose={onClose}
       width="var(--rt-modal-w-work-item)"
       title={
-        <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span className="mono" style={{ fontSize: 'var(--rt-fs-sm)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-st-ac-text)', background: 'var(--rt-st-ac-soft)', padding: '3px 7px', borderRadius: 5 }}>
+        <span className={modalStyles.row}>
+          <span className={`mono ${styles.keyBadge}`}>
             {it.key}
           </span>
           {it.itemType && (
@@ -188,11 +190,11 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
           )}
           {it.build && (
             <MetaChip title={`Build: ${it.build}`}>
-              <span className="dot" style={{ width: 5, height: 5, borderRadius: 1, background: 'var(--rt-t3)' }} />
+              <span className={`dot ${styles.buildMark}`} />
               {it.build}
             </MetaChip>
           )}
-          {/* <span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Work item</span> */}
+          {/* <span className={modalStyles.figure}>Work item</span> */}
           {isDirty && <DirtyDot size={7} />}
           {it.externalUrl && (
             <MetaChip
@@ -221,7 +223,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
         <>
           {/* Destructive, so it sits apart from Close/Save rather than beside them —
               the same placement the event and work-stream modals use. */}
-          <PButton variant="danger" onClick={forget} title={forgetTitle} style={{ marginRight: 'auto' }}>
+          <PButton variant="danger" onClick={forget} title={forgetTitle} className={modalStyles.pushRight}>
             Forget
           </PButton>
           {syncBanner}
@@ -248,9 +250,9 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
                 </strong>{' '}
                 &mdash; {it.lastPushError.message}
                 {it.lastPushError.fieldErrors.length > 0 && (
-                  <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                  <ul className={styles.fieldErrors}>
                     {it.lastPushError.fieldErrors.map((fe, i) => (
-                      <li key={`${fe.field}-${i}`} style={{ fontSize: 'var(--rt-fs-sm)' }}>
+                      <li key={`${fe.field}-${i}`} className={styles.fieldError}>
                         <strong>{fieldLabel(itype, fe.field)}</strong> &mdash; {fe.message}
                       </li>
                     ))}
@@ -273,7 +275,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
                   // Taller than the create form's default: this is the field the
                   // two-column layout exists to serve, and the rail beside it is
                   // what pays for the height.
-                  style={{ minHeight: 380 }}
+                  className={styles.editorPane}
                 />
               )}
             </PField>

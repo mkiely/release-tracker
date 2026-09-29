@@ -25,14 +25,17 @@ export function PField({
   hint,
   children,
   style,
+  className,
 }: {
   label?: ReactNode;
   hint?: ReactNode;
   children: ReactNode;
   style?: CSSProperties;
+  /** Extra classes, e.g. a layout utility from the calling screen. Appended. */
+  className?: string;
 }) {
   return (
-    <label className={fieldStyles.field} style={{ minWidth: 0, ...style }}>
+    <label className={`${fieldStyles.field} ${className ?? ''}`} style={{ minWidth: 0, ...style }}>
       {label && (
         <span className={fieldStyles.label}>
           {label}

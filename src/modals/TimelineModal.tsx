@@ -22,6 +22,7 @@ import { assessStreams } from '../lib/streamAssessment';
 import { selItemsFor, selRelease, selTeam, useStore } from '../store/store';
 import { TimelineAxisStore, useTimelineAxis } from '../store/timelineAxis';
 import { GoneModal } from './parts';
+import modalStyles from './modals.module.css';
 
 export function TimelineModal({ releaseId, onClose }: { releaseId: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId));
@@ -81,7 +82,7 @@ export function TimelineModal({ releaseId, onClose }: { releaseId: string; onClo
       minHeight="min(72vh, 840px)"
       footer={
         <>
-          <span style={{ marginRight: 'auto', fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>
+          <span className={modalStyles.footerNote}>
             Each bar spans the sprints holding that stream&rsquo;s work, on a real date axis.
             {mutedCount > 0 && ` ${mutedCount} muted stream${mutedCount === 1 ? '' : 's'} hidden.`}
           </span>

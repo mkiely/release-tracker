@@ -1,0 +1,15 @@
+/* Specific to the stream-health dialog; shared grammar is in modals.module.css. */
+
+/* An inline "edit this" affordance inside a sentence: a button that reads as a
+   link, because it sits mid-prose rather than in a control row. */
+.inlineEdit {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--rt-fs-xs);
+  color: var(--rt-t3);
+  cursor: pointer;
+  text-decoration: underline;
+}

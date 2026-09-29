@@ -16,6 +16,7 @@ import { Icon } from '../components/Icon';
 import { FieldControl } from '../components/fields/registry';
 import { Modal, ModalSplit, PButton, PField, PFieldError, PSelect } from '../components/primitives';
 import { GoneModal } from './parts';
+import modalStyles from './modals.module.css';
 
 export function ConnectorItemModal({
   releaseId,
@@ -167,7 +168,7 @@ export function ConnectorItemModal({
       width="var(--rt-modal-w-work-item)"
       footer={
         <>
-          <span style={{ marginRight: 'auto', fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>
+          <span className={modalStyles.footerNote}>
             Added to the push queue — created in {connectorName} on the next Push.
           </span>
           <PButton variant="subtle" onClick={onClose}>
