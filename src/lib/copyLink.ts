@@ -5,8 +5,7 @@
 // had each written out the same hidden-textarea/execCommand dance, and each one
 // carried a comment noting that it "mirrors" the others.
 
-const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
-const escape = (s: string) => s.replace(/[&<>"]/g, (c) => ESC[c]);
+import { escapeAttr } from './escapeHtml';
 
 /** The visible link text for an item: `KEY subject`, trimmed. */
 export function linkLabel(key: string, subject: string): string {
@@ -17,7 +16,7 @@ export function linkLabel(key: string, subject: string): string {
 export function linkClipboard(key: string, subject: string, url: string): { html: string; text: string } {
   const label = linkLabel(key, subject);
   return {
-    html: `<a href="${escape(url)}">${escape(label)}</a>`,
+    html: `<a href="${escapeAttr(url)}">${escapeAttr(label)}</a>`,
     text: `${label} — ${url}`,
   };
 }
