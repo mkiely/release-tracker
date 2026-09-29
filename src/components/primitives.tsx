@@ -25,14 +25,17 @@ export function PField({
   hint,
   children,
   style,
+  className,
 }: {
   label?: ReactNode;
   hint?: ReactNode;
   children: ReactNode;
   style?: CSSProperties;
+  /** Extra classes, e.g. a layout utility from the calling screen. Appended. */
+  className?: string;
 }) {
   return (
-    <label className={fieldStyles.field} style={{ minWidth: 0, ...style }}>
+    <label className={`${fieldStyles.field} ${className ?? ''}`} style={{ minWidth: 0, ...style }}>
       {label && (
         <span className={fieldStyles.label}>
           {label}
@@ -82,6 +85,7 @@ export function PButton({
   disabled,
   title,
   style,
+  className,
 }: {
   children: ReactNode;
   variant?: 'subtle' | 'ghost' | 'danger';
@@ -91,8 +95,10 @@ export function PButton({
   disabled?: boolean;
   title?: string;
   style?: CSSProperties;
+  /** Extra classes, e.g. a layout utility from the calling screen. Appended. */
+  className?: string;
 }) {
-  const cls = [btnStyles.btn, variant && btnStyles[variant], sm && btnStyles.sm].filter(Boolean).join(' ');
+  const cls = [btnStyles.btn, variant && btnStyles[variant], sm && btnStyles.sm, className].filter(Boolean).join(' ');
   return (
     <button className={cls} onClick={onClick} disabled={disabled} title={title} style={style}>
       {icon}
@@ -109,16 +115,19 @@ export function IconButton({
   title,
   style,
   active,
+  className,
 }: {
   icon: ReactNode;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   title?: string;
   style?: CSSProperties;
   active?: boolean;
+  /** Extra classes, e.g. a text-colour utility. Appended, never replacing. */
+  className?: string;
 }) {
   return (
     <button
-      className={`${iconBtnStyles.iconbtn} ${active ? iconBtnStyles.iconbtnActive : ''}`}
+      className={`${iconBtnStyles.iconbtn} ${active ? iconBtnStyles.iconbtnActive : ''} ${className ?? ''}`}
       onClick={onClick}
       title={title}
       aria-label={title}

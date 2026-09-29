@@ -127,13 +127,13 @@ export function WorkItemCard({
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
         {it.itemType && (
-          <span title={`Type: ${it.itemType.label}`} className={styles.metaChip} style={{ color: 'var(--rt-t2)' }}>
+          <span title={`Type: ${it.itemType.label}`} className={`${styles.metaChip} t2`}>
             <span className={styles.metaChipDot} style={{ background: 'var(--rt-t2)' }} />
             {it.itemType.label}
           </span>
         )}
         {it.build ? (
-          <span title={`Build: ${it.build}`} className={styles.metaChip} style={{ color: 'var(--rt-t3)' }}>
+          <span title={`Build: ${it.build}`} className={`${styles.metaChip} t3`}>
             <span className={styles.metaChipSquare} style={{ background: 'var(--rt-t3)' }} />
             {it.build}
           </span>

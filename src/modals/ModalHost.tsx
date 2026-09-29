@@ -2,7 +2,17 @@
 // modal anywhere in the app is a plain data value rather than local state.
 
 import type { ModalSpec } from '../app-context';
-import { CodeFreezeModal, ConfirmModal, EventModal, LoadShareModal, PushReviewModal, SprintModal, StreamHealthModal, TeamModal, WorkItemDetailModal, WorkItemModal, WorkStreamModal } from './Modals';
+import { CodeFreezeModal } from './CodeFreezeModal';
+import { ConfirmModal } from './ConfirmModal';
+import { EventModal } from './EventModal';
+import { LoadShareModal } from './LoadShareModal';
+import { PushReviewModal } from './PushReviewModal';
+import { SprintModal } from './SprintModal';
+import { StreamHealthModal } from './StreamHealthModal';
+import { TeamModal } from './TeamModal';
+import { WorkItemDetailModal } from './WorkItemDetailModal';
+import { WorkItemModal } from './WorkItemModal';
+import { WorkStreamModal } from './WorkStreamModal';
 import { ConnectorItemModal } from './ConnectorItemModal';
 import { MetricsModal } from './MetricsModal';
 import { TimelineModal } from './TimelineModal';

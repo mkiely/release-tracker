@@ -56,7 +56,7 @@ export function TeamsView({
                     icon={Icon.trash}
                     title="Delete team"
                     onClick={() => onDeleteTeam(t)}
-                    style={{ color: 'var(--rt-t3)' }}
+                    className="t3"
                   />
                 </div>
               </div>
@@ -108,7 +108,7 @@ export function TeamsView({
                         icon={m.nonContributing ? Icon.member : Icon.memberOff}
                         title={m.nonContributing ? 'Include in capacity' : 'Exclude from capacity'}
                         onClick={() => onToggleNonContributing(t.id, m.id)}
-                        style={{ color: 'var(--rt-t3)' }}
+                        className="t3"
                       />
                     </div>
                   </div>

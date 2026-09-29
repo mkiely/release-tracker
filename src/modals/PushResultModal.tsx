@@ -19,6 +19,7 @@ import { connectorLabel } from '../sync/client';
 import { Icon } from '../components/Icon';
 import { Modal, PButton } from '../components/primitives';
 import styles from './PushResultModal.module.css';
+import modalStyles from './modals.module.css';
 
 export function PushResultModal({
   releaseId,
@@ -63,7 +64,7 @@ export function PushResultModal({
       width={620}
       footer={
         <>
-          <span style={{ marginRight: 'auto', fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>
+          <span className={modalStyles.footerNote}>
             Failed items keep their edits and stay queued — nothing was lost.
           </span>
           <PButton variant="subtle" onClick={onClose}>

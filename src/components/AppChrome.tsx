@@ -75,7 +75,7 @@ export function SettingsPanel() {
                 >
                   <ThemeSwatch bg={t.bg} dot={t.dot} size={16} />
                   <span style={{ flex: 1 }}>{t.label}</span>
-                  {isActive && <span style={{ color: 'var(--rt-t2)' }}>{Icon.check}</span>}
+                  {isActive && <span className="t2">{Icon.check}</span>}
                 </button>
               );
             })}
@@ -92,7 +92,7 @@ export function SettingsPanel() {
                   className={`${styles.paletteOption} ${isActive ? styles.paletteOptionActive : ''}`}
                 >
                   <span style={{ flex: 1 }}>{v === 'cards' ? 'Cards' : 'Table'}</span>
-                  {isActive && <span style={{ color: 'var(--rt-t2)' }}>{Icon.check}</span>}
+                  {isActive && <span className="t2">{Icon.check}</span>}
                 </button>
               );
             })}
@@ -109,7 +109,7 @@ export function SettingsPanel() {
                   className={`${styles.paletteOption} ${isActive ? styles.paletteOptionActive : ''}`}
                 >
                   <span style={{ flex: 1 }}>{s.label}</span>
-                  {isActive && <span style={{ color: 'var(--rt-t2)' }}>{Icon.check}</span>}
+                  {isActive && <span className="t2">{Icon.check}</span>}
                 </button>
               );
             })}

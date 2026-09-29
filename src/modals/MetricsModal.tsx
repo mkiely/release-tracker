@@ -11,7 +11,7 @@
 // here", Whole release answers "how did this run", and the pair is only legible
 // side by side. See docs/metrics.md (Phase 4) and docs/capacity-history.md.
 
-import { useState, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import type { Release, Team, WorkItem } from '../types';
 import { reservationBalance, velocityAttainment, velocitySuggestion } from '../lib/derive';
 import { getActions, selRelease, selTeam, useStore } from '../store/store';
@@ -23,7 +23,9 @@ import { VelocityTrendChart } from '../components/Trend';
 import { RunwayBadge } from '../components/VerdictLine';
 import { assessRelease, assessStreams } from '../lib/streamAssessment';
 import { statusVars, warningVars } from '../components/statusVars';
-import { Row } from './Modals';
+import { Row, GoneModal } from './parts';
+import modalStyles from './modals.module.css';
+import styles from './MetricsModal.module.css';
 
 export type MetricsSection = 'velocity' | 'capacity' | 'release' | 'runway';
 
@@ -54,7 +56,7 @@ function VelocitySection({ r, team, items }: SectionProps) {
 
   if (none) {
     return (
-      <div className="card dash" style={{ padding: '18px 16px', color: 'var(--rt-t3)', fontSize: 'var(--rt-fs-sm)', lineHeight: 1.5 }}>
+      <div className={`card dash ${modalStyles.emptyCard}`}>
         No sprint has fully elapsed yet — attainment appears once the first sprint ends.
       </div>
     );
@@ -65,25 +67,25 @@ function VelocitySection({ r, team, items }: SectionProps) {
   // the user seed a velocity from it, rather than the false "no sprint elapsed" copy.
   if (noBaseline) {
     return (
-      <div className="card dash" style={{ padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ color: 'var(--rt-t2)', fontSize: 'var(--rt-fs-sm)', lineHeight: 1.5 }}>
-          The team delivered <strong style={{ color: 'var(--rt-ink)' }}>{v.totalActual}</strong> point
+      <div className={`card dash ${modalStyles.emptyCardAction}`}>
+        <div className={modalStyles.ledeSm}>
+          The team delivered <strong className="ink">{v.totalActual}</strong> point
           {v.totalActual !== 1 ? 's' : ''} across {v.perSprint.length} elapsed sprint
-          {v.perSprint.length !== 1 ? 's' : ''}, but <strong style={{ color: 'var(--rt-ink)' }}>{team ? team.name : 'the team'}</strong> has
+          {v.perSprint.length !== 1 ? 's' : ''}, but <strong className="ink">{team ? team.name : 'the team'}</strong> has
           no velocity set — so there's no planned baseline to measure attainment against yet.
         </div>
         {suggestion && suggestion.recentAvg > 0 ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div className={`${modalStyles.row} ${modalStyles.rowWide} ${modalStyles.rowWrap}`}>
             <PButton sm onClick={onApply} disabled={!r.teamId}>
               Set velocity to {suggestion.recentAvg}
             </PButton>
-            <span style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)', lineHeight: 1.4 }}>
+            <span className={modalStyles.footnote}>
               ~{suggestion.recentAvg} pts / sprint, the average delivered over the last {suggestion.sampleSize} elapsed
               sprint{suggestion.sampleSize !== 1 ? 's' : ''}. Attainment then measures against it.
             </span>
           </div>
         ) : (
-          <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.5 }}>
+          <span className={modalStyles.note}>
             Set a team velocity to measure attainment.
           </span>
         )}
@@ -93,7 +95,7 @@ function VelocitySection({ r, team, items }: SectionProps) {
 
   return (
     <>
-      <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
+      <div className={modalStyles.lede}>
         The team delivered <strong style={{ color: tone.dot }}>{v.totalActual}</strong> of{' '}
         <strong>{v.totalPlanned}</strong> planned points across {v.perSprint.length} elapsed sprint
         {v.perSprint.length !== 1 ? 's' : ''} — {under ? 'below' : 'meeting'} the set velocity (
@@ -101,18 +103,18 @@ function VelocitySection({ r, team, items }: SectionProps) {
       </div>
 
       {suggestion && suggestion.meaningful && (
-        <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className={`card ${modalStyles.block} ${modalStyles.blockLoose}`}>
           <span className="tag">Suggestion</span>
-          <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
+          <div className={modalStyles.ledeSm}>
             The last {suggestion.sampleSize} sprint{suggestion.sampleSize !== 1 ? 's' : ''} delivered{' '}
             ~<strong>{suggestion.recentAvg}</strong> pts on average against a set velocity of{' '}
             <strong>{suggestion.currentVelocity}</strong> — consider {suggestion.delta < 0 ? 'lowering' : 'raising'} it.
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className={`${modalStyles.row} ${modalStyles.rowWide}`}>
             <PButton sm onClick={onApply} disabled={!r.teamId}>
               Set velocity to {suggestion.recentAvg}
             </PButton>
-            <span style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)', lineHeight: 1.4 }}>
+            <span className={modalStyles.footnote}>
               Affects only sprints not yet started; elapsed and active sprints keep their frozen
               baselines, so attainment history is unchanged.
             </span>
@@ -120,25 +122,25 @@ function VelocitySection({ r, team, items }: SectionProps) {
         </div>
       )}
 
-      <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 14px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div className={`card ${modalStyles.block} ${modalStyles.blockChart}`}>
         <span className="tag">Delivered vs. planned per sprint</span>
         <VelocityTrendChart
           series={v.perSprint.map((s) => ({ label: s.sprint.name.replace(/^Sprint\s*/i, 'S'), planned: s.planned, actual: s.actual }))}
           tone={under ? 'under' : 'ok'}
         />
-        <span style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)', lineHeight: 1.4 }}>
+        <span className={modalStyles.footnote}>
           Faint bars are each sprint's planned velocity (capacity-adjusted); the bold bars + line are points completed.
           Only fully-elapsed sprints are counted.
         </span>
       </div>
 
-      <div className="card" style={{ background: 'var(--rt-bg)', padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <span className="tag" style={{ marginBottom: 2 }}>By sprint</span>
+      <div className={`card ${modalStyles.block} ${modalStyles.blockRoomy}`}>
+        <span className={`tag ${modalStyles.blockLabel}`}>By sprint</span>
         {v.perSprint.map((s) => {
           const pct = s.planned > 0 ? Math.round((s.actual / s.planned) * 100) : null;
           return <Row key={s.sprint.id} k={s.sprint.name} v={`${s.actual} / ${s.planned} pts${pct !== null ? ` · ${pct}%` : ''}`} />;
         })}
-        <hr className="divider" style={{ margin: '3px 0' }} />
+        <hr className={`divider ${modalStyles.rule}`} />
         <Row k="Total" v={`${v.totalActual} / ${v.totalPlanned} pts · ${v.attainmentPct}%`} big />
       </div>
     </>
@@ -166,62 +168,62 @@ function CapacitySection({ r, team, items }: SectionProps) {
 
   return (
     <>
-      <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
+      <div className={modalStyles.lede}>
         {isOver ? (
           <>
-            The active work streams collectively ask for <strong style={{ color: 'var(--rt-ink)' }}>{contention.totalRequired} engineers</strong>, but{' '}
-            {team ? team.name : 'the team'} has only <strong style={{ color: 'var(--rt-ink)' }}>{ctx.contributingCount} contributing</strong>
-            {over > 0 ? <> — over by <strong style={{ color: 'var(--rt-ink)' }}>{over}</strong>.</> : '.'} Everyone can't be on everything at once, so
+            The active work streams collectively ask for <strong className="ink">{contention.totalRequired} engineers</strong>, but{' '}
+            {team ? team.name : 'the team'} has only <strong className="ink">{ctx.contributingCount} contributing</strong>
+            {over > 0 ? <> — over by <strong className="ink">{over}</strong>.</> : '.'} Everyone can't be on everything at once, so
             each stream's <em>effective</em> staffing is scaled down and its forecast reflects that contention.
           </>
         ) : (
           <>
             The active work streams collectively ask for{' '}
-            <strong style={{ color: 'var(--rt-ink)' }}>{contention.totalRequired} engineer{contention.totalRequired === 1 ? '' : 's'}</strong>, and{' '}
-            {team ? team.name : 'the team'} has <strong style={{ color: 'var(--rt-ink)' }}>{ctx.contributingCount} contributing</strong>
-            {headroom > 0 ? <> — <strong style={{ color: 'var(--rt-ink)' }}>{headroom}</strong> to spare.</> : ' — fully allocated, with no contention.'} Each
+            <strong className="ink">{contention.totalRequired} engineer{contention.totalRequired === 1 ? '' : 's'}</strong>, and{' '}
+            {team ? team.name : 'the team'} has <strong className="ink">{ctx.contributingCount} contributing</strong>
+            {headroom > 0 ? <> — <strong className="ink">{headroom}</strong> to spare.</> : ' — fully allocated, with no contention.'} Each
             stream can be staffed at its full request.
           </>
         )}
       </div>
 
-      <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <span className="tag" style={{ marginBottom: 2 }}>Engineers requested · active streams</span>
+      <div className={`card ${modalStyles.block}`}>
+        <span className={`tag ${modalStyles.blockLabel}`}>Engineers requested · active streams</span>
         {active.length === 0 ? (
-          <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>No active streams have a configured engineer requirement.</span>
+          <span className={modalStyles.noteBare}>No active streams have a configured engineer requirement.</span>
         ) : (
           active.map((s) => <Row key={s.ws.id} k={s.ws.name} v={`${s.eng} eng · ${s.remainingPts} pts left`} />)
         )}
-        <hr className="divider" style={{ margin: '3px 0' }} />
+        <hr className={`divider ${modalStyles.rule}`} />
         <Row k="Total requested" v={`${contention.totalRequired} eng`} />
       </div>
 
-      <div className="card" style={{ background: 'var(--rt-bg)', padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <span className="tag" style={{ marginBottom: 2 }}>The math</span>
+      <div className={`card ${modalStyles.block} ${modalStyles.blockRoomy}`}>
+        <span className={`tag ${modalStyles.blockLabel}`}>The math</span>
         <Row k="Engineers available" v={`${ctx.contributingCount} contributing`} />
         <Row k="Engineers requested" v={`${contention.totalRequired}`} />
         {isOver ? (
           <>
             <Row k="Allocation factor" v={`${ctx.contributingCount} ÷ ${contention.totalRequired} = ×${contention.scale.toFixed(2)}`} />
-            <hr className="divider" style={{ margin: '3px 0' }} />
+            <hr className={`divider ${modalStyles.rule}`} />
             <Row k="Effect" v={`each stream runs at ${Math.round(contention.scale * 100)}% staffing`} big />
           </>
         ) : (
           <>
-            <hr className="divider" style={{ margin: '3px 0' }} />
+            <hr className={`divider ${modalStyles.rule}`} />
             <Row k="Headroom" v={headroom > 0 ? `${headroom} eng` : 'none'} big />
           </>
         )}
       </div>
 
-      <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.5 }}>
+      <div className={modalStyles.note}>
         {isOver
           ? "To clear the over-allocation, lower some streams' engineers required, add contributing team members, or move work out of the release."
           : 'Open any stream to see its individual capacity-fit detail.'}
       </div>
 
       {team && (
-        <PButton variant="subtle" onClick={() => openModal({ type: 'team', teamId: team.id })} style={{ alignSelf: 'flex-start' }}>
+        <PButton variant="subtle" onClick={() => openModal({ type: 'team', teamId: team.id })} className={modalStyles.selfStart}>
           {Icon.team} View team
         </PButton>
       )}
@@ -250,34 +252,34 @@ function ReleaseSection({ r, team, items }: SectionProps) {
 
   return (
     <>
-      <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
+      <div className={modalStyles.lede}>
         {ledger.contributingCount === 0 ? (
           <>This release has no team set, so there is no headcount to measure its streams against.</>
         ) : isOver ? (
           <>
             Across the whole release, the streams that carried work reserved{' '}
-            <strong style={{ color: 'var(--rt-ink)' }}>{contention.totalRequired} engineers</strong> against{' '}
-            <strong style={{ color: 'var(--rt-ink)' }}>{ledger.contributingCount} contributing</strong>
-            {over > 0 ? <> — over by <strong style={{ color: 'var(--rt-ink)' }}>{over}</strong>.</> : '.'} Completed streams are counted
+            <strong className="ink">{contention.totalRequired} engineers</strong> against{' '}
+            <strong className="ink">{ledger.contributingCount} contributing</strong>
+            {over > 0 ? <> — over by <strong className="ink">{over}</strong>.</> : '.'} Completed streams are counted
             here, so this figure can't improve just because work landed.
           </>
         ) : (
           <>
             Across the whole release, the streams that carried work reserved{' '}
-            <strong style={{ color: 'var(--rt-ink)' }}>
+            <strong className="ink">
               {contention.totalRequired} engineer{contention.totalRequired === 1 ? '' : 's'}
             </strong>{' '}
-            against <strong style={{ color: 'var(--rt-ink)' }}>{ledger.contributingCount} contributing</strong>
-            {headroom > 0 ? <> — <strong style={{ color: 'var(--rt-ink)' }}>{headroom}</strong> to spare.</> : ' — fully allocated throughout.'}
+            against <strong className="ink">{ledger.contributingCount} contributing</strong>
+            {headroom > 0 ? <> — <strong className="ink">{headroom}</strong> to spare.</> : ' — fully allocated throughout.'}
           </>
         )}
       </div>
 
-      <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <span className="tag" style={{ marginBottom: 2 }}>Scope vs. capacity · whole release</span>
+      <div className={`card ${modalStyles.block}`}>
+        <span className={`tag ${modalStyles.blockLabel}`}>Scope vs. capacity · whole release</span>
         <Row k="Total scope" v={`${retro.totalPts} pts · ${retro.donePts} done`} />
         <Row k="Release capacity" v={`${Math.round(ledger.totalCap)} pts across ${ledger.sprintCount} sprint${ledger.sprintCount === 1 ? '' : 's'}`} />
-        <hr className="divider" style={{ margin: '3px 0' }} />
+        <hr className={`divider ${modalStyles.rule}`} />
         {ledger.totalCap === 0 ? (
           <Row k="Verdict" v="no velocity baseline to measure against" big />
         ) : (
@@ -289,16 +291,16 @@ function ReleaseSection({ r, team, items }: SectionProps) {
         )}
       </div>
 
-      <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <span className="tag" style={{ marginBottom: 2 }}>Allocation by sprint</span>
-        <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
+      <div className={`card ${modalStyles.block}`}>
+        <span className={`tag ${modalStyles.blockLabel}`}>Allocation by sprint</span>
+        <div className={modalStyles.ledeSm}>
           {retro.judgedSprints === 0
             ? 'No sprint in this release has a work stream holding work.'
             : retro.overbookedSprints === 0
               ? `Within capacity in all ${retro.judgedSprints} sprint${retro.judgedSprints === 1 ? '' : 's'} that carried work.`
               : `Overbooked in ${retro.overbookedSprints} of ${retro.judgedSprints} sprint${retro.judgedSprints === 1 ? '' : 's'} that carried work.`}
         </div>
-        <div style={{ display: 'flex', gap: 3 }} role="group" aria-label="Allocation by sprint">
+        <div className={styles.sprintStrip} role="group" aria-label="Allocation by sprint">
           {retro.perSprint.map((s, i) => {
             const seg = s.idle
               ? { bg: statusVars('Not Started').soft, fg: 'var(--rt-t3)' }
@@ -313,19 +315,8 @@ function ReleaseSection({ r, team, items }: SectionProps) {
                     ? `${s.sprint.name} — no work stream held work`
                     : `${s.sprint.name} — ${s.contention.totalRequired} reserved across ${s.streamCount} stream${s.streamCount === 1 ? '' : 's'}, ${ledger.contributingCount} contributing`
                 }
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  height: 26,
-                  borderRadius: 3,
-                  background: seg.bg,
-                  color: seg.fg,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 'var(--rt-fs-xs)',
-                  fontWeight: 'var(--rt-fw-semibold)',
-                }}
+                className={styles.sprintSeg}
+                style={{ '--seg-bg': seg.bg, '--seg-fg': seg.fg } as CSSProperties}
               >
                 {i + 1}
               </div>
@@ -334,10 +325,10 @@ function ReleaseSection({ r, team, items }: SectionProps) {
         </div>
       </div>
 
-      <div className="card" style={{ background: 'var(--rt-bg)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <span className="tag" style={{ marginBottom: 2 }}>Reserved vs. what the scope needed</span>
+      <div className={`card ${modalStyles.block}`}>
+        <span className={`tag ${modalStyles.blockLabel}`}>Reserved vs. what the scope needed</span>
         {carried.length === 0 ? (
-          <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>No work streams carried any work in this release.</span>
+          <span className={modalStyles.noteBare}>No work streams carried any work in this release.</span>
         ) : (
           carried.map((s) => (
             <Row
@@ -353,7 +344,7 @@ function ReleaseSection({ r, team, items }: SectionProps) {
         )}
       </div>
 
-      <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.5 }}>
+      <div className={modalStyles.note}>
         A final-plan reading: reservations, the roster and each item's sprint are taken at today's values, so a change made mid-release
         reads as though it had always been so. Elapsed sprints do contribute the velocity they actually committed.
       </div>
@@ -400,34 +391,34 @@ function RunwaySection({ r, team, items }: SectionProps) {
 
   return (
     <>
-      <div style={{ fontSize: 'var(--rt-fs-md)', color: 'var(--rt-t2)', lineHeight: 1.5 }}>
+      <div className={modalStyles.lede}>
         Forward planning health: is enough work <em>created</em> to fill the capacity each stream is holding for the
         remaining sprints? A large unclaimed runway means a stream is under-planned — and, until work is created, can't be
         measured at all. A stream marked <em>scope complete</em> flips that reading: leftover capacity is over-reservation.
       </div>
 
       {alarms > 0 && (
-        <div className="card" style={{ background: alertTone.soft, border: `1.5px solid ${alertTone.soft}`, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span style={{ display: 'inline-flex', color: alertTone.text }}>{Icon.alert}</span>
-          <span style={{ fontSize: 'var(--rt-fs-sm)', color: alertTone.text, lineHeight: 1.45 }}>
+        <div className={`card ${styles.toneCard}`} style={{ '--tone-soft': alertTone.soft } as CSSProperties}>
+          <span className={styles.calloutIcon} style={{ color: alertTone.text }}>{Icon.alert}</span>
+          <span className={styles.calloutText} style={{ color: alertTone.text }}>
             {alarms} stream{alarms === 1 ? '' : 's'} {alarms === 1 ? 'holds' : 'hold'} capacity but {alarms === 1 ? 'has' : 'have'} nothing created beyond the next sprint.
           </span>
         </div>
       )}
 
       {balance.rebalanceable && (
-        <div className="card" style={{ background: warnTone.soft, border: `1.5px solid ${warnTone.soft}`, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span style={{ display: 'inline-flex', color: warnTone.text }}>{Icon.alert}</span>
-          <span style={{ fontSize: 'var(--rt-fs-sm)', color: warnTone.text, lineHeight: 1.45 }}>
+        <div className={`card ${styles.toneCard}`} style={{ '--tone-soft': warnTone.soft } as CSSProperties}>
+          <span className={styles.calloutIcon} style={{ color: warnTone.text }}>{Icon.alert}</span>
+          <span className={styles.calloutText} style={{ color: warnTone.text }}>
             {balance.summary}.
           </span>
         </div>
       )}
 
-      <div className="card" style={{ background: 'var(--rt-bg)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span className="tag" style={{ marginBottom: 4 }}>Per-stream planning runway</span>
+      <div className={`card ${modalStyles.block} ${modalStyles.blockCompact}`}>
+        <span className={`tag ${modalStyles.blockLabelWide}`}>Per-stream planning runway</span>
         {ordered.length === 0 ? (
-          <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>No work streams yet.</span>
+          <span className={modalStyles.noteBare}>No work streams yet.</span>
         ) : (
           ordered.map(({ ws, runway }) => (
             <button
@@ -435,45 +426,41 @@ function RunwaySection({ r, team, items }: SectionProps) {
               type="button"
               onClick={() => openModal({ type: 'stream', releaseId: r.id, wsId: ws.id })}
               title="Edit this stream — set engineers required or its planning status"
-              style={{
-                appearance: 'none', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer',
-                display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 4px',
-                borderBottom: '1px solid var(--rt-line)',
-              }}
+              className={styles.streamRow}
             >
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 'var(--rt-fs-sm)', fontWeight: 'var(--rt-fw-semibold)', color: 'var(--rt-ink)' }}>{ws.name}</span>
+              <div className={styles.calloutBody}>
+                <span className={`${modalStyles.row} ${modalStyles.rowTight} ${modalStyles.rowWrap}`}>
+                  <span className={styles.streamName}>{ws.name}</span>
                   <RunwayBadge verdict={runway.verdict} />
                   {/* "deferred", not "muted": WorkStream.muted is now a separate flag
                       meaning "not this team's work at all", and this list would
                       otherwise show the same word for two near-opposite states one
                       row apart. The prose below already calls this state Deferred. */}
                   {ws.planningState === 'deferred' && (
-                    <span className="tag" style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>deferred</span>
+                    <span className={`tag ${styles.tagMicro}`}>deferred</span>
                   )}
                   {ws.planningState === 'complete' && (
-                    <span className="tag" style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>scope complete</span>
+                    <span className={`tag ${styles.tagMicro}`}>scope complete</span>
                   )}
                   {ws.muted && (
-                    <span className="tag" style={{ fontSize: 'var(--rt-fs-micro)', color: 'var(--rt-t3)' }}>muted</span>
+                    <span className={`tag ${styles.tagMicro}`}>muted</span>
                   )}
                 </span>
-                <span style={{ fontSize: 'var(--rt-fs-xs)', color: runway.alarm ? alertTone.text : 'var(--rt-t3)', lineHeight: 1.4 }}>
+                <span className={styles.calloutFootnote} style={{ color: runway.alarm ? alertTone.text : 'var(--rt-t3)' }}>
                   {runway.summary}
                 </span>
               </div>
-              <span style={{ display: 'inline-flex', color: 'var(--rt-t3)', flexShrink: 0, marginTop: 2 }}>{Icon.chevRight}</span>
+              <span className={styles.calloutIconMuted}>{Icon.chevRight}</span>
             </button>
           ))
         )}
       </div>
 
-      <div style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)', lineHeight: 1.5 }}>
+      <div className={modalStyles.note}>
         Reserved capacity = engineers required × per-engineer velocity over the remaining sprints, up to each stream's code
-        freeze. A stream with no items, no estimates, or no engineer count reads as <strong style={{ color: 'var(--rt-t2)' }}>un-judgeable</strong> —
-        never on-track — because there's nothing to measure yet. <strong style={{ color: 'var(--rt-t2)' }}>Deferred</strong> silences the
-        alarm (research pending) but keeps a stream un-judgeable; <strong style={{ color: 'var(--rt-t2)' }}>scope complete</strong> treats
+        freeze. A stream with no items, no estimates, or no engineer count reads as <strong className="t2">un-judgeable</strong> —
+        never on-track — because there's nothing to measure yet. <strong className="t2">Deferred</strong> silences the
+        alarm (research pending) but keeps a stream un-judgeable; <strong className="t2">scope complete</strong> treats
         the created work as the whole scope, so leftover capacity reads as over-reserved and can be offered to at-risk streams.
       </div>
     </>
@@ -501,9 +488,7 @@ export function MetricsModal({ releaseId, section, onClose }: { releaseId: strin
 
   if (!r) {
     return (
-      <Modal title="Release analysis" icon={Icon.sprint} onClose={onClose} width={620}>
-        <span style={{ color: 'var(--rt-t3)' }}>This release no longer exists.</span>
-      </Modal>
+      <GoneModal title="Release analysis" icon={Icon.sprint} noun="release" onClose={onClose} width={620} />
     );
   }
 
@@ -520,7 +505,7 @@ export function MetricsModal({ releaseId, section, onClose }: { releaseId: strin
     <Modal
       onClose={onClose}
       width={640}
-      title={<span style={{ fontSize: 'var(--rt-fs-lg)', fontWeight: 'var(--rt-fw-heading)' }}>Release analysis</span>}
+      title={<span className={modalStyles.figure}>Release analysis</span>}
       footer={
         <PButton variant="subtle" onClick={onClose}>
           Close

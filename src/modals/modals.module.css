@@ -1,0 +1,188 @@
+/* The layout grammar the modals share.
+
+   Every dialog in here is built from the same handful of shapes — a lede
+   paragraph, blocks of key/value Rows under a .tag, notes and footnotes, and
+   rows of controls — and each modal used to spell all of them out inline. Five
+   copies of `display: flex, alignItems: center, gap: 9` is five chances to drift,
+   and no way to see that the dialogs were ever meant to look alike.
+
+   Named by intent rather than by measurement, so a caller asks for the thing it
+   wants rather than for nine pixels. Local, one-off layout still belongs in that
+   modal's own module; this is only what more than one of them needs.
+
+   Same role as views/table/table.module.css, which the three table screens share
+   for the same reason. */
+
+/* ── Prose ──────────────────────────────────────────────────────────────── */
+
+/* A dialog's opening paragraph — what the numbers below it mean. */
+.lede {
+  font-size: var(--rt-fs-md);
+  color: var(--rt-t2);
+  line-height: var(--rt-lh-normal);
+}
+
+.ledeSm {
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-t2);
+  line-height: var(--rt-lh-normal);
+}
+
+/* A qualifying remark: same voice, dropped a level. */
+.note {
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-t3);
+  line-height: var(--rt-lh-normal);
+}
+
+.noteBare {
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-t3);
+}
+
+/* The smallest tier — what a chart's bars mean, what an action will not touch. */
+.footnote {
+  font-size: var(--rt-fs-micro);
+  color: var(--rt-t3);
+  line-height: 1.4;
+}
+
+.footnoteXs {
+  font-size: var(--rt-fs-xs);
+  color: var(--rt-t3);
+}
+
+/* ── Blocks ─────────────────────────────────────────────────────────────── */
+
+/* A labelled panel of Rows. Composes with .card. */
+.block {
+  background: var(--rt-bg);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.blockRoomy { padding: 15px 16px; }
+.blockChart { padding: 14px 14px 8px; gap: 6px; }
+.blockLoose { gap: 10px; }
+.blockCompact { padding: 12px 14px; gap: 4px; }
+
+/* The .tag heading a block needs a hair more room than the gap gives it. */
+.blockLabel { margin-bottom: 2px; }
+.blockLabelWide { margin-bottom: 4px; }
+
+/* The rule between a block's rows and its total. */
+.rule { margin: 3px 0; }
+
+/* ── Empty states ───────────────────────────────────────────────────────── */
+
+/* Composes with .card .dash — nothing to measure yet. */
+.emptyCard {
+  padding: 18px 16px;
+  color: var(--rt-t3);
+  font-size: var(--rt-fs-sm);
+  line-height: var(--rt-lh-normal);
+}
+
+/* Same frame, carrying an action rather than only a sentence. */
+.emptyCardAction {
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.rowTight { gap: 8px; }
+.rowWide { gap: 12px; }
+.rowLoose { gap: 10px; }
+.rowWrap { flex-wrap: wrap; }
+.rowBaseline { align-items: baseline; }
+.rowSplit { justify-content: space-between; }
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stackTight { gap: 3px; }
+.stackSnug { gap: 7px; }
+.stackRow { gap: 8px; }
+
+/* Takes the remaining space, and may shrink below its content. */
+.grow {
+  min-width: 0;
+  flex: 1;
+}
+
+/* Never shrinks — chips and labels beside a growing column. */
+.fixed { flex-shrink: 0; }
+
+/* Pushes everything after it to the far edge. */
+.pushRight { margin-right: auto; }
+
+.selfStart { align-self: flex-start; }
+
+/* One line, clipped with an ellipsis rather than wrapped. */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Emphasis inside prose ──────────────────────────────────────────────── */
+
+/* A value called out mid-sentence, one level up from the prose around it. */
+.em {
+  color: var(--rt-t2);
+  font-weight: var(--rt-fw-semibold);
+}
+
+.emMuted {
+  color: var(--rt-t3);
+  font-weight: var(--rt-fw-semibold);
+}
+
+.figure {
+  font-size: var(--rt-fs-lg);
+  font-weight: var(--rt-fw-heading);
+}
+
+.stackWide { gap: 12px; }
+
+/* An explanatory line hung under a field's control, rather than above it as a
+   PField hint — used where the explanation is long enough to want its own line. */
+.fieldHint {
+  display: block;
+  margin-top: 6px;
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-t3);
+  line-height: 1.45;
+}
+
+/* A one-line verdict or summary rendered under a heading. */
+.summaryLine {
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-t2);
+  line-height: 1.45;
+}
+
+/* A footnote that also takes the slack, pushing whatever follows to the far edge.
+   The modal footers use it for the "last synced"/"n changes" line beside a button. */
+.footerNote {
+  margin-right: auto;
+  font-size: var(--rt-fs-xs);
+  color: var(--rt-t3);
+}
+
+/* The paragraph that opens the push review, above the item list. */
+.introNote { margin-bottom: 12px; }

@@ -1,0 +1,16 @@
+/* Specific to the team dialog; shared grammar is in modals.module.css. */
+
+/* The contributing/non-contributing toggle beside a member. Borderless, and the
+   colour and opacity are runtime (which state the member is in). */
+.contribToggle {
+  border: none;
+  color: var(--toggle-color);
+  opacity: var(--toggle-opacity);
+}
+
+/* The member's row index, held at its natural width beside a growing name field. */
+.memberIndex {
+  flex: 0 0 auto;
+  font-size: var(--rt-fs-micro);
+  color: var(--rt-t3);
+}
