@@ -420,6 +420,34 @@ describe('applySync — dirty-aware pull', () => {
     expect(next.releases[0].sprints[0].id).toBe(originalSprintId);
   });
 
+  it('clears a dirty flag once the connector holds the same value (a push restored from a stale backup)', () => {
+    // The backup was taken after the edit but before the push cleared the flag;
+    // the push landed. Pulling must recognise the edit as already delivered.
+    const first = applySync(baseState(), 'rel_1', mapped(), ['points', 'sprint']);
+    const item = first.next.items[0];
+    item.points = 13;
+    item.dirtyFields = ['points'];
+
+    const landed = mapped({
+      items: [
+        { externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null, fields: { key: 'EXT-1', subject: 's', description: '', status: 'In Progress', points: 13 } },
+      ],
+    });
+    const { next } = applySync(first.next, 'rel_1', landed, ['points', 'sprint']);
+    expect(next.items[0].points).toBe(13);
+    expect(next.items[0].dirtyFields).toEqual([]);
+  });
+
+  it('keeps a dirty flag whose value still differs, and never adds one', () => {
+    const first = applySync(baseState(), 'rel_1', mapped(), ['points', 'sprint']);
+    const item = first.next.items[0];
+    item.points = 13;
+    item.dirtyFields = ['points'];
+
+    const { next } = applySync(first.next, 'rel_1', mapped(), ['points', 'sprint']);
+    expect(next.items[0].dirtyFields).toEqual(['points']);
+  });
+
   it('does not preserve dirty field if it is not in the writeable set', () => {
     // Same setup but writeableItemFields does not include 'points'
     const first = applySync(baseState(), 'rel_1', mapped(), ['sprint']);

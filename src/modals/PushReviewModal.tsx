@@ -8,6 +8,8 @@ import { buildPushPreview, type PushItemPreview } from '../sync/push';
 import { htmlToText } from '../lib/htmlNormalize';
 import { displayValue } from '../components/fields/registry';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
+import { getBackup } from '../store/backup';
+import { relTime } from '../lib/dates';
 import { Icon } from '../components/Icon';
 import { Modal, PButton } from '../components/primitives';
 import { statusVars } from '../components/statusVars';
@@ -55,6 +57,12 @@ export function PushReviewModal({
     if (d.spec) return displayValue(d.spec, v); // vocabulary: enum labels, Yes/No, em-dash
     return v == null ? '—' : String(v);
   };
+
+  // Restored from a backup and not pulled since: some of these "pending" edits may
+  // have landed before the backup was taken. A pull clears the ones the connector
+  // already has (applySync); pushing first would send them again.
+  const restoredAt = getBackup()?.restoredAt() ?? null;
+  const pullFirst = restoredAt !== null && (!r.sync?.lastISO || r.sync.lastISO < restoredAt);
 
   const previews = buildPushPreview(items, meta?.itemTypes);
   // Queued creates (pendingCreate) ride the same push. They have no old→new diff — the
@@ -105,6 +113,16 @@ export function PushReviewModal({
         </span>
       ) : (
         <>
+          {pullFirst && (
+            <div className={styles.pullFirst} role="note">
+              <span className={styles.pullFirstIcon}>{Icon.alert}</span>
+              <span>
+                This browser was restored from a backup {relTime(restoredAt!)} and hasn’t pulled since.{' '}
+                <strong>Pull first</strong> — changes the connector already has are then dropped from this list
+                instead of being sent again.
+              </span>
+            </div>
+          )}
           <div className={`${modalStyles.note} ${modalStyles.introNote}`}>
             {total} item{total !== 1 ? 's' : ''} will be written back to{' '}
             <strong className={modalStyles.em}>{r.name}</strong>

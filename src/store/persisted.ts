@@ -12,11 +12,12 @@
 // and how to parse a stored string; anything genuinely its own (applying a value
 // to <html>, degrading a stale choice) stays with that module.
 //
-// localStorage access is always guarded: it throws in private-mode Safari and
-// under some embedded webviews, and a preference failing to persist must never
-// take the app down with it.
+// Storage goes through store/local.ts, which guards every access (a preference
+// failing to persist must never take the app down) and tells the backup about
+// each change.
 
 import { useSyncExternalStore } from 'react';
+import { readLocal, writeLocal } from './local';
 
 /** A persisted single-value preference. `use()` is the React binding. */
 export interface PersistedStore<T> {
@@ -66,14 +67,10 @@ export function createPersistedStore<T>({
   const listeners = new Set<() => void>();
   let current = initial;
 
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw != null) {
-      const parsed = parse(raw);
-      if (parsed !== undefined) current = parsed;
-    }
-  } catch {
-    /* storage unavailable — fall back to the default */
+  const raw = readLocal(key);
+  if (raw != null) {
+    const parsed = parse(raw);
+    if (parsed !== undefined) current = parsed;
   }
 
   apply?.(current);
@@ -83,11 +80,8 @@ export function createPersistedStore<T>({
   const set = (v: T) => {
     current = v;
     apply?.(v);
-    try {
-      localStorage.setItem(key, serialize(v));
-    } catch {
-      /* storage unavailable — the value still applies for this session */
-    }
+    // If storage refuses, the value still applies for this session.
+    writeLocal(key, serialize(v));
     listeners.forEach((l) => l());
   };
 
@@ -132,6 +126,8 @@ export interface KeyedPrefs<T> {
   get(scope: string): T | undefined;
   /** Store a value for `scope`. Passing undefined removes the entry. */
   set(scope: string, value: T | undefined): void;
+  /** Every stored entry, for a caller that applies them all at once. */
+  all(): Record<string, T>;
 }
 
 /**
@@ -146,18 +142,10 @@ export function createKeyedPrefs<T>(key: string): KeyedPrefs<T> {
 
   const load = (): Shape => {
     try {
-      const raw = localStorage.getItem(key);
+      const raw = readLocal(key);
       return raw ? (JSON.parse(raw) as Shape) : {};
     } catch {
       return {};
-    }
-  };
-
-  const save = (s: Shape) => {
-    try {
-      localStorage.setItem(key, JSON.stringify(s));
-    } catch {
-      /* storage unavailable — preference just doesn't persist */
     }
   };
 
@@ -169,7 +157,9 @@ export function createKeyedPrefs<T>(key: string): KeyedPrefs<T> {
       const s = load();
       if (value === undefined) delete s[scope];
       else s[scope] = value;
-      save(s);
+      // If storage refuses, the preference just doesn't persist.
+      writeLocal(key, JSON.stringify(s));
     },
+    all: load,
   };
 }

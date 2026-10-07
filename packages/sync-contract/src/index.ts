@@ -52,6 +52,11 @@ export type PushResult = Schemas['PushResult'];
 export type PushItemError = Schemas['PushItemError'];
 export type CreateItemRequest = Schemas['CreateItemRequest'];
 
+/** Backup (optional): an opaque copy of the app's data, never forwarded to a connector. */
+export type BackupEnvelope = Schemas['BackupEnvelope'];
+export type BackupMeta = Schemas['BackupMeta'];
+export type BackupConflict = Schemas['BackupConflict'];
+
 /** Raw generated paths/components, for codegen-heavy consumers (e.g. typed fetch). */
 export type { paths, components, operations } from './generated';
 
@@ -65,4 +70,4 @@ export type { paths, components, operations } from './generated';
  * Distinct from the app's localStorage SCHEMA_VERSION — this versions the wire
  * contract between the app and the sync service.
  */
-export const SYNC_CONTRACT_VERSION = '0.21.0';
+export const SYNC_CONTRACT_VERSION = '0.22.0';

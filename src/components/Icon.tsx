@@ -40,6 +40,8 @@ export const Icon: Record<string, ReactElement> = {
   columns: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="12" height="10" rx="1.4"/><path d="M6.4 3v10M10 3v10"/></svg>,
   check: <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6l2.8 3L10 3"/></svg>,
   alert: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2.2 14.5 13.3H1.5z"/><path d="M8 6.4v3.1"/><path d="M8 11.4h.01"/></svg>,
+  // Backup — a stored-data cylinder (the copy work-truck keeps on disk)
+  backup: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="8" cy="3.9" rx="5" ry="1.9"/><path d="M3 3.9v8.2c0 1.05 2.24 1.9 5 1.9s5-.85 5-1.9V3.9"/><path d="M3 8c0 1.05 2.24 1.9 5 1.9s5-.85 5-1.9"/></svg>,
   // Presentation mode — a screen/monitor (enlarges text for shared meeting tabs)
   present: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="12" height="8" rx="1.4"/><path d="M6 13.6h4M8 11v2.6"/></svg>,
   // Rich-text toolbar

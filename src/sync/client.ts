@@ -99,8 +99,13 @@ export function connectorLabel(type: string): string {
  *  the UI degrades to local mode: the store surfaces the error and `/connectors`
  *  failures hide connector controls. */
 export function createSyncClient(): SyncClient {
-  const base = (import.meta.env?.VITE_SYNC_BASE_URL as string | undefined) ?? '';
-  return new HttpSyncClient(base);
+  return new HttpSyncClient(serviceBaseUrl());
+}
+
+/** Where the local service lives: '' (same origin) unless VITE_SYNC_BASE_URL says
+ *  otherwise. Shared with the backup client, which talks to the same process. */
+export function serviceBaseUrl(): string {
+  return (import.meta.env?.VITE_SYNC_BASE_URL as string | undefined) ?? '';
 }
 
 /** App-wide singleton. */

@@ -7,6 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LS_KEY, load, persist, stampStartedSprints } from './store';
+import { localSavedAt } from './local';
 import { seed } from '../lib/seed';
 import { aMember, aRelease, aSprint, aState, aTeam } from '../test/factories';
 import { SCHEMA_VERSION, type AppState } from '../types';
@@ -33,6 +34,15 @@ describe('persist', () => {
     const next: AppState = { version: SCHEMA_VERSION, teams: [], releases: [], items: [], meta: { lastSyncISO: '2026-06-07' } };
     persist(next);
     expect(JSON.parse(localStorage.getItem(LS_KEY)!)).toEqual(next);
+  });
+
+  it('stamps savedAt for a user change but not for a quiet write', () => {
+    // store.ts writes the first-run seed quietly; a stamped seed would look newer
+    // than a real backup after a wipe and overwrite it.
+    persist(seed(), { quiet: true });
+    expect(localSavedAt()).toBeNull();
+    persist(seed());
+    expect(localSavedAt()).not.toBeNull();
   });
 
   it('swallows storage errors (e.g. quota exceeded) without throwing', () => {
@@ -106,6 +116,25 @@ describe('load', () => {
     localStorage.setItem('release-tracker:buildFilter', '1');
     load();
     expect(localStorage.getItem('release-tracker:buildFilter')).toBeNull();
+  });
+
+  it('loading is never a user change, even when it cleans up', () => {
+    localStorage.setItem('release-tracker:buildFilter', '1');
+    load();
+    expect(localSavedAt()).toBeNull();
+  });
+
+  it('stamps user data that predates change stamps, so a backup cannot silently replace it', () => {
+    localStorage.setItem(LS_KEY, JSON.stringify(stampStartedSprints(seed())));
+    load();
+    expect(localSavedAt()).not.toBeNull();
+  });
+
+  it('does not stamp data the app seeded itself, on that boot or the next', () => {
+    load(); // empty → seed
+    persist(load(), { quiet: true }); // as store.ts does on first run
+    load(); // second boot finds the seed in storage
+    expect(localSavedAt()).toBeNull();
   });
 
   it('survives a persist → load → persist → load cycle without drift', () => {

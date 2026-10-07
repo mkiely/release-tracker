@@ -50,6 +50,18 @@ export const todayISO = (): string => isoOf(new Date());
  *  stored as UTC instants and rendered in the reader's own zone. */
 export const nowISO = (): string => new Date().toISOString();
 
+/** Compact "how long ago" for an instant ('just now', '5m ago', '3h ago', '2d ago').
+ *  An absolute timestamp is precision nobody reads in a status line; what matters is
+ *  whether something happened minutes or days ago. */
+export const relTime = (iso: string, now = Date.now()): string => {
+  const mins = Math.round((now - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+};
+
 /** 'Apr 13, 2026, 14:03' — an instant from {@link nowISO} (or a connector's
  *  createdAt/updatedAt) in the reader's local zone. Returns null for a null or
  *  unparseable input, so callers can fall back to an em dash rather than

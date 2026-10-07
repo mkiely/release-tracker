@@ -5,15 +5,19 @@
 // This module is only the wiring. The parts live next to it and are re-exported
 // here, so `store/store` remains the single import site for the rest of the app:
 //
-//   migrate.ts    schema migrations v1..v26 + the stamp-on-start trigger
-//   storage.ts    localStorage load/persist — the backend seam
+//   migrate.ts    schema migrations + the stamp-on-start trigger
+//   storage.ts    load/persist of the domain blob, through local.ts
 //   actions.ts    every mutation, against an ActionContext
 //   selectors.ts  pure lookups over a state snapshot
+//
+// Persistence underneath: local.ts is the only door to localStorage, and backup.ts
+// mirrors the whole namespace to work-truck when it's running (docs/backup.md).
 
 import { create } from 'zustand';
 import type { AppState, Member } from '../types';
 import { createActions, type Actions } from './actions';
 import { load, persist } from './storage';
+import { getBackup } from './backup';
 
 export { migrate, stampStartedSprints } from './migrate';
 export { LS_KEY, load, persist } from './storage';
@@ -44,7 +48,9 @@ function snapshot(s: StoreState): AppState {
  *  real backend would slot behind in place of localStorage + the sync client. */
 export const useStore = create<StoreState>((set, get) => {
   const initial = load();
-  persist(initial); // ensure the first-run seed is written
+  // Write back the first-run seed (or a migrated blob) — quietly, because the app
+  // did this, not the user. A stamped seed would look newer than a real backup.
+  persist(initial, { quiet: true });
 
   const actions = createActions({
     snapshot: () => snapshot(get()),
@@ -53,6 +59,25 @@ export const useStore = create<StoreState>((set, get) => {
       set({ ...next });
     },
   });
+
+  // Back up straight after a pull or push rather than after the usual quiet period.
+  // A push clears dirty flags; a backup taken before that lands would restore them as
+  // still pending. This refreshes the backup file only — it sends nothing anywhere else.
+  const { syncRelease, pushRelease } = actions;
+  actions.syncRelease = async (id) => {
+    try {
+      return await syncRelease(id);
+    } finally {
+      void getBackup()?.flushNow('after pull');
+    }
+  };
+  actions.pushRelease = async (id) => {
+    try {
+      return await pushRelease(id);
+    } finally {
+      void getBackup()?.flushNow('after push');
+    }
+  };
 
   return { ...initial, actions };
 });

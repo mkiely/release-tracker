@@ -102,3 +102,23 @@
   display: inline-block;
   vertical-align: middle;
 }
+
+/* Shown after a restore until the release is pulled again: some pending edits may
+   already have landed. Amber, not red — a caution about order, not an error. */
+.pullFirst {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--rt-st-wn-soft);
+  color: var(--rt-st-wn-text);
+  font-size: var(--rt-fs-sm);
+  line-height: var(--rt-lh-normal);
+}
+
+.pullFirstIcon {
+  display: inline-flex;
+  padding-top: 2px;
+  flex-shrink: 0;
+}
