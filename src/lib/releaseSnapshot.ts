@@ -276,6 +276,10 @@ function stripOverbook(summary: string): string {
   return summary.replace(/\s*·\s*team overbooked \([^)]*\)\s*$/, '');
 }
 
+/** Likewise the "· N open items not yet pointed" clause: the status card states it on
+ *  its own line, with the share of open items, so the why-list needn't repeat it. */
+const stripUnpointed = (summary: string): string => summary.replace(/\s*·\s*\d+ open items? not yet pointed/, '');
+
 /**
  * Build a frozen executive-summary snapshot from a release. Runs the same
  * derivations the release view uses, then serializes their *outputs*. Unlike
@@ -388,7 +392,7 @@ export function buildSnapshot(
       // The over-allocation is stated once, up front, in the release capacity section —
       // strip the per-stream "· team overbooked (…)" restatement so it isn't repeated
       // on every card.
-      forecast: { verdict: forecast.verdict, summary: stripOverbook(forecast.summary) },
+      forecast: { verdict: forecast.verdict, summary: stripUnpointed(stripOverbook(forecast.summary)) },
       runway: { verdict: runway.verdict, alarm: runway.alarm, summary: runway.summary },
       burn: canForecast
         ? {

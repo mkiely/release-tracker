@@ -2,7 +2,7 @@
 // through getActions(), so callers supply only ids and an onClose.
 
 import { between, fmtShort, todayISO } from '../lib/dates';
-import { effectiveStreamCodeFreeze, freezeSprintX, sumPoints } from '../lib/derive';
+import { effectiveStreamCodeFreeze, freezeSprintX, isUnpointed, sumPoints } from '../lib/derive';
 import { selRelease, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
@@ -16,6 +16,8 @@ import { verdictVars, warningVars } from '../components/statusVars';
 import { Row, GoneModal } from './parts';
 import modalStyles from './modals.module.css';
 import styles from './StreamHealthModal.module.css';
+
+const UNPOINTED_LIST_MAX = 8;
 
 export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: string; wsId: string; onClose: () => void }) {
   const r = useStore((s) => selRelease(s, releaseId));
@@ -80,6 +82,25 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
     >
       {/* Plain-language verdict */}
       <div className={modalStyles.lede}>{forecast.summary}</div>
+
+      {/* The work the verdicts can't see: every figure here counts an unpointed item as
+          zero. Listed so the estimation meeting has its agenda. Rows open the item. */}
+      {health.unpointedCount > 0 && (
+        <div className={`card ${modalStyles.block}`}>
+          <span className={`tag ${modalStyles.blockLabel}`}>
+            Awaiting estimate · {health.unpointedCount} of {health.openCount} open items
+          </span>
+          {streamItems.filter(isUnpointed).slice(0, UNPOINTED_LIST_MAX).map((it) => (
+            <button key={it.id} type="button" className={styles.unpointedRow} onClick={() => openModal({ type: 'itemDetail', itemId: it.id })}>
+              <span className="mono t3">{it.key}</span>
+              <span className={styles.unpointedSubject}>{it.subject}</span>
+            </button>
+          ))}
+          {health.unpointedCount > UNPOINTED_LIST_MAX && (
+            <span className={modalStyles.footnote}>+ {health.unpointedCount - UNPOINTED_LIST_MAX} more</span>
+          )}
+        </div>
+      )}
 
       {/* Current-state breakdown */}
       {health.totalPts > 0 && (

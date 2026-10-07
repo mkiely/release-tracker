@@ -601,6 +601,12 @@ describe('forward capacity-fit health', () => {
       expect(streamForecast(hp(0, 0), null, ctx(), noContention).verdict).toBe('unconfigured');
     });
 
+    it('says so in the summary when open items are unpointed', () => {
+      const f = streamForecast({ ...hp(50), openCount: 6, unpointedCount: 2 }, 2, ctx(), noContention);
+      expect(f.verdict).toBe('on-track');
+      expect(f.summary).toMatch(/· 2 open items not yet pointed$/);
+    });
+
     it('is on-track when remaining work fits capacity', () => {
       const f = streamForecast(hp(50), 2, ctx(), noContention); // cap = 2 × 30 = 60
       expect(f.verdict).toBe('on-track');

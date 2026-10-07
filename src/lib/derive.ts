@@ -492,6 +492,9 @@ export function streamForecast(
   const strandedPts = ctx.remainingSprintCount === 0 ? health.remainingPts : 0;
   const verdict: HealthVerdict = shortfallPts > EPS || strandedPts > EPS ? 'at-risk' : 'on-track';
 
+  // Open items the arithmetic above can't see. Appended to the live verdicts only: the
+  // gates above already name the unestimated case themselves.
+  const unpointedNote = health.unpointedCount > 0 ? ` \xb7 ${health.unpointedCount} open item${health.unpointedCount === 1 ? '' : 's'} not yet pointed` : '';
   const overbook = contended ? ` \xb7 team overbooked (${contention.totalRequired} req / ${ctx.contributingCount} avail)` : '';
   let summary: string;
   if (strandedPts > EPS && remainingPts === 0) {
@@ -507,11 +510,11 @@ export function streamForecast(
   } else if (!Number.isFinite(runwaySprints)) {
     summary = `${remainingPts} pts left, no forward capacity (check team velocity)${postNote}`;
   } else if (verdict === 'on-track') {
-    summary = `${remainingPts} pts left \xb7 ${engineersRequired} eng \xd7 ~${r0(perSprintRate)} pts/sprint \xd7 ${ctx.remainingSprintCount} = ${r0(effectiveCap)} cap → fits${overbook}${postNote}`;
+    summary = `${remainingPts} pts left \xb7 ${engineersRequired} eng \xd7 ~${r0(perSprintRate)} pts/sprint \xd7 ${ctx.remainingSprintCount} = ${r0(effectiveCap)} cap → fits${overbook}${postNote}${unpointedNote}`;
   } else {
     const short = Math.max(1, Math.ceil(sprintsShort));
     const rem = ctx.remainingSprintCount;
-    summary = `${remainingPts} pts left, ~${runwaySprints.toFixed(1)} sprints required at ${engineersRequired} eng → short by ~${short} sprint${short !== 1 ? 's' : ''} (${rem} sprint${rem === 1 ? ' remains' : 's remain'})${overbook}${postNote}`;
+    summary = `${remainingPts} pts left, ~${runwaySprints.toFixed(1)} sprints required at ${engineersRequired} eng → short by ~${short} sprint${short !== 1 ? 's' : ''} (${rem} sprint${rem === 1 ? ' remains' : 's remain'})${overbook}${postNote}${unpointedNote}`;
   }
 
   return { ...base, verdict, nominalCap, effectiveEngineers, effectiveCap, shortfallPts, runwaySprints, sprintsShort, contended, summary };
