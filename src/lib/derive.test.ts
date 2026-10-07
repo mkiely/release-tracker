@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSprint, capPct, CODE_FREEZE_CHIP_ID, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, freezeOverrides, freezeSprintX, fullCap, groupItemsByStream, parseFreezeChipId, plannedVel, releaseCapacity, releaseLedger, remainingByFreeze, remainingSprints, reservationBalance, sprintEventChips, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
+import { activeSprint, capPct, CODE_FREEZE_CHIP_ID, effectiveCodeFreeze, effectiveStreamCodeFreeze, eventsIn, elapsedSprints, freezeOverrides, freezeSprintX, fullCap, groupItemsByStream, parseFreezeChipId, plannedVel, releaseCapacity, releaseLedger, remainingByFreeze, remainingSprints, reservationBalance, sprintEventChips, sprintVel, statusSegs, streamCapacityCtx, streamContention, streamForecast, streamHealth, streamRunway, unpointedWarns, velocityAttainment, velocitySuggestion, type ReleaseCapacity, type StreamHealth } from './derive';
 import { addDays, buildSprints, todayISO, workdaysInRange } from './dates';
 import { aRelease, aSprint, aStream, aTeamOf, anEvent, anItem } from '../test/factories';
 import type { Release, Sprint, Team, WorkItem, WorkStream } from '../types';
@@ -337,6 +337,23 @@ describe('streamHealth', () => {
     expect(h.remainingPts).toBe(1);
   });
 
+  it('counts open items with no estimate, treating 0 like null and ignoring completed ones', () => {
+    const h = streamHealth([
+      it_('Complete', 0), // finished: needs no estimate
+      it_('Not Started', 0),
+      anItem({ releaseId: 'r', workStreamId: 'w', key: 'K', subject: 's', status: 'In Progress', points: null }),
+      it_('Not Started', 3),
+    ]);
+    expect(h.openCount).toBe(3);
+    expect(h.unpointedCount).toBe(2);
+  });
+
+  it('warns once a quarter of the open work is unpointed, not before', () => {
+    expect(unpointedWarns({ openCount: 8, unpointedCount: 1 })).toBe(false);
+    expect(unpointedWarns({ openCount: 8, unpointedCount: 2 })).toBe(true);
+    expect(unpointedWarns({ openCount: 0, unpointedCount: 0 })).toBe(false);
+  });
+
   it('sums blocked points', () => {
     const h = streamHealth([it_('Complete', 40), it_('Blocked', 5), it_('Blocked', 3)]);
     expect(h.blockedPts).toBe(8);
@@ -359,7 +376,7 @@ describe('streamHealth', () => {
 
   it('is all-zero for an empty stream', () => {
     const h = streamHealth([]);
-    expect(h).toMatchObject({ totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [] });
+    expect(h).toMatchObject({ totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [], openCount: 0, unpointedCount: 0 });
   });
 });
 
@@ -376,7 +393,7 @@ describe('forward capacity-fit health', () => {
     return { id: 'r', name: 'R', startISO: past.startISO, teamId: 't', workStreams: [], events: [], sprints: [past, active, f1, f2], codeFreezeISO: null, externalId: null, connector: null, sync: null, sprintLengthDays: 14 };
   };
 
-  const hp = (remainingPts: number, itemCount = 1): StreamHealth => ({ itemCount, totalPts: remainingPts, donePts: 0, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
+  const hp = (remainingPts: number, itemCount = 1): StreamHealth => ({ itemCount, totalPts: remainingPts, donePts: 0, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [], openCount: 0, unpointedCount: 0 });
 
   describe('remainingSprints', () => {
     it('excludes fully-past sprints and includes the active + future ones', () => {
@@ -539,21 +556,28 @@ describe('forward capacity-fit health', () => {
       expect(f.verdict).toBe('unconfigured');
     });
 
+    it('is not complete while open items remain unestimated', () => {
+      const h: StreamHealth = { itemCount: 3, totalPts: 30, donePts: 30, remainingPts: 0, blockedPts: 0, pct: 100, pointsByStatus: [], openCount: 2, unpointedCount: 2 };
+      const f = streamForecast(h, 2, ctx(), noContention);
+      expect(f.verdict).toBe('unestimated');
+      expect(f.summary).toMatch(/2 open items are not yet estimated/);
+    });
+
     it('is complete when estimated work is all done', () => {
-      const done: StreamHealth = { itemCount: 3, totalPts: 30, donePts: 30, remainingPts: 0, blockedPts: 0, pct: 100, pointsByStatus: [] };
+      const done: StreamHealth = { itemCount: 3, totalPts: 30, donePts: 30, remainingPts: 0, blockedPts: 0, pct: 100, pointsByStatus: [], openCount: 0, unpointedCount: 0 };
       const f = streamForecast(done, 2, ctx(), noContention);
       expect(f.verdict).toBe('complete');
     });
 
     it('is unestimated when items exist but none carry points', () => {
-      const noPoints: StreamHealth = { itemCount: 4, totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [] };
+      const noPoints: StreamHealth = { itemCount: 4, totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [], openCount: 0, unpointedCount: 0 };
       const f = streamForecast(noPoints, 2, ctx(), noContention);
       expect(f.verdict).toBe('unestimated');
       expect(f.summary).toContain('4 items');
     });
 
     it('reports unestimated before engineers are even configured', () => {
-      const noPoints: StreamHealth = { itemCount: 1, totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [] };
+      const noPoints: StreamHealth = { itemCount: 1, totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [], openCount: 0, unpointedCount: 0 };
       const f = streamForecast(noPoints, null, ctx(), noContention);
       expect(f.verdict).toBe('unestimated');
       expect(f.summary).toContain('1 item');
@@ -569,12 +593,18 @@ describe('forward capacity-fit health', () => {
     });
 
     it('still reports complete when created work is all done', () => {
-      const done: StreamHealth = { itemCount: 3, totalPts: 30, donePts: 30, remainingPts: 0, blockedPts: 0, pct: 100, pointsByStatus: [] };
+      const done: StreamHealth = { itemCount: 3, totalPts: 30, donePts: 30, remainingPts: 0, blockedPts: 0, pct: 100, pointsByStatus: [], openCount: 0, unpointedCount: 0 };
       expect(streamForecast(done, 2, ctx(), noContention).verdict).toBe('complete');
     });
 
     it('prefers unconfigured over no-work — an unstaffed empty stream needs engineers first', () => {
       expect(streamForecast(hp(0, 0), null, ctx(), noContention).verdict).toBe('unconfigured');
+    });
+
+    it('says so in the summary when open items are unpointed', () => {
+      const f = streamForecast({ ...hp(50), openCount: 6, unpointedCount: 2 }, 2, ctx(), noContention);
+      expect(f.verdict).toBe('on-track');
+      expect(f.summary).toMatch(/· 2 open items not yet pointed$/);
     });
 
     it('is on-track when remaining work fits capacity', () => {
@@ -616,7 +646,7 @@ describe('forward capacity-fit health', () => {
     const opts = (over: Partial<{ itemsBeyondNext: number; planningState: 'open' | 'deferred' | 'complete' }> = {}) => ({ itemsBeyondNext: 2, planningState: 'open' as const, ...over });
     // A fully-estimated health with custom remaining (totalPts == remaining + done).
     const estimated = (remainingPts: number, donePts = 0, itemCount = 3): StreamHealth =>
-      ({ itemCount, totalPts: remainingPts + donePts, donePts, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
+      ({ itemCount, totalPts: remainingPts + donePts, donePts, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [], openCount: 0, unpointedCount: 0 });
 
     it('is unplanned (un-judgeable) when the stream has no items', () => {
       const r = streamRunway(hp(0, 0), 2, ctx(), noContention, opts());
@@ -627,7 +657,7 @@ describe('forward capacity-fit health', () => {
     });
 
     it('is unestimated (un-judgeable) when items exist but carry no points', () => {
-      const noPoints: StreamHealth = { itemCount: 4, totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [] };
+      const noPoints: StreamHealth = { itemCount: 4, totalPts: 0, donePts: 0, remainingPts: 0, blockedPts: 0, pct: 0, pointsByStatus: [], openCount: 0, unpointedCount: 0 };
       const r = streamRunway(noPoints, 2, ctx(), noContention, opts());
       expect(r.verdict).toBe('unestimated');
       expect(r.judgeable).toBe(false);
@@ -733,7 +763,7 @@ describe('forward capacity-fit health', () => {
     const ctx = () => releaseCapacity(calRelease(), team(4, 40)); // perEngineerCap 30, 3 sprints
     const noContention = streamContention([], 4);
     const estimated = (remainingPts: number, donePts = 0, itemCount = 3): StreamHealth =>
-      ({ itemCount, totalPts: remainingPts + donePts, donePts, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
+      ({ itemCount, totalPts: remainingPts + donePts, donePts, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [], openCount: 0, unpointedCount: 0 });
 
     it('forecast: post-freeze work does not inflate the at-risk shortfall', () => {
       // 80 pts remaining but only 50 land before the freeze; cap 60. Measured on the
@@ -772,7 +802,7 @@ describe('forward capacity-fit health', () => {
     it('forecast: a finished stream stays complete when its freeze has passed', () => {
       // Nothing outstanding → nothing stranded, so the elapsed window is not a failure.
       const elapsed: ReleaseCapacity = { remainingSprintCount: 0, teamRemainingCap: 0, contributingCount: 4, perEngineerCap: 0 };
-      const done: StreamHealth = { itemCount: 3, totalPts: 40, donePts: 40, remainingPts: 0, blockedPts: 0, pct: 100, pointsByStatus: [] };
+      const done: StreamHealth = { itemCount: 3, totalPts: 40, donePts: 40, remainingPts: 0, blockedPts: 0, pct: 100, pointsByStatus: [], openCount: 0, unpointedCount: 0 };
       expect(streamForecast(done, 2, elapsed, noContention, 0).verdict).toBe('complete');
     });
 
@@ -789,7 +819,7 @@ describe('forward capacity-fit health', () => {
     const ctx = () => releaseCapacity(calRelease(), team(4, 40)); // perEngineerCap 30, 3 sprints
     const noContention = streamContention([], 4);
     const estimated = (remainingPts: number, donePts = 0, itemCount = 3): StreamHealth =>
-      ({ itemCount, totalPts: remainingPts + donePts, donePts, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [] });
+      ({ itemCount, totalPts: remainingPts + donePts, donePts, remainingPts, blockedPts: 0, pct: 0, pointsByStatus: [], openCount: 0, unpointedCount: 0 });
     const opts = (planningState: 'open' | 'deferred' | 'complete', over = {}) => ({ itemsBeyondNext: 0, planningState, ...over });
 
     it('reads over-reserved (not under-planned) when scope is complete and capacity is slack', () => {

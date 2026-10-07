@@ -7,6 +7,9 @@ import { VerdictBadge, RunwayBadge } from '../components/VerdictLine';
 import { StreamBurnChart, VelocityTrendChart } from '../components/Trend';
 import { StreamGantt } from '../components/StreamGantt';
 import type { TimelineRow } from '../lib/streamTimeline';
+import { SectionNav } from './SectionNav';
+import { SummaryKey } from './SummaryKey';
+import { unpointedWarns } from '../lib/derive';
 import { statusVars, warningVars } from '../components/statusVars';
 import { Icon } from '../components/Icon';
 import { fmtLong } from '../lib/dates';
@@ -112,7 +115,7 @@ function ReleaseCapacity({
   const over = cap.overAllocated;
   return (
     <>
-      <h2 className={styles.sectionTitle}>Release capacity as of {generatedOn(asOfISO)}</h2>
+      <h2 id="sec-capacity" data-nav="Capacity" className={styles.sectionTitle}>Release capacity as of {generatedOn(asOfISO)}</h2>
       <div className={`card ${styles.capCard} ${over ? styles.capRisk : styles.capOk}`}>
         <div className={styles.capHead}>
           <span className={over ? styles.capBadgeRisk : styles.capBadgeOk}>
@@ -201,7 +204,7 @@ function WholeRelease({
   const over = wr.overAllocated;
   return (
     <>
-      <h2 className={styles.sectionTitle}>Whole release</h2>
+      <h2 id="sec-whole" data-nav="Whole release" className={styles.sectionTitle}>Whole release</h2>
       <div className={`card ${styles.capCard} ${over || wr.overCommitted ? styles.capRisk : styles.capOk}`}>
         <div className={styles.capHead}>
           <span className={over ? styles.capBadgeRisk : styles.capBadgeOk}>
@@ -375,7 +378,7 @@ function StreamTimeline({ snapshot }: { snapshot: SnapshotPayload }) {
   return (
     <>
       <div className={styles.sectionHead}>
-        <h2 className={styles.sectionTitle}>Timeline</h2>
+        <h2 id="sec-timeline" data-nav="Timeline" className={styles.sectionTitle}>Timeline</h2>
         <SegmentedToggle
           ariaLabel="Timeline axis labels"
           value={axis}
@@ -437,6 +440,12 @@ function StreamStatusCard({ s }: { s: SnapshotStream }) {
           <span className={styles.progNums}>
             {doneItems} done · {openItems} open
           </span>
+        </div>
+      )}
+
+      {(s.unpointedCount ?? 0) > 0 && s.forecast.verdict !== 'unestimated' && (
+        <div className={styles.why} style={unpointedWarns({ openCount: openItems, unpointedCount: s.unpointedCount! }) ? { color: 'var(--rt-st-wn-text)' } : undefined}>
+          {s.unpointedCount} of {openItems} open item{openItems === 1 ? '' : 's'} not yet pointed — not counted in the verdict above.
         </div>
       )}
 
@@ -576,6 +585,17 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
         />
       </div>
 
+      {o.unpointed && o.unpointed.items > 0 && (
+        <p className={styles.unpointedNote}>
+          <strong>{o.unpointed.items}</strong> open item{o.unpointed.items === 1 ? '' : 's'} across{' '}
+          <strong>{o.unpointed.streams}</strong> work stream{o.unpointed.streams === 1 ? '' : 's'} still awaiting a point
+          estimate. Their points are not in any figure below.
+        </p>
+      )}
+
+      <SummaryKey />
+      <SectionNav watch={snapshot} />
+
       {/* 1 · Release capacity — the highest-level signal, first. */}
       {snapshot.capacity && (
         <ReleaseCapacity cap={snapshot.capacity} teamName={snapshot.teamName} asOfISO={snapshot.generatedAtISO} />
@@ -597,7 +617,7 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
       <StreamTimeline snapshot={snapshot} />
 
       {/* 4 · Work-stream status. */}
-      <h2 className={styles.sectionTitle}>Work stream status</h2>
+      <h2 id="sec-status" data-nav="Streams" className={styles.sectionTitle}>Work stream status</h2>
       <div className={styles.streamGrid}>
         {snapshot.streams.map((s, i) => (
           <StreamStatusCard key={i} s={s} />
@@ -606,7 +626,7 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
       <StatusLegend streams={snapshot.streams} />
 
       {/* 5 · Sprints. */}
-      <h2 className={styles.sectionTitle}>Sprints</h2>
+      <h2 id="sec-sprints" data-nav="Sprints" className={styles.sectionTitle}>Sprints</h2>
       <div className={styles.sprintList}>
         {snapshot.sprints.map((sp, i) => {
           const frac = sp.vel > 0 ? Math.min(1, sp.planned / sp.vel) : sp.planned > 0 ? 1 : 0;
@@ -658,7 +678,7 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
       {/* 5 · Work-stream burndown charts. */}
       {chartStreams.length > 0 && (
         <>
-          <h2 className={styles.sectionTitle}>Work stream burndown</h2>
+          <h2 id="sec-burndown" data-nav="Burndown" className={styles.sectionTitle}>Work stream burndown</h2>
           <p className={styles.caption} style={{ marginTop: -8 }}>
             Remaining work burned down by each stream’s capacity, up to its code freeze. Where the line reaches zero is
             the projected finish; a gap at the freeze is the shortfall.
@@ -674,7 +694,7 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
       {/* 6 · Velocity. */}
       {snapshot.velocity.series.length > 0 && (
         <>
-          <h2 className={styles.sectionTitle}>Velocity</h2>
+          <h2 id="sec-velocity" data-nav="Velocity" className={styles.sectionTitle}>Velocity</h2>
           <div className={`card ${styles.chartCard}`}>
             <span className="tag">Delivered vs. planned per elapsed sprint</span>
             <VelocityTrendChart

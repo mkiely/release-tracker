@@ -162,6 +162,11 @@ function CapacitySection({ r, team, items }: SectionProps) {
         : [],
     )
     .sort((a, b) => b.eng - a.eng);
+  // Muted streams are informational, not this team's work (see WorkStream.muted).
+  const awaiting = streams
+    .filter((s) => s.ws != null && !s.muted && s.health.unpointedCount > 0)
+    .map((s) => ({ ws: s.ws!, n: s.health.unpointedCount, of: s.health.openCount }))
+    .sort((a, b) => b.n - a.n);
   const over = contention.totalRequired - ctx.contributingCount;
   const isOver = contention.overAllocated;
   const headroom = ctx.contributingCount - contention.totalRequired;
@@ -197,6 +202,18 @@ function CapacitySection({ r, team, items }: SectionProps) {
         <hr className={`divider ${modalStyles.rule}`} />
         <Row k="Total requested" v={`${contention.totalRequired} eng`} />
       </div>
+
+      {awaiting.length > 0 && (
+        <div className={`card ${modalStyles.block}`}>
+          <span className={`tag ${modalStyles.blockLabel}`}>
+            Awaiting estimate · {awaiting.reduce((a, s) => a + s.n, 0)} open items across {awaiting.length} stream{awaiting.length === 1 ? '' : 's'}
+          </span>
+          {awaiting.map((s) => <Row key={s.ws.id} k={s.ws.name} v={`${s.n} of ${s.of} unpointed`} />)}
+          <span className={modalStyles.noteBare}>
+            Unpointed items count as zero in every figure here, so these streams are judged on less work than they hold.
+          </span>
+        </div>
+      )}
 
       <div className={`card ${modalStyles.block} ${modalStyles.blockRoomy}`}>
         <span className={`tag ${modalStyles.blockLabel}`}>The math</span>

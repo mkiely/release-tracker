@@ -7,7 +7,7 @@
 // is green precisely for the reason it's being flagged. One chip could only ever
 // tell half of that. See docs/metrics.md.
 
-import type { StreamForecast, StreamRunway } from '../lib/derive';
+import { unpointedWarns, type StreamForecast, type StreamHealth, type StreamRunway } from '../lib/derive';
 import type { PlanningState } from '../types';
 import { RunwayBadge, VerdictBadge } from './VerdictLine';
 import { runwayVars, verdictVars, warningVars } from './statusVars';
@@ -16,6 +16,7 @@ import styles from './StreamAssessmentChips.module.css';
 export function StreamAssessmentChips({
   forecast,
   runway,
+  health,
   planningState,
   muted = false,
   onOpenDelivery,
@@ -25,6 +26,8 @@ export function StreamAssessmentChips({
 }: {
   forecast: StreamForecast;
   runway: StreamRunway;
+  /** Supplies the unpointed count — see the chip below. */
+  health: Pick<StreamHealth, 'openCount' | 'unpointedCount'>;
   planningState: PlanningState;
   /** The stream is informational only (see WorkStream.muted). */
   muted?: boolean;
@@ -67,6 +70,23 @@ export function StreamAssessmentChips({
         >
           <RunwayBadge verdict={runway.verdict} planningState={planningState} />
         </button>
+      )}
+      {/* Open items nobody has estimated yet. They add 0 to every figure the verdicts
+          read, so the verdicts above are judging a smaller stream than the one that
+          exists. Suppressed when NOTHING is pointed: the 'unestimated' verdict already
+          says exactly that, and a second chip would repeat it. */}
+      {health.unpointedCount > 0 && forecast.verdict !== 'unestimated' && (
+        <span
+          className={styles.postFreeze}
+          style={
+            unpointedWarns(health)
+              ? { color: warningVars().text, borderColor: warningVars().soft, background: warningVars().soft }
+              : undefined
+          }
+          title={`${health.unpointedCount} of ${health.openCount} open items have no points yet, so the verdicts above don't account for them.`}
+        >
+          {health.unpointedCount} unpointed
+        </span>
       )}
       {/* Scheduled past the freeze: outside the window both verdicts measure, so it
           states itself rather than sitting silently behind a green chip. */}

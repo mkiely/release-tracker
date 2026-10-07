@@ -8,6 +8,8 @@ import type { SnapshotPayload } from '../lib/releaseSnapshot';
 import { SNAPSHOT_PARAM, decodeSnapshot } from '../lib/releaseSnapshot';
 import { supportsUrlCodec } from '../lib/urlCodec';
 import { ThemeStore, THEMES, useTheme } from '../store/theme';
+import { TEXT_SCALES, TextScaleStore, useTextScale } from '../store/textScale';
+import { SegmentedToggle } from '../components/SegmentedToggle';
 import { fmtLong } from '../lib/dates';
 import { Icon } from '../components/Icon';
 import { forgetSummary, listSummaries, rememberSummary } from './library';
@@ -36,6 +38,22 @@ function ThemeToggle() {
     >
       {isDark ? Icon.sun : Icon.moon}
     </button>
+  );
+}
+
+/** The same presets as the app's settings panel, sharing its persisted choice and its
+ *  one --rt-type-scale lever, so every size in the viewer scales together. Short labels
+ *  because it sits in the top bar; the full names are the tooltips. */
+const SIZE_LABEL = { sm: 'A-', md: 'A', lg: 'A+', xl: 'A++' } as const;
+function TextSizeControl() {
+  const scale = useTextScale();
+  return (
+    <SegmentedToggle
+      ariaLabel="Text size"
+      value={scale}
+      onChange={TextScaleStore.set}
+      options={TEXT_SCALES.map((s) => ({ value: s.id, label: SIZE_LABEL[s.id], title: `Text size: ${s.label}` }))}
+    />
   );
 }
 
@@ -222,7 +240,10 @@ export function SummaryApp() {
     <div className={`wf ${styles.page}`}>
       <div className={styles.topbar}>
         <span className={styles.brand}>{Icon.release} Release Tracker · Summary</span>
-        <ThemeToggle />
+        <div className={styles.topbarControls}>
+          <TextSizeControl />
+          <ThemeToggle />
+        </div>
       </div>
 
       {unsupported && !current && (

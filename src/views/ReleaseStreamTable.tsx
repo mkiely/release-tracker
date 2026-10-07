@@ -118,6 +118,7 @@ function StreamRow({
           <StreamAssessmentChips
             forecast={forecast}
             runway={runway}
+            health={health}
             planningState={ws.planningState}
             muted={ws.muted}
             onOpenDelivery={() => (forecast.verdict === 'unconfigured' ? onEditStream(ws.id) : onOpenStreamHealth(ws.id))}

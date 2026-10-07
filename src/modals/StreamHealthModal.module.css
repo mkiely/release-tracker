@@ -13,3 +13,22 @@
   cursor: pointer;
   text-decoration: underline;
 }
+
+/* One un-pointed item: key and subject, the whole row a button into the item. */
+.unpointedRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-ink);
+  text-align: left;
+  cursor: pointer;
+}
+.unpointedRow:hover { background: var(--rt-fill); }
+.unpointedSubject { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

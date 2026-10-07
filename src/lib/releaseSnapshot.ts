@@ -43,9 +43,10 @@ export const SNAPSHOT_PARAM = 's';
  *  `contributingMembers` and a per-capacity-row `verdict`; v5 adds per-stream
  *  `externalUrl` (connector deep link); v6 adds the `wholeRelease` block; v7 adds
  *  `freezeISO` / `unassigned` and a single-range `span`; v8 replaces `span` with
- *  `segments`, one per unbroken run of work. Older payloads still decode — the
+ *  `segments`, one per unbroken run of work; v9 adds per-stream `openCount` /
+ *  `unpointedCount` and the `overall.unpointed` roll-up. Older payloads still decode — the
  *  viewer guards the added fields and defaults them. */
-export const SNAPSHOT_VERSION = 8;
+export const SNAPSHOT_VERSION = 9;
 
 /** One sprint's precomputed row in a snapshot. */
 export interface SnapshotSprint {
@@ -109,6 +110,10 @@ export interface SnapshotStream {
    *  timeline skips it; the status cards still show it. Absent on every real stream
    *  (and on pre-v7 payloads), so it costs nothing in the URL. */
   unassigned?: true;
+  /** Open (not-Complete) items, and how many of them carry no points. Absent on
+   *  pre-v9 payloads, which the viewer reads as "nothing to flag". */
+  openCount?: number;
+  unpointedCount?: number;
   /** Forward capacity-fit verdict + its plain-language "why". */
   forecast: { verdict: HealthVerdict; summary: string };
   /** Planning-runway verdict + alarm + "why". */
@@ -153,6 +158,9 @@ export interface SnapshotPayload {
     engineersRequiredTotal: number;
     overAllocated: boolean;
     runwayAlarmCount: number;
+    /** Open items awaiting an estimate across the shared streams, and how many streams
+     *  hold any. Absent on pre-v9 payloads. */
+    unpointed?: { items: number; streams: number };
   };
   /** Release-level capacity analysis — the highest-level insight, shown first.
    *  Mirrors the app's Capacity metric: how the streams with remaining work
@@ -268,6 +276,10 @@ function stripOverbook(summary: string): string {
   return summary.replace(/\s*·\s*team overbooked \([^)]*\)\s*$/, '');
 }
 
+/** Likewise the "· N open items not yet pointed" clause: the status card states it on
+ *  its own line, with the share of open items, so the why-list needn't repeat it. */
+const stripUnpointed = (summary: string): string => summary.replace(/\s*·\s*\d+ open items? not yet pointed/, '');
+
 /**
  * Build a frozen executive-summary snapshot from a release. Runs the same
  * derivations the release view uses, then serializes their *outputs*. Unlike
@@ -368,6 +380,8 @@ export function buildSnapshot(
       freezeISO: effectiveStreamCodeFreeze(release, ws),
       ...(ws ? {} : { unassigned: true as const }),
       itemCount: streamItems.length,
+      openCount: health.openCount,
+      unpointedCount: health.unpointedCount,
       doneItems: streamItems.filter((i) => i.status === 'Complete').length,
       totalPts: health.totalPts,
       donePts: health.donePts,
@@ -378,7 +392,7 @@ export function buildSnapshot(
       // The over-allocation is stated once, up front, in the release capacity section —
       // strip the per-stream "· team overbooked (…)" restatement so it isn't repeated
       // on every card.
-      forecast: { verdict: forecast.verdict, summary: stripOverbook(forecast.summary) },
+      forecast: { verdict: forecast.verdict, summary: stripUnpointed(stripOverbook(forecast.summary)) },
       runway: { verdict: runway.verdict, alarm: runway.alarm, summary: runway.summary },
       burn: canForecast
         ? {
@@ -459,6 +473,12 @@ export function buildSnapshot(
       engineersRequiredTotal: contention.totalRequired,
       overAllocated: contention.overAllocated,
       runwayAlarmCount,
+      // Summed from the streams the viewer lists, so the headline reconciles with its
+      // own cards.
+      unpointed: {
+        items: outStreams.reduce((a, s) => a + (s.unpointedCount ?? 0), 0),
+        streams: outStreams.filter((s) => (s.unpointedCount ?? 0) > 0).length,
+      },
     },
     capacity: {
       contributingCount: ctx.contributingCount,

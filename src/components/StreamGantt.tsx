@@ -212,11 +212,22 @@ export function StreamGantt({
               ) : (
                 <span className={styles.unscheduled}>No sprinted work</span>
               )}
-              {freezeInWindow && (
+              {freezeInWindow ? (
                 <span
                   className={styles.freeze}
                   style={{ '--at': `${freezePct}%`, '--freeze-color': freezeColor } as Vars}
                 />
+              ) : (
+                // Pinned to the edge it overshot, with the date: a stream whose freeze
+                // lies past the release would otherwise show no freeze at all, which
+                // reads as "none set" rather than "later than this calendar covers".
+                <span
+                  className={`${styles.freezeOff} ${freezePct < 0 ? styles.freezeOffStart : styles.freezeOffEnd}`}
+                  style={{ '--freeze-color': freezeColor } as Vars}
+                  title={`Code freeze ${fmtShort(row.freezeISO)} falls ${freezePct < 0 ? 'before' : 'after'} the release calendar`}
+                >
+                  {freezePct < 0 ? '\u2190 ' : ''}Freeze {fmtShort(row.freezeISO)}{freezePct < 0 ? '' : ' \u2192'}
+                </span>
               )}
               {todayInWindow && <span className={styles.today} style={{ '--at': `${todayPct}%` } as Vars} />}
             </div>
@@ -237,6 +248,12 @@ export function StreamGantt({
             <span className={styles.legendSwatchDashed} style={{ '--swatch': freezeColor } as Vars} />
             Code freeze
           </span>
+          {rows.some((r) => {
+            const p = pctOfDate(r.freezeISO, window);
+            return p < 0 || p > 100;
+          }) && (
+            <span className={styles.legendItem}>Freeze tab: beyond this calendar</span>
+          )}
           <span className={styles.legendItem}>
             <span className={styles.legendSwatch} style={{ '--swatch': okColor } as Vars} />
             On track
