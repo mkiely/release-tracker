@@ -12,6 +12,7 @@ import type { MetricsSection } from './modals/MetricsModal';
 import { Toast } from './components/primitives';
 import { ModalHost } from './modals/ModalHost';
 import { ShareImporter } from './components/ShareImporter';
+import { BackupBanner } from './components/BackupControl';
 
 export type ModalSpec =
   | { type: 'team'; teamId?: string }
@@ -138,6 +139,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{ openModal: setModal, notify, onSync, onPush }}>
       <ShareImporter />
       {children}
+      <BackupBanner />
       <ModalHost modal={modal} onClose={() => setModal(null)} />
       {toast && <Toast>{toast}</Toast>}
     </Ctx.Provider>

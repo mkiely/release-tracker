@@ -8,6 +8,7 @@
 // only frozen snapshots.
 
 import type { SnapshotPayload } from '../lib/releaseSnapshot';
+import { readLocal, writeLocal } from '../store/local';
 
 /** localStorage key for the remembered-summaries map. Namespaced apart from the
  *  app's own state so the two never collide even when served same-origin. */
@@ -18,7 +19,7 @@ type Library = Record<string, SnapshotPayload>;
 
 function read(): Library {
   try {
-    const raw = localStorage.getItem(LIBRARY_KEY);
+    const raw = readLocal(LIBRARY_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as unknown;
     return parsed && typeof parsed === 'object' ? (parsed as Library) : {};
@@ -28,12 +29,9 @@ function read(): Library {
 }
 
 function write(lib: Library): void {
-  try {
-    localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib));
-  } catch {
-    // Quota or unavailable storage — the viewer still works for the current link,
-    // it just won't remember. Nothing to recover here.
-  }
+  // On quota or unavailable storage the viewer still works for the current link,
+  // it just won't remember. Nothing to recover here.
+  writeLocal(LIBRARY_KEY, JSON.stringify(lib));
 }
 
 /** All remembered summaries, newest snapshot first. */

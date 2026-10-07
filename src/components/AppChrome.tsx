@@ -12,6 +12,8 @@ import { useApp } from '../app-context';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import { NARROW_CHROME, useMediaQuery } from '../hooks/useMediaQuery';
 import { connectorCreateTypes } from '../sync/client';
+import { relTime } from '../lib/dates';
+import { BackupControl } from './BackupControl';
 import { Breadcrumb, type Crumb } from './Breadcrumb';
 import { Icon } from './Icon';
 import { Menu } from './Menu';
@@ -170,6 +172,7 @@ export function TopBar({
       <div className={styles.topBarRight}>
         {right && <div className={styles.topBarActions}>{right}</div>}
         <div className={right ? styles.topBarPaletteDivider : styles.topBarPalette} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <BackupControl />
           <PresentationToggle />
           <SettingsPanel />
         </div>
@@ -194,17 +197,6 @@ const AUTO_SYNC_OPTIONS: { value: number; label: string }[] = [
   { value: 30, label: '30 min' },
   { value: 60, label: '60 min' },
 ];
-
-/** Compact "how long ago" for the sync trigger. An absolute timestamp is precision
- *  nobody reads; what matters is whether the data is minutes or days old. */
-function relTime(iso: string): string {
-  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.round(hrs / 24)}d ago`;
-}
 
 /**
  * The release header's connector cluster: a split Pull control and a Push button.

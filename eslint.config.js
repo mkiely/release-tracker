@@ -34,6 +34,24 @@ export default tseslint.config(
     },
   },
 
+  // One door to localStorage: the backup can only mirror what it hears about, so a
+  // direct write would silently fall out of every backup. Tests poke storage directly.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/store/local.ts', 'src/**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        { name: 'localStorage', message: 'Go through store/local.ts so the backup sees the change.' },
+        { name: 'sessionStorage', message: 'App state belongs in store/local.ts, where the backup can see it.' },
+      ],
+      'no-restricted-properties': [
+        'error',
+        { object: 'window', property: 'localStorage', message: 'Go through store/local.ts so the backup sees the change.' },
+      ],
+    },
+  },
+
   // TypeScript config files run under Node but still need the TS parser.
   {
     files: ['*.config.ts'],

@@ -21,7 +21,7 @@
 
 import type { AppState, ItemType, Member, Release, Sprint, Team, WorkItem, WorkStream } from '../types';
 import { uid } from '../lib/dates';
-import { CANONICAL_BY_FIELD, CANONICAL_FIELDS, canonicalBaseline, type CanonicalView } from '../lib/connectorFields';
+import { CANONICAL_BY_FIELD, CANONICAL_FIELDS, canonicalBaseline, recomputeDirty, type CanonicalView } from '../lib/connectorFields';
 import type { MappedItem, MappedRelease, SyncResult } from './schema';
 
 /** External-id → local-id lookups for resolving a MappedItem's refs. */
@@ -145,6 +145,13 @@ export function upsertItem(
     }
     existing.attributes = nextAttributes;
     existing.syncedValues = baseline();
+    // A dirty value the connector now holds too is no longer a pending change — most
+    // often a push that landed after the last backup, restored from that backup.
+    // Clearing it here is what makes "pull before you push" safe after a restore.
+    // Only existing flags are reconsidered: a pull never invents a pending edit.
+    const dirtyAttrKeys = new Set([...dirty].filter((k) => !CANONICAL_BY_FIELD.has(k)));
+    const stillDiverged = new Set(recomputeDirty(existing, existing, writeable, existing.attributes, dirtyAttrKeys));
+    existing.dirtyFields = existing.dirtyFields.filter((f) => stillDiverged.has(f));
     const changed = itemFingerprint(existing) !== before;
     return { status: changed ? 'updated' : 'unchanged', warning };
   }

@@ -117,6 +117,13 @@ describe('createKeyedPrefs', () => {
     expect(localStorage.getItem('p')).toBe('{}');
   });
 
+  it('lists every stored entry', () => {
+    const p = createKeyedPrefs<number>('p');
+    p.set('build', 140);
+    p.set('status', 90);
+    expect(p.all()).toEqual({ build: 140, status: 90 });
+  });
+
   it('treats unparseable stored JSON as empty rather than throwing', () => {
     localStorage.setItem('p', 'not json');
     const p = createKeyedPrefs<string>('p');
