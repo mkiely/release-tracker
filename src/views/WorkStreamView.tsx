@@ -3,7 +3,7 @@ import { streamCodeFreezeChip } from '../lib/derive';
 import { WorkStreamChrome } from '../components/WorkStreamChrome';
 import { EmptyState } from '../components/EmptyState';
 import { FacetBar } from '../components/FacetBar';
-import { StreamSprintColumn } from '../components/Dnd';
+import { StreamNoSprintColumn, StreamSprintColumn } from '../components/Dnd';
 import { WorkItemCard } from '../components/WorkItemCard';
 import styles from './WorkStreamView.module.css';
 
@@ -42,6 +42,13 @@ export function WorkStreamView(props: WorkStreamViewProps) {
           </EmptyState>
         ) : (
           <div className={styles.columns}>
+            <StreamNoSprintColumn
+              streamItems={filteredItems.filter((i) => i.sprintId === null)}
+              notify={notify}
+              renderCard={(it) => (
+                <WorkItemCard key={it.id} it={it} releaseTeamId={r.teamId} draggable onOpen={() => onOpenItem(it.id)} />
+              )}
+            />
             {r.sprints.map((sp) => (
               <StreamSprintColumn
                 key={sp.id}

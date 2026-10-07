@@ -58,7 +58,8 @@ export function useDrag(): WorkItem | null {
  * drop. The "already in this sprint" case is guarded here for everyone.
  */
 export function useSprintDropTarget(
-  sprint: Sprint,
+  /** Null is the 'No sprint' bucket: dropping there unassigns the item. */
+  sprint: Sprint | null,
   notify: (msg: string) => void,
   canDrop?: (item: WorkItem) => boolean,
 ): {
@@ -74,7 +75,7 @@ export function useSprintDropTarget(
   const depth = useRef(0);
 
   const accepts = (item: WorkItem | null): item is WorkItem =>
-    !!item && item.sprintId !== sprint.id && (canDrop?.(item) ?? true);
+    !!item && item.sprintId !== (sprint?.id ?? null) && (canDrop?.(item) ?? true);
 
   // Reset when any drag ends — dropped elsewhere, or cancelled — so a stray enter
   // without a matching leave can't strand the highlight on.
@@ -112,8 +113,8 @@ export function useSprintDropTarget(
         const item = Drag.get();
         if (accepts(item)) {
           e.preventDefault();
-          getActions().moveItemToSprint(item.id, sprint.id);
-          notify(`Moved ${item.key} → ${sprint.name}`);
+          getActions().moveItemToSprint(item.id, sprint?.id ?? null);
+          notify(`Moved ${item.key} → ${sprint?.name ?? 'No sprint'}`);
         }
         depth.current = 0;
         setOver(false);
@@ -353,6 +354,42 @@ export function StreamSprintColumn({
         {streamItems.length === 0 && (
           <div className={`card dash ${over ? `${styles.emptyDrop} ${styles.emptyDropOver}` : styles.emptyDrop}`}>
             {canDrop ? 'Drop to move here' : 'No items'}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── 'No sprint' column (Work Stream view): the items with no sprint assignment ─
+// The table presenter shows these as a band under the sprints; the card board had
+// nowhere to put them, so a stream's unscheduled work was invisible in that density.
+// Sits first because it is the queue the other columns are drawn from.
+export function StreamNoSprintColumn({
+  streamItems,
+  notify,
+  renderCard,
+}: {
+  streamItems: WorkItem[];
+  notify: (msg: string) => void;
+  renderCard: (it: WorkItem) => ReactNode;
+}) {
+  const { over, active: canDrop, handlers } = useSprintDropTarget(null, notify);
+  const pts = sumPoints(streamItems);
+  return (
+    <div style={{ flex: 1, minWidth: 158, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className={styles.columnHeader}>
+        <span className={styles.columnHeaderName}>No sprint</span>
+        <span className={styles.columnHeaderDates}>Not scheduled</span>
+        <span className={styles.columnHeaderMeta}>
+          this stream · {pts} pts · {streamItems.length}
+        </span>
+      </div>
+      <div className={over ? `${styles.dropZone} ${styles.dropZoneOver}` : styles.dropZone} {...handlers}>
+        {streamItems.map((it) => renderCard(it))}
+        {streamItems.length === 0 && (
+          <div className={`card dash ${over ? `${styles.emptyDrop} ${styles.emptyDropOver}` : styles.emptyDrop}`}>
+            {canDrop ? 'Drop to unschedule' : 'Nothing unscheduled'}
           </div>
         )}
       </div>
