@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { selRelease, selItemsForStream, selTeam, useStore } from '../store/store';
 import { useApp } from '../app-context';
-import { activeSprint, sumPoints, type StreamForecast, type StreamRunway } from '../lib/derive';
+import { activeSprint, sumPoints, type StreamForecast, type StreamHealth, type StreamRunway } from '../lib/derive';
 import { assessStream } from '../lib/streamAssessment';
 import { applyFacets, buildFacetGroups, catalogItemFacets, isAnyFacetActive, statusFacet, typeFacet } from '../lib/facets';
 import type { FacetGroup } from '../lib/facets';
@@ -22,6 +22,8 @@ export interface WorkStreamViewProps {
   /** Forward capacity-fit verdict for this stream, assessed against the whole
    *  release so it matches the row that linked here. */
   forecast: StreamForecast;
+  /** Carries the unpointed count the assessment chips flag. */
+  health: StreamHealth;
   /** Forward planning-runway verdict — the inverse question. */
   runway: StreamRunway;
   /** Opens this stream's assessment detail. */
@@ -86,6 +88,7 @@ export function useWorkStreamView(): WorkStreamViewProps | null {
     facetGroups,
     isFiltered,
     forecast: assessed.forecast,
+    health: assessed.health,
     runway: assessed.runway,
     onOpenHealth: () => openModal({ type: 'streamHealth', releaseId: id, wsId: ws.id }),
     onEditStream: () => openModal({ type: 'stream', releaseId: id, wsId: ws.id }),

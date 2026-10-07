@@ -23,6 +23,7 @@ type WorkStreamChromeProps = Pick<
   | 'totalItemCount'
   | 'totalPts'
   | 'forecast'
+  | 'health'
   | 'runway'
   | 'onOpenHealth'
   | 'onEditStream'
@@ -55,6 +56,7 @@ export function WorkStreamChrome({
   totalItemCount,
   totalPts,
   forecast,
+  health,
   runway,
   onOpenHealth,
   onEditStream,
@@ -96,6 +98,7 @@ export function WorkStreamChrome({
           <StreamAssessmentChips
             forecast={forecast}
             runway={runway}
+            health={health}
             planningState={ws.planningState}
             muted={ws.muted}
             onOpenDelivery={() => (forecast.verdict === 'unconfigured' ? onEditStream() : onOpenHealth())}

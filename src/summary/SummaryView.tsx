@@ -7,6 +7,7 @@ import { VerdictBadge, RunwayBadge } from '../components/VerdictLine';
 import { StreamBurnChart, VelocityTrendChart } from '../components/Trend';
 import { StreamGantt } from '../components/StreamGantt';
 import type { TimelineRow } from '../lib/streamTimeline';
+import { unpointedWarns } from '../lib/derive';
 import { statusVars, warningVars } from '../components/statusVars';
 import { Icon } from '../components/Icon';
 import { fmtLong } from '../lib/dates';
@@ -440,6 +441,12 @@ function StreamStatusCard({ s }: { s: SnapshotStream }) {
         </div>
       )}
 
+      {(s.unpointedCount ?? 0) > 0 && s.forecast.verdict !== 'unestimated' && (
+        <div className={styles.why} style={unpointedWarns({ openCount: openItems, unpointedCount: s.unpointedCount! }) ? { color: 'var(--rt-st-wn-text)' } : undefined}>
+          {s.unpointedCount} of {openItems} open item{openItems === 1 ? '' : 's'} not yet pointed — not counted in the verdict above.
+        </div>
+      )}
+
       {(() => {
         const lines = whyLines(s.forecast.summary);
         return lines.length > 1 ? (
@@ -575,6 +582,14 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
           tone={o.overAllocated ? 'risk' : 'ok'}
         />
       </div>
+
+      {o.unpointed && o.unpointed.items > 0 && (
+        <p className={styles.unpointedNote}>
+          <strong>{o.unpointed.items}</strong> open item{o.unpointed.items === 1 ? '' : 's'} across{' '}
+          <strong>{o.unpointed.streams}</strong> work stream{o.unpointed.streams === 1 ? '' : 's'} still awaiting a point
+          estimate. Their points are not in any figure below.
+        </p>
+      )}
 
       {/* 1 · Release capacity — the highest-level signal, first. */}
       {snapshot.capacity && (

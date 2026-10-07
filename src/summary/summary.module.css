@@ -395,3 +395,15 @@
 }
 .pasteBtn:hover:not(:disabled) { opacity: 0.9; }
 .pasteBtn:disabled { opacity: 0.45; cursor: default; }
+
+/* Release-level count of work nobody has estimated yet: a caveat on everything below,
+   so it sits between the headline stats and the first analysis. */
+.unpointedNote {
+  margin: 0;
+  padding: 9px 12px;
+  font-size: var(--rt-fs-sm);
+  line-height: 1.5;
+  color: var(--rt-st-wn-text);
+  background: var(--rt-st-wn-soft);
+  border-radius: 8px;
+}

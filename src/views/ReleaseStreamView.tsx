@@ -24,7 +24,7 @@ function StreamRow({
   onOpenStreamHealth: (wsId: string) => void;
   onEditStream: (wsId: string) => void;
 }) {
-  const { ws, itemCount, points, segs, series, forecast, runway, lane } = row;
+  const { ws, itemCount, points, segs, series, health, forecast, runway, lane } = row;
   const filled = lane.filter((e) => e.n > 0);
   const activeIndex = lane.find((e) => e.isActive)?.sprintIndex ?? -1;
   // Assessed even with no items: an empty stream holding reserved engineers is the
@@ -91,6 +91,7 @@ function StreamRow({
           <StreamAssessmentChips
             forecast={forecast}
             runway={runway}
+            health={health}
             planningState={ws!.planningState}
             muted={ws!.muted}
             onOpenDelivery={() => (forecast.verdict === 'unconfigured' ? onEditStream(ws!.id) : onOpenStreamHealth(ws!.id))}

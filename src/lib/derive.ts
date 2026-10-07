@@ -136,7 +136,28 @@ export interface StreamHealth {
   pct: number;
   /** Non-zero points by status, for the progress/breakdown bar. */
   pointsByStatus: StatusSeg[];
+  /** Incomplete items, and how many of them carry no estimate. An unpointed item adds
+   *  0 to every figure above, so a stream full of them looks lighter than it is — the
+   *  verdicts can't see the work, which is why it is counted separately. */
+  openCount: number;
+  unpointedCount: number;
 }
+
+/** Share of a stream's open items that may be unpointed before the flag escalates
+ *  from a note to a warning. Below it the usual trickle of new tickets awaiting the
+ *  weekly estimation meeting; above it the stream's verdicts rest on a minority of
+ *  its work. */
+export const UNPOINTED_WARN_SHARE = 0.25;
+
+/** A zero is not a reading: null and 0 both mean nobody has estimated it. Complete
+ *  items are excluded — a finished ticket needs no estimate to plan around. */
+export const isUnpointed = (i: Pick<WorkItem, 'points' | 'status'>): boolean =>
+  i.status !== 'Complete' && !(i.points != null && i.points > 0);
+
+/** True when enough of the open work is unpointed that the stream's verdicts
+ *  shouldn't be trusted at face value. */
+export const unpointedWarns = (h: Pick<StreamHealth, 'openCount' | 'unpointedCount'>): boolean =>
+  h.unpointedCount > 0 && h.unpointedCount / h.openCount >= UNPOINTED_WARN_SHARE;
 
 /**
  * Current-state completion metrics for a work stream (points-based). Deliberately
@@ -153,7 +174,11 @@ export function streamHealth(items: WorkItem[]): StreamHealth {
   const remainingPts = Math.max(0, totalPts - donePts);
   const pct = totalPts > 0 ? Math.round((donePts / totalPts) * 100) : 0;
   const pointsByStatus = STATUSES.map((k) => ({ k, v: pts((i) => i.status === k) })).filter((s) => s.v > 0);
-  return { itemCount: items.length, totalPts, donePts, remainingPts, blockedPts, pct, pointsByStatus };
+  const open = items.filter((i) => i.status !== 'Complete');
+  return {
+    itemCount: items.length, totalPts, donePts, remainingPts, blockedPts, pct, pointsByStatus,
+    openCount: open.length, unpointedCount: open.filter(isUnpointed).length,
+  };
 }
 
 // ── Forward capacity-fit health ─────────────────────────────────────────────
