@@ -549,6 +549,30 @@ describe('applySync — item timestamps', () => {
   });
 });
 
+describe('applySync — item author', () => {
+  const byName = (createdBy: string | null) => ({
+    externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null,
+    fields: { key: 'EXT-1', subject: 's', description: '', status: 'In Progress' as const, points: 3, createdBy },
+  });
+
+  it('takes createdBy from the connector, and external wins on re-sync', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [byName('Priya Varma')] }));
+    expect(first.next.items[0].createdBy).toBe('Priya Varma');
+    const { next } = applySync(first.next, 'rel_1', mapped({ items: [byName(null)] }));
+    expect(next.items[0].createdBy).toBeNull();
+  });
+
+  it('is null when the connector sends no author', () => {
+    expect(applySync(baseState(), 'rel_1', mapped()).next.items[0].createdBy).toBeNull();
+  });
+
+  it('counts a changed author as an update', () => {
+    const first = applySync(baseState(), 'rel_1', mapped({ items: [byName('A')] }));
+    expect(applySync(first.next, 'rel_1', mapped({ items: [byName('A')] })).result.updated).toBe(0);
+    expect(applySync(first.next, 'rel_1', mapped({ items: [byName('B')] })).result.updated).toBe(1);
+  });
+});
+
 describe('applySync — attributes (connector vocabulary)', () => {
   const itemWithAttrs = (attributes?: Record<string, string | number | boolean | null>) => ({
     externalId: 'EXT-1', extWorkStreamId: 'EPIC-A', extSprintId: 'JSPR-1', extAssigneeId: null,

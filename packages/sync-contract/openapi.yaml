@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Release Tracker Sync Contract
-  version: 0.20.0
+  version: 0.21.0
   description: >-
     Consumer-driven contract between the Release Tracker app and a local sync
     service. The APP OWNS this spec; the service CONFORMS to it. The service is an
@@ -315,6 +315,15 @@ components:
                 Connector-owned and read-only, on the same terms as createdAt. Emit the
                 backend's own modification stamp — do NOT stamp it at fetch time, since
                 the app treats a moved updatedAt as evidence the item genuinely changed.
+            createdBy:
+              type: string
+              nullable: true
+              description: >-
+                Display name of whoever created the item in the backend (a person's
+                name, not an account id). Connector-owned and read-only: the app never
+                writes or pushes it. Null or omitted when the backend records no
+                author.
+
             itemType:
               nullable: true
               description: >-

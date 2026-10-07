@@ -166,6 +166,7 @@ export function anItem(over: Partial<WorkItem> = {}): WorkItem {
     statusNative: null,
     attributes: {},
     createdISO: null,
+    createdBy: null,
     updatedISO: null,
     ...over,
   };

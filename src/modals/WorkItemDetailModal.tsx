@@ -263,7 +263,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
             <PField label="Subject">
               <PInput value={subject} disabled={!canWrite('subject')} onChange={(e) => setSubject(e.target.value)} />
             </PField>
-            <PField label="Description">
+            <PField fill label="Description">
               {it.descriptionFormat === 'html' ? (
                 <RichTextEditor value={desc} editable={canWrite('description')} onChange={setDesc} />
               ) : (
@@ -272,10 +272,6 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
                   disabled={!canWrite('description')}
                   placeholder="No description yet — add detail, acceptance criteria, links…"
                   onChange={(e) => setDesc(e.target.value)}
-                  // Taller than the create form's default: this is the field the
-                  // two-column layout exists to serve, and the rail beside it is
-                  // what pays for the height.
-                  className={styles.editorPane}
                 />
               )}
             </PField>
@@ -283,9 +279,10 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
                 backend, on a local one the app stamps them — so they read as a footnote,
                 not as fields. Hidden entirely when neither is known (items predating the
                 field; connectors that send no timestamps). */}
-            {(it.createdISO || it.updatedISO) && (
+            {(it.createdBy || it.createdISO || it.updatedISO) && (
               <PMetaLine
                 items={[
+                  ...(it.createdBy ? [{ label: 'Created by', value: it.createdBy }] : []),
                   { label: 'Created', value: fmtDateTime(it.createdISO), title: it.createdISO ?? undefined },
                   { label: 'Last modified', value: fmtDateTime(it.updatedISO), title: it.updatedISO ?? undefined },
                 ]}

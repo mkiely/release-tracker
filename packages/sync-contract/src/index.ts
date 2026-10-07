@@ -65,4 +65,4 @@ export type { paths, components, operations } from './generated';
  * Distinct from the app's localStorage SCHEMA_VERSION — this versions the wire
  * contract between the app and the sync service.
  */
-export const SYNC_CONTRACT_VERSION = '0.20.0';
+export const SYNC_CONTRACT_VERSION = '0.21.0';

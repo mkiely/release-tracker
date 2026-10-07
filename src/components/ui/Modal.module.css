@@ -95,12 +95,13 @@
 
    Both tracks carry minmax(0, …) because grid items default to min-content width,
    which a long unbroken token in a description would otherwise push the whole
-   dialog past. align-items:start keeps the rail at the top instead of stretching
-   its fields to match a tall description. */
+   dialog past. The tracks stretch to one height, so the description's frame can fill
+   the column beside a tall rail; the rail's own fields stay at their natural height
+   (it is a flex column, and stretch only widens them). */
 .splitBody {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
-  align-items: start;
+  align-items: stretch;
   gap: 22px;
 }
 /* Below the breakpoint the rail would be too narrow for a select to read, so the
@@ -120,13 +121,10 @@
   gap: 16px;
   min-width: 0;
 }
-/* The ~90ch line-length rule is for prose you read; this column is a column you
-   WRITE in, and the description carries tables, lists and pasted markdown that a
-   reading measure squeezes for no benefit. The cap stays only as a backstop against
-   a genuinely enormous viewport. */
-.splitMain {
-  max-width: 120ch;
-}
+/* No line-length cap: this is a column you WRITE in, and the description carries
+   tables, lists and pasted markdown that a reading measure squeezes for no benefit.
+   A cap here also made the dialog's extra width pure dead space beside the editor,
+   since the rail is a fixed track. The dialog's own width ceiling is the backstop. */
 
 /* Buttons don't shrink (their labels are whole phrases — "Use default (last
    sprint end)"), so the row wraps instead of breaking out of the dialog. */

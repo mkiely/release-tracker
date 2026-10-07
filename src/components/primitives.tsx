@@ -26,6 +26,7 @@ export function PField({
   children,
   style,
   className,
+  fill,
 }: {
   label?: ReactNode;
   hint?: ReactNode;
@@ -33,9 +34,12 @@ export function PField({
   style?: CSSProperties;
   /** Extra classes, e.g. a layout utility from the calling screen. Appended. */
   className?: string;
+  /** Take the height the column has left — see `.fill`. For a split modal's
+   *  description, whose control is the last child. */
+  fill?: boolean;
 }) {
   return (
-    <label className={`${fieldStyles.field} ${className ?? ''}`} style={{ minWidth: 0, ...style }}>
+    <label className={`${fieldStyles.field} ${fill ? fieldStyles.fill : ''} ${className ?? ''}`} style={{ minWidth: 0, ...style }}>
       {label && (
         <span className={fieldStyles.label}>
           {label}

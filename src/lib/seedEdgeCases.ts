@@ -173,7 +173,7 @@ const edgeUrl = (extId: string) => `https://${SITE}/browse/${extId}`;
 
 /** Deterministic created/updated instants, anchored before the item's sprint and
  *  clamped to now so nothing claims to have been modified in the future. */
-function stampsFor(anchorISO: string, n: number): { createdISO: string; updatedISO: string } {
+function stampsFor(anchorISO: string, n: number): { createdISO: string; updatedISO: string; createdBy: string | null } {
   const created = new Date(`${addDays(anchorISO, -(2 + (n % 5)))}T09:00:00`);
   created.setHours(9 + (n % 8), (n * 17) % 60, 0, 0);
   const updated = new Date(created.getTime() + ((1 + (n % 7)) * 24 + (n % 6)) * 3_600_000);
@@ -181,6 +181,8 @@ function stampsFor(anchorISO: string, n: number): { createdISO: string; updatedI
   return {
     createdISO: new Date(Math.min(created.getTime(), now)).toISOString(),
     updatedISO: new Date(Math.min(updated.getTime(), now)).toISOString(),
+    // Every fifth item has no recorded author, so the 'unknown' reading is on screen.
+    createdBy: n % 5 === 4 ? null : ['Rui Martinez', 'Sam Kowalski', 'Nils Andersen', 'Priya Varma'][n % 4],
   };
 }
 

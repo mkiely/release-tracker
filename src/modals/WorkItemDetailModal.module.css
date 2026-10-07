@@ -27,6 +27,3 @@
 
 .fieldError { font-size: var(--rt-fs-sm); }
 
-/* The editor keeps the split dialog tall enough that the two-column layout has
-   something to be a layout of; the rail beside it is what pays for the height. */
-.editorPane { min-height: 380px; }

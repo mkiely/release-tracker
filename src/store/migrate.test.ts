@@ -779,3 +779,19 @@ describe('migrate — edge cases', () => {
     expect(result).toEqual(current);
   });
 });
+
+describe('migrate v30 → v31 (createdBy)', () => {
+  const v30 = () => ({
+    version: 30,
+    teams: [],
+    releases: [],
+    items: [{ id: 'it1', releaseId: 'r1', workStreamId: null, sprintId: null, key: 'K-1', subject: 'S', description: '', status: 'Not Started', points: 3, externalId: 'EXT-1', assignedMemberId: null, build: null, externalUrl: null, dirtyFields: [], syncedValues: null, itemType: null, attributes: {}, createdISO: null, updatedISO: null }],
+    meta: { lastSyncISO: null },
+  });
+
+  it('backfills createdBy to null — no author was ever recorded', () => {
+    const next = migrate(v30())!;
+    expect(next.version).toBe(SCHEMA_VERSION);
+    expect(next.items[0].createdBy).toBeNull();
+  });
+});

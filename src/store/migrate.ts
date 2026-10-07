@@ -454,6 +454,12 @@ export function migrate(persisted: PersistedState): AppState | null {
     s = { ...s, version: 30 };
   }
 
+  // v30 → v31: work items gain `createdBy`. No author was ever recorded, so every
+  // existing item backfills to null (hidden) until its next sync supplies one.
+  if (s.version === 30) {
+    s = { ...s, version: 31, items: s.items.map((i) => ({ ...i, createdBy: null })) };
+  }
+
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
