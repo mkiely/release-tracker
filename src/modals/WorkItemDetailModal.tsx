@@ -283,9 +283,10 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
                 backend, on a local one the app stamps them — so they read as a footnote,
                 not as fields. Hidden entirely when neither is known (items predating the
                 field; connectors that send no timestamps). */}
-            {(it.createdISO || it.updatedISO) && (
+            {(it.createdBy || it.createdISO || it.updatedISO) && (
               <PMetaLine
                 items={[
+                  ...(it.createdBy ? [{ label: 'Created by', value: it.createdBy }] : []),
                   { label: 'Created', value: fmtDateTime(it.createdISO), title: it.createdISO ?? undefined },
                   { label: 'Last modified', value: fmtDateTime(it.updatedISO), title: it.updatedISO ?? undefined },
                 ]}

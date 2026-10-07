@@ -15,7 +15,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 30;
+export const SCHEMA_VERSION = 31;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog, its
  *  status vocabulary (native workflow states mapped to canonical categories),
@@ -256,6 +256,11 @@ export interface WorkItem {
    */
   createdISO: string | null;
   updatedISO: string | null;
+  /** Display name of whoever created the item. Connector-owned and read-only, on the
+   *  same terms as {@link createdISO}: external wins on every sync. Null on local
+   *  items (the app has no user identity to stamp) and wherever the backend records
+   *  no author. */
+  createdBy: string | null;
   /** Writeable fields edited locally since last sync/push, awaiting push. Empty for clean items. */
   dirtyFields: string[];
   /**

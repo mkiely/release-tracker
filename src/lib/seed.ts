@@ -13,7 +13,8 @@ import { EDGE_TEAM_ID, buildEdgeCaseRelease } from './seedEdgeCases';
 // the future; the counter spreads successive items apart rather than stamping a
 // whole sprint's worth at one instant.
 let stampN = 0;
-const stamps = (anchorISO: string): { createdISO: string; updatedISO: string } => {
+const AUTHORS = ['Rui Martinez', 'Sam Kowalski', 'Nils Andersen', 'Priya Varma', 'Dana Whitfield'];
+const stamps = (anchorISO: string): { createdISO: string; updatedISO: string; createdBy: string } => {
   const n = stampN++;
   const created = dOf(addDays(anchorISO, -(3 + (n % 6))));
   created.setHours(9 + (n % 8), (n * 13) % 60, 0, 0);
@@ -22,6 +23,7 @@ const stamps = (anchorISO: string): { createdISO: string; updatedISO: string } =
   return {
     createdISO: new Date(Math.min(created.getTime(), now)).toISOString(),
     updatedISO: new Date(Math.min(updated.getTime(), now)).toISOString(),
+    createdBy: AUTHORS[n % AUTHORS.length],
   };
 };
 

@@ -409,6 +409,7 @@ export function createActions(ctx: ActionContext): Actions {
         statusNative: null,
         attributes: {},
         createdISO: nowISO(),
+        createdBy: null,
         updatedISO: nowISO(),
       };
       commit((d) => { d.items = [...d.items, it]; });
@@ -512,6 +513,7 @@ export function createActions(ctx: ActionContext): Actions {
         // App-owned while queued; the backend's own stamps replace these when the
         // push reconciles the created item.
         createdISO: nowISO(),
+        createdBy: null,
         updatedISO: nowISO(),
         pendingCreate: true,
       };
