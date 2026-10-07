@@ -263,7 +263,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
             <PField label="Subject">
               <PInput value={subject} disabled={!canWrite('subject')} onChange={(e) => setSubject(e.target.value)} />
             </PField>
-            <PField label="Description">
+            <PField fill label="Description">
               {it.descriptionFormat === 'html' ? (
                 <RichTextEditor value={desc} editable={canWrite('description')} onChange={setDesc} />
               ) : (
@@ -272,10 +272,6 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
                   disabled={!canWrite('description')}
                   placeholder="No description yet — add detail, acceptance criteria, links…"
                   onChange={(e) => setDesc(e.target.value)}
-                  // Taller than the create form's default: this is the field the
-                  // two-column layout exists to serve, and the rail beside it is
-                  // what pays for the height.
-                  className={styles.editorPane}
                 />
               )}
             </PField>

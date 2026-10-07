@@ -63,7 +63,7 @@ export function WorkItemModal({
             <PField label="Subject">
               <PInput autoFocus value={subject} placeholder="Short summary of the work" onChange={(e) => setSubject(e.target.value)} />
             </PField>
-            <PField label="Description" hint="supports markdown pasted content">
+            <PField fill label="Description" hint="supports markdown pasted content">
               <RichTextEditor value={desc} onChange={setDesc} />
             </PField>
           </>

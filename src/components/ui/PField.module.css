@@ -18,3 +18,21 @@
   color: var(--rt-st-bl-text);
   line-height: var(--rt-lh-snug);
 }
+
+/* A field that takes the height its column has left (the description in a split
+   modal). flex-basis 0 with a floor, rather than 1 1 auto, so the control's own
+   content doesn't set the column's height: a long description scrolls INSIDE its
+   frame instead of stretching the dialog, and the frame grows to match a taller
+   rail instead of stopping short of it. The control is the last child (after the
+   label); this overrides the rich editor's own 46vh cap, which exists for the
+   stacked layouts where nothing else bounds it. */
+.fill {
+  flex: 1 1 0;
+  min-height: 380px;
+}
+.fill > :last-child {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none;
+}
+.fill > textarea { resize: none; }

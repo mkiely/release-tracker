@@ -95,12 +95,13 @@
 
    Both tracks carry minmax(0, …) because grid items default to min-content width,
    which a long unbroken token in a description would otherwise push the whole
-   dialog past. align-items:start keeps the rail at the top instead of stretching
-   its fields to match a tall description. */
+   dialog past. The tracks stretch to one height, so the description's frame can fill
+   the column beside a tall rail; the rail's own fields stay at their natural height
+   (it is a flex column, and stretch only widens them). */
 .splitBody {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
-  align-items: start;
+  align-items: stretch;
   gap: 22px;
 }
 /* Below the breakpoint the rail would be too narrow for a select to read, so the
