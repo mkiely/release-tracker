@@ -462,6 +462,14 @@ export function streamForecast(
   }
   // "Complete" is a fact about ALL remaining work, not just the pre-freeze slice — a
   // stream with work parked after the freeze isn't done.
+  // Every POINTED item is done, but open ones nobody has estimated would still be
+  // left. Reading 0 remaining points as "complete" is the same trap as the all-unpointed
+  // case above, one step removed: the unestimated work is invisible to the arithmetic,
+  // not absent from the stream.
+  if (health.remainingPts === 0 && health.unpointedCount > 0) {
+    const n = health.unpointedCount;
+    return { ...base, ...inert, verdict: 'unestimated', summary: `Pointed work is done, but ${n} open item${n === 1 ? ' is' : 's are'} not yet estimated` };
+  }
   if (health.remainingPts === 0) {
     return { ...base, ...inert, verdict: 'complete', effectiveEngineers: engineersRequired, summary: 'All work complete' };
   }

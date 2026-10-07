@@ -556,6 +556,13 @@ describe('forward capacity-fit health', () => {
       expect(f.verdict).toBe('unconfigured');
     });
 
+    it('is not complete while open items remain unestimated', () => {
+      const h: StreamHealth = { itemCount: 3, totalPts: 30, donePts: 30, remainingPts: 0, blockedPts: 0, pct: 100, pointsByStatus: [], openCount: 2, unpointedCount: 2 };
+      const f = streamForecast(h, 2, ctx(), noContention);
+      expect(f.verdict).toBe('unestimated');
+      expect(f.summary).toMatch(/2 open items are not yet estimated/);
+    });
+
     it('is complete when estimated work is all done', () => {
       const done: StreamHealth = { itemCount: 3, totalPts: 30, donePts: 30, remainingPts: 0, blockedPts: 0, pct: 100, pointsByStatus: [], openCount: 0, unpointedCount: 0 };
       const f = streamForecast(done, 2, ctx(), noContention);
