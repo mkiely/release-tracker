@@ -89,7 +89,10 @@
      split itself lives in Modal.module.css (.splitBody). Its stacking breakpoint
      is a literal there rather than a token — a custom property can't be read
      inside a media query, so a token would look authoritative without applying. */
-  --rt-modal-w-work-item: min(1480px, 95vw);
+  /* 95vw does the sizing; the px figure is only a ceiling for ultrawide monitors.
+     It used to be 1480px, and min() of that against 95vw can never exceed 1480px, so
+     the dialog stopped growing on any screen wider than ~1560px. */
+  --rt-modal-w-work-item: min(2400px, 95vw);
   /* The timeline panel runs wider than the item modals: it is a chart of the whole
      release, so every extra pixel buys both calendar resolution and room for a long
      work-stream name before it truncates. Near-full-bleed on purpose. */

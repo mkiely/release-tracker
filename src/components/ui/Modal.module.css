@@ -121,13 +121,10 @@
   gap: 16px;
   min-width: 0;
 }
-/* The ~90ch line-length rule is for prose you read; this column is a column you
-   WRITE in, and the description carries tables, lists and pasted markdown that a
-   reading measure squeezes for no benefit. The cap stays only as a backstop against
-   a genuinely enormous viewport. */
-.splitMain {
-  max-width: 120ch;
-}
+/* No line-length cap: this is a column you WRITE in, and the description carries
+   tables, lists and pasted markdown that a reading measure squeezes for no benefit.
+   A cap here also made the dialog's extra width pure dead space beside the editor,
+   since the rail is a fixed track. The dialog's own width ceiling is the backstop. */
 
 /* Buttons don't shrink (their labels are whole phrases — "Use default (last
    sprint end)"), so the row wraps instead of breaking out of the dialog. */
