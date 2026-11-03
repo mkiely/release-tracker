@@ -3,8 +3,8 @@
 
 import { useState, type CSSProperties } from 'react';
 import { type AttrValue } from '../types';
-import { getActions, selItemsFor, selRelease, useStore } from '../store/store';
-import { buildPushPreview, type PushItemPreview } from '../sync/push';
+import { getActions, selItemsFor, selRelease, selTeam, useStore } from '../store/store';
+import { buildPushPreview, refDisplayName, type PushItemPreview } from '../sync/push';
 import { htmlToText } from '../lib/htmlNormalize';
 import { displayValue } from '../components/fields/registry';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
@@ -33,6 +33,7 @@ export function PushReviewModal({
 }) {
   const r = useStore((s) => selRelease(s, releaseId));
   const items = useStore((s) => selItemsFor(s, releaseId));
+  const team = useStore((s) => selTeam(s, selRelease(s, releaseId)?.teamId));
   const meta = useConnectorMeta(r?.connector?.type);
   const [busy, setBusy] = useState(false);
 
@@ -42,13 +43,13 @@ export function PushReviewModal({
     );
   }
 
-  const sprintName = (id: string | null): string =>
-    id == null ? 'No sprint' : (r.sprints.find((s) => s.id === id)?.name ?? 'Unknown sprint');
-  const streamName = (id: string | null): string =>
-    id == null ? 'No stream' : (r.workStreams.find((w) => w.id === id)?.name ?? 'Unknown stream');
+  const refs = { sprints: r.sprints, workStreams: r.workStreams, members: team?.members ?? [] };
   const statusVocab = meta?.statuses?.length ? meta.statuses : (r.catalog?.statuses ?? []);
+  // Ref fields arrive as local ids (buildPushPreview reads the pushable value), so
+  // each resolves against the release's own entities — never shown raw.
   const valueText = (d: PushItemPreview['diffs'][number], v: AttrValue): string => {
-    if (d.field === 'sprint') return sprintName(v as string | null);
+    const ref = refDisplayName(d.field, v, refs);
+    if (ref !== undefined) return ref;
     if (d.field === 'status') return statusVocab.find((sd) => sd.id === v)?.label ?? (v == null ? '—' : String(v));
     // Descriptions are long rich-text HTML; show a plain-text projection (clipped
     // at render). The point of the row is to flag that description is included,
@@ -156,8 +157,8 @@ export function PushReviewModal({
                     </span>
                   </div>
                   <div className={styles.createMeta}>
-                    <span><span className="t3">Stream</span> {streamName(c.workStreamId)}</span>
-                    <span><span className="t3">Sprint</span> {sprintName(c.sprintId)}</span>
+                    <span><span className="t3">Stream</span> {refDisplayName('workStream', c.workStreamId, refs)}</span>
+                    <span><span className="t3">Sprint</span> {refDisplayName('sprint', c.sprintId, refs)}</span>
                     {c.points != null && <span><span className="t3">Points</span> {c.points}</span>}
                   </div>
                 </div>

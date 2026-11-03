@@ -40,6 +40,25 @@ export interface PushItemPreview {
   diffs: PushFieldDiff[];
 }
 
+/** Display name for a ref-valued diff side, or undefined when `field` is not a ref
+ *  field. buildPushPreview hands refs back as local ids; a null id is the explicit
+ *  empty state ("No sprint"), and an id that no longer resolves says so rather than
+ *  leaking the raw id into the review. */
+export function refDisplayName(field: string, id: AttrValue, refs: PushRefs): string | undefined {
+  const pick = <T extends { id: string; name: string }>(list: T[], none: string, unknown: string) =>
+    id == null ? none : (list.find((e) => e.id === id)?.name ?? unknown);
+  switch (field) {
+    case 'sprint':
+      return pick(refs.sprints, 'No sprint', 'Unknown sprint');
+    case 'workStream':
+      return pick(refs.workStreams, 'No stream', 'Unknown stream');
+    case 'assignee':
+      return pick(refs.members, 'Unassigned', 'Unknown member');
+    default:
+      return undefined;
+  }
+}
+
 /**
  * Build a human-readable preview of what a push will send: per-item, the
  * writeable fields that are dirty with their synced (old) → local (new) values.

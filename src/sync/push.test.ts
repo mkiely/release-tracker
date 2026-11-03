@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCreateRequest, buildPushChanges, buildPushPreview, type PushRefs } from './push';
+import { buildCreateRequest, buildPushChanges, buildPushPreview, refDisplayName, type PushRefs } from './push';
 import { aMember, aSprint, aStream, anItem } from '../test/factories';
 import type { Member, Sprint, WorkItem, WorkStream } from '../types';
 import type { ConnectorItemType } from './schema';
@@ -343,5 +343,54 @@ describe('buildCreateRequest', () => {
     const it = item({ pendingCreate: true, externalId: null, itemType: { id: 'nope', label: 'X' }, attributes: {} });
     const req = buildCreateRequest(it, refs, [createType]);
     expect(req.fields).toEqual({});
+  });
+});
+
+describe('refDisplayName', () => {
+  const refs = pushRefs(
+    [aSprint({ id: 'sp_1', name: 'Sprint 4', externalId: null })],
+    [aStream({ id: 'ws_1', name: 'Checkout API', externalId: null })],
+    [aMember({ id: 'm_1', name: 'Marco P.', externalId: null })],
+  );
+
+  it('resolves each ref field from its local id', () => {
+    expect(refDisplayName('sprint', 'sp_1', refs)).toBe('Sprint 4');
+    expect(refDisplayName('workStream', 'ws_1', refs)).toBe('Checkout API');
+    expect(refDisplayName('assignee', 'm_1', refs)).toBe('Marco P.');
+  });
+
+  it('names the empty state per field', () => {
+    expect(refDisplayName('sprint', null, refs)).toBe('No sprint');
+    expect(refDisplayName('workStream', null, refs)).toBe('No stream');
+    expect(refDisplayName('assignee', null, refs)).toBe('Unassigned');
+  });
+
+  it('does not leak an id that no longer resolves', () => {
+    expect(refDisplayName('workStream', 'ws_gone', refs)).toBe('Unknown stream');
+    expect(refDisplayName('assignee', 'm_gone', refs)).toBe('Unknown member');
+    expect(refDisplayName('sprint', 'sp_gone', refs)).toBe('Unknown sprint');
+  });
+
+  it('is undefined for non-ref fields so the caller formats them', () => {
+    expect(refDisplayName('points', 5, refs)).toBeUndefined();
+    expect(refDisplayName('status', 'open', refs)).toBeUndefined();
+  });
+
+  it('resolves both sides of a workStream and assignee change emitted by buildPushPreview', () => {
+    const items = [
+      item({
+        itemType: { id: 'rich', label: 'Rich' },
+        workStreamId: 'ws_1',
+        assignedMemberId: 'm_1',
+        dirtyFields: ['workStream', 'assignee'],
+        syncedValues: { workStream: 'ws_gone', assignee: null },
+      }),
+    ];
+    const [{ diffs }] = buildPushPreview(items, [richType]);
+    const shown = diffs.map((d) => [d.field, refDisplayName(d.field, d.from, refs), refDisplayName(d.field, d.to, refs)]);
+    expect(shown).toEqual([
+      ['workStream', 'Unknown stream', 'Checkout API'],
+      ['assignee', 'Unassigned', 'Marco P.'],
+    ]);
   });
 });
