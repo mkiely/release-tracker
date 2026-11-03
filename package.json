@@ -22,11 +22,11 @@
     "prepack": "node scripts/stage-tarball.mjs"
   },
   "dependencies": {
-    "@tiptap/extension-image": "^3.27.0",
-    "@tiptap/extension-table": "^3.27.0",
-    "@tiptap/pm": "^3.27.0",
-    "@tiptap/react": "^3.27.0",
-    "@tiptap/starter-kit": "^3.27.0",
+    "@tiptap/extension-image": "^3.32.2",
+    "@tiptap/extension-table": "^3.32.2",
+    "@tiptap/pm": "^3.32.2",
+    "@tiptap/react": "^3.32.2",
+    "@tiptap/starter-kit": "^3.32.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
