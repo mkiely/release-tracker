@@ -43,6 +43,13 @@
   border-bottom: 1.5px solid var(--rt-line);
 }
 
+.toolbarSep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: var(--rt-line);
+}
+
 .editorScroll {
   flex: 1 1 auto;
   overflow-y: auto;
@@ -192,4 +199,51 @@
 
 .content :global(.ProseMirror-selectednode) {
   outline: 2px solid var(--rt-accent);
+}
+
+/* Tables. Connector tables arrive with no styling of their own, so give every
+   cell a border or they read as loose text. Fixed layout + word-break keeps a wide
+   table inside the modal instead of widening it. */
+.content table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0.75em 0;
+  overflow: hidden;
+}
+
+.content th,
+.content td {
+  border: 1px solid var(--rt-line-strong);
+  padding: 5px 8px;
+  vertical-align: top;
+  text-align: left;
+  position: relative;
+  min-width: 1em;
+}
+
+.content th {
+  background: var(--rt-fill);
+  font-weight: var(--rt-fw-semibold);
+}
+
+.content td > p,
+.content th > p {
+  margin: 0;
+}
+
+.content :global(.selectedCell)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--rt-accent);
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
 }

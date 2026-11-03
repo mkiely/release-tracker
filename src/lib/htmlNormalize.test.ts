@@ -39,3 +39,34 @@ describe('htmlToText', () => {
     expect(htmlToText('<p></p>')).toBe('');
   });
 });
+
+describe('tables and images', () => {
+  const table =
+    '<table><tbody><tr><th colspan="1" rowspan="1"><p>Name</p></th></tr>' +
+    '<tr><td colspan="1" rowspan="1"><p>Ada</p></td></tr></tbody></table>';
+  const image = '<img src="https://example.com/a.png" alt="diagram">';
+
+  it('keeps a table through the schema round-trip', () => {
+    expect(normalizeHtml(table)).toContain('<table');
+    expect(normalizeHtml(table)).toContain('<th');
+    expect(normalizeHtml(table)).toContain('Ada');
+  });
+
+  it('keeps an image with its src and alt', () => {
+    const out = normalizeHtml(image);
+    expect(out).toContain('src="https://example.com/a.png"');
+    expect(out).toContain('alt="diagram"');
+  });
+
+  it('detects an edit inside a table cell', () => {
+    expect(htmlEqual(table, table.replace('Ada', 'Grace'))).toBe(false);
+  });
+
+  it('detects an image being removed', () => {
+    expect(htmlEqual(`<p>x</p>${image}`, '<p>x</p>')).toBe(false);
+  });
+
+  it('does not treat a re-serialized table as an edit', () => {
+    expect(htmlEqual(table, normalizeHtml(table))).toBe(true);
+  });
+});
