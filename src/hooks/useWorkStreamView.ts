@@ -6,6 +6,8 @@ import { assessStream } from '../lib/streamAssessment';
 import { applyFacets, buildFacetGroups, catalogItemFacets, isAnyFacetActive, statusFacet, typeFacet } from '../lib/facets';
 import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
+import { useItemSearch, type ItemSearch } from './useItemSearch';
+import { matchesQuery } from '../lib/search';
 import type { Release, Team, WorkItem, WorkStream } from '../types';
 
 export interface WorkStreamViewProps {
@@ -35,6 +37,7 @@ export interface WorkStreamViewProps {
   onOpenTeam: () => void;
   onNewItem: () => void;
   onOpenItem: (itemId: string) => void;
+  search: ItemSearch;
   onToggleFacet: (facetKey: string, value: string) => void;
   onClearFilters: () => void;
   onSync: () => void;
@@ -52,6 +55,7 @@ export function useWorkStreamView(): WorkStreamViewProps | null {
   const { id = '', wsId = '' } = useParams();
 
   const facetState = useFacetSelections(wsId);
+  const search = useItemSearch(wsId);
 
   const r = selRelease(st, id);
   const ws = r?.workStreams.find((w) => w.id === wsId);
@@ -68,8 +72,8 @@ export function useWorkStreamView(): WorkStreamViewProps | null {
     items,
     facetState.selections,
   );
-  const filteredItems = applyFacets(items, facetGroups);
-  const isFiltered = isAnyFacetActive(facetGroups);
+  const filteredItems = applyFacets(items, facetGroups).filter((i) => matchesQuery(i, search.query));
+  const isFiltered = isAnyFacetActive(facetGroups) || search.query.trim() !== '';
 
   // Assessed across the release, not just this stream: contention is a release-level
   // figure, so a stream viewed on its own must still read against the same demand
@@ -98,7 +102,11 @@ export function useWorkStreamView(): WorkStreamViewProps | null {
     onNewItem: () => openModal({ type: r.connector ? 'connectorItem' : 'item', releaseId: id, presetStreamId: ws.id }),
     onOpenItem: (itemId) => openModal({ type: 'itemDetail', itemId }),
     onToggleFacet: facetState.toggle,
-    onClearFilters: facetState.clear,
+    search,
+    onClearFilters: () => {
+      facetState.clear();
+      search.setQuery('');
+    },
     onSync: () => onSync(id),
     onPush: () => onPush(id),
     notify,

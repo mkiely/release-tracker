@@ -11,6 +11,9 @@ import { isAnyFacetActive } from '../lib/facets';
 import { ClearFiltersButton, FilterChip } from './FilterChip';
 import { memberInitials } from './Avatar';
 import { VDivider } from './VDivider';
+import { FacetMenu } from './FacetMenu';
+import { SearchBox } from './SearchBox';
+import type { ItemSearch } from '../hooks/useItemSearch';
 
 /** One avatar-styled toggle (member facets) — matches the sprint bar's look. */
 function AvatarChip({ active, label, title, onClick }: { active: boolean; label: string; title: string; onClick: () => void }) {
@@ -45,21 +48,36 @@ export function FacetBar<T>({
   onToggle,
   onClear,
   leadingDivider = false,
+  search,
 }: {
   groups: FacetGroup<T>[];
   onToggle: (facetKey: string, value: string) => void;
   onClear: () => void;
   /** Render a VDivider before the first group (when the bar has leading content). */
   leadingDivider?: boolean;
+  /** The list's quick search; rendered first, ahead of the facets. */
+  search?: ItemSearch;
 }) {
   const visible = groups.filter((g) => g.visible);
-  if (visible.length === 0) return null;
-  const isFiltered = isAnyFacetActive(groups);
+  if (visible.length === 0 && !search) return null;
+  const isFiltered = isAnyFacetActive(groups) || (search?.query ?? '') !== '';
+  // Collapsed facets lead as compact menus; the chip rows keep their order after.
+  const menus = visible.filter((g) => g.def.collapse);
+  const chips = visible.filter((g) => !g.def.collapse);
   return (
     <>
-      {visible.map((g, gi) => (
+      {search && (
+        <>
+          {leadingDivider && <VDivider />}
+          <SearchBox value={search.query} onChange={search.setQuery} />
+        </>
+      )}
+      {menus.map((g) => (
+        <FacetMenu key={g.def.key} group={g} onToggle={onToggle} />
+      ))}
+      {chips.map((g, gi) => (
         <Fragment key={g.def.key}>
-          {(gi > 0 || leadingDivider) && <VDivider />}
+          {(gi > 0 || leadingDivider || search || menus.length > 0) && <VDivider />}
           {g.options.map((o) => {
             const active = g.selection.has(o.value);
             const title = active ? `Remove filter: ${o.label}` : `Filter: ${o.label}`;

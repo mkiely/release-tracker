@@ -46,6 +46,7 @@ export function SprintView({
   onSetGroupBy,
   onToggleFacet,
   onClearFilters,
+  search,
   onSync,
   onPush,
   notify,
@@ -146,7 +147,7 @@ export function SprintView({
         }}
       >
         <GroupToggle value={groupBy} onChange={onSetGroupBy} />
-        <FacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} leadingDivider />
+        <FacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} search={search} leadingDivider />
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '18px 24px' }}>

@@ -22,6 +22,7 @@ export function WorkStreamView(props: WorkStreamViewProps) {
     onOpenItem,
     onToggleFacet,
     onClearFilters,
+    search,
     notify,
   } = props;
 
@@ -31,7 +32,7 @@ export function WorkStreamView(props: WorkStreamViewProps) {
       hint="drag cards between sprints"
       toolbar={
         <div className={styles.facetBar}>
-          <FacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} />
+          <FacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} search={search} />
         </div>
       }
     >

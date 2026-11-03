@@ -1,9 +1,9 @@
 // Shared chrome — TopBar, Brand, SyncControls, SettingsPanel, NotFound.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMatch, useNavigate } from 'react-router-dom';
 import { THEMES, ThemeStore, useTheme } from '../store/theme';
-import { ViewModeStore, useViewMode } from '../store/viewMode';
+import { setViewMode, useViewMode, type DensityScreen } from '../store/viewMode';
 import { TEXT_SCALES, TextScaleStore, useTextScale } from '../store/textScale';
 import { PresentationStore, usePresentationMode } from '../store/presentationMode';
 import type { Release } from '../types';
@@ -32,9 +32,25 @@ function ThemeSwatch({ bg, dot, size = 14 }: { bg: string; dot: string; size?: n
   );
 }
 
+/** Which density-bearing screen the URL is on; null where density doesn't apply. */
+function useDensityScreen(): DensityScreen | null {
+  const release = useMatch('/releases/:id');
+  const sprint = useMatch('/releases/:id/sprints/:sprintId');
+  const stream = useMatch('/releases/:id/streams/:wsId');
+  return release ? 'release' : sprint ? 'sprint' : stream ? 'stream' : null;
+}
+
+const SCREEN_LABEL: Record<DensityScreen, string> = {
+  release: 'release overview',
+  sprint: 'sprint',
+  stream: 'work stream',
+};
+
 export function SettingsPanel() {
   const theme = useTheme();
-  const viewMode = useViewMode();
+  const screen = useDensityScreen();
+  // Hook order must not depend on the route, so read a density even where none applies.
+  const viewMode = useViewMode(screen ?? 'release');
   const textScale = useTextScale();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -82,23 +98,29 @@ export function SettingsPanel() {
               );
             })}
           </div>
-          <div className={styles.settingsDivider} />
-          <div className={styles.settingsSection}>
-            <div className={styles.settingsSectionLabel}>View style</div>
-            {(['cards', 'table'] as const).map((v) => {
-              const isActive = viewMode === v;
-              return (
-                <button
-                  key={v}
-                  onClick={() => ViewModeStore.set(v)}
-                  className={`${styles.paletteOption} ${isActive ? styles.paletteOptionActive : ''}`}
-                >
-                  <span style={{ flex: 1 }}>{v === 'cards' ? 'Cards' : 'Table'}</span>
-                  {isActive && <span className="t2">{Icon.check}</span>}
-                </button>
-              );
-            })}
-          </div>
+          {screen && (
+            <>
+              <div className={styles.settingsDivider} />
+              <div className={styles.settingsSection}>
+                <div className={styles.settingsSectionLabel} title="Remembered separately for each screen">
+                  View style · {SCREEN_LABEL[screen]}
+                </div>
+                {(['cards', 'table'] as const).map((v) => {
+                  const isActive = viewMode === v;
+                  return (
+                    <button
+                      key={v}
+                      onClick={() => setViewMode(screen, v)}
+                      className={`${styles.paletteOption} ${isActive ? styles.paletteOptionActive : ''}`}
+                    >
+                      <span style={{ flex: 1 }}>{v === 'cards' ? 'Cards' : 'Table'}</span>
+                      {isActive && <span className="t2">{Icon.check}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
           <div className={styles.settingsDivider} />
           <div className={styles.settingsSection}>
             <div className={styles.settingsSectionLabel}>Text size</div>

@@ -6,7 +6,7 @@ import { useViewMode } from '../store/viewMode';
 
 export function WorkStream() {
   const vm = useWorkStreamView();
-  const viewMode = useViewMode();
+  const viewMode = useViewMode('stream');
   const View = viewMode === 'table' ? WorkStreamTable : WorkStreamView;
   return vm ? <View {...vm} /> : <NotFound label="Work stream not found." />;
 }

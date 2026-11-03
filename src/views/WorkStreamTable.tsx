@@ -97,6 +97,7 @@ export function WorkStreamTable(props: WorkStreamViewProps) {
     onOpenItem,
     onToggleFacet,
     onClearFilters,
+    search,
     notify,
   } = props;
   const members = team?.members ?? [];
@@ -134,7 +135,7 @@ export function WorkStreamTable(props: WorkStreamViewProps) {
   return (
     <WorkStreamChrome
       {...props}
-      toolbar={<TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} trailing={<ColumnMenu {...cols} />} />}
+      toolbar={<TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} search={search} trailing={<ColumnMenu {...cols} />} />}
     >
       <div className={styles.body} ref={bodyRef}>
         <ColHeaders groupLabel="Sprint" columns={columns} containerRef={bodyRef} sort={sort} onSort={onSort} onMoveColumn={cols.onMoveColumn} />

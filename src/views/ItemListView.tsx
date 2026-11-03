@@ -39,6 +39,7 @@ export function ItemListView(props: ItemListViewProps) {
     onOpenItem,
     onToggleFacet,
     onClearFilters,
+    search,
   } = props;
   const members = team?.members ?? [];
 
@@ -108,6 +109,7 @@ export function ItemListView(props: ItemListViewProps) {
           groups={facetGroups}
           onToggle={onToggleFacet}
           onClear={onClearFilters}
+          search={search}
           trailing={
             <div className={styles.filterGroup} style={{ justifyContent: 'flex-end' }}>
               <span className={styles.filterLabel}>Group by</span>

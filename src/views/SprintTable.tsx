@@ -150,6 +150,7 @@ export function SprintTable({
   onSetGroupBy,
   onToggleFacet,
   onClearFilters,
+  search,
   onSync,
   onPush,
   notify,
@@ -254,7 +255,7 @@ export function SprintTable({
         onGo={onGoToSprint}
       />
 
-      <TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} trailing={<ColumnMenu {...cols} />} />
+      <TableFacetBar groups={facetGroups} onToggle={onToggleFacet} onClear={onClearFilters} search={search} trailing={<ColumnMenu {...cols} />} />
 
       <div className={styles.body} ref={bodyRef}>
         <ColHeaders groupLabel={groupBy === 'stream' ? 'Work Stream' : 'Status'} columns={columns} hideAssigneeLabel containerRef={bodyRef} sort={sort} onSort={onSort} onMoveColumn={cols.onMoveColumn} />

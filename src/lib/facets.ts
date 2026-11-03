@@ -9,7 +9,8 @@
 // Semantics (unit-tested invariants):
 //  - empty selection = facet inactive (no filtering);
 //  - OR within a facet, AND across facets;
-//  - selections store *group keys* (see prefixGroup), never raw values.
+//  - selections store *group keys* (see prefixGroup), never raw values;
+//  - a facet in SINGLE_SELECT_FACETS holds at most one selection.
 
 import type { ReleaseCatalog, Status, Team, WorkItem, WorkStream } from '../types';
 import type { FieldSpec } from '../sync/schema';
@@ -58,6 +59,9 @@ export interface FacetDef<T> {
   /** Fixed-vocabulary facets (status) render even with <2 observed values. */
   alwaysVisible?: boolean;
   chip?: FacetChipHints;
+  /** Render as an expandable multi-select menu instead of a chip row — for facets
+   *  whose options are many or wide enough to crowd the bar. */
+  collapse?: boolean;
 }
 
 /** A def bound to its live options + selection, ready for a chip bar. */
@@ -80,6 +84,30 @@ export function prefixGroup(separator = '.'): (raw: string) => string {
 }
 
 const EMPTY_SELECTION: ReadonlySet<string> = new Set();
+
+/**
+ * Facets where picking a second option means "switch to that one", not "add it".
+ * Keyed rather than flagged on the def because the selection state is created
+ * before any def exists (the hooks run ahead of the early-return guards).
+ * The assignee is the only one: filtering to two people at once is rarely the
+ * question, "whose is this?" is.
+ */
+export const SINGLE_SELECT_FACETS: ReadonlySet<string> = new Set(['member']);
+
+/** The new selection for a facet after the user clicks `value`: toggles in a
+ *  multi-select facet; replaces (or, on the active option, clears) in a single one. */
+export function toggledSelection(
+  facetKey: string,
+  current: ReadonlySet<string> | undefined,
+  value: string,
+): Set<string> {
+  const had = current?.has(value) ?? false;
+  if (SINGLE_SELECT_FACETS.has(facetKey)) return had ? new Set() : new Set([value]);
+  const next = new Set(current ?? []);
+  if (had) next.delete(value);
+  else next.add(value);
+  return next;
+}
 
 /** Bind defs to the entities in scope + the current selections. */
 export function buildFacetGroups<T>(
@@ -127,6 +155,7 @@ export function statusFacet(exclude: readonly Status[] = []): FacetDef<WorkItem>
     options: () => STATUSES.filter((s) => !exclude.includes(s)).map((s) => ({ value: s, label: s })),
     valueOf: (i) => i.status,
     alwaysVisible: true,
+    collapse: true,
     chip: { vars: (v) => statusVars(v as Status) },
   };
 }
@@ -210,6 +239,7 @@ export function buildItemFacet(): FacetDef<WorkItem> {
       return out;
     },
     valueOf: (i) => (i.build === null ? FACET_NONE : group(i.build)),
+    collapse: true,
     chip: { dotShape: 'square' },
   };
 }
@@ -237,6 +267,7 @@ export function buildStreamFacet(): FacetDef<WorkStream> {
       return out;
     },
     valueOf: (ws) => (ws.build === null ? FACET_NONE : group(ws.build)),
+    collapse: true,
     chip: { dotShape: 'square' },
   };
 }

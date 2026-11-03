@@ -12,6 +12,7 @@ export const Icon: Record<string, ReactElement> = {
   // Push (send outward), as distinct from `sync`'s two-way round trip.
   push: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M8 10.2V2.6" /><path d="M5.1 5.5 8 2.6l2.9 2.9" /><path d="M2.9 9.9v2.3a1.2 1.2 0 0 0 1.2 1.2h7.8a1.2 1.2 0 0 0 1.2-1.2V9.9" /></svg>,
   users: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25"><circle cx="6" cy="5" r="2.4" /><path d="M2 13c0-2.2 1.8-3.6 4-3.6S10 10.8 10 13" strokeLinecap="round" /><path d="M11 3.2A2.2 2.2 0 0 1 12 7.4M11.5 9.6c1.7.3 2.9 1.6 2.9 3.4" strokeLinecap="round" /></svg>,
+  search: <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round"><circle cx="6" cy="6" r="4" /><path d="M9 9l3.2 3.2" /></svg>,
   close: <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round"><path d="M3 3l6 6M9 3l-6 6" /></svg>,
   trash: <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"><path d="M2.5 4h9M5.5 4V2.8h3V4M3.7 4l.5 7.2h5.6l.5-7.2" /></svg>,
   edit: <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M9.3 2.4l2.3 2.3M10.2 1.5a1.2 1.2 0 0 1 1.7 1.7L4.4 10.7 1.8 11.5l.8-2.6 7.6-7.4z" /></svg>,
