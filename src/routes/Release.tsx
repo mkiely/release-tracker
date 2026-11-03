@@ -7,7 +7,7 @@ import { NotFound } from '../components/AppChrome';
 import { useViewMode } from '../store/viewMode';
 import { useAxisMode } from '../store/axisMode';
 
-// (axis, density) → presenter. Density (cards/table) is a global setting; axis
+// (axis, density) → presenter. Density (cards/table) is remembered per screen; axis
 // (sprint/stream) is the on-screen lens. All four share ReleaseChrome.
 const PRESENTERS: Record<string, (props: ReleaseViewProps) => JSX.Element> = {
   'sprint:cards': ReleaseView,
@@ -18,7 +18,7 @@ const PRESENTERS: Record<string, (props: ReleaseViewProps) => JSX.Element> = {
 
 export function Release() {
   const vm = useReleaseView();
-  const viewMode = useViewMode();
+  const viewMode = useViewMode('release');
   const axisMode = useAxisMode();
   const View = PRESENTERS[`${axisMode}:${viewMode}`] ?? ReleaseView;
   return vm ? <View {...vm} /> : <NotFound label="Release not found." />;

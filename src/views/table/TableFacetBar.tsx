@@ -2,6 +2,9 @@ import { Fragment, type ReactNode } from 'react';
 import { isAnyFacetActive, type FacetGroup } from '../../lib/facets';
 import { avatarPalette, memberInitials } from '../../components/Avatar';
 import { FilterChip, ClearFiltersButton } from '../../components/FilterChip';
+import { FacetMenu } from '../../components/FacetMenu';
+import { SearchBox } from '../../components/SearchBox';
+import type { ItemSearch } from '../../hooks/useItemSearch';
 import styles from './table.module.css';
 
 /**
@@ -18,18 +21,34 @@ export function TableFacetBar<T>({
   onToggle,
   onClear,
   trailing,
+  search,
 }: {
   groups: FacetGroup<T>[];
   onToggle: (facetKey: string, value: string) => void;
   onClear: () => void;
   /** Extra bar content after the facets (e.g. the item list's group-by toggle). */
   trailing?: ReactNode;
+  /** The list's quick search. */
+  search?: ItemSearch;
 }) {
-  const visible = groups.filter((g) => g.visible);
-  if (visible.length === 0 && !trailing) return null;
-  const isFiltered = isAnyFacetActive(groups);
+  const all = groups.filter((g) => g.visible);
+  if (all.length === 0 && !trailing && !search) return null;
+  const isFiltered = isAnyFacetActive(groups) || (search?.query ?? '') !== '';
+  const menus = all.filter((g) => g.def.collapse);
+  const visible = all.filter((g) => !g.def.collapse);
   return (
     <div className={styles.filterBarRow}>
+      {(search || menus.length > 0) && (
+        // Outside the scroller, for the same reason `trailing` is: a popover
+        // opened inside an overflow-x container is clipped to it.
+        <div className={styles.filterLead}>
+          {search && <SearchBox value={search.query} onChange={search.setQuery} />}
+          {menus.map((g) => (
+            <FacetMenu key={g.def.key} group={g} onToggle={onToggle} />
+          ))}
+          {visible.length > 0 && <div className={styles.filterLeadDivider} />}
+        </div>
+      )}
       <div className={styles.filterBar}>
         {visible.map((g, gi) => (
         <Fragment key={g.def.key}>
@@ -91,7 +110,7 @@ export function TableFacetBar<T>({
         // both parked off-screen and unclickable — focusing it makes the browser
         // scroll the bar, moving the button out from under the pointer mid-click.
         <div className={styles.filterTrailing}>
-          {visible.length > 0 && <div className={styles.filterDivider} />}
+          {(visible.length > 0 || search || menus.length > 0) && <div className={styles.filterDivider} />}
           {trailing}
         </div>
       )}

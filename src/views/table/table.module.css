@@ -71,6 +71,21 @@
   min-width: 0;
 }
 
+.filterLead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  flex-shrink: 0;
+}
+
+.filterLeadDivider {
+  align-self: stretch;
+  width: 1px;
+  background: var(--rt-line);
+  margin-left: 8px;
+}
+
 .filterBar {
   display: flex;
   align-items: stretch;

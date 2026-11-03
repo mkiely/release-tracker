@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FacetPrefs } from '../store/facetPrefs';
-import type { FacetSelections } from '../lib/facets';
+import { toggledSelection, type FacetSelections } from '../lib/facets';
 
 /** Build the initial selection Map, seeding any persisted keys from FacetPrefs. */
 function seed(resetKey: string, persistKeys: readonly string[]): FacetSelections {
@@ -47,9 +47,7 @@ export function useFacetSelections(
     toggle: (facetKey, value) =>
       setSelections((prev) => {
         const next = new Map(prev);
-        const cur = new Set(prev.get(facetKey) ?? []);
-        if (cur.has(value)) cur.delete(value);
-        else cur.add(value);
+        const cur = toggledSelection(facetKey, prev.get(facetKey), value);
         if (cur.size === 0) next.delete(facetKey);
         else next.set(facetKey, cur);
         if (persistKeys.includes(facetKey)) FacetPrefs.set(resetKey, facetKey, [...cur]);

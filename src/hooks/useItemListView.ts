@@ -16,6 +16,8 @@ import {
 } from '../lib/facets';
 import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
+import { useItemSearch, type ItemSearch } from './useItemSearch';
+import { matchesQuery } from '../lib/search';
 import type { Release, Team, WorkItem } from '../types';
 
 /**
@@ -49,6 +51,7 @@ export interface ItemListViewProps {
   onOpenTeam: () => void;
   onNewItem: () => void;
   onOpenItem: (itemId: string) => void;
+  search: ItemSearch;
   onToggleFacet: (facetKey: string, value: string) => void;
   onClearFilters: () => void;
   onSync: () => void;
@@ -63,6 +66,7 @@ function useItemListView(variant: ItemListVariant): ItemListViewProps | null {
   const { id = '' } = useParams();
 
   const facetState = useFacetSelections(`${id}:${variant}`);
+  const search = useItemSearch(`${id}:${variant}`);
   const [groupBySprint, setGroupBySprint] = useState(false);
 
   const r = selRelease(st, id);
@@ -85,8 +89,8 @@ function useItemListView(variant: ItemListVariant): ItemListViewProps | null {
         ]
       : [statusFacet(), typeFacet(), ...catalogItemFacets(r.catalog)];
   const facetGroups = buildFacetGroups(defs, items, facetState.selections);
-  const filteredItems = applyFacets(items, facetGroups);
-  const isFiltered = isAnyFacetActive(facetGroups);
+  const filteredItems = applyFacets(items, facetGroups).filter((i) => matchesQuery(i, search.query));
+  const isFiltered = isAnyFacetActive(facetGroups) || search.query.trim() !== '';
 
   return {
     variant,
@@ -107,7 +111,11 @@ function useItemListView(variant: ItemListVariant): ItemListViewProps | null {
     onNewItem: () => openModal({ type: r.connector ? 'connectorItem' : 'item', releaseId: id, presetStreamId: undefined }),
     onOpenItem: (itemId) => openModal({ type: 'itemDetail', itemId }),
     onToggleFacet: facetState.toggle,
-    onClearFilters: facetState.clear,
+    search,
+    onClearFilters: () => {
+      facetState.clear();
+      search.setQuery('');
+    },
     onSync: () => onSync(id),
     onPush: () => onPush(id),
     notify,

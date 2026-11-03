@@ -12,6 +12,7 @@ import {
   prefixGroup,
   statusFacet,
   streamItemFacet,
+  toggledSelection,
   typeFacet,
 } from './facets';
 import type { FacetDef } from './facets';
@@ -408,5 +409,24 @@ describe('facet visibility', () => {
     const def: FacetDef<WorkStream> = buildStreamFacet();
     expect(def.valueOf(stream({ build: null }))).toBe(FACET_NONE);
     expect(def.valueOf(stream({ build: '264.9' }))).toBe('264');
+  });
+});
+
+describe('toggledSelection', () => {
+  it('adds and removes in a multi-select facet', () => {
+    const a = toggledSelection('status', undefined, 'Open');
+    const b = toggledSelection('status', a, 'Done');
+    expect([...b].sort()).toEqual(['Done', 'Open']);
+    expect([...toggledSelection('status', b, 'Open')]).toEqual(['Done']);
+  });
+
+  it('replaces the selection in the assignee facet', () => {
+    const a = toggledSelection('member', undefined, 'm1');
+    expect([...toggledSelection('member', a, 'm2')]).toEqual(['m2']);
+  });
+
+  it('clears the assignee facet when its active option is clicked again', () => {
+    const a = toggledSelection('member', undefined, 'm1');
+    expect(toggledSelection('member', a, 'm1').size).toBe(0);
   });
 });

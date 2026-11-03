@@ -7,6 +7,8 @@ import { freezeChipModal } from './freezeChipModal';
 import { applyFacets, buildFacetGroups, buildItemFacet, catalogItemFacets, isAnyFacetActive, memberFacet, statusFacet, typeFacet } from '../lib/facets';
 import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
+import { useItemSearch, type ItemSearch } from './useItemSearch';
+import { matchesQuery } from '../lib/search';
 import { STATUSES, type Release, type Sprint, type Status, type Team, type WorkItem, type WorkStream } from '../types';
 
 export type { SprintGroupBy as GroupBy } from '../store/sprintGroupBy';
@@ -50,6 +52,7 @@ export interface SprintViewProps {
   onOpenItem: (itemId: string) => void;
   onOpenEvent: (eventId: string) => void;
   onSetGroupBy: (v: GroupBy) => void;
+  search: ItemSearch;
   onToggleFacet: (facetKey: string, value: string) => void;
   onClearFilters: () => void;
   onSync: () => void;
@@ -68,6 +71,7 @@ export function useSprintView(): SprintViewProps | null {
 
   const groupBy = useSprintGroupBy();
   const facetState = useFacetSelections(sprintId);
+  const search = useItemSearch(sprintId);
 
   const r = selRelease(st, id);
   const sp = r?.sprints.find((s) => s.id === sprintId);
@@ -89,8 +93,8 @@ export function useSprintView(): SprintViewProps | null {
     items,
     facetState.selections,
   );
-  const filteredItems = applyFacets(items, facetGroups);
-  const isFiltered = isAnyFacetActive(facetGroups);
+  const filteredItems = applyFacets(items, facetGroups).filter((i) => matchesQuery(i, search.query));
+  const isFiltered = isAnyFacetActive(facetGroups) || search.query.trim() !== '';
 
   const streamCols: StreamColumn[] = r.workStreams
     .map((ws) => ({ ws, items: filteredItems.filter((i) => i.workStreamId === ws.id) }))
@@ -131,7 +135,11 @@ export function useSprintView(): SprintViewProps | null {
     onOpenEvent: (eventId) => openModal(freezeChipModal(id, eventId)),
     onSetGroupBy: SprintGroupByStore.set,
     onToggleFacet: facetState.toggle,
-    onClearFilters: facetState.clear,
+    search,
+    onClearFilters: () => {
+      facetState.clear();
+      search.setQuery('');
+    },
     onSync: () => onSync(id),
     onPush: () => onPush(id),
     notify,
