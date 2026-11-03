@@ -1,5 +1,5 @@
 // Canonicalization of work-item HTML descriptions. The rich-text editor parses
-// connector HTML through the ProseMirror/StarterKit schema and re-serializes it
+// connector HTML through the ProseMirror/editor schema and re-serializes it
 // with getHTML(); that round-trip normalizes the markup (drops unknown
 // tags/attributes, reorders attributes, rewrites <br>/whitespace, wraps bare
 // text in <p>). So the editor's serialized string is rarely byte-identical to the
@@ -9,11 +9,11 @@
 // equal HTML collapses to one canonical string before comparison.
 
 import { generateHTML, generateJSON, generateText } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
+import { richTextExtensions } from './richTextExtensions';
 
 // The exact extension set the RichTextEditor mounts, so this canonicalization
 // matches editor.getHTML() output.
-const EXTENSIONS = [StarterKit];
+const EXTENSIONS = richTextExtensions;
 
 /** Connector HTML often uses <p><br></p> as a blank-line separator; TipTap parses
  *  the <br> as a hard break and appends a trailing placeholder. Stripping the <br>

@@ -1,16 +1,17 @@
 import { useEffect } from 'react';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
 import { DOMParser as PMDOMParser } from '@tiptap/pm/model';
 import { markdownToHtml, looksLikeMarkdown } from '../lib/markdown';
 import { normalizeBlanks } from '../lib/htmlNormalize';
+import { richTextExtensions } from '../lib/richTextExtensions';
 import { Icon } from './Icon';
 import { IconButton } from './primitives';
 import styles from './RichTextEditor.module.css';
 
-/** The basic-minimum formatting toolbar: bold/italic + the two list types. Marks
- *  and nodes it drives all come from StarterKit already loaded below — no new
- *  extensions. Markdown shortcuts (`**bold**`, `- `, `1. `) keep working alongside it. */
+/** The formatting toolbar: bold/italic, the two list types, then table insertion.
+ *  Row/column/delete controls appear only while the caret is in a table. Images
+ *  render but have no insert control — authoring them waits on drag/drop support.
+ *  Markdown shortcuts (`**bold**`, `- `, `1. `) keep working alongside it. */
 function Toolbar({ editor }: { editor: Editor }) {
   // Prevent the mousedown's default focus/blur dance from collapsing the editor's
   // selection before the click's command runs.
@@ -41,6 +42,24 @@ function Toolbar({ editor }: { editor: Editor }) {
         active={editor.isActive('orderedList')}
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
       />
+      <span className={styles.toolbarSep} aria-hidden="true" />
+      <IconButton
+        icon={Icon.table}
+        title="Insert table"
+        onClick={() =>
+          editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+        }
+      />
+      {editor.isActive('table') && (
+        <>
+          <span className={styles.toolbarSep} aria-hidden="true" />
+          <IconButton icon={Icon.rowAdd} title="Add row below" onClick={() => editor.chain().focus().addRowAfter().run()} />
+          <IconButton icon={Icon.rowRemove} title="Delete row" onClick={() => editor.chain().focus().deleteRow().run()} />
+          <IconButton icon={Icon.colAdd} title="Add column right" onClick={() => editor.chain().focus().addColumnAfter().run()} />
+          <IconButton icon={Icon.colRemove} title="Delete column" onClick={() => editor.chain().focus().deleteColumn().run()} />
+          <IconButton icon={Icon.trash} title="Delete table" onClick={() => editor.chain().focus().deleteTable().run()} />
+        </>
+      )}
     </div>
   );
 }
@@ -62,7 +81,7 @@ export function RichTextEditor({
   editable?: boolean;
 }) {
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: richTextExtensions,
     content: normalizeBlanks(value),
     editable,
     // Avoid the strict-mode double-mount hydration warning; render in an effect.
