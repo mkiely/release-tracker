@@ -252,6 +252,9 @@ export interface HistoricAllocation extends SprintAllocation {
    *  their reservations then, the roster then. 'estimated' — never observed, so the
    *  whole-release lens's final-plan reading stands in, and must be shown as such. */
   source: 'recorded' | 'estimated';
+  /** The contributing roster the contention was measured against: the reading's for
+   *  a recorded sprint, today's for an estimated one. */
+  contributingCount: number;
 }
 
 export interface HistoricContention {
@@ -277,7 +280,7 @@ export function historicContention(release: Release, retro: ReleaseRetro): Histo
   const perSprint: HistoricAllocation[] = retro.perSprint.map((estimate) => {
     const { sprint } = estimate;
     const latest = sprint.closing ?? sprint.opening;
-    if (!latest) return { ...estimate, source: 'estimated' };
+    if (!latest) return { ...estimate, source: 'estimated', contributingCount: retro.ledger.contributingCount };
     const held = new Set(
       [...(sprint.opening?.items ?? []), ...(sprint.closing?.items ?? [])]
         .map((i) => i.workStreamId)
@@ -291,6 +294,7 @@ export function historicContention(release: Release, retro: ReleaseRetro): Histo
       streamCount: held.size,
       idle: held.size === 0,
       source: 'recorded',
+      contributingCount: latest.contributingCount,
     };
   });
   return {

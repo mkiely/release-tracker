@@ -6,3 +6,34 @@
   color: var(--rt-st-bl-text);
   font-weight: var(--rt-fw-bold);
 }
+
+/* The sprint's recorded review, inline in the reading: a button that reads as a
+   link, like TeamLink beside it. */
+.review {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.review:hover { color: var(--rt-ink); }
+.review:focus-visible {
+  outline: 2px solid var(--rt-st-ac-dot);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.reviewLabel {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+/* Late or stale readings: the figure stands, but it carries a mark. */
+.caveat {
+  color: var(--rt-st-bl-text);
+  font-weight: var(--rt-fw-bold);
+}

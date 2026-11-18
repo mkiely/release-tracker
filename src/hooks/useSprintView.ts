@@ -9,6 +9,9 @@ import type { FacetGroup } from '../lib/facets';
 import { useFacetSelections } from './useFacets';
 import { useItemSearch, type ItemSearch } from './useItemSearch';
 import { matchesQuery } from '../lib/search';
+import { todayISO } from '../lib/dates';
+import { sprintReview } from '../lib/sprintHistory';
+import { reviewReadout, type ReviewReadout } from '../lib/historyReadouts';
 import { STATUSES, type Release, type Sprint, type Status, type Team, type WorkItem, type WorkStream } from '../types';
 
 export type { SprintGroupBy as GroupBy } from '../store/sprintGroupBy';
@@ -41,6 +44,10 @@ export interface SprintViewProps {
   facetGroups: FacetGroup<WorkItem>[];
   groupBy: GroupBy;
   sprintItemCount: number;
+  /** What the sprint's readings say it committed to and did; null when it was never
+   *  observed (or hasn't started), and then the header says nothing rather than zero. */
+  review: ReviewReadout | null;
+  onOpenReview: () => void;
   isFiltered: boolean;
   onHome: () => void;
   onBack: () => void;
@@ -87,6 +94,9 @@ export function useSprintView(): SprintViewProps | null {
   const isActive = !!act && act.id === sp.id;
   const evts = sprintEventChips(r, sp);
   const totalPts = sumPoints(items);
+  const today = todayISO();
+  const recorded = sprintReview(r, sp, today);
+  const review = recorded ? reviewReadout(recorded, today) : null;
 
   const facetGroups = buildFacetGroups(
     [memberFacet(team), statusFacet(), typeFacet(), buildItemFacet(), ...catalogItemFacets(r.catalog)],
@@ -123,6 +133,8 @@ export function useSprintView(): SprintViewProps | null {
     facetGroups,
     groupBy,
     sprintItemCount: items.length,
+    review,
+    onOpenReview: () => openModal({ type: 'sprintReview', releaseId: id, sprintId: sp.id }),
     isFiltered,
     onHome: () => navigate('/'),
     onBack: () => navigate(`/releases/${id}`),

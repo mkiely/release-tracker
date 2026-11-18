@@ -11,6 +11,7 @@ import { CalcCard, Callout } from '../components/ui/Callout';
 import { assessStreams } from '../lib/streamAssessment';
 import { SegBar } from '../components/Badges';
 import { StreamBurnChart } from '../components/Trend';
+import { recordedBurn } from '../lib/historyReadouts';
 import { RunwayBadge, VerdictBadge } from '../components/VerdictLine';
 import { verdictVars, warningVars } from '../components/statusVars';
 import { Row, GoneModal } from './parts';
@@ -46,6 +47,7 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
   const firstRemainingIndex = friRaw < 0 ? r.sprints.length : friRaw;
   const activeIndex = r.sprints.findIndex((sp) => between(today, sp.startISO, sp.endISO));
   const freezeX = freezeSprintX(r.sprints, effectiveStreamCodeFreeze(r, ws));
+  const actual = recordedBurn(r, wsId, today);
 
   const n1 = (x: number) => (Math.round(x * 10) / 10).toString();
   const shortfall = forecast.shortfallPts;
@@ -91,9 +93,9 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
             Awaiting estimate · {health.unpointedCount} of {health.openCount} open items
           </span>
           {streamItems.filter(isUnpointed).slice(0, UNPOINTED_LIST_MAX).map((it) => (
-            <button key={it.id} type="button" className={styles.unpointedRow} onClick={() => openModal({ type: 'itemDetail', itemId: it.id })}>
+            <button key={it.id} type="button" className={modalStyles.itemRow} onClick={() => openModal({ type: 'itemDetail', itemId: it.id })}>
               <span className="mono t3">{it.key}</span>
-              <span className={styles.unpointedSubject}>{it.subject}</span>
+              <span className={modalStyles.itemRowSubject}>{it.subject}</span>
             </button>
           ))}
           {health.unpointedCount > UNPOINTED_LIST_MAX && (
@@ -125,9 +127,17 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
             remainingPts={health.remainingPts}
             effectiveCap={forecast.effectiveCap}
             tone={v.tone === 'risk' ? 'risk' : 'ok'}
+            actual={actual}
           />
           <span className={modalStyles.footnote}>
-            Bars show planned points per sprint (x-axis = sprint assignment, not completion history — an approximation).
+            {actual.length > 0 ? (
+              <>
+                The dark line is what was recorded: points remaining at each sprint's opening and close. Gaps are sprints
+                nobody observed; hollow points are incomplete readings. Bars show planned points per sprint.
+              </>
+            ) : (
+              <>Bars show planned points per sprint (x-axis = sprint assignment, not completion history — none is recorded yet).</>
+            )}{' '}
             The line burns the remaining {health.remainingPts} pts down by the stream's capacity up to the amber <strong style={{ color: warningVars().dot }}>code freeze</strong>;
             where it reaches zero is the projected finish, and any gap at the freeze is the shortfall. Sprints past the freeze are faded — no work can land there.
           </span>

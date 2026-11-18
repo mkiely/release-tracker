@@ -198,7 +198,7 @@ describe('historicContention', () => {
     // Since then the reservations were cut to 1 each — today's plan fits.
     const now = { ...r, workStreams: r.workStreams.map((ws) => ({ ...ws, engineersRequired: 1 })) };
     const h = historicContention(now, retroOf(now, items));
-    expect(h.perSprint[0]).toMatchObject({ source: 'recorded', contention: { totalRequired: 4, overAllocated: true } });
+    expect(h.perSprint[0]).toMatchObject({ source: 'recorded', contributingCount: 3, contention: { totalRequired: 4, overAllocated: true } });
     expect(h.recordedSprints).toBe(1);
   });
 
