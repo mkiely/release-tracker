@@ -214,7 +214,8 @@
               "workStreamId": { "type": ["string", "null"] },
               "scopePts": { "type": "number", "minimum": 0, "description": "All points in the stream, complete or not; null points contribute 0." },
               "remainingPts": { "type": "number", "minimum": 0, "description": "Points not yet Complete." },
-              "engineersRequired": { "type": ["number", "null"], "description": "The stream's reservation that day; always null on the no-stream entry." }
+              "engineersRequired": { "type": ["number", "null"], "description": "The stream's reservation that day; always null on the no-stream entry." },
+              "planningState": { "type": "string", "enum": ["open", "deferred", "complete"], "description": "The stream's planning posture that day. Points written while 'open'/'deferred' are planning progress; points that appear after 'complete' are scope growth. Optional: absent on the no-stream entry and on early readings, read as not declared complete." }
             },
             "required": ["workStreamId", "scopePts", "remainingPts", "engineersRequired"],
             "additionalProperties": false

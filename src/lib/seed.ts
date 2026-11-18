@@ -105,6 +105,10 @@ const NEXUS_STORY: SeedStory = {
   slipped: { 'Per-tenant rate limiting on the edge': [3, 4] },
   // Pulled into the active sprint after it began.
   addedMidSprint: ['Fix dedup window off-by-one under high lag'],
+  // API Gateway (planningState 'complete' today) wrote its tickets as it went, then
+  // declared its scope complete at Integration Prep. What it gained after that is the
+  // release's genuine scope growth; everything before is planning progress.
+  declaredComplete: { 'API Gateway': 3 },
 };
 const NEXUS_TYPE_POOL: ItemType[] = [
   { id: 'acme_story', label: 'Story' },

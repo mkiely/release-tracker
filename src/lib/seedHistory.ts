@@ -30,6 +30,11 @@ export interface SeedStory {
   /** Subjects pulled into their current sprint after it began: absent from that
    *  sprint's opening, present at its close. */
   addedMidSprint?: string[];
+  /** Stream name → the sprint index at whose opening it declared its scope complete.
+   *  Before that the stream reads 'open', so the tickets it wrote earlier are planning
+   *  progress; from then on it holds its current posture, and any points it gains are
+   *  growth. Streams not named hold their current posture throughout. */
+  declaredComplete?: Record<string, number>;
 }
 
 type Phase = 'opening' | 'closing';
@@ -69,11 +74,22 @@ export function seedSprintHistory(
     });
   };
 
+  /** The release as its streams stood at sprint `k`: a stream not yet declared complete
+   *  reads 'open' (declaration happens at an opening, so both readings of `k` agree). */
+  const asOf = (k: number): Release => ({
+    ...release,
+    workStreams: release.workStreams.map((ws) => {
+      const at = story.declaredComplete?.[ws.name];
+      return at !== undefined && k < at ? { ...ws, planningState: 'open' as const } : ws;
+    }),
+  });
+
   return release.sprints.map((sp, k) => {
     if (sp.startISO > today) return sp;
-    const opening = buildSprintReading(release, team, sp, viewAt(k, 'opening'), sp.startISO);
+    const then = asOf(k);
+    const opening = buildSprintReading(then, team, sp, viewAt(k, 'opening'), sp.startISO);
     if (sp.endISO >= today) return { ...sp, opening };
-    return { ...sp, opening, closing: buildSprintReading(release, team, sp, viewAt(k, 'closing'), sp.endISO) };
+    return { ...sp, opening, closing: buildSprintReading(then, team, sp, viewAt(k, 'closing'), sp.endISO) };
   });
 }
 

@@ -179,6 +179,18 @@ export function carryOver(release: Release, items: WorkItem[], today: string = t
 }
 
 // ── Scope over time ─────────────────────────────────────────────────────────
+// Two different questions, kept apart on purpose.
+//
+// scopeSeries is the raw record — scope and remaining at every reading — for a burn
+// line. It makes no judgement about why scope moved.
+//
+// scopeChange is the judgement. Points appearing in the record are not all growth:
+// a team writing tickets as it goes (which the runway metric asks for) produces the
+// same rising total as one taking on new work. What separates them is whether the
+// stream had declared its scope complete when the points arrived. Before that,
+// new points are planning progress; after it, they are growth. A single "scope
+// grew N%" figure blurred the two and, on a release planned progressively, read as
+// runaway creep — so there is deliberately no release-wide percentage here.
 
 export interface ScopePoint {
   dateISO: string;
@@ -192,32 +204,18 @@ export interface SprintScope {
   closing: ScopePoint | null;
 }
 
-export interface ScopeSeries {
-  perSprint: SprintScope[];
-  /** The earliest reading there is, and the sprint it belongs to. Not necessarily the
-   *  release's start: history begins whenever observation did. */
-  baseline: (ScopePoint & { sprintId: string }) | null;
-  /** The most recent reading there is. */
-  latest: (ScopePoint & { sprintId: string }) | null;
-  /** latest.scopePts − baseline.scopePts. Negative when scope was cut. */
-  growthPts: number;
-  /** growthPts / baseline.scopePts as a whole percentage; null with no baseline scope. */
-  growthPct: number | null;
-}
-
 /**
- * Release (or one stream's) scope and remaining work at each reading — the input
- * for an actual burn line and for "scope grew N% since planning".
+ * Release (or one stream's) scope and remaining work at each reading, per sprint —
+ * the input for the recorded burn line.
  *
  * `workStreamId` narrows it: undefined for the whole release (muted streams out,
  * the no-stream bucket in, as the live totals count it), a stream id for that
  * stream, or null for the no-stream bucket alone.
  */
-export function scopeSeries(release: Release, workStreamId?: string | null): ScopeSeries {
-  const muted = mutedIds(release);
+export function scopeSeries(release: Release, workStreamId?: string | null): SprintScope[] {
   const pick =
     workStreamId === undefined
-      ? counted(muted)
+      ? counted(mutedIds(release))
       : (s: { workStreamId: string | null }) => s.workStreamId === workStreamId;
   const point = (r: SprintReading | null): ScopePoint | null => {
     if (!r) return null;
@@ -228,20 +226,125 @@ export function scopeSeries(release: Release, workStreamId?: string | null): Sco
       remainingPts: streams.reduce((a, s) => a + s.remainingPts, 0),
     };
   };
+  return release.sprints.map((sprint) => ({ sprint, opening: point(sprint.opening), closing: point(sprint.closing) }));
+}
 
-  const perSprint = release.sprints.map((sprint) => ({ sprint, opening: point(sprint.opening), closing: point(sprint.closing) }));
-  const timeline = perSprint.flatMap((s) =>
-    [s.opening, s.closing].filter((p): p is ScopePoint => p !== null).map((p) => ({ ...p, sprintId: s.sprint.id })),
+export interface StreamScopeChange {
+  workStreamId: string | null;
+  /** Net points written while the stream had not declared its scope complete. Can
+   *  be negative: tickets removed during planning are planning too. */
+  planningPts: number;
+  /** Points that appeared after the stream declared its scope complete. */
+  grownPts: number;
+  /** Points that disappeared after it declared its scope complete. */
+  cutPts: number;
+}
+
+export interface ScopeChange {
+  /** Where the record begins — rarely the release's own start. Null when nothing
+   *  has been recorded. */
+  from: { sprintId: string; dateISO: string; phase: 'opening' | 'closing' } | null;
+  /** Release totals of the per-stream figures below. */
+  planningPts: number;
+  grownPts: number;
+  cutPts: number;
+  /** Some counted stream was 'complete' in some reading. Without that, no change can
+   *  count as growth — worth saying, so "no growth" isn't read as a clean bill. */
+  everDeclared: boolean;
+  /** Streams with any change, largest growth first. */
+  byStream: StreamScopeChange[];
+}
+
+/**
+ * How the release's scope moved across the record, split into planning progress
+ * and growth.
+ *
+ * Every pair of consecutive readings is compared stream by stream. A change counts
+ * as growth (or a cut) only if the EARLIER reading already had the stream declared
+ * 'complete' — the posture it held when the points arrived, not the one it holds
+ * now. A stream with no earlier entry is new, and its points are planning; so is
+ * everything in a reading that predates planning states being recorded, and the
+ * no-stream bucket, which can never be declared complete. Muted streams are out, as
+ * everywhere.
+ */
+export function scopeChange(release: Release): ScopeChange {
+  const keep = counted(mutedIds(release));
+  const timeline = release.sprints.flatMap((sp) =>
+    (
+      [
+        ['opening', sp.opening],
+        ['closing', sp.closing],
+      ] as const
+    )
+      .filter((e): e is readonly ['opening' | 'closing', SprintReading] => e[1] !== null)
+      .map(([phase, r]) => ({ sprintId: sp.id, phase, reading: r })),
   );
-  const baseline = timeline[0] ?? null;
-  const latest = timeline.at(-1) ?? null;
-  const growthPts = baseline && latest ? latest.scopePts - baseline.scopePts : 0;
+
+  const by = new Map<string | null, StreamScopeChange>();
+  const entry = (id: string | null) => {
+    let e = by.get(id);
+    if (!e) by.set(id, (e = { workStreamId: id, planningPts: 0, grownPts: 0, cutPts: 0 }));
+    return e;
+  };
+  for (let k = 1; k < timeline.length; k++) {
+    const prev = new Map(timeline[k - 1].reading.streams.filter(keep).map((s) => [s.workStreamId, s] as const));
+    const next = new Map(timeline[k].reading.streams.filter(keep).map((s) => [s.workStreamId, s] as const));
+    for (const id of new Set([...prev.keys(), ...next.keys()])) {
+      const before = prev.get(id);
+      const delta = (next.get(id)?.scopePts ?? 0) - (before?.scopePts ?? 0);
+      if (delta === 0) continue;
+      const e = entry(id);
+      if (before?.planningState === 'complete') {
+        if (delta > 0) e.grownPts += delta;
+        else e.cutPts -= delta;
+      } else {
+        e.planningPts += delta;
+      }
+    }
+  }
+
+  const byStream = [...by.values()].sort((a, b) => b.grownPts - a.grownPts || b.cutPts - a.cutPts);
+  const sum = (f: (e: StreamScopeChange) => number) => byStream.reduce((a, e) => a + f(e), 0);
+  const first = timeline[0];
   return {
-    perSprint,
-    baseline,
-    latest,
-    growthPts,
-    growthPct: baseline && baseline.scopePts > 0 ? Math.round((growthPts / baseline.scopePts) * 100) : null,
+    from: first ? { sprintId: first.sprintId, dateISO: first.reading.dateISO, phase: first.phase } : null,
+    planningPts: sum((e) => e.planningPts),
+    grownPts: sum((e) => e.grownPts),
+    cutPts: sum((e) => e.cutPts),
+    everDeclared: timeline.some((t) => t.reading.streams.some((st) => keep(st) && st.planningState === 'complete')),
+    byStream,
+  };
+}
+
+export interface SprintInjection {
+  /** Points added to sprints after they opened, across every observed sprint. */
+  addedPts: number;
+  /** Points those sprints committed to at their openings. */
+  committedPts: number;
+  /** addedPts / committedPts as a whole percentage; null with nothing committed. */
+  pct: number | null;
+  /** Observed sprints that took on work after opening. */
+  sprintsWithAdds: number;
+  /** Observed sprints in all. */
+  observedSprints: number;
+}
+
+/**
+ * Unplanned work at the sprint level: what was pulled into sprints already under
+ * way. Independent of scopeChange and never added to it — an item pulled in from
+ * the backlog is sprint churn without being new scope, and a newly written ticket
+ * may be new scope without entering any sprint.
+ */
+export function sprintInjection(release: Release, today: string = todayISO()): SprintInjection {
+  const reviews = release.sprints.map((sp) => sprintReview(release, sp, today)).filter((r): r is SprintReview => r !== null);
+  const addedPts = reviews.reduce((a, r) => a + r.pts.added, 0);
+  const committedPts = reviews.reduce((a, r) => a + r.pts.committed, 0);
+  return {
+    addedPts,
+    committedPts,
+    pct: committedPts > 0 ? Math.round((addedPts / committedPts) * 100) : null,
+    sprintsWithAdds: reviews.filter((r) => r.added.length > 0).length,
+    observedSprints: reviews.length,
   };
 }
 

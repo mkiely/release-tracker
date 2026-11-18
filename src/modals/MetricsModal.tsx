@@ -26,8 +26,8 @@ import { VelocityTrendChart } from '../components/Trend';
 import { RunwayBadge } from '../components/VerdictLine';
 import { assessRelease, assessStreams } from '../lib/streamAssessment';
 import { todayISO } from '../lib/dates';
-import { carryOver, historicContention, scopeSeries, sprintReview } from '../lib/sprintHistory';
-import { readingCaveats, scopeGrowthSentence } from '../lib/historyReadouts';
+import { carryOver, historicContention, scopeChange, sprintInjection, sprintReview } from '../lib/sprintHistory';
+import { readingCaveats, scopeChangeReadout } from '../lib/historyReadouts';
 import { statusVars, warningVars } from '../components/statusVars';
 import { Row, GoneModal } from './parts';
 import modalStyles from './modals.module.css';
@@ -408,12 +408,12 @@ function ReleaseSection({ r, team, items }: SectionProps) {
 function HistorySection({ r, items }: SectionProps) {
   const { openModal } = useApp();
   const today = todayISO();
-  const scope = scopeSeries(r);
+  const scope = scopeChangeReadout(r, scopeChange(r), sprintInjection(r, today));
   const started = r.sprints.filter((sp) => sp.startISO <= today);
   const carried = carryOver(r, items, today);
   const subjectOf = new Map(items.map((i) => [i.id, i.subject]));
 
-  if (!scope.baseline) {
+  if (!scope) {
     return (
       <div className={`card dash ${modalStyles.emptyCard}`}>
         Nothing has been recorded for this release yet. Each sprint's commitment and progress are read while it runs,
@@ -424,7 +424,24 @@ function HistorySection({ r, items }: SectionProps) {
 
   return (
     <>
-      <div className={modalStyles.lede}>{scopeGrowthSentence(r, scope)}</div>
+      {/* Three statements, deliberately not one total: growth, work pulled into running
+          sprints, and planning progress measure different things and overlap. */}
+      <div className={`card ${modalStyles.block}`}>
+        <span className={`tag ${modalStyles.blockLabel}`}>Scope · {scope.since.toLowerCase()}</span>
+        <div className={modalStyles.ledeSm}>
+          <strong className="ink">Growth.</strong> {scope.growth}
+        </div>
+        {scope.injection && (
+          <div className={modalStyles.ledeSm}>
+            <strong className="ink">Into running sprints.</strong> {scope.injection}
+          </div>
+        )}
+        {scope.planning && (
+          <div className={modalStyles.ledeSm}>
+            <strong className="ink">Planning.</strong> {scope.planning}
+          </div>
+        )}
+      </div>
 
       <div className={`card ${modalStyles.block}`}>
         <span className={`tag ${modalStyles.blockLabel}`}>Sprint by sprint, as recorded</span>

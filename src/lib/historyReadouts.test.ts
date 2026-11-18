@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { readingCaveats, recordedBurn, reviewReadout, scopeGrowthSentence } from './historyReadouts';
+import { readingCaveats, recordedBurn, reviewReadout, scopeChangeReadout } from './historyReadouts';
 import { buildSprintReading } from './sprintReadings';
-import { scopeSeries, sprintReview } from './sprintHistory';
+import { sprintReview, type ScopeChange, type SprintInjection } from './sprintHistory';
 import { freezeSprintX } from './derive';
 import { aRelease, aSprint, aStream, aTeamOf, anItem } from '../test/factories';
 import type { Release, Sprint, WorkItem } from '../types';
@@ -86,24 +86,56 @@ describe('readingCaveats', () => {
   });
 });
 
-describe('scopeGrowthSentence', () => {
-  const pts = (n: number) => anItem({ points: n });
+describe('scopeChangeReadout', () => {
+  // Derived results, not entities: the wording is what's under test here.
+  const change = (over: Partial<ScopeChange> = {}): ScopeChange => ({
+    from: { sprintId: 'sp2', dateISO: '2026-04-27', phase: 'opening' },
+    planningPts: 0, grownPts: 0, cutPts: 0, everDeclared: true, byStream: [], ...over,
+  });
+  const injection = (over: Partial<SprintInjection> = {}): SprintInjection => ({
+    addedPts: 0, committedPts: 0, pct: null, sprintsWithAdds: 0, observedSprints: 1, ...over,
+  });
+  const r = base();
 
-  it('names where the record begins — rarely the release start', () => {
-    let r = observe(base(), 'sp2', [pts(10), pts(10)], [pts(10), pts(10)]);
-    r = observe(r, 'sp3', [pts(10), pts(10), pts(5)], [pts(10), pts(10), pts(5)]);
-    expect(scopeGrowthSentence(r, scopeSeries(r))).toBe('Scope grew 25% (20 → 25 pts) since Sprint 2 opened.');
+  it('names where the record begins', () => {
+    expect(scopeChangeReadout(r, change(), injection())!.since).toBe('Since Sprint 2 opened');
   });
 
-  it('reports a cut as a shrink, and no change as unchanged', () => {
-    const cut = observe(base(), 'sp1', [pts(10), pts(10)], [pts(10)]);
-    expect(scopeGrowthSentence(cut, scopeSeries(cut))).toBe('Scope shrank 50% (20 → 10 pts) since Sprint 1 opened.');
-    const flat = observe(base(), 'sp1', [pts(8)], [pts(8)]);
-    expect(scopeGrowthSentence(flat, scopeSeries(flat))).toBe('Scope unchanged at 8 pts since Sprint 1 opened.');
+  it('states growth and cuts per stream, after completion only', () => {
+    const out = scopeChangeReadout(r, change({
+      grownPts: 8, cutPts: 1,
+      byStream: [{ workStreamId: 'ws1', planningPts: 0, grownPts: 8, cutPts: 1 }],
+    }), injection())!;
+    expect(out.growth).toBe('After streams declared their scope complete, scope grew by 8 pts (API +8) and was cut by 1 pt (API \u22121).');
+  });
+
+  it('says why there is no growth when nothing was ever declared complete — not a clean bill', () => {
+    expect(scopeChangeReadout(r, change({ everDeclared: false }), injection())!.growth).toBe(
+      'No stream has declared its scope complete yet, so every new ticket counts as planning, not growth.',
+    );
+    expect(scopeChangeReadout(r, change(), injection())!.growth).toBe('No scope was added after a stream declared it complete.');
+  });
+
+  it('reports work pulled into running sprints against the commitment', () => {
+    expect(scopeChangeReadout(r, change(), injection({ addedPts: 3, committedPts: 114, pct: 3, sprintsWithAdds: 1 }))!.injection).toBe(
+      '3 pts were added to sprints already under way — 3% of the 114 pts committed, in 1 sprint.',
+    );
+    expect(scopeChangeReadout(r, change(), injection())!.injection).toBe('Nothing was added to a sprint once it was under way.');
+    expect(scopeChangeReadout(r, change(), injection({ observedSprints: 0 }))!.injection).toBeNull();
+  });
+
+  it('calls ticket-writing planning progress, and says nothing when there was none', () => {
+    expect(scopeChangeReadout(r, change({ planningPts: 221 }), injection())!.planning).toBe(
+      '221 pts of tickets were written while planning was still open — planning progress, not growth.',
+    );
+    expect(scopeChangeReadout(r, change({ planningPts: -4 }), injection())!.planning).toBe(
+      '4 pts of tickets were removed while planning was still open.',
+    );
+    expect(scopeChangeReadout(r, change(), injection())!.planning).toBeNull();
   });
 
   it('is null with nothing recorded', () => {
-    expect(scopeGrowthSentence(base(), scopeSeries(base()))).toBeNull();
+    expect(scopeChangeReadout(r, change({ from: null }), injection())).toBeNull();
   });
 });
 
@@ -116,6 +148,8 @@ describe('recordedBurn', () => {
     r = observe(r, 'sp3', [open], [done]);
     const out = recordedBurn(r, 'ws1', AFTER);
     expect(out.map((p) => (p ? p.pts : null))).toEqual([8, 8, null, 8, 0]);
+    // Scope stays put as the work completes — the faint line doesn't move with it.
+    expect(out.map((p) => (p ? p.scope : null))).toEqual([8, 8, null, 8, 8]);
     expect(out[0]!.x).toBe(freezeSprintX(r.sprints, '2026-04-13'));
     expect(out[4]!.x).toBe(freezeSprintX(r.sprints, '2026-05-24'));
   });

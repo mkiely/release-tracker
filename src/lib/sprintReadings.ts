@@ -24,6 +24,7 @@ export function buildSprintReading(
     ...scopeOf(items.filter((i) => i.workStreamId === ws.id)),
     workStreamId: ws.id,
     engineersRequired: ws.engineersRequired,
+    planningState: ws.planningState,
   }));
   // An item whose stream no longer exists counts as unstreamed, matching how the
   // screens group it — otherwise its points would vanish from every total.

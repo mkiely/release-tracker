@@ -132,8 +132,10 @@ export function StreamHealthModal({ releaseId, wsId, onClose }: { releaseId: str
           <span className={modalStyles.footnote}>
             {actual.length > 0 ? (
               <>
-                The dark line is what was recorded: points remaining at each sprint's opening and close. Gaps are sprints
-                nobody observed; hollow points are incomplete readings. Bars show planned points per sprint.
+                The dark line is what was recorded: points remaining at each sprint's opening and close; the faint dashed
+                line above it is the stream's total scope, so a rise in remaining work shows as tickets being written rather
+                than work going backwards. Gaps are sprints nobody observed; hollow points are incomplete readings. Bars show
+                planned points per sprint.
               </>
             ) : (
               <>Bars show planned points per sprint (x-axis = sprint assignment, not completion history — none is recorded yet).</>

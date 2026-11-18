@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHRONIC_SLIPS, carryOver, closingStale, historicContention, openingLate, scopeSeries, sprintReview } from './sprintHistory';
+import { CHRONIC_SLIPS, carryOver, closingStale, historicContention, openingLate, scopeChange, scopeSeries, sprintInjection, sprintReview } from './sprintHistory';
 import { buildSprintReading } from './sprintReadings';
 import { assessRelease } from './streamAssessment';
 import { seed } from './seed';
@@ -154,37 +154,103 @@ describe('scopeSeries', () => {
   const ws1 = (pts: number, status: WorkItem['status'] = 'Not Started') => anItem({ workStreamId: 'ws1', points: pts, status });
   const ws2 = (pts: number) => anItem({ workStreamId: 'ws2', points: pts });
 
-  const grown = () => {
-    let r = observe(base(), 'sp1', { items: [ws1(10), ws2(10)] }, { items: [ws1(10, 'Complete'), ws2(10)] });
-    r = observe(r, 'sp2', { items: [ws1(10, 'Complete'), ws2(10), ws2(5)] }, { items: [ws1(10, 'Complete'), ws2(10), ws2(5)] });
-    return r;
-  };
-
-  it('measures growth from the earliest reading to the latest', () => {
-    const s = scopeSeries(grown());
-    expect(s.baseline).toMatchObject({ sprintId: 'sp1', scopePts: 20, remainingPts: 20 });
-    expect(s.latest).toMatchObject({ sprintId: 'sp2', scopePts: 25, remainingPts: 15 });
-    expect([s.growthPts, s.growthPct]).toEqual([5, 25]);
-    expect(s.perSprint.map((p) => p.closing?.remainingPts ?? null)).toEqual([10, 15, null]);
+  it('records scope and remaining at every reading, gaps as nulls', () => {
+    const r = observe(base(), 'sp1', { items: [ws1(10), ws2(10)] }, { items: [ws1(10, 'Complete'), ws2(10)] });
+    expect(scopeSeries(r).map((p) => [p.opening?.scopePts ?? null, p.closing?.remainingPts ?? null])).toEqual([
+      [20, 10],
+      [null, null],
+      [null, null],
+    ]);
   });
 
-  it('narrows to one stream', () => {
-    const s = scopeSeries(grown(), 'ws2');
-    expect([s.baseline?.scopePts, s.latest?.scopePts, s.growthPct]).toEqual([10, 15, 50]);
-  });
-
-  it('narrows to the no-stream bucket with null', () => {
-    const r = observe(base(), 'sp1', { items: [anItem({ workStreamId: null, points: 4 })] }, { items: [] });
-    expect(scopeSeries(r, null).baseline?.scopePts).toBe(4);
+  it('narrows to one stream, or to the no-stream bucket with null', () => {
+    const r = observe(base(), 'sp1', { items: [ws1(3), ws2(5), anItem({ workStreamId: null, points: 4 })] }, { items: [] });
+    expect(scopeSeries(r, 'ws2')[0].opening?.scopePts).toBe(5);
+    expect(scopeSeries(r, null)[0].opening?.scopePts).toBe(4);
   });
 
   it('leaves muted streams out of the release total', () => {
-    const r = { ...grown(), workStreams: grown().workStreams.map((ws) => (ws.id === 'ws2' ? { ...ws, muted: true } : ws)) };
-    expect(scopeSeries(r).latest?.scopePts).toBe(10);
+    const r = observe(base(), 'sp1', { items: [ws1(3), ws2(5)] }, { items: [] });
+    const muted = { ...r, workStreams: r.workStreams.map((ws) => (ws.id === 'ws2' ? { ...ws, muted: true } : ws)) };
+    expect(scopeSeries(muted)[0].opening?.scopePts).toBe(3);
+  });
+});
+
+describe('scopeChange', () => {
+  const pts = (ws: string, n: number) => anItem({ workStreamId: ws, points: n });
+  /** `base()` with ws2's planning posture set — readings take it from the release. */
+  const posture = (state: 'open' | 'complete') => {
+    const r = base();
+    return { ...r, workStreams: r.workStreams.map((ws) => (ws.id === 'ws2' ? { ...ws, planningState: state } : ws)) };
+  };
+  /** Readings for `id` taken while ws2 held `state`, written onto `onto`. */
+  const observeAs = (onto: Release, id: string, state: 'open' | 'complete', open: WorkItem[], close: WorkItem[]) => {
+    const taken = observe(posture(state), id, { items: open }, { items: close });
+    return { ...onto, sprints: onto.sprints.map((sp) => (sp.id === id ? taken.sprints.find((t) => t.id === id)! : sp)) };
+  };
+
+  it('counts points written while a stream is open as planning, not growth', () => {
+    const r = observeAs(base(), 'sp1', 'open', [pts('ws2', 5)], [pts('ws2', 5), pts('ws2', 8)]);
+    const c = scopeChange(r);
+    expect([c.planningPts, c.grownPts, c.cutPts, c.everDeclared]).toEqual([8, 0, 0, false]);
   });
 
-  it('has no baseline before anything was observed', () => {
-    expect(scopeSeries(base())).toMatchObject({ baseline: null, latest: null, growthPts: 0, growthPct: null });
+  it('counts points that arrive after the stream declared complete as growth — by the posture it held then', () => {
+    // Open through sp1; declared complete by sp2's opening; then gains 3 and loses 2.
+    let r = observeAs(base(), 'sp1', 'open', [pts('ws2', 5)], [pts('ws2', 5), pts('ws2', 8)]);
+    r = observeAs(r, 'sp2', 'complete', [pts('ws2', 5), pts('ws2', 8), pts('ws2', 2)], [pts('ws2', 5), pts('ws2', 8), pts('ws2', 3)]);
+    const c = scopeChange(r);
+    // sp1 close → sp2 open: +2 written while sp1's closing still read 'open' → planning.
+    // sp2 open → close: +1 net while 'complete' → growth.
+    expect([c.planningPts, c.grownPts, c.cutPts]).toEqual([10, 1, 0]);
+    expect(c.everDeclared).toBe(true);
+    expect(c.byStream[0]).toMatchObject({ workStreamId: 'ws2', grownPts: 1 });
+  });
+
+  it('records a cut after completion separately from growth', () => {
+    const r = observeAs(base(), 'sp1', 'complete', [pts('ws2', 5), pts('ws2', 3)], [pts('ws2', 5)]);
+    expect(scopeChange(r)).toMatchObject({ grownPts: 0, cutPts: 3, planningPts: 0 });
+  });
+
+  it('reads a reading taken before planning states were recorded as not yet complete', () => {
+    let r = observeAs(base(), 'sp1', 'complete', [pts('ws2', 5)], [pts('ws2', 5)]);
+    // Strip the field from sp1's closing, as an early v32 reading would lack it.
+    r = {
+      ...r,
+      sprints: r.sprints.map((sp) =>
+        sp.id === 'sp1' && sp.closing
+          ? { ...sp, closing: { ...sp.closing, streams: sp.closing.streams.map(({ planningState: _drop, ...rest }) => rest) } }
+          : sp,
+      ),
+    };
+    r = observeAs(r, 'sp2', 'complete', [pts('ws2', 5), pts('ws2', 4)], [pts('ws2', 5), pts('ws2', 4)]);
+    expect(scopeChange(r)).toMatchObject({ planningPts: 4, grownPts: 0 });
+  });
+
+  it('leaves muted streams out', () => {
+    let r = observeAs(base(), 'sp1', 'complete', [pts('ws2', 5)], [pts('ws2', 5), pts('ws2', 9)]);
+    r = { ...r, workStreams: r.workStreams.map((ws) => (ws.id === 'ws2' ? { ...ws, muted: true } : ws)) };
+    expect(scopeChange(r)).toMatchObject({ grownPts: 0, planningPts: 0, everDeclared: false });
+  });
+
+  it('names where the record begins, and has nothing to say before it does', () => {
+    const r = observeAs(base(), 'sp2', 'open', [], []);
+    expect(scopeChange(r).from).toEqual({ sprintId: 'sp2', dateISO: '2026-04-27', phase: 'opening' });
+    expect(scopeChange(base()).from).toBeNull();
+  });
+});
+
+describe('sprintInjection', () => {
+  it('totals what was pulled into running sprints against what they committed', () => {
+    const a = anItem({ id: 'a', points: 10 });
+    const b = anItem({ id: 'b', points: 2 });
+    let r = observe(base(), 'sp1', { items: [a] }, { items: [a, b] });
+    r = observe(r, 'sp2', { items: [{ ...a, sprintId: 'sp2' }] }, { items: [{ ...a, sprintId: 'sp2' }] });
+    expect(sprintInjection(r, AFTER)).toEqual({ addedPts: 2, committedPts: 20, pct: 10, sprintsWithAdds: 1, observedSprints: 2 });
+  });
+
+  it('is empty with no observed sprint', () => {
+    expect(sprintInjection(base(), AFTER)).toEqual({ addedPts: 0, committedPts: 0, pct: null, sprintsWithAdds: 0, observedSprints: 0 });
   });
 });
 
@@ -244,6 +310,14 @@ describe('the seeded story, read back', () => {
     const chronic = carryOver(rel('rel_nexus'), itemsOf('rel_nexus'), today).filter((c) => c.chronic);
     const subject = (id: string) => s.items.find((i) => i.id === id)!.subject;
     expect(chronic.map((c) => subject(c.id))).toEqual(['Per-tenant rate limiting on the edge']);
+  });
+
+  it('Nexus: growth is API Gateway after it declared complete; the rest is planning', () => {
+    const nexus = rel('rel_nexus');
+    const c = scopeChange(nexus);
+    const gateway = nexus.workStreams.find((w) => w.name === 'API Gateway')!;
+    expect(c.byStream.filter((e) => e.grownPts > 0).map((e) => e.workStreamId)).toEqual([gateway.id]);
+    expect(c.planningPts).toBeGreaterThan(c.grownPts * 10);
   });
 
   it('Orion: the cookie plan shows as added in its sprint review', () => {

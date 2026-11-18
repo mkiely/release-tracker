@@ -57,7 +57,8 @@ export function Sparkline({
  * it are faded — no work can land there. No charting kit — same SVG idiom as Sparkline.
  *
  * The bars are sprint *assignment*. When the stream has recorded history, `actual`
- * draws what was observed on top: remaining points at each reading, placed on the
+ * draws what was observed on top: remaining points at each reading (with total scope
+ * as a faint dashed line beneath, so a rise reads as scope arriving), placed on the
  * day it was taken, broken where a sprint was never observed and hollow where a
  * reading was late or stale (see lib/historyReadouts.recordedBurn). Without it the
  * chart is assignment only — an approximation the caller should label.
@@ -95,7 +96,7 @@ export function StreamBurnChart({
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
   const bw = plotW / n;
-  const yMax = Math.max(1, ...series, remainingPts, effectiveCap, ...actual.map((p) => p?.pts ?? 0));
+  const yMax = Math.max(1, ...series, remainingPts, effectiveCap, ...actual.map((p) => p?.scope ?? 0));
   const yOf = (v: number) => padT + plotH - (Math.max(0, v) / yMax) * plotH;
   const xOf = (i: number) => padL + i * bw; // left edge of sprint band i (i may be fractional)
 
@@ -180,6 +181,20 @@ export function StreamBurnChart({
           <circle cx={finishX} cy={yOf(0)} r={3} fill={okColor} />
         </>
       )}
+
+      {/* recorded scope, faint and dashed beneath: when remaining work rises, this shows
+          it was scope arriving (tickets written) rather than work going backwards */}
+      {actualRuns(actual).map((run, k) => (
+        <polyline
+          key={`scope${k}`}
+          points={run.map((p) => `${xOf(p.x).toFixed(1)},${yOf(p.scope).toFixed(1)}`).join(' ')}
+          fill="none"
+          stroke="var(--rt-line-strong)"
+          strokeWidth={1}
+          strokeDasharray="3 3"
+          strokeLinejoin="round"
+        />
+      ))}
 
       {/* recorded remaining work — one polyline per observed run, a dot per reading */}
       {actualRuns(actual).map((run, k) => (

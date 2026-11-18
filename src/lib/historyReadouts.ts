@@ -10,7 +10,7 @@
 import type { Release, Sprint } from '../types';
 import { addDays, fmtShort, workdaysInRange } from './dates';
 import { freezeSprintX } from './derive';
-import { closingStale, openingLate, scopeSeries, type ScopeSeries, type SprintReview } from './sprintHistory';
+import { closingStale, openingLate, scopeSeries, type ScopeChange, type SprintInjection, type SprintReview } from './sprintHistory';
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -78,19 +78,68 @@ export function reviewReadout(review: SprintReview, today: string): ReviewReadou
   return { label: parts.join(' · '), sentence, caveated: readingCaveats(review.sprint, today).length > 0 };
 }
 
-// ── Scope growth ────────────────────────────────────────────────────────────
+// ── Scope change ────────────────────────────────────────────────────────────
 
-/** "Scope grew 25% (20 → 25 pts) since Sprint 1 opened." Null with nothing recorded.
- *  Names where the record begins, because that is rarely the release's own start. */
-export function scopeGrowthSentence(release: Release, series: ScopeSeries): string | null {
-  const { baseline, latest } = series;
-  if (!baseline || !latest) return null;
-  const sp = release.sprints.find((s) => s.id === baseline.sprintId);
-  const since = sp ? `since ${sp.name} ${sp.opening?.dateISO === baseline.dateISO ? 'opened' : 'closed'}` : 'since recording began';
-  const span = `(${baseline.scopePts} → ${ptsLabel(latest.scopePts)})`;
-  if (series.growthPts === 0) return `Scope unchanged at ${ptsLabel(latest.scopePts)} ${since}.`;
-  const pct = series.growthPct === null ? '' : ` ${Math.abs(series.growthPct)}%`;
-  return series.growthPts > 0 ? `Scope grew${pct} ${span} ${since}.` : `Scope shrank${pct} ${span} ${since}.`;
+export interface ScopeChangeReadout {
+  /** Where the record begins: "Since Kickoff opened". */
+  since: string;
+  /** Growth — work that arrived after a stream declared its scope complete. */
+  growth: string;
+  /** Unplanned work pulled into sprints already under way. Null with no sprint observed. */
+  injection: string | null;
+  /** Tickets written while planning was open. Null when there were none. */
+  planning: string | null;
+}
+
+/**
+ * The History tab's account of scope. Three separate statements, never summed: growth
+ * (after a stream declared its scope complete), injection (into sprints already under
+ * way), and planning progress (tickets written while scope was still open). Null with
+ * nothing recorded.
+ */
+export function scopeChangeReadout(release: Release, change: ScopeChange, injection: SprintInjection): ScopeChangeReadout | null {
+  if (!change.from) return null;
+  const from = change.from;
+  const sp = release.sprints.find((s) => s.id === from.sprintId);
+  const since = sp ? `Since ${sp.name} ${from.phase === 'opening' ? 'opened' : 'closed'}` : 'Since recording began';
+  const nameOf = (id: string | null) =>
+    id === null ? 'work with no stream' : release.workStreams.find((w) => w.id === id)?.name ?? 'a deleted stream';
+  const list = (pick: (e: ScopeChange['byStream'][number]) => number, sign: string) =>
+    change.byStream
+      .filter((e) => pick(e) > 0)
+      .map((e) => `${nameOf(e.workStreamId)} ${sign}${pick(e)}`)
+      .join(', ');
+
+  let growth: string;
+  if (!change.everDeclared) {
+    growth = 'No stream has declared its scope complete yet, so every new ticket counts as planning, not growth.';
+  } else if (change.grownPts === 0 && change.cutPts === 0) {
+    growth = 'No scope was added after a stream declared it complete.';
+  } else {
+    const parts = [
+      change.grownPts > 0 ? `grew by ${ptsLabel(change.grownPts)} (${list((e) => e.grownPts, '+')})` : '',
+      change.cutPts > 0 ? `was cut by ${ptsLabel(change.cutPts)} (${list((e) => e.cutPts, '\u2212')})` : '',
+    ].filter(Boolean);
+    growth = `After streams declared their scope complete, scope ${parts.join(' and ')}.`;
+  }
+
+  const inj =
+    injection.observedSprints === 0
+      ? null
+      : injection.addedPts === 0
+        ? 'Nothing was added to a sprint once it was under way.'
+        : `${ptsLabel(injection.addedPts)} were added to sprints already under way` +
+          (injection.pct === null ? '' : ` — ${injection.pct}% of the ${ptsLabel(injection.committedPts)} committed`) +
+          `, in ${plural(injection.sprintsWithAdds, 'sprint')}.`;
+
+  const planning =
+    change.planningPts > 0
+      ? `${ptsLabel(change.planningPts)} of tickets were written while planning was still open — planning progress, not growth.`
+      : change.planningPts < 0
+        ? `${ptsLabel(-change.planningPts)} of tickets were removed while planning was still open.`
+        : null;
+
+  return { since, growth, injection: inj, planning };
 }
 
 // ── Recorded burn line ──────────────────────────────────────────────────────
@@ -98,7 +147,11 @@ export function scopeGrowthSentence(release: Release, series: ScopeSeries): stri
 export interface BurnPoint {
   /** Fractional sprint-index position, on the same axis as freezeSprintX. */
   x: number;
+  /** Remaining (not Complete) points. */
   pts: number;
+  /** All points in scope at the reading — the faint line that shows a rise in
+   *  remaining work was scope arriving, not work going backwards. */
+  scope: number;
   /** Read late (an opening) or stale (a closing): drawn hollow. */
   hollow: boolean;
 }
@@ -111,16 +164,16 @@ export interface BurnPoint {
  */
 export function recordedBurn(release: Release, workStreamId: string | undefined, today: string): (BurnPoint | null)[] {
   const series = scopeSeries(release, workStreamId);
-  if (!series.baseline) return [];
+  if (!series.some((s) => s.opening || s.closing)) return [];
   const out: (BurnPoint | null)[] = [];
-  for (const { sprint, opening, closing } of series.perSprint) {
+  for (const { sprint, opening, closing } of series) {
     if (sprint.startISO > today) break;
     if (!opening && !closing) {
       if (out.length && out.at(-1) !== null) out.push(null);
       continue;
     }
-    if (opening) out.push({ x: freezeSprintX(release.sprints, opening.dateISO), pts: opening.remainingPts, hollow: openingLate(sprint) });
-    if (closing) out.push({ x: freezeSprintX(release.sprints, closing.dateISO), pts: closing.remainingPts, hollow: closingStale(sprint, today) });
+    if (opening) out.push({ x: freezeSprintX(release.sprints, opening.dateISO), pts: opening.remainingPts, scope: opening.scopePts, hollow: openingLate(sprint) });
+    if (closing) out.push({ x: freezeSprintX(release.sprints, closing.dateISO), pts: closing.remainingPts, scope: closing.scopePts, hollow: closingStale(sprint, today) });
   }
   while (out.length && out.at(-1) === null) out.pop();
   return out;

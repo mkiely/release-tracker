@@ -31,8 +31,8 @@ describe('buildSprintReading', () => {
     ];
     const r = buildSprintReading(release, team, sp1, items, '2026-04-15');
     expect(r.streams).toEqual([
-      { workStreamId: 'ws1', scopePts: 8, remainingPts: 5, engineersRequired: 2 },
-      { workStreamId: 'ws2', scopePts: 0, remainingPts: 0, engineersRequired: null },
+      { workStreamId: 'ws1', scopePts: 8, remainingPts: 5, engineersRequired: 2, planningState: 'open' },
+      { workStreamId: 'ws2', scopePts: 0, remainingPts: 0, engineersRequired: null, planningState: 'open' },
     ]);
   });
 

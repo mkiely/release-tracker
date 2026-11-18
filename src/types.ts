@@ -205,6 +205,12 @@ export interface SprintReadingStream {
   /** The stream's reservation that day; null when unset (and always for the
    *  no-stream entry). */
   engineersRequired: number | null;
+  /** The stream's planning posture that day — what tells new tickets apart from new
+   *  scope: points written while a stream is 'open' or 'deferred' are planning, points
+   *  that appear after it was 'complete' are growth (see sprintHistory.scopeChange).
+   *  Absent on the no-stream entry, and on readings taken before it was recorded;
+   *  both read as "not declared complete", the cautious reading. */
+  planningState?: PlanningState;
 }
 
 /** Connector type id, e.g. 'acme'. The set is defined by the local sync service. */
