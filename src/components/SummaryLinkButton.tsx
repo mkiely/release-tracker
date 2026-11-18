@@ -64,7 +64,18 @@ export function useSummaryLink(release: Release, visibleStreamIds?: ReadonlySet<
     // Both outcomes copy something, so the clipboard write doesn't need the verdict
     // first — only the toast does.
     const copied = await copyTextLazy(built.then((r) => (r.ok ? r.url : r.encoded)));
-    const result = await built;
+    // A build that throws must say so. copyTextLazy already turned the rejection into
+    // "nothing copied"; awaiting `built` bare would rethrow into an unhandled rejection
+    // and the click would end in silence — no link, no toast — which is exactly how a
+    // derivation bug once hid behind this menu.
+    let result: Awaited<typeof built>;
+    try {
+      result = await built;
+    } catch (err) {
+      console.error('[summary] could not build the summary link', err);
+      notify(`Couldn’t build the summary link: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
 
     if (!result.ok) {
       // Too long for the address bar — the raw encoded value goes instead. The viewer's
