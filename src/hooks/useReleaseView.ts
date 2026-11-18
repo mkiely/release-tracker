@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAxisMode } from '../store/axisMode';
 import { ExportScopePrefs, type ExportScope } from '../store/exportScope';
 import { scopeLabel, scopeStreamIds } from '../lib/exportScope';
-import { selItemsForStream, selUnassignedItems, selRelease, selTeam, useStore } from '../store/store';
+import { selUnassignedItems, selRelease, selTeam, useStore } from '../store/store';
 import { releaseToTSV } from '../lib/exportRelease';
 import { copyText } from '../lib/copyLink';
 import { applyFacets, buildFacetGroups, buildStreamFacet, catalogStreamFacets, isAnyFacetActive } from '../lib/facets';
@@ -61,12 +61,6 @@ interface SprintHeader {
 
 export type SprintRowData = RowData<SprintHeader, SprintLaneEntry>;
 
-export interface WorkStreamBadgeData {
-  ws: WorkStream;
-  itemCount: number;
-  segs: StatusSeg[];
-}
-
 /** One sprint's slice of a stream row — the transpose of a SprintLaneEntry. */
 export interface StreamLaneEntry extends RowMetrics {
   sprint: Sprint;
@@ -103,10 +97,6 @@ export interface ReleaseViewProps {
   team: Team | undefined;
   sprintRows: SprintRowData[];
   streamRows: StreamRowData[];
-  workStreamBadges: WorkStreamBadgeData[];
-  unassignedCount: number;
-  unassignedSegs: StatusSeg[];
-  hasUnassigned: boolean;
   dateRange: string;
   connLabel: string | null;
   teamVelocity: number;
@@ -277,11 +267,6 @@ export function useReleaseView(): ReleaseViewProps | null {
     return { sprint: sp, sprintIndex, isActive, isPast, vel, planned, donePts, itemCount: spItems.length, events: evts, lane };
   });
 
-  const workStreamBadges: WorkStreamBadgeData[] = streams.map((ws) => {
-    const its = selItemsForStream(st, r.id, ws.id);
-    return { ws, itemCount: its.length, segs: statusSegs(its) };
-  });
-
   // The transpose of sprintRows: one row per work stream, lane = every sprint. The
   // verdicts come from the shared assessment so this screen, the metrics modal, the
   // exports and the work-stream screen can't disagree about a stream.
@@ -351,10 +336,6 @@ export function useReleaseView(): ReleaseViewProps | null {
     team,
     sprintRows,
     streamRows,
-    workStreamBadges,
-    unassignedCount: unassigned.length,
-    unassignedSegs: statusSegs(unassigned),
-    hasUnassigned: unassigned.length > 0,
     dateRange,
     connLabel: r.connector ? connectorLabel(r.connector.type) : null,
     teamVelocity: team ? team.velocity : 0,
