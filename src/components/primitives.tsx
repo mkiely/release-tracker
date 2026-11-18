@@ -166,8 +166,11 @@ export function Modal({
   children: ReactNode;
 }) {
   useEffect(() => {
+    // An overlay opened from inside the modal (the description presenter) handles
+    // Esc first, in the capture phase, and marks it handled — otherwise one press
+    // would close both it and the dialog beneath it.
     const h = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !e.defaultPrevented) onClose();
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);

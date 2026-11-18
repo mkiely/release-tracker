@@ -27,3 +27,41 @@
 
 .fieldError { font-size: var(--rt-fs-sm); }
 
+
+/* The Description label with its Present action pushed to the row's end. */
+.descLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Sized to the label row it sits in; the negative block margin keeps a 32px hit
+   target without making that row taller than its siblings'. */
+.presentBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  margin: -8px 0;
+  padding: 0 9px;
+  border: 1.5px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--rt-t2);
+  font-family: inherit;
+  font-size: var(--rt-fs-xs);
+  font-weight: var(--rt-fw-semibold);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.presentBtn:hover {
+  border-color: var(--rt-line);
+  background: var(--rt-fill);
+  color: var(--rt-ink);
+}
+.presentBtn:focus-visible {
+  outline: 2px solid var(--rt-accent);
+  outline-offset: 1px;
+}

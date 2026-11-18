@@ -247,3 +247,83 @@
   height: auto;
   border-radius: 4px;
 }
+
+/* ── Presenter variant ───────────────────────────────────────────────────────
+   The description shown full-screen in a meeting (DescriptionPresenter). No input
+   frame: the presenter's stage is the frame, and the box fills it. Text size is
+   the presenter's --rt-present-scale times the body-input size, so the A−/A+ and
+   fit controls move one number and every element (em-based headings, code, table
+   padding) follows. */
+.presentBox {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* The toolbar stays reachable for live edits but recedes until it's wanted. */
+.presentBox > .toolbar {
+  border-bottom: none;
+  padding: 0 0 10px;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+.presentBox:focus-within > .toolbar,
+.presentBox > .toolbar:hover {
+  opacity: 1;
+}
+
+.presentBox .editorScroll {
+  overflow: auto;
+}
+
+.presentBox .editorScroll > div {
+  height: 100%;
+}
+
+.presentContent {
+  font-size: calc(var(--rt-fs-md) * var(--rt-present-scale, 1.5));
+  line-height: 1.55;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* One column: a readable measure, centred, scrolling down. */
+.presentBox[data-columns='1'] .presentContent {
+  max-width: 68ch;
+  margin: 0 auto;
+  min-height: 100%;
+}
+
+/* Two / auto: the text fills the stage's height and continues in the next column,
+   so a long description reads left to right like a page rather than scrolling
+   out from under the people discussing it. Overflow columns extend to the right
+   and the stage scrolls sideways. */
+.presentBox[data-columns='2'] .presentContent,
+.presentBox[data-columns='auto'] .presentContent {
+  height: 100%;
+  column-fill: auto;
+  column-gap: 3em;
+  column-rule: 1.5px solid var(--rt-line);
+}
+.presentBox[data-columns='2'] .presentContent { column-count: 2; }
+.presentBox[data-columns='auto'] .presentContent { column-width: 24em; }
+
+/* Keep the units people point at ("the third criterion", "that row") whole
+   rather than split across a column break. */
+.presentContent li,
+.presentContent tr,
+.presentContent pre,
+.presentContent img,
+.presentContent blockquote {
+  break-inside: avoid;
+}
+.presentContent h1,
+.presentContent h2,
+.presentContent h3,
+.presentContent h4 {
+  break-after: avoid;
+}
+/* A heading at the top of a column shouldn't carry the gap meant to separate it
+   from the paragraph above. */
+.presentContent > :first-child { margin-top: 0; }
