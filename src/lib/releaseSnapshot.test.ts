@@ -636,6 +636,15 @@ describe('history (v10)', () => {
     expect(bare.burn && 'actual' in bare.burn).toBe(false);
   });
 
+  it('builds when sprints carry no reading fields at all', () => {
+    // Regression: this exact shape threw inside scopeChange, and the summary menu
+    // swallowed the error — the copy silently wrote nothing.
+    const r = observed();
+    const bare = { ...r, sprints: r.sprints.map((sp) => (sp.id === 'sp1' ? sp : (({ opening: _o, closing: _c, ...rest }) => rest)(sp) as typeof sp)) };
+    const snap = buildSnapshot(bare, team(), [pay, auth], { now: LATER });
+    expect(snap.history!.reviews).toEqual([expect.any(Array), null]);
+  });
+
   it('keeps the seeded demos well inside the URL budget with their history', async () => {
     // The budget the plan set before the payload shape was fixed: history must not push
     // a real release anywhere near the cap. Half of it leaves room for bigger releases.

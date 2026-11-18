@@ -233,6 +233,23 @@ describe('scopeChange', () => {
     expect(scopeChange(r)).toMatchObject({ grownPts: 0, planningPts: 0, everDeclared: false });
   });
 
+  it('treats a sprint with no reading fields at all as unobserved — not a crash', () => {
+    // The shape a dev browser actually held: v32 data whose untouched sprints were
+    // written without the fields, beside one stamped sprint.
+    const r = observeAs(base(), 'sp2', 'open', [pts('ws2', 5)], [pts('ws2', 5), pts('ws2', 3)]);
+    const bare = {
+      ...r,
+      sprints: r.sprints.map((sp) => {
+        if (sp.id === 'sp2') return sp;
+        const { opening: _o, closing: _c, ...rest } = sp;
+        return rest as Sprint;
+      }),
+    };
+    expect(scopeChange(bare)).toMatchObject({ planningPts: 3, from: { sprintId: 'sp2' } });
+    expect(sprintInjection(bare, AFTER).observedSprints).toBe(1);
+    expect(carryOver(bare, [], AFTER)).toEqual([]);
+  });
+
   it('names where the record begins, and has nothing to say before it does', () => {
     const r = observeAs(base(), 'sp2', 'open', [], []);
     expect(scopeChange(r).from).toEqual({ sprintId: 'sp2', dateISO: '2026-04-27', phase: 'opening' });

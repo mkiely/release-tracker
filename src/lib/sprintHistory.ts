@@ -286,7 +286,11 @@ export function scopeChange(release: Release, onlyStreamIds: ReadonlySet<string>
         ['closing', sp.closing],
       ] as const
     )
-      .filter((e): e is readonly ['opening' | 'closing', SprintReading] => e[1] !== null)
+      // `!= null`, not `!== null`: a sprint can reach here with no reading field at all
+      // (data written at v32 by a build whose sprint constructors predated the field —
+      // it happened to a dev browser mid-release), and every other reader of
+      // opening/closing already treats absent and null alike.
+      .filter((e): e is readonly ['opening' | 'closing', SprintReading] => e[1] != null)
       .map(([phase, r]) => ({ sprintId: sp.id, phase, reading: r })),
   );
 
