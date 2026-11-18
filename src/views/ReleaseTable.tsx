@@ -55,7 +55,9 @@ function F3SprintRow({
             </>
           )}
           {events.map((e) => (
-            <EventBadge key={e.id} date={fmtShort(e.dateISO)} critical={e.critical} onClick={() => onOpenEvent(e.id)}>
+            // The 360px left column fits ~30 characters beside the date — enough for a
+            // stream freeze chip ("SDK & Developer Tools freeze") to read whole.
+            <EventBadge key={e.id} date={fmtShort(e.dateISO)} max={30} critical={e.critical} onClick={() => onOpenEvent(e.id)}>
               {e.label}
             </EventBadge>
           ))}

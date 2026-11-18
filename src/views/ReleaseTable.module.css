@@ -34,7 +34,7 @@
 
 /* ── Left column ─────────────────────────────────────────────────────────── */
 .rowLeft {
-  flex: 0 0 310px;
+  flex: 0 0 360px;
   padding: 14px 22px 14px 24px;
   border-right: 1px solid var(--rt-line);
   display: flex;

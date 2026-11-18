@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import type { ReleaseViewProps, WorkStreamBadgeData } from '../hooks/useReleaseView';
-import type { StatusSeg } from '../types';
+import type { ReactNode } from 'react';
+import type { ReleaseViewProps } from '../hooks/useReleaseView';
 import { missingCapabilities } from '../lib/connectorFields';
 import { SyncControls } from './AppChrome';
 import chromeStyles from './AppChrome.module.css';
@@ -8,7 +7,6 @@ import { fmtShort } from '../lib/dates';
 import { FacetBar } from './FacetBar';
 import { ScreenScaffold } from './ScreenScaffold';
 import { Icon } from './Icon';
-import { SegBar } from './Badges';
 import { statusVars, warningVars } from './statusVars';
 import { IconButton, PButton } from './primitives';
 import { ShareMenu } from './ShareMenu';
@@ -19,47 +17,6 @@ import { AxisModeStore, useAxisMode, type AxisMode } from '../store/axisMode';
 import { useAutoSync } from '../hooks/useAutoSync';
 import { useMediaQuery, NARROW_CHROME } from '../hooks/useMediaQuery';
 import styles from './ReleaseChrome.module.css';
-
-/**
- * Tracks how much of a horizontally scrolling strip is out of view: whether each
- * edge has content past it (drives the fades) and how many whole children are
- * hidden past the right edge (drives the "+N" count). Recomputed on scroll and on
- * resize, so the affordance never claims an overflow that isn't there.
- */
-function useStripOverflow(ref: React.RefObject<HTMLDivElement>, deps: unknown[]) {
-  const [state, setState] = useState({ hidden: 0, atStart: true, atEnd: true });
-
-  // Stable so callers can re-measure straight after a programmatic scroll rather
-  // than waiting on a scroll event, which isn't guaranteed to arrive.
-  const remeasure = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    const max = el.scrollWidth - el.clientWidth;
-    const right = el.scrollLeft + el.clientWidth;
-    let hidden = 0;
-    for (const child of Array.from(el.children)) {
-      const c = child as HTMLElement;
-      if (c.offsetLeft + c.offsetWidth > right + 1) hidden++;
-    }
-    setState({ hidden, atStart: el.scrollLeft <= 1, atEnd: max <= 1 || el.scrollLeft >= max - 1 });
-  }, [ref]);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    remeasure();
-    el.addEventListener('scroll', remeasure, { passive: true });
-    const ro = new ResizeObserver(remeasure);
-    ro.observe(el);
-    return () => {
-      el.removeEventListener('scroll', remeasure);
-      ro.disconnect();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref, remeasure, ...deps]);
-
-  return { ...state, remeasure };
-}
 
 /** Most overriding streams the freeze readout's tooltip names before it summarizes
  *  the rest — a title attribute that runs past a handful of lines stops being read. */
@@ -80,75 +37,14 @@ function freezeTitle(codeFreezeISO: string, overrides: Array<{ name: string; dat
   return [`${head}`, `Overridden by ${overrides.length} work stream${overrides.length === 1 ? '' : 's'}:`, ...lines, 'Click to edit.'].join('\n');
 }
 
-/** One pill in the work-streams strip. Identical for assigned and unassigned lanes. */
-function StreamBadge({
-  name,
-  count,
-  segs,
-  showSeg,
-  unassigned,
-  freezeOverride,
-  onClick,
-}: {
-  name: string;
-  count: number;
-  segs: StatusSeg[];
-  showSeg: boolean;
-  unassigned?: boolean;
-  /** This stream overrides the release freeze with its own date. */
-  freezeOverride?: string | null;
-  onClick?: () => void;
-}) {
-  return (
-    <div
-      className="card"
-      onClick={onClick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '5px 10px',
-        flexShrink: 0,
-        background: 'var(--rt-paper)',
-        cursor: onClick ? 'pointer' : 'default',
-      }}
-    >
-      {freezeOverride && (
-        <span className={styles.badgeFreeze} title={`Own code freeze: ${fmtShort(freezeOverride)}`}>
-          {Icon.snowflake}
-        </span>
-      )}
-      <span
-        style={{
-          fontSize: 'var(--rt-fs-sm)',
-          fontWeight: 'var(--rt-fw-semibold)',
-          whiteSpace: 'nowrap',
-          color: unassigned ? 'var(--rt-t3)' : 'var(--rt-ink)',
-          fontStyle: unassigned ? 'italic' : undefined,
-        }}
-      >
-        {name}
-      </span>
-      <span className="mono" style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)' }}>{count}</span>
-      {showSeg && <SegBar segs={segs} height={4} />}
-    </div>
-  );
-}
-
 type ReleaseChromeProps = Pick<
   ReleaseViewProps,
   | 'release'
   | 'team'
   | 'dateRange'
   | 'connLabel'
-  | 'workStreamBadges'
-  | 'unassignedCount'
-  | 'unassignedSegs'
-  | 'hasUnassigned'
   | 'onBack'
-  | 'onNavigateToStream'
   | 'onNavigateToBacklog'
-  | 'onNavigateToUnassigned'
   | 'onOpenTeam'
   | 'onOpenMetrics'
   | 'onOpenTimeline'
@@ -177,21 +73,16 @@ type ReleaseChromeProps = Pick<
 
 /**
  * Shared chrome for every Release presenter (card/table × sprint/stream): the
- * TopBar and the work-streams strip. Presenters render only the body.
+ * TopBar and the toolbar row (stream filters + axis toggle). Presenters render
+ * only the body.
  */
 export function ReleaseChrome({
   release: r,
   team,
   dateRange,
   connLabel,
-  workStreamBadges,
-  unassignedCount,
-  unassignedSegs,
-  hasUnassigned,
   onBack,
-  onNavigateToStream,
   onNavigateToBacklog,
-  onNavigateToUnassigned,
   onOpenTeam,
   onOpenMetrics,
   onOpenTimeline,
@@ -222,8 +113,6 @@ export function ReleaseChrome({
   // Collapse ladder: below this width the "add" zone drops to icon-only, before
   // anything in the navigate or exchange zones gives ground.
   const narrow = useMediaQuery(NARROW_CHROME);
-  const stripRef = useRef<HTMLDivElement>(null);
-  const overflow = useStripOverflow(stripRef, [workStreamBadges.length, hasUnassigned, axis, isStreamFiltered]);
   // Background auto-sync while this release is open, at its configured cadence (off by default).
   useAutoSync(r);
   // Capability handshake verdict, from the release's catalog snapshot: which
@@ -377,78 +266,20 @@ export function ReleaseChrome({
       }
       toolbar={
         <div className={styles.toolbar}>
-          <div className={styles.stripZone}>
-          <div className={styles.streamStrip} ref={stripRef}>
-            <span
-              className="tag"
-              style={{ flexShrink: 0, marginRight: 4, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-            >
-              {Icon.stream}Work streams
-            </span>
-            <VDivider stretch />
+          {/* The work-stream chips that used to fill this row repeated what the board
+              already shows — every lane, Unassigned included, is a link to its stream —
+              so the row carries only what the board can't: the stream filters (stream
+              axis) and the axis toggle, pinned right so it doesn't move between axes. */}
+          <div className={styles.facetZone}>
             {axis === 'stream' && streamFacetGroups.some((g) => g.visible) && (
               <>
                 <FacetBar groups={streamFacetGroups} onToggle={onToggleStreamFacet} onClear={onClearStreamFacets} />
                 {isStreamFiltered && hiddenStreamCount > 0 && (
-                  <span style={{ fontSize: 'var(--rt-fs-xs)', color: 'var(--rt-t3)', flexShrink: 0 }}>
-                    {hiddenStreamCount} hidden
-                  </span>
-                )}
-                <VDivider stretch />
-              </>
-            )}
-            {workStreamBadges.length === 0 && !hasUnassigned ? (
-              <span style={{ fontSize: 'var(--rt-fs-sm)', color: 'var(--rt-t3)' }}>
-                No work streams yet — add one with the button above.
-              </span>
-            ) : (
-              <>
-                {workStreamBadges.map(({ ws, itemCount, segs }: WorkStreamBadgeData) => (
-                  <StreamBadge
-                    key={ws.id}
-                    name={ws.name}
-                    count={itemCount}
-                    segs={segs}
-                    showSeg={itemCount > 0}
-                    freezeOverride={ws.codeFreezeISO}
-                    onClick={() => onNavigateToStream(ws.id)}
-                  />
-                ))}
-                {hasUnassigned && (
-                  <StreamBadge
-                    name="Unassigned"
-                    count={unassignedCount}
-                    segs={unassignedSegs}
-                    showSeg
-                    unassigned
-                    onClick={onNavigateToUnassigned}
-                  />
+                  <span className={`t3 ${styles.hiddenCount}`}>{hiddenStreamCount} hidden</span>
                 )}
               </>
             )}
           </div>
-            <span className={`${styles.fadeEdge} ${styles.fadeStart}`} data-on={!overflow.atStart || undefined} />
-            <span className={`${styles.fadeEdge} ${styles.fadeEnd}`} data-on={!overflow.atEnd || undefined} />
-          </div>
-          {overflow.hidden > 0 && (
-            <button
-              type="button"
-              className={styles.moreStreams}
-              title={`${overflow.hidden} more work stream${overflow.hidden === 1 ? '' : 's'} — click to scroll`}
-              // Jump, don't animate. Smooth scrolling (via scrollTo's behavior option
-              // or CSS scroll-behavior) is a no-op under prefers-reduced-motion and in
-              // some environments, which would leave this button appearing to do
-              // nothing at all — the point is revealing the streams, not the motion.
-              onClick={() => {
-                const el = stripRef.current;
-                if (!el) return;
-                el.scrollLeft = el.scrollWidth;
-                overflow.remeasure();
-              }}
-            >
-              +{overflow.hidden}
-            </button>
-          )}
           <div className={styles.axisSlot}>
             <SegmentedToggle<AxisMode>
               ariaLabel="Index release by"
