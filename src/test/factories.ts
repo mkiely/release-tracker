@@ -96,6 +96,8 @@ export function aSprint(over: Partial<Sprint> = {}): Sprint {
     daysOff: 0,
     externalId: null,
     plannedVelocity: null,
+    opening: null,
+    closing: null,
     ...over,
   };
 }

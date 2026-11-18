@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Release Tracker Schema",
   "description": "Machine-readable schema for Release Tracker application data model. Used for building translation adapters to other backend ticketing systems. The major version tracks SCHEMA_VERSION in src/types.ts (guarded by src/schema.test.ts); the wire contract between the app and the sync service lives separately in packages/sync-contract/openapi.yaml.",
-  "version": "31.0.0",
+  "version": "32.0.0",
   "definitions": {
     "Member": {
       "type": "object",
@@ -170,9 +170,58 @@
         "plannedVelocity": {
           "type": ["number", "null"],
           "description": "App-owned point-in-time baseline (in points) of the sprint's planned velocity — the capacity-adjusted sprintVel frozen when the sprint started. Null = not yet frozen (future sprint), planned velocity derives live from team.velocity. Once a sprint begins it is stamped and becomes immutable so later velocity edits never rewrite a started sprint's commitment. Survives connector sync (never set by the connector)."
+        },
+        "opening": {
+          "oneOf": [{ "$ref": "#/definitions/SprintReading" }, { "type": "null" }],
+          "description": "App-owned point-in-time history: the sprint's commitment, read on the first day the app sees it underway and refreshed through the rest of that day, then fixed. Null = never observed — a sprint nobody opened the app during, and every sprint that elapsed before schema v32 (readings are never backfilled: items carry no completion timestamp). Survives connector sync (never set by the connector)."
+        },
+        "closing": {
+          "oneOf": [{ "$ref": "#/definitions/SprintReading" }, { "type": "null" }],
+          "description": "App-owned point-in-time history: the last reading taken while the sprint was underway — replaced on every observation until endISO, then fixed. Read live rather than at the end so it describes the sprint before the connector rolls its unfinished work forward. Null = never observed. Survives connector sync (never set by the connector)."
         }
       },
-      "required": ["id", "name", "startISO", "endISO", "daysOff", "externalId", "plannedVelocity"],
+      "required": ["id", "name", "startISO", "endISO", "daysOff", "externalId", "plannedVelocity", "opening", "closing"],
+      "additionalProperties": false
+    },
+    "SprintReading": {
+      "type": "object",
+      "description": "One observation of a sprint and of the release around it on that day. Whether a reading is late or stale is not stored: it is the distance between dateISO and the sprint's own dates.",
+      "properties": {
+        "dateISO": { "type": "string", "format": "date", "description": "The local day the reading was taken." },
+        "contributingCount": { "type": "integer", "minimum": 0, "description": "Contributing (capacity-bearing) members on the roster that day." },
+        "items": {
+          "type": "array",
+          "description": "The items assigned to this sprint that day. Key and points are copied so the reading stays legible after an item is forgotten or re-pointed.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "key": { "type": "string" },
+              "points": { "type": ["number", "null"] },
+              "workStreamId": { "type": ["string", "null"] },
+              "status": { "$ref": "#/definitions/Status" }
+            },
+            "required": ["id", "key", "points", "workStreamId", "status"],
+            "additionalProperties": false
+          }
+        },
+        "streams": {
+          "type": "array",
+          "description": "Release-wide scope per work stream that day, muted streams included. An entry with workStreamId null holds the items with no (or a deleted) stream, present only when there are any.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "workStreamId": { "type": ["string", "null"] },
+              "scopePts": { "type": "number", "minimum": 0, "description": "All points in the stream, complete or not; null points contribute 0." },
+              "remainingPts": { "type": "number", "minimum": 0, "description": "Points not yet Complete." },
+              "engineersRequired": { "type": ["number", "null"], "description": "The stream's reservation that day; always null on the no-stream entry." }
+            },
+            "required": ["workStreamId", "scopePts", "remainingPts", "engineersRequired"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["dateISO", "contributingCount", "items", "streams"],
       "additionalProperties": false
     },
     "Event": {
@@ -607,7 +656,7 @@
   "constants": {
     "SCHEMA_VERSION": {
       "type": "integer",
-      "value": 31,
+      "value": 32,
       "description": "Current schema version for localStorage persistence"
     },
     "DEFAULT_SPRINT_COUNT": {

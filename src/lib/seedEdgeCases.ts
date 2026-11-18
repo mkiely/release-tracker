@@ -208,6 +208,8 @@ export function buildEdgeCaseRelease(todayISO: string): { release: Release; item
     daysOff: i === 2 ? 3 : i === 5 ? 2 : 0,
     externalId: `EDG-SP-${i + 1}`,
     plannedVelocity: null,
+    opening: null,
+    closing: null,
   }));
 
   const streams: WorkStream[] = EDGE_CASES.map((c, i) => ({

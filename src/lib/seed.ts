@@ -7,6 +7,7 @@ import { SCHEMA_VERSION, SPRINT_LEN_DAYS, type AppState, type ItemType, type Pla
 import { addDays, buildSprints, dOf, todayISO, uid } from './dates';
 import { canonicalBaseline, writeableLocalFields } from './connectorFields';
 import { EDGE_TEAM_ID, buildEdgeCaseRelease } from './seedEdgeCases';
+import { seedSprintHistory, type SeedStory } from './seedHistory';
 
 // Created / last-modified instants for seeded items. Anchored a few days before the
 // item's sprint and clamped to now, so no demo item claims to have been touched in
@@ -92,6 +93,19 @@ const NEXUS_SPRINT_DEFS: { name: string; len: number; daysOff: number; externalI
 ];
 
 const PT_POOL = [2, 3, 5, 1, 8, 3, 2, 5];
+
+// What happened differently in each demo's elapsed sprints (see seedHistory.ts).
+// Sprint indices are 0-based positions. Orion is in sprint index 3, Nexus in 5.
+const ORION_STORY: SeedStory = {
+  slipped: { 'Security audit findings — triage and assign': [2] },
+  addedMidSprint: ['Define third-party cookie deprecation plan'],
+};
+const NEXUS_STORY: SeedStory = {
+  // Two sprints running: the chronic carry-over the history exists to surface.
+  slipped: { 'Per-tenant rate limiting on the edge': [3, 4] },
+  // Pulled into the active sprint after it began.
+  addedMidSprint: ['Fix dedup window off-by-one under high lag'],
+};
 const NEXUS_TYPE_POOL: ItemType[] = [
   { id: 'acme_story', label: 'Story' },
   { id: 'acme_story', label: 'Story' },
@@ -233,7 +247,8 @@ export function seed(): AppState {
       description: 'Raw findings from pentest; stream assignment pending review.', descriptionFormat: 'html',
       status: 'In Progress', points: 5, externalId: null,
       assignedMemberId: coreMembers[0].id, build: null, externalUrl: null, dirtyFields: [], itemType: null,
-      ...stamps(demo.sprints[3].startISO),
+      // Slipped in from the sprint before (ORION_STORY), so it has to predate it.
+      ...stamps(demo.sprints[2].startISO),
     },
     {
       id: uid('it'), releaseId: 'rel_demo', workStreamId: null,
@@ -343,7 +358,7 @@ export function seed(): AppState {
     const endISO = addDays(startISO, def.len - 1);
     nexusCursor = addDays(endISO, 1);
     // plannedVelocity left null; load() stamps started sprints on first run.
-    return { id: uid('sp'), name: def.name, startISO, endISO, daysOff: def.daysOff, externalId: def.externalId, plannedVelocity: null };
+    return { id: uid('sp'), name: def.name, startISO, endISO, daysOff: def.daysOff, externalId: def.externalId, plannedVelocity: null, opening: null, closing: null };
   });
   const nexus: Release = {
     id: 'rel_nexus', name: 'Nexus 1.0', startISO: nexusStart, teamId: 'team_integrations',
@@ -491,7 +506,8 @@ export function seed(): AppState {
       assignedMemberId: nxsMembers[nxsMemberIdx++ % nxsMembers.length].id,
       build: null, dirtyFields: [],
       itemType: { id: 'acme_story', label: 'Story' },
-      ...stamps(nexusActiveSprint.startISO),
+      // Slipped through two sprints before this one (NEXUS_STORY), so it predates them.
+      ...stamps(nexusSprints[3].startISO),
     },
     {
       id: uid('it'), releaseId: 'rel_nexus', workStreamId: nxsWsId('Reporting & Analytics'),
@@ -533,12 +549,20 @@ export function seed(): AppState {
 
   const edge = buildEdgeCaseRelease(today);
 
+  // The demos' past, so the history surfaces have something true-to-shape to show
+  // from first load. The edge-case release is left unobserved on purpose: a release
+  // with no history is one of the shapes it exists to exercise.
+  const withHistory = (r: Release, story: SeedStory): Release => ({
+    ...r,
+    sprints: seedSprintHistory(r, teams.find((t) => t.id === r.teamId), itemsWithBaseline, today, story),
+  });
+
   return {
     version: SCHEMA_VERSION,
     teams,
     // Edge cases last: the home list should open on the two demos, with the
     // validation release sitting below them rather than competing for attention.
-    releases: [demo, nexus, edge.release],
+    releases: [withHistory(demo, ORION_STORY), withHistory(nexus, NEXUS_STORY), edge.release],
     items: [...itemsWithBaseline, ...edge.items.map((it) => ({
       ...it,
       syncedValues: it.externalId != null ? canonicalBaseline(it, seedWriteable, it.attributes) : null,
