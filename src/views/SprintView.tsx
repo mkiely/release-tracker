@@ -34,6 +34,8 @@ export function SprintView({
   facetGroups,
   groupBy,
   sprintItemCount,
+  review,
+  onOpenReview,
   isFiltered,
   onHome,
   onBack,
@@ -91,6 +93,8 @@ export function SprintView({
             pct={pct}
             totalPts={totalPts}
             sprintItemCount={sprintItemCount}
+            review={review}
+            onOpenReview={onOpenReview}
           />
         }
         right={

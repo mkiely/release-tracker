@@ -138,6 +138,8 @@ export function SprintTable({
   facetGroups,
   groupBy,
   sprintItemCount,
+  review,
+  onOpenReview,
   isFiltered,
   onHome,
   onBack,
@@ -233,6 +235,8 @@ export function SprintTable({
               pct={pct}
               totalPts={totalPts}
               sprintItemCount={sprintItemCount}
+              review={review}
+              onOpenReview={onOpenReview}
             />
             {/* This presenter inlines the sprint's events rather than giving them
                 their own strip — there's room on the identity row. */}

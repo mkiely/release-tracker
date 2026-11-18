@@ -6,7 +6,7 @@
 import type { AppState } from '../types';
 import { SCHEMA_VERSION } from '../types';
 import { seed } from '../lib/seed';
-import { migrate, stampStartedSprints, type PersistedState } from './migrate';
+import { migrate, stampSprints, type PersistedState } from './migrate';
 import { DEVICE_PREFIX, SAVED_AT_KEY, localSavedAt, readLocal, removeLocal, writeLocal, type WriteOptions } from './local';
 import { kb, logInfo, logWarn } from './log';
 
@@ -35,8 +35,9 @@ export function load(): AppState {
           lastChanged: localSavedAt(),
         });
         adoptUnstampedData();
-        // Freeze any sprint that has started since the last load (lazy stamp-on-start).
-        return stampStartedSprints(current);
+        // Freeze any sprint that has started since the last load (lazy stamp-on-start)
+        // and take today's reading of the ones underway.
+        return stampSprints(current);
       }
       logWarn('storage', `saved data has schema v${p?.version}, which this build can't read — starting from demo data`);
     } else {
@@ -47,7 +48,7 @@ export function load(): AppState {
   }
   writeLocal(SEEDED_KEY, '1');
   // Seed builds sprints with null baselines; stamp the ones already underway.
-  return stampStartedSprints(seed());
+  return stampSprints(seed());
 }
 
 /**

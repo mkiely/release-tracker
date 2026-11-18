@@ -8,6 +8,7 @@ import { EventModal } from './EventModal';
 import { LoadShareModal } from './LoadShareModal';
 import { PushReviewModal } from './PushReviewModal';
 import { SprintModal } from './SprintModal';
+import { SprintReviewModal } from './SprintReviewModal';
 import { StreamHealthModal } from './StreamHealthModal';
 import { TeamModal } from './TeamModal';
 import { WorkItemDetailModal } from './WorkItemDetailModal';
@@ -37,6 +38,8 @@ export function ModalHost({ modal, onClose }: { modal: ModalSpec | null; onClose
       return <CodeFreezeModal releaseId={modal.releaseId} onClose={onClose} />;
     case 'sprint':
       return <SprintModal releaseId={modal.releaseId} sprintId={modal.sprintId} onClose={onClose} />;
+    case 'sprintReview':
+      return <SprintReviewModal releaseId={modal.releaseId} sprintId={modal.sprintId} onClose={onClose} />;
     case 'item':
       return (
         <WorkItemModal

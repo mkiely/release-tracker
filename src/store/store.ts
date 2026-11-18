@@ -17,9 +17,10 @@ import { create } from 'zustand';
 import type { AppState, Member } from '../types';
 import { createActions, type Actions } from './actions';
 import { load, persist } from './storage';
+import { stampSprints } from './migrate';
 import { getBackup } from './backup';
 
-export { migrate, stampStartedSprints } from './migrate';
+export { migrate, stampSprintReadings, stampSprints, stampStartedSprints } from './migrate';
 export { LS_KEY, load, persist } from './storage';
 export type { ActionContext, Actions, ConnectorItemDraft, PushOutcome, SyncOutcome } from './actions';
 export {
@@ -54,9 +55,13 @@ export const useStore = create<StoreState>((set, get) => {
 
   const actions = createActions({
     snapshot: () => snapshot(get()),
+    // Every write is observed: a sprint that started since load gets its baseline,
+    // and an underway sprint's reading follows edits made in this session — a local
+    // release has no sync to observe it otherwise. Actions stay unaware of it.
     replace: (next) => {
-      persist(next);
-      set({ ...next });
+      const stamped = stampSprints(next);
+      persist(stamped);
+      set({ ...stamped });
     },
   });
 

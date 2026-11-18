@@ -15,7 +15,7 @@ export type AttrValue = string | number | boolean | null;
 export const WORKDAYS = 10;
 export const SPRINT_LEN_DAYS = 14;
 export const DEFAULT_SPRINT_COUNT = 8;
-export const SCHEMA_VERSION = 31;
+export const SCHEMA_VERSION = 32;
 
 /** Sync-time snapshot of a connector's vocabulary: its item-type catalog, its
  *  status vocabulary (native workflow states mapped to canonical categories),
@@ -145,6 +145,72 @@ export interface Sprint {
    *  sprint's commitment — the foundation that makes attainment history stable
    *  and the velocity "Apply" action safe. See docs/metrics.md. */
   plannedVelocity: number | null;
+  /**
+   * Point-in-time history: what the sprint held when it began, and the last thing
+   * seen in it before it ended. App-owned, survives connector sync, never set by
+   * the connector. See store/migrate.ts `stampSprintReadings` and
+   * docs/capacity-history.md.
+   *
+   * Everything else in the app derives from current state, so a release's past
+   * reads as though today's plan had always been the plan. These two readings are
+   * the only record of what was actually so, which is why they are taken by
+   * observation and never reconstructed: an item has no completion timestamp, so a
+   * reading stamped after the fact would file today's numbers under a past sprint.
+   *
+   * - `opening` is the commitment: taken on the first day the app sees the sprint
+   *   underway, and refreshed through the rest of that day (sprint planning often
+   *   happens on it), then fixed.
+   * - `closing` is refreshed on every observation while the sprint is underway and
+   *   stops moving when the sprint ends. Taking it at the end instead would read
+   *   the sprint after the connector has already rolled its unfinished work forward.
+   *
+   * null = never observed. A sprint nobody opened the app during stays null in
+   * both, an honest gap. Whether a reading is late or stale is not stored: it is
+   * the distance between `dateISO` and the sprint's own dates.
+   */
+  opening: SprintReading | null;
+  closing: SprintReading | null;
+}
+
+/** One observation of a sprint, and of the release around it on that day. */
+export interface SprintReading {
+  /** The local day the reading was taken (YYYY-MM-DD, like every other sprint date). */
+  dateISO: string;
+  /** Contributing engineers on the roster that day. */
+  contributingCount: number;
+  /** The items assigned to this sprint that day. Key and points are copied rather
+   *  than looked up, so a reading stays legible after its item is forgotten or
+   *  re-pointed. */
+  items: SprintReadingItem[];
+  /** Release-wide scope per work stream that day, every stream included (muted ones
+   *  too — derivations decide what counts, as they do over live data). One entry
+   *  with `workStreamId: null` holds the items with no stream, when there are any. */
+  streams: SprintReadingStream[];
+}
+
+export interface SprintReadingItem {
+  id: string;
+  key: string;
+  points: number | null;
+  workStreamId: string | null;
+  status: Status;
+}
+
+export interface SprintReadingStream {
+  workStreamId: string | null;
+  /** All points in the stream, complete or not. Null points contribute 0. */
+  scopePts: number;
+  /** Points not yet Complete. */
+  remainingPts: number;
+  /** The stream's reservation that day; null when unset (and always for the
+   *  no-stream entry). */
+  engineersRequired: number | null;
+  /** The stream's planning posture that day — what tells new tickets apart from new
+   *  scope: points written while a stream is 'open' or 'deferred' are planning, points
+   *  that appear after it was 'complete' are growth (see sprintHistory.scopeChange).
+   *  Absent on the no-stream entry, and on readings taken before it was recorded;
+   *  both read as "not declared complete", the cautious reading. */
+  planningState?: PlanningState;
 }
 
 /** Connector type id, e.g. 'acme'. The set is defined by the local sync service. */

@@ -6,7 +6,7 @@
 // version-check → migrate → return, plus the corrupt-data and quota catch paths.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LS_KEY, load, persist, stampStartedSprints } from './store';
+import { LS_KEY, load, persist, stampSprints, stampStartedSprints } from './store';
 import { localSavedAt } from './local';
 import { seed } from '../lib/seed';
 import { aMember, aRelease, aSprint, aState, aTeam } from '../test/factories';
@@ -56,10 +56,10 @@ describe('persist', () => {
 
 describe('load', () => {
   it('round-trips persisted state with full fidelity', () => {
-    // Persist an already-stamped state so load()'s lazy stamp-on-start is a no-op
+    // Persist an already-stamped state so load()'s lazy sprint stamps are a no-op
     // and the round-trip is a true identity (raw seed leaves started sprints
-    // unstamped, which load would then freeze).
-    const original = stampStartedSprints(seed());
+    // unstamped and the active sprint unread, which load would then fill in).
+    const original = stampSprints(seed());
     persist(original);
     expect(load()).toEqual(original);
   });
@@ -125,7 +125,7 @@ describe('load', () => {
   });
 
   it('stamps user data that predates change stamps, so a backup cannot silently replace it', () => {
-    localStorage.setItem(LS_KEY, JSON.stringify(stampStartedSprints(seed())));
+    localStorage.setItem(LS_KEY, JSON.stringify(stampSprints(seed())));
     load();
     expect(localSavedAt()).not.toBeNull();
   });

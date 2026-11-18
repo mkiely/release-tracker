@@ -186,3 +186,28 @@
 
 /* The paragraph that opens the push review, above the item list. */
 .introNote { margin-bottom: 12px; }
+
+/* One work item in a dialog's list: key, subject, and anything trailing (points,
+   a count). The whole row is a button into the item. Shared by the stream-health
+   agenda, the sprint review and the carry-over list. */
+.itemRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: var(--rt-fs-sm);
+  color: var(--rt-ink);
+  text-align: left;
+  cursor: pointer;
+}
+.itemRow:hover { background: var(--rt-fill); }
+.itemRow:focus-visible { outline: 2px solid var(--rt-st-ac-dot); outline-offset: 1px; }
+.itemRowSubject { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The same row with nothing to open (the item is gone): reads, doesn't invite. */
+.itemRowStatic { cursor: default; }
+.itemRowStatic:hover { background: none; }

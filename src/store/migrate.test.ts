@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { migrate } from './store';
-import { SCHEMA_VERSION } from '../types';
+import { migrate, stampSprintReadings, stampSprints } from './store';
+import { SCHEMA_VERSION, type AppState } from '../types';
+import { aRelease, aSprint, aState, aTeamOf, anItem } from '../test/factories';
 
 /** Read a field the current types no longer declare — for asserting a migration
  *  actually dropped it, rather than merely stopping reading it. */
@@ -793,5 +794,118 @@ describe('migrate v30 → v31 (createdBy)', () => {
     const next = migrate(v30())!;
     expect(next.version).toBe(SCHEMA_VERSION);
     expect(next.items[0].createdBy).toBeNull();
+  });
+});
+
+describe('migrate v31 → v32 (sprint readings)', () => {
+  const v31 = () => ({
+    version: 31,
+    teams: [],
+    releases: [{
+      id: 'r1', name: 'R', startISO: '2026-04-13', teamId: 't1', workStreams: [], events: [],
+      sprints: [{ id: 'sp1', name: 'Sprint 1', startISO: '2026-04-13', endISO: '2026-04-26', daysOff: 0, externalId: null, plannedVelocity: 30 }],
+      codeFreezeISO: null, externalId: null, connector: null, sync: null, sprintLengthDays: 14,
+    }],
+    items: [],
+    meta: { lastSyncISO: null },
+  });
+
+  it('starts every sprint unobserved — an elapsed sprint is never read after the fact', () => {
+    const next = migrate(v31())!;
+    expect(next.version).toBe(SCHEMA_VERSION);
+    expect(next.releases[0].sprints[0]).toMatchObject({ plannedVelocity: 30, opening: null, closing: null });
+  });
+});
+
+describe('stampSprintReadings', () => {
+  // sp1 runs 13–26 Apr, sp2 27 Apr – 10 May (the release factory's defaults).
+  const state = (over: Partial<AppState> = {}): AppState =>
+    aState({ teams: [aTeamOf(3, 30)], releases: [aRelease()], items: [anItem({ id: 'a', sprintId: 'sp1' })], ...over });
+  const sprint = (s: AppState, idx = 0) => s.releases[0].sprints[idx];
+  const withStatus = (s: AppState, status: 'In Progress' | 'Complete'): AppState => ({
+    ...s,
+    items: s.items.map((i) => ({ ...i, status })),
+  });
+
+  it('reads only the sprint underway', () => {
+    const out = stampSprintReadings(state(), '2026-04-15');
+    expect(sprint(out).opening?.dateISO).toBe('2026-04-15');
+    expect(sprint(out).closing?.dateISO).toBe('2026-04-15');
+    expect(sprint(out, 1)).toMatchObject({ opening: null, closing: null });
+  });
+
+  it('leaves a sprint that started and ended between visits unobserved', () => {
+    const out = stampSprintReadings(state(), '2026-04-28');
+    expect(sprint(out)).toMatchObject({ opening: null, closing: null });
+    expect(sprint(out, 1).opening).not.toBeNull();
+  });
+
+  it('returns the same reference when nothing has moved since today\'s reading', () => {
+    const once = stampSprintReadings(state(), '2026-04-15');
+    expect(stampSprintReadings(once, '2026-04-15')).toBe(once);
+  });
+
+  it('returns the same reference when no sprint is underway', () => {
+    const s = state();
+    expect(stampSprintReadings(s, '2026-06-01')).toBe(s);
+  });
+
+  it('lets the opening absorb the rest of its first day — planning happens on it', () => {
+    const morning = stampSprintReadings(state(), '2026-04-13');
+    const afternoon = stampSprintReadings(
+      { ...morning, items: [...morning.items, anItem({ id: 'b', sprintId: 'sp1' })] },
+      '2026-04-13',
+    );
+    expect(sprint(afternoon).opening?.items.map((i) => i.id)).toEqual(['a', 'b']);
+  });
+
+  it('fixes the opening from the next day, while the closing follows every change', () => {
+    const day1 = stampSprintReadings(state(), '2026-04-13');
+    const day3 = stampSprintReadings(withStatus(day1, 'In Progress'), '2026-04-15');
+    expect(sprint(day3).opening).toBe(sprint(day1).opening);
+    expect(sprint(day3).closing).toMatchObject({ dateISO: '2026-04-15', items: [{ id: 'a', status: 'In Progress' }] });
+  });
+
+  it('re-dates an unchanged closing on a new day — freshness is part of the reading', () => {
+    const day1 = stampSprintReadings(state(), '2026-04-13');
+    const lastDay = stampSprintReadings(day1, '2026-04-26');
+    expect(sprint(lastDay).closing?.dateISO).toBe('2026-04-26');
+  });
+
+  it('stops moving the closing once the sprint has ended', () => {
+    const lastDay = stampSprintReadings(state(), '2026-04-26');
+    const after = stampSprintReadings(withStatus(lastDay, 'Complete'), '2026-04-27');
+    expect(sprint(after).closing).toBe(sprint(lastDay).closing);
+    expect(sprint(after).closing?.items[0].status).toBe('Not Started');
+  });
+
+  it('keeps the closing as last seen even when the next sprint inherits its work', () => {
+    const lastDay = stampSprintReadings(state(), '2026-04-26');
+    // The connector rolls the unfinished item forward overnight.
+    const rolled = { ...lastDay, items: lastDay.items.map((i) => ({ ...i, sprintId: 'sp2' })) };
+    const next = stampSprintReadings(rolled, '2026-04-27');
+    expect(sprint(next).closing?.items.map((i) => i.id)).toEqual(['a']);
+    expect(sprint(next, 1).opening?.items.map((i) => i.id)).toEqual(['a']);
+  });
+
+  it('reads each release against its own items and team', () => {
+    const other = aRelease({ id: 'rel_2', teamId: 'team_2', sprints: [aSprint({ id: 'spX' })] });
+    const s = state({
+      teams: [aTeamOf(3, 30), { ...aTeamOf(5, 50), id: 'team_2' }],
+      releases: [aRelease(), other],
+      items: [anItem({ id: 'a', sprintId: 'sp1' }), anItem({ id: 'x', releaseId: 'rel_2', sprintId: 'spX' })],
+    });
+    const out = stampSprintReadings(s, '2026-04-15');
+    expect(sprint(out).opening?.items.map((i) => i.id)).toEqual(['a']);
+    expect(out.releases[1].sprints[0].opening).toMatchObject({ contributingCount: 5, items: [{ id: 'x' }] });
+  });
+});
+
+describe('stampSprints', () => {
+  it('stamps the velocity baseline and the readings in one pass', () => {
+    const s = aState({ teams: [aTeamOf(3, 30)], items: [anItem({ sprintId: 'sp1' })] });
+    const out = stampSprints(s, '2026-04-15');
+    expect(out.releases[0].sprints[0].plannedVelocity).toBe(30);
+    expect(out.releases[0].sprints[0].opening).not.toBeNull();
   });
 });

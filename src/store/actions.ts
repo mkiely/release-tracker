@@ -29,7 +29,6 @@ import { allWriteableLocalFields, canonicalBaseline, writeableLocalFieldsForItem
 import { SyncValidationError, syncClient } from '../sync/client';
 import type { SyncResult } from '../sync/schema';
 import type { SharePayload } from '../lib/shareRelease';
-import { stampStartedSprints } from './migrate';
 
 /** Result of a sync attempt, shaped so the UI can craft a precise toast. */
 export type SyncOutcome =
@@ -287,6 +286,8 @@ export function createActions(ctx: ActionContext): Actions {
           daysOff: s.daysOff || 0,
           externalId: s.externalId ?? null,
           plannedVelocity: null,
+          opening: null,
+          closing: null,
         })),
         codeFreezeISO: null,
         externalId: null,
@@ -542,9 +543,9 @@ export function createActions(ctx: ActionContext): Actions {
         const writeableItemFields = [...allWriteableLocalFields(meta?.itemTypes)];
 
         const mapped = await syncClient.sync(r.connector);
-        const { next: synced, result } = applySync(ctx.snapshot(), releaseId, mapped, writeableItemFields);
-        // Freeze the baseline of any sprint already underway in the just-synced data.
-        const next = stampStartedSprints(synced);
+        // Sprints underway in the synced data are stamped by the store as this is
+        // written (store.ts `replace`), like every other write.
+        const { next, result } = applySync(ctx.snapshot(), releaseId, mapped, writeableItemFields);
         const at = stamp();
         next.meta = { ...next.meta, lastSyncISO: at };
         next.releases = next.releases.map((rel) =>

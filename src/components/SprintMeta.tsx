@@ -5,7 +5,7 @@ import styles from './SprintMeta.module.css';
 
 type SprintMetaProps = Pick<
   SprintViewProps,
-  'sprint' | 'team' | 'onOpenTeam' | 'vel' | 'pct' | 'totalPts' | 'sprintItemCount'
+  'sprint' | 'team' | 'onOpenTeam' | 'vel' | 'pct' | 'totalPts' | 'sprintItemCount' | 'review' | 'onOpenReview'
 >;
 
 /**
@@ -26,6 +26,8 @@ export function SprintMeta({
   pct,
   totalPts,
   sprintItemCount,
+  review,
+  onOpenReview,
 }: SprintMetaProps) {
   const over = totalPts > vel;
   return (
@@ -53,6 +55,25 @@ export function SprintMeta({
         {sprintItemCount} items · {totalPts} pts planned
         {over ? ` · over by ${totalPts - vel}` : ''}
       </span>
+      {/* What was recorded, not what is planned: present only once the sprint has
+          been observed, so an unread sprint shows no figure rather than a zero. */}
+      {review && (
+        <>
+          <span className={styles.dot}>·</span>
+          <button
+            type="button"
+            className={styles.review}
+            title={review.caveated ? `${review.sentence} Readings incomplete — open for details.` : review.sentence}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenReview();
+            }}
+          >
+            <span className={styles.reviewLabel}>{review.label}</span>
+            {review.caveated && <span className={styles.caveat} aria-label="readings incomplete">*</span>}
+          </button>
+        </>
+      )}
     </>
   );
 }

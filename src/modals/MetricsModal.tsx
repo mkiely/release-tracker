@@ -6,6 +6,9 @@
 //                  plus the scope/capacity ledger. Completion-invariant.
 //   · Runway     — forward planning-runway (is enough work created to fill held
 //                  capacity?), per stream, with the proactive-creation alarm.
+//   · History    — what was recorded sprint by sprint (Sprint.opening/closing):
+//                  scope growth, each sprint's review, chronic carry-over. The only
+//                  tab that reads the record rather than today's plan.
 // Backward attainment + forward runway are the spine; the two allocation readings
 // sit between them, adjacent on purpose — Capacity answers "can we finish from
 // here", Whole release answers "how did this run", and the pair is only legible
@@ -22,12 +25,15 @@ import { SegmentedToggle } from '../components/SegmentedToggle';
 import { VelocityTrendChart } from '../components/Trend';
 import { RunwayBadge } from '../components/VerdictLine';
 import { assessRelease, assessStreams } from '../lib/streamAssessment';
+import { todayISO } from '../lib/dates';
+import { carryOver, historicContention, scopeChange, sprintInjection, sprintReview } from '../lib/sprintHistory';
+import { readingCaveats, scopeChangeReadout } from '../lib/historyReadouts';
 import { statusVars, warningVars } from '../components/statusVars';
 import { Row, GoneModal } from './parts';
 import modalStyles from './modals.module.css';
 import styles from './MetricsModal.module.css';
 
-export type MetricsSection = 'velocity' | 'capacity' | 'release' | 'runway';
+export type MetricsSection = 'velocity' | 'capacity' | 'release' | 'runway' | 'history';
 
 interface SectionProps {
   r: Release;
@@ -256,6 +262,15 @@ function CapacitySection({ r, team, items }: SectionProps) {
 // carried work and every sprint that ran, so nothing here moves as work lands.
 function ReleaseSection({ r, team, items }: SectionProps) {
   const retro = assessRelease(r, team, items);
+  // The strip reads each sprint from its record where one exists; the release-level
+  // figures above it stay the final-plan reading (they are whole-cycle sums, and a
+  // record only exists for the sprints someone observed).
+  const historic = historicContention(r, retro);
+  // "Estimated" covers two different things the copy must not blur: a past sprint
+  // nobody observed (a gap in the record) and a sprint still to come (no record yet).
+  const today = todayISO();
+  const upcoming = historic.perSprint.filter((s) => s.source === 'estimated' && s.sprint.startISO > today).length;
+  const missed = historic.perSprint.length - historic.recordedSprints - upcoming;
   const { ledger, contention } = retro;
   const isOver = contention.overAllocated;
   const over = contention.totalRequired - ledger.contributingCount;
@@ -311,14 +326,24 @@ function ReleaseSection({ r, team, items }: SectionProps) {
       <div className={`card ${modalStyles.block}`}>
         <span className={`tag ${modalStyles.blockLabel}`}>Allocation by sprint</span>
         <div className={modalStyles.ledeSm}>
-          {retro.judgedSprints === 0
+          {historic.judgedSprints === 0
             ? 'No sprint in this release has a work stream holding work.'
-            : retro.overbookedSprints === 0
-              ? `Within capacity in all ${retro.judgedSprints} sprint${retro.judgedSprints === 1 ? '' : 's'} that carried work.`
-              : `Overbooked in ${retro.overbookedSprints} of ${retro.judgedSprints} sprint${retro.judgedSprints === 1 ? '' : 's'} that carried work.`}
+            : historic.overbookedSprints === 0
+              ? `Within capacity in all ${historic.judgedSprints} sprint${historic.judgedSprints === 1 ? '' : 's'} that carried work`
+              : `Overbooked in ${historic.overbookedSprints} of ${historic.judgedSprints} sprint${historic.judgedSprints === 1 ? '' : 's'} that carried work`}
+          {historic.judgedSprints > 0 &&
+            (historic.recordedSprints === historic.perSprint.length
+              ? ', every one as recorded.'
+              : ` — ${[
+                  historic.recordedSprints ? `${historic.recordedSprints} as recorded` : 'none recorded',
+                  missed ? `${missed} not observed` : '',
+                  upcoming ? `${upcoming} still to come` : '',
+                ]
+                  .filter(Boolean)
+                  .join(', ')}${historic.recordedSprints === historic.perSprint.length ? '' : '; hatched sprints are read from today’s plan'}.`)}
         </div>
         <div className={styles.sprintStrip} role="group" aria-label="Allocation by sprint">
-          {retro.perSprint.map((s, i) => {
+          {historic.perSprint.map((s, i) => {
             const seg = s.idle
               ? { bg: statusVars('Not Started').soft, fg: 'var(--rt-t3)' }
               : s.contention.overAllocated
@@ -328,11 +353,16 @@ function ReleaseSection({ r, team, items }: SectionProps) {
               <div
                 key={s.sprint.id}
                 title={
-                  s.idle
+                  (s.idle
                     ? `${s.sprint.name} — no work stream held work`
-                    : `${s.sprint.name} — ${s.contention.totalRequired} reserved across ${s.streamCount} stream${s.streamCount === 1 ? '' : 's'}, ${ledger.contributingCount} contributing`
+                    : `${s.sprint.name} — ${s.contention.totalRequired} reserved across ${s.streamCount} stream${s.streamCount === 1 ? '' : 's'}, ${s.contributingCount} contributing`) +
+                  (s.source === 'recorded'
+                    ? ' (as recorded)'
+                    : s.sprint.startISO > today
+                      ? ' (still to come: read from today’s plan)'
+                      : ' (not observed while it ran: read from today’s plan)')
                 }
-                className={styles.sprintSeg}
+                className={`${styles.sprintSeg} ${s.source === 'estimated' ? styles.sprintSegEstimated : ''}`}
                 style={{ '--seg-bg': seg.bg, '--seg-fg': seg.fg } as CSSProperties}
               >
                 {i + 1}
@@ -362,8 +392,131 @@ function ReleaseSection({ r, team, items }: SectionProps) {
       </div>
 
       <div className={modalStyles.note}>
-        A final-plan reading: reservations, the roster and each item's sprint are taken at today's values, so a change made mid-release
-        reads as though it had always been so. Elapsed sprints do contribute the velocity they actually committed.
+        The scope and reservation figures are a final-plan reading: reservations, the roster and each item's sprint are taken at
+        today's values, so a change made mid-release reads as though it had always been so. The sprint strip uses each sprint's own
+        record where one exists — the streams, reservations and roster as they were — and hatches the sprints without one
+        (not observed while they ran, or still to come), which fall back to today's plan. Elapsed sprints contribute the velocity they actually committed.
+      </div>
+    </>
+  );
+}
+
+// ── History (recorded) ──────────────────────────────────────────────────
+// The record, not the plan. Every other tab derives from current state; this one
+// reads only the sprint readings, so a sprint nobody observed is a labelled gap
+// rather than a figure, and growth is measured from where recording began.
+function HistorySection({ r, items }: SectionProps) {
+  const { openModal } = useApp();
+  const today = todayISO();
+  const scope = scopeChangeReadout(r, scopeChange(r), sprintInjection(r, today));
+  const started = r.sprints.filter((sp) => sp.startISO <= today);
+  const carried = carryOver(r, items, today);
+  const subjectOf = new Map(items.map((i) => [i.id, i.subject]));
+
+  if (!scope) {
+    return (
+      <div className={`card dash ${modalStyles.emptyCard}`}>
+        Nothing has been recorded for this release yet. Each sprint's commitment and progress are read while it runs,
+        whenever the app is open — the first reading lands the next time a sprint is underway.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Three statements, deliberately not one total: growth, work pulled into running
+          sprints, and planning progress measure different things and overlap. */}
+      <div className={`card ${modalStyles.block}`}>
+        <span className={`tag ${modalStyles.blockLabel}`}>Scope · {scope.since.toLowerCase()}</span>
+        <div className={modalStyles.ledeSm}>
+          <strong className="ink">Growth.</strong> {scope.growth}
+        </div>
+        {scope.injection && (
+          <div className={modalStyles.ledeSm}>
+            <strong className="ink">Into running sprints.</strong> {scope.injection}
+          </div>
+        )}
+        {scope.planning && (
+          <div className={modalStyles.ledeSm}>
+            <strong className="ink">Planning.</strong> {scope.planning}
+          </div>
+        )}
+      </div>
+
+      <div className={`card ${modalStyles.block}`}>
+        <span className={`tag ${modalStyles.blockLabel}`}>Sprint by sprint, as recorded</span>
+        <div className={styles.historyTable} role="table" aria-label="Recorded sprint reviews">
+          <div className={`${styles.historyRow} ${styles.historyHead}`} role="row">
+            {['Sprint', 'Committed', 'Added', 'Moved out', 'Done', 'Carried', 'Met'].map((h) => (
+              <span key={h} role="columnheader">{h}</span>
+            ))}
+          </div>
+          {started.map((sp) => {
+            const review = sprintReview(r, sp, today);
+            if (!review) {
+              return (
+                <div key={sp.id} className={styles.historyRow} role="row">
+                  <span role="cell" className={styles.historySprint}>{sp.name}</span>
+                  <span role="cell" className={`t3 ${styles.historyGap}`}>not observed</span>
+                </div>
+              );
+            }
+            const caveats = readingCaveats(sp, today);
+            const { pts } = review;
+            return (
+              <div
+                key={sp.id}
+                role="row"
+                className={`${styles.historyRow} ${styles.historyRowLinked}`}
+                title={caveats.length ? caveats.join(' ') : undefined}
+              >
+                <span role="cell" className={styles.historySprint}>
+                  {/* Stretched over the row (CSS), so the whole row opens the review
+                      while the table keeps real rows and one real button. */}
+                  <button
+                    type="button"
+                    className={styles.rowLink}
+                    onClick={() => openModal({ type: 'sprintReview', releaseId: r.id, sprintId: sp.id })}
+                  >
+                    {sp.name}
+                  </button>
+                  {!review.final && <span className={`tag ${styles.tagMicro}`}>so far</span>}
+                  {caveats.length > 0 && <span className={`tag ${styles.tagMicro} ${styles.caveatTag}`}>incomplete</span>}
+                </span>
+                <span role="cell" className="mono">{pts.committed}</span>
+                <span role="cell" className="mono">{review.added.length ? `+${pts.added}` : '—'}</span>
+                <span role="cell" className="mono">{review.removed.length ? `\u2212${pts.removed}` : '—'}</span>
+                <span role="cell" className="mono">{pts.completed}</span>
+                <span role="cell" className="mono">{review.final ? pts.unfinished : '—'}</span>
+                <span role="cell" className="mono">{review.commitmentMetPct === null ? '—' : `${review.commitmentMetPct}%`}</span>
+              </div>
+            );
+          })}
+        </div>
+        <span className={modalStyles.footnote}>Points as recorded. Carried counts only sprints that have ended.</span>
+      </div>
+
+      <div className={`card ${modalStyles.block}`}>
+        <span className={`tag ${modalStyles.blockLabel}`}>Carried over · still open</span>
+        {carried.length === 0 ? (
+          <span className={modalStyles.noteBare}>Nothing still open has ended a sprint unfinished.</span>
+        ) : (
+          carried.map((c) => (
+            <button key={c.id} type="button" className={modalStyles.itemRow} onClick={() => openModal({ type: 'itemDetail', itemId: c.id })}>
+              <span className="mono t3">{c.key}</span>
+              <span className={modalStyles.itemRowSubject}>{subjectOf.get(c.id)}</span>
+              <span className={`mono ${c.chronic ? styles.chronic : 't3'}`}>
+                {c.slips} sprint{c.slips === 1 ? '' : 's'}
+              </span>
+            </button>
+          ))
+        )}
+      </div>
+
+      <div className={modalStyles.note}>
+        Recorded while each sprint ran: its commitment on the first day the app saw it, the rest as last seen. A sprint
+        nobody opened the app during is shown as not observed — it is never reconstructed, because nothing records when an
+        item was actually completed.
       </div>
     </>
   );
@@ -494,6 +647,7 @@ function sectionWarnings(r: Release, team: Team | undefined, items: WorkItem[]):
     capacity: assessment.contention.overAllocated,
     release: retro.contention.overAllocated || retro.overCommitted,
     runway: assessment.streams.some((s) => s.runway.alarm),
+    history: carryOver(r, items).some((c) => c.chronic),
   };
 }
 
@@ -516,6 +670,7 @@ export function MetricsModal({ releaseId, section, onClose }: { releaseId: strin
     { value: 'capacity', label: 'Capacity', icon: warn.capacity ? Icon.alert : Icon.users, warn: warn.capacity, title: 'Team allocation across streams, as things stand today' },
     { value: 'release', label: 'Whole release', icon: warn.release ? Icon.alert : Icon.release, warn: warn.release, title: 'How the release ran across its full cycle — unaffected by what has completed' },
     { value: 'runway', label: 'Runway', icon: warn.runway ? Icon.alert : Icon.stream, warn: warn.runway, title: 'Is enough work created to fill held capacity?' },
+    { value: 'history', label: 'History', icon: warn.history ? Icon.alert : Icon.timeline, warn: warn.history, title: 'What was recorded sprint by sprint — scope growth, sprint reviews, carry-over' },
   ];
 
   return (
@@ -534,6 +689,7 @@ export function MetricsModal({ releaseId, section, onClose }: { releaseId: strin
       {tab === 'capacity' && <CapacitySection r={r} team={team} items={items} />}
       {tab === 'release' && <ReleaseSection r={r} team={team} items={items} />}
       {tab === 'runway' && <RunwaySection r={r} team={team} items={items} />}
+      {tab === 'history' && <HistorySection r={r} team={team} items={items} />}
     </Modal>
   );
 }

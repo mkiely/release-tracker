@@ -20,6 +20,7 @@ import {
 } from '../types';
 import { dOf, todayISO, uid } from '../lib/dates';
 import { sprintVel } from '../lib/derive';
+import { buildSprintReading, isUnderway, sameReading } from '../lib/sprintReadings';
 
 /**
  * Read a field an older schema version carried but the current type no longer
@@ -460,6 +461,21 @@ export function migrate(persisted: PersistedState): AppState | null {
     s = { ...s, version: 31, items: s.items.map((i) => ({ ...i, createdBy: null })) };
   }
 
+  // v31 → v32: sprints gain `opening`/`closing` readings. Deliberately not
+  // backfilled: no item records when it was completed, so a reading built now for
+  // an elapsed sprint would be today's state under that sprint's name. Every sprint
+  // starts unobserved, and the first load stamps whichever one is underway.
+  if (s.version === 31) {
+    s = {
+      ...s,
+      version: 32,
+      releases: s.releases.map((r) => ({
+        ...r,
+        sprints: r.sprints.map((sp) => ({ ...sp, opening: null, closing: null })),
+      })),
+    };
+  }
+
   return s.version === SCHEMA_VERSION ? s : null;
 }
 
@@ -497,3 +513,50 @@ export function stampStartedSprints(state: AppState, today: string = todayISO())
   });
   return changed ? { ...state, releases } : state;
 }
+
+/**
+ * Take today's reading of every sprint that is underway — the observation half of
+ * the point-in-time history (Sprint.opening/closing in types.ts).
+ *
+ * Only an underway sprint is ever read. One that started and ended between two
+ * visits is left unobserved rather than read late, because by then its items have
+ * moved on and the reading would describe some other sprint.
+ *
+ * - `opening` is taken on the first day the sprint is seen underway and refreshed
+ *   until that day ends, so a planning meeting held after the first load still
+ *   lands in the commitment. From the next day it never changes.
+ * - `closing` is replaced on every observation, which is what makes it the last
+ *   thing seen once the sprint is over. An unchanged reading is still re-dated
+ *   when a new day starts: "seen unchanged on its last day" and "last seen a week
+ *   before it ended" are different facts, and the date is how they differ.
+ *
+ * Returns the same reference when nothing changed, like stampStartedSprints.
+ */
+export function stampSprintReadings(state: AppState, today: string = todayISO()): AppState {
+  let changed = false;
+  const releases = state.releases.map((r) => {
+    if (!r.sprints.some((sp) => isUnderway(sp, today))) return r;
+    const team = state.teams.find((t) => t.id === r.teamId);
+    const items = state.items.filter((i) => i.releaseId === r.id);
+    let touched = false;
+    const sprints = r.sprints.map((sp) => {
+      if (!isUnderway(sp, today)) return sp;
+      const now = buildSprintReading(r, team, sp, items, today);
+      const keepOpening = sp.opening && (sp.opening.dateISO !== today || sameReading(sp.opening, now));
+      const keepClosing = sp.closing && sp.closing.dateISO === today && sameReading(sp.closing, now);
+      if (keepOpening && keepClosing) return sp;
+      touched = true;
+      return { ...sp, opening: keepOpening ? sp.opening : now, closing: keepClosing ? sp.closing : now };
+    });
+    if (!touched) return r;
+    changed = true;
+    return { ...r, sprints };
+  });
+  return changed ? { ...state, releases } : state;
+}
+
+/** Every sprint stamp, in one pass: the planned-velocity baseline, then today's
+ *  readings. The load path and the store's write path both run this, so any change
+ *  to the data — a load, a sync, an edit — is observed the moment it happens. */
+export const stampSprints = (state: AppState, today: string = todayISO()): AppState =>
+  stampSprintReadings(stampStartedSprints(state, today), today);

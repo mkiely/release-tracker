@@ -23,6 +23,7 @@ export type ModalSpec =
   | { type: 'event'; releaseId: string; eventId?: string }
   | { type: 'codeFreeze'; releaseId: string }
   | { type: 'sprint'; releaseId: string; sprintId: string }
+  | { type: 'sprintReview'; releaseId: string; sprintId: string }
   | { type: 'item'; releaseId: string; presetStreamId?: string; presetSprintId?: string }
   | { type: 'connectorItem'; releaseId: string; presetStreamId?: string; presetSprintId?: string }
   | { type: 'itemDetail'; itemId: string }

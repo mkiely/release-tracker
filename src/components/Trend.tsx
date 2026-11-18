@@ -1,5 +1,6 @@
 import { statusVars, warningVars } from './statusVars';
 import styles from './Trend.module.css';
+import type { BurnPoint } from '../lib/historyReadouts';
 
 /** Ellipsize an axis label to a max character budget (keeps at least one char). */
 function truncLabel(s: string, max: number): string {
@@ -55,8 +56,12 @@ export function Sparkline({
  * is drawn as an amber marker (matching the freeze chip elsewhere), and sprints past
  * it are faded — no work can land there. No charting kit — same SVG idiom as Sparkline.
  *
- * The x-axis is sprint *assignment*, not completion history (none exists) — an
- * approximation the caller should label.
+ * The bars are sprint *assignment*. When the stream has recorded history, `actual`
+ * draws what was observed on top: remaining points at each reading (with total scope
+ * as a faint dashed line beneath, so a rise reads as scope arriving), placed on the
+ * day it was taken, broken where a sprint was never observed and hollow where a
+ * reading was late or stale (see lib/historyReadouts.recordedBurn). Without it the
+ * chart is assignment only — an approximation the caller should label.
  */
 export function StreamBurnChart({
   series,
@@ -66,6 +71,7 @@ export function StreamBurnChart({
   remainingPts,
   effectiveCap,
   tone,
+  actual = [],
 }: {
   series: number[];
   firstRemainingIndex: number;
@@ -77,6 +83,8 @@ export function StreamBurnChart({
   remainingPts: number;
   effectiveCap: number;
   tone: 'ok' | 'risk';
+  /** Recorded remaining work; null entries break the line. Empty = no history. */
+  actual?: (BurnPoint | null)[];
 }) {
   const W = 560;
   const H = 200;
@@ -88,7 +96,7 @@ export function StreamBurnChart({
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
   const bw = plotW / n;
-  const yMax = Math.max(1, ...series, remainingPts, effectiveCap);
+  const yMax = Math.max(1, ...series, remainingPts, effectiveCap, ...actual.map((p) => p?.scope ?? 0));
   const yOf = (v: number) => padT + plotH - (Math.max(0, v) / yMax) * plotH;
   const xOf = (i: number) => padL + i * bw; // left edge of sprint band i (i may be fractional)
 
@@ -174,6 +182,48 @@ export function StreamBurnChart({
         </>
       )}
 
+      {/* recorded scope, faint and dashed beneath: when remaining work rises, this shows
+          it was scope arriving (tickets written) rather than work going backwards */}
+      {actualRuns(actual).map((run, k) => (
+        <polyline
+          key={`scope${k}`}
+          points={run.map((p) => `${xOf(p.x).toFixed(1)},${yOf(p.scope).toFixed(1)}`).join(' ')}
+          fill="none"
+          stroke="var(--rt-line-strong)"
+          strokeWidth={1}
+          strokeDasharray="3 3"
+          strokeLinejoin="round"
+        />
+      ))}
+
+      {/* recorded remaining work — one polyline per observed run, a dot per reading */}
+      {actualRuns(actual).map((run, k) => (
+        <polyline
+          key={`run${k}`}
+          points={run.map((p) => `${xOf(p.x).toFixed(1)},${yOf(p.pts).toFixed(1)}`).join(' ')}
+          fill="none"
+          stroke="var(--rt-ink)"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ))}
+      {actual.map((p, k) =>
+        p ? (
+          <circle
+            key={`pt${k}`}
+            cx={xOf(p.x)}
+            cy={yOf(p.pts)}
+            r={2.5}
+            fill={p.hollow ? 'var(--rt-paper)' : 'var(--rt-ink)'}
+            stroke="var(--rt-ink)"
+            strokeWidth={p.hollow ? 1.25 : 0}
+          >
+            <title>{`${p.pts} pts remaining${p.hollow ? ' (incomplete reading)' : ''}`}</title>
+          </circle>
+        ) : null,
+      )}
+
       {/* sprint ticks */}
       {series.map((_, i) => (
         <text key={i} x={xOf(i) + bw / 2} y={H - 9} textAnchor="middle" fontSize={9} fill={i >= freezeX ? 'var(--rt-t3)' : i >= firstRemainingIndex ? 'var(--rt-t2)' : 'var(--rt-t3)'}>
@@ -182,6 +232,16 @@ export function StreamBurnChart({
       ))}
     </svg>
   );
+}
+
+/** Split a recorded series at its nulls into runs that can each be one polyline. */
+function actualRuns(points: (BurnPoint | null)[]): BurnPoint[][] {
+  const runs: BurnPoint[][] = [[]];
+  for (const p of points) {
+    if (p) runs[runs.length - 1].push(p);
+    else if (runs[runs.length - 1].length) runs.push([]);
+  }
+  return runs.filter((r) => r.length > 1);
 }
 
 /**
