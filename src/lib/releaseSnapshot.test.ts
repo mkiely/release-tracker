@@ -10,6 +10,9 @@ import {
   encodeSnapshot,
 } from './releaseSnapshot';
 import { MAX_URL_LENGTH } from './urlCodec';
+import { buildSprintReading } from './sprintReadings';
+import { seed } from './seed';
+import { stampSprints } from '../store/migrate';
 
 const NOW = '2026-04-20'; // inside Sprint 1
 
@@ -554,5 +557,92 @@ describe('buildSnapshot — timeline segments', () => {
       [0, 0, 3, 0],
       [3, 3, 3, 0],
     ]);
+  });
+});
+
+describe('history (v10)', () => {
+  const LATER = '2026-05-05'; // sp1 ended, sp2 underway
+
+  /** Readings for `sprintId`, taken as the stamp would (opening on its first day,
+   *  closing on its last), from the given item sets. */
+  const observe = (r: Release, sprintId: string, open: WorkItem[], close: WorkItem[]): Release => ({
+    ...r,
+    sprints: r.sprints.map((sp) =>
+      sp.id !== sprintId
+        ? sp
+        : {
+            ...sp,
+            opening: buildSprintReading(r, team(), sp, open, sp.startISO),
+            closing: buildSprintReading(r, team(), sp, close, sp.endISO),
+          },
+    ),
+  });
+  const pay = item({ id: 'a', key: 'ATL-100', sprintId: 'sp1', points: 5, status: 'Not Started' });
+  const auth = item({ id: 'b', key: 'ATL-200', workStreamId: 'ws_auth', sprintId: 'sp1', points: 3, status: 'Not Started' });
+  const observed = () => observe(release(), 'sp1', [pay, auth], [{ ...pay, status: 'Complete' }, auth]);
+
+  it('carries no history block when no sprint was observed', () => {
+    expect(buildSnapshot(release(), team(), [pay], { now: LATER }).history).toBeUndefined();
+  });
+
+  it('carries each sprint review as a tuple, index-aligned with sprints; null where unobserved', () => {
+    const h = buildSnapshot(observed(), team(), [{ ...pay, status: 'Complete' }, auth], { now: LATER }).history!;
+    // [committed, committedCompleted, added, removed, completed, unfinished, incomplete]
+    expect(h.reviews).toEqual([[8, 5, 0, 0, 5, 3, 0], null]);
+    expect(h.carryOver).toEqual({ items: 1, pts: 3, chronic: 0 });
+    expect(h.scope.since).toBe('Since Sprint 1 opened');
+  });
+
+  it('still carries no item key or subject anywhere — the record is counts and points', () => {
+    const snap = buildSnapshot(observed(), team(), [{ ...pay, status: 'Complete' }, auth], { now: LATER });
+    const json = JSON.stringify(snap);
+    expect(json).not.toContain('ATL-100');
+    expect(json).not.toContain('ATL-200');
+    expect(json).not.toContain('Secret subject line');
+  });
+
+  it('narrows scope and carry-over to the shared streams; reviews stay whole-team', () => {
+    const r = observed();
+    const snap = buildSnapshot(r, team(), [{ ...pay, status: 'Complete' }, auth], { now: LATER, visibleStreamIds: new Set(['ws_pay']) });
+    expect(snap.history!.carryOver.items).toBe(0); // the unfinished item is Auth's
+    expect(snap.history!.reviews[0]![0]).toBe(8); // the sprint still committed both
+  });
+
+  it('never names a stream the sharer left out', () => {
+    // Auth declares complete, then grows: growth that a Payments-only share must not name.
+    const complete = { ...release(), workStreams: release().workStreams.map((ws) => (ws.id === 'ws_auth' ? { ...ws, planningState: 'complete' as const } : ws)) };
+    const r = observe(complete, 'sp1', [pay, auth], [pay, auth, item({ id: 'c', workStreamId: 'ws_auth', sprintId: null, points: 8 })]);
+    const all = buildSnapshot(r, team(), [pay, auth], { now: LATER }).history!.scope.growth;
+    const scoped = buildSnapshot(r, team(), [pay, auth], { now: LATER, visibleStreamIds: new Set(['ws_pay']) }).history!.scope.growth;
+    expect(all).toContain('Auth');
+    expect(scoped).not.toContain('Auth');
+  });
+
+  it('marks recorded sprints in the allocation strip — opt-in, so older links still read as plan readings', () => {
+    const wr = buildSnapshot(observed(), team(), [pay, auth], { now: LATER }).wholeRelease!;
+    expect(wr.perSprint[0]).toMatchObject({ recorded: true, contributing: 2 });
+    expect(wr.perSprint[1].recorded).toBeUndefined();
+    expect('contributing' in wr.perSprint[1]).toBe(false);
+  });
+
+  it('adds the recorded burn line only to streams with a record', () => {
+    const snap = buildSnapshot(observed(), team(), [{ ...pay, status: 'Complete' }, auth], { now: LATER });
+    const payments = snap.streams.find((s) => s.name === 'Payments')!;
+    expect(payments.burn!.actual).toEqual([
+      [expect.any(Number), 5, 5, 0],
+      [expect.any(Number), 0, 5, 0],
+    ]);
+    const bare = buildSnapshot(release(), team(), [pay], { now: LATER }).streams.find((s) => s.name === 'Payments')!;
+    expect(bare.burn && 'actual' in bare.burn).toBe(false);
+  });
+
+  it('keeps the seeded demos well inside the URL budget with their history', async () => {
+    // The budget the plan set before the payload shape was fixed: history must not push
+    // a real release anywhere near the cap. Half of it leaves room for bigger releases.
+    const s = stampSprints(seed());
+    for (const r of s.releases) {
+      const res = await buildSnapshotUrl(r, s.teams.find((t) => t.id === r.teamId), s.items.filter((i) => i.releaseId === r.id), 'https://x.example');
+      expect(res.ok && res.url.length < MAX_URL_LENGTH / 2, `${r.name}: ${res.ok ? res.url.length : 'too long'}`).toBe(true);
+    }
   });
 });

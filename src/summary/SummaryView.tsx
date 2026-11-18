@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { SnapshotPayload, SnapshotStream } from '../lib/releaseSnapshot';
+import type { SnapshotPayload, SnapshotSprint, SnapshotStream } from '../lib/releaseSnapshot';
 import type { Status, StatusSeg } from '../types';
 import { SegBar } from '../components/Badges';
 import { SegmentedToggle } from '../components/SegmentedToggle';
@@ -193,15 +193,27 @@ function ReleaseCapacity({
  */
 function WholeRelease({
   wr,
-  sprintNames,
+  sprints,
   teamName,
+  hasRecord,
 }: {
   wr: NonNullable<SnapshotPayload['wholeRelease']>;
-  sprintNames: string[];
+  sprints: SnapshotSprint[];
   teamName: string | null;
+  /** v10+: the strip distinguishes recorded sprints from plan-read ones. Before v10
+   *  every entry was a plan reading and the caption says so; hatching all of them
+   *  would only add noise. */
+  hasRecord: boolean;
 }) {
   const team = teamName ?? 'the team';
   const over = wr.overAllocated;
+  const sprintNames = sprints.map((sp) => sp.name);
+  // "From the plan" covers two different things: a past sprint nobody observed (a gap)
+  // and one still to come (no record yet). The copy keeps them apart, as the app does.
+  const upcoming = (i: number) => !sprints[i]?.isPast && !sprints[i]?.isActive;
+  const recordedCount = wr.perSprint.filter((s) => s.recorded).length;
+  const upcomingCount = wr.perSprint.filter((s, i) => !s.recorded && upcoming(i)).length;
+  const missedCount = wr.perSprint.length - recordedCount - upcomingCount;
   return (
     <>
       <h2 id="sec-whole" data-nav="Whole release" className={styles.sectionTitle}>Whole release</h2>
@@ -284,16 +296,31 @@ function WholeRelease({
                 : wr.overbookedSprints === 0
                   ? `Within capacity in all ${wr.judgedSprints} sprint${wr.judgedSprints === 1 ? '' : 's'} that carried work.`
                   : `Overbooked in ${wr.overbookedSprints} of ${wr.judgedSprints} sprint${wr.judgedSprints === 1 ? '' : 's'} that carried work.`}
+              {hasRecord && wr.judgedSprints > 0 && (
+                <>
+                  {' '}
+                  {recordedCount === wr.perSprint.length
+                    ? 'Every sprint as recorded.'
+                    : `${[
+                        recordedCount ? `${recordedCount} as recorded` : 'None recorded',
+                        missedCount ? `${missedCount} not observed` : '',
+                        upcomingCount ? `${upcomingCount} still to come` : '',
+                      ]
+                        .filter(Boolean)
+                        .join(', ')}; hatched sprints are read from the plan.`}
+                </>
+              )}
             </div>
             <div className={styles.allocStrip} role="group" aria-label="Allocation by sprint">
               {wr.perSprint.map((s, i) => (
                 <div
                   key={i}
-                  className={`${styles.allocSeg} ${s.idle ? styles.allocIdle : s.overAllocated ? styles.allocOver : styles.allocOk}`}
+                  className={`${styles.allocSeg} ${s.idle ? styles.allocIdle : s.overAllocated ? styles.allocOver : styles.allocOk} ${hasRecord && !s.recorded ? styles.allocEstimated : ''}`}
                   title={
-                    s.idle
+                    (s.idle
                       ? `${sprintNames[i] ?? `Sprint ${i + 1}`} — no work stream held work`
-                      : `${sprintNames[i] ?? `Sprint ${i + 1}`} — ${s.totalRequired} reserved across ${s.streamCount} stream${s.streamCount === 1 ? '' : 's'}, ${wr.contributingCount} contributing`
+                      : `${sprintNames[i] ?? `Sprint ${i + 1}`} — ${s.totalRequired} reserved across ${s.streamCount} stream${s.streamCount === 1 ? '' : 's'}, ${s.contributing ?? wr.contributingCount} contributing`) +
+                    (!hasRecord ? '' : s.recorded ? ' (as recorded)' : upcoming(i) ? ' (still to come: read from the plan)' : ' (not observed while it ran: read from the plan)')
                   }
                 >
                   {i + 1}
@@ -480,6 +507,7 @@ function StreamStatusCard({ s }: { s: SnapshotStream }) {
  *  that can be forecast (an engineer count and estimated work). */
 function StreamChartCard({ s }: { s: SnapshotStream }) {
   if (!s.burn) return null;
+  const actual = (s.burn.actual ?? []).map((p) => (p ? { x: p[0], pts: p[1], scope: p[2], hollow: p[3] === 1 } : null));
   return (
     <div className={`card ${styles.chartCard}`}>
       <div className={styles.chartHead}>
@@ -494,8 +522,88 @@ function StreamChartCard({ s }: { s: SnapshotStream }) {
         remainingPts={s.burn.remainingPts}
         effectiveCap={s.burn.effectiveCap}
         tone={s.burn.tone}
+        actual={actual}
       />
     </div>
+  );
+}
+
+/**
+ * What was recorded while the release ran (payload v10). Counts and points only —
+ * the snapshot never carries work items, so carry-over is a tally here, not the app's
+ * list. Sprints that had not started are left out; a started one with no record says
+ * "not observed" rather than showing zeros.
+ */
+function RecordedHistory({ h, sprints }: { h: NonNullable<SnapshotPayload['history']>; sprints: SnapshotSprint[] }) {
+  const started = sprints.map((sp, i) => ({ sp, i })).filter(({ sp }) => sp.isPast || sp.isActive);
+  const c = h.carryOver;
+  return (
+    <>
+      <h2 id="sec-history" data-nav="History" className={styles.sectionTitle}>Recorded history</h2>
+      <div className={`card ${styles.capCard}`}>
+        <span className="tag">Scope · {h.scope.since.toLowerCase()}</span>
+        <div className={styles.capLede}>
+          <strong>Growth.</strong> {h.scope.growth}
+        </div>
+        {h.scope.injection && (
+          <div className={styles.capLede}>
+            <strong>Into running sprints.</strong> {h.scope.injection}
+          </div>
+        )}
+        {h.scope.planning && (
+          <div className={styles.capLede}>
+            <strong>Planning.</strong> {h.scope.planning}
+          </div>
+        )}
+        <div className={styles.capLede}>
+          <strong>Carried over.</strong>{' '}
+          {c.items === 0
+            ? 'Nothing still open has ended a sprint unfinished.'
+            : `${c.items} still-open item${c.items === 1 ? '' : 's'} (${c.pts} pt${c.pts === 1 ? '' : 's'}) ended a sprint unfinished` +
+              (c.chronic > 0 ? `; ${c.chronic} of them two sprints or more.` : '.')}
+        </div>
+
+        <div className={styles.histTable} role="table" aria-label="Recorded sprint reviews">
+          <div className={`${styles.histRow} ${styles.capRowHead}`} role="row">
+            {['Sprint', 'Committed', 'Added', 'Moved out', 'Done', 'Carried', 'Met'].map((t) => (
+              <span key={t} role="columnheader">{t}</span>
+            ))}
+          </div>
+          {started.map(({ sp, i }) => {
+            const r = h.reviews[i];
+            if (!r) {
+              return (
+                <div key={i} className={styles.histRow} role="row">
+                  <span role="cell" className={styles.capStreamName}>{sp.name}</span>
+                  <span role="cell" className={`${styles.dim} ${styles.histGap}`}>not observed</span>
+                </div>
+              );
+            }
+            const [committed, kept, added, removed, done, unfinished, incomplete] = r;
+            return (
+              <div key={i} className={styles.histRow} role="row" title={incomplete ? 'Incomplete reading: the commitment was recorded late, or the end of the sprint was not observed.' : undefined}>
+                <span role="cell" className={styles.capStreamName}>
+                  {sp.name}
+                  {sp.isActive && <span className={styles.dim}> · so far</span>}
+                  {incomplete === 1 && <span className={styles.histCaveat}> *</span>}
+                </span>
+                <span role="cell" className={styles.capNum}>{committed}</span>
+                <span role="cell" className={styles.capNum}>{added ? `+${added}` : '—'}</span>
+                <span role="cell" className={styles.capNum}>{removed ? `\u2212${removed}` : '—'}</span>
+                <span role="cell" className={styles.capNum}>{done}</span>
+                <span role="cell" className={styles.capNum}>{sp.isPast ? unfinished : '—'}</span>
+                <span role="cell" className={styles.capNum}>{committed > 0 ? `${Math.round((kept / committed) * 100)}%` : '—'}</span>
+              </div>
+            );
+          })}
+        </div>
+        <span className={styles.caption}>
+          Recorded while each sprint ran: its commitment on the first day it was seen, the rest as last seen. Points as
+          recorded. A sprint marked * has an incomplete reading; one nobody observed is shown as such — it is never
+          reconstructed. Growth counts only work that arrived after a stream declared its scope complete.
+        </span>
+      </div>
+    </>
   );
 }
 
@@ -607,10 +715,15 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
       {snapshot.wholeRelease && (
         <WholeRelease
           wr={snapshot.wholeRelease}
-          sprintNames={snapshot.sprints.map((sp) => sp.name)}
+          sprints={snapshot.sprints}
           teamName={snapshot.teamName}
+          hasRecord={snapshot.v >= 10}
         />
       )}
+
+      {/* 2b · Recorded history — the other retrospective reading, so it sits beside the
+          one above. Absent on pre-v10 payloads and when no sprint was observed. */}
+      {snapshot.history && <RecordedHistory h={snapshot.history} sprints={snapshot.sprints} />}
 
       {/* 3 · Timeline — where each stream's work sits on the calendar. Spatial, so it
           comes before the per-stream detail it summarizes. Absent on pre-v7 payloads. */}
@@ -682,6 +795,8 @@ export function SummaryView({ snapshot, onBack }: { snapshot: SnapshotPayload; o
           <p className={styles.caption} style={{ marginTop: -8 }}>
             Remaining work burned down by each stream’s capacity, up to its code freeze. Where the line reaches zero is
             the projected finish; a gap at the freeze is the shortfall.
+            {chartStreams.some((s) => s.burn?.actual?.length) &&
+              ' The dark line is remaining work as recorded, with total scope dashed above it; gaps are sprints nobody observed.'}
           </p>
           <div className={styles.streamGrid}>
             {chartStreams.map((s, i) => (

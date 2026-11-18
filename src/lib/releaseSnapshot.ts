@@ -33,6 +33,8 @@ import { assessRelease, assessStreams } from './streamAssessment';
 import { segmentsOfItems, sprintIndex } from './streamTimeline';
 import { sortStreams } from './streamOrder';
 import { between, dOf, fmtShort, todayISO } from './dates';
+import { carryOver, historicContention, readingsIncomplete, scopeChange, sprintInjection, sprintReview } from './sprintHistory';
+import { recordedBurn, scopeChangeReadout } from './historyReadouts';
 import type { Release, StatusSeg, Team, WorkItem } from '../types';
 
 /** Hash-fragment key carrying an encoded snapshot payload (`…/summary.html#s=…`). */
@@ -44,9 +46,22 @@ export const SNAPSHOT_PARAM = 's';
  *  `externalUrl` (connector deep link); v6 adds the `wholeRelease` block; v7 adds
  *  `freezeISO` / `unassigned` and a single-range `span`; v8 replaces `span` with
  *  `segments`, one per unbroken run of work; v9 adds per-stream `openCount` /
- *  `unpointedCount` and the `overall.unpointed` roll-up. Older payloads still decode — the
- *  viewer guards the added fields and defaults them. */
-export const SNAPSHOT_VERSION = 9;
+ *  `unpointedCount` and the `overall.unpointed` roll-up; v10 adds the recorded sprint
+ *  history — the `history` block, per-stream `burn.actual`, and `recorded`/`contributing`
+ *  on `wholeRelease.perSprint`. Older payloads still decode — the viewer guards the added
+ *  fields and defaults them. */
+export const SNAPSHOT_VERSION = 10;
+
+/** One recorded reading on a stream's burn line: [x, remaining, scope, hollow]. `x` is
+ *  the fractional sprint position (freezeSprintX's axis); hollow is 1 for a late or
+ *  stale reading. A tuple, like `segments`, because the payload rides in a URL. */
+export type SnapshotBurnPoint = [number, number, number, 0 | 1];
+
+/** One sprint's recorded review, index-aligned with `sprints`: [committed,
+ *  committedCompleted, added, removed, completed, unfinished, incomplete] in points,
+ *  the last 1 when a reading was late or stale. null = never observed (or not started).
+ *  Whether the sprint is final comes from `sprints[i].isPast`. */
+export type SnapshotReview = [number, number, number, number, number, number, 0 | 1] | null;
 
 /** One sprint's precomputed row in a snapshot. */
 export interface SnapshotSprint {
@@ -128,6 +143,9 @@ export interface SnapshotStream {
     remainingPts: number;
     effectiveCap: number;
     tone: 'ok' | 'risk';
+    /** v10: remaining work as recorded; null entries break the line at an unobserved
+     *  sprint. Absent on older payloads and when nothing was recorded. */
+    actual?: (SnapshotBurnPoint | null)[];
   } | null;
 }
 
@@ -232,7 +250,18 @@ export interface SnapshotPayload {
     /** The allocation strip, **index-aligned with `sprints` above** rather than
      *  repeating each sprint's name — both are one entry per release sprint, in
      *  order. Kept lean because the payload rides in a length-capped URL. */
-    perSprint: { totalRequired: number; streamCount: number; overAllocated: boolean; idle: boolean }[];
+    perSprint: {
+      totalRequired: number;
+      streamCount: number;
+      overAllocated: boolean;
+      idle: boolean;
+      /** v10: judged from the sprint's own reading rather than today's plan. Opt-in on
+       *  purpose — every pre-v10 entry was a final-plan reading, and an absent flag must
+       *  keep reading that way. */
+      recorded?: true;
+      /** v10, recorded entries only: the roster that reading measured against. */
+      contributing?: number;
+    }[];
     /** Reservation vs. what the scope turned out to need, per stream. Narrowed to the
      *  shared subset like every other per-stream section; `outOfScopeRequired` above
      *  accounts for what that narrowing hides. */
@@ -251,6 +280,21 @@ export interface SnapshotPayload {
   };
   sprints: SnapshotSprint[];
   streams: SnapshotStream[];
+  /**
+   * v10: what was recorded while the release ran (Sprint.opening/closing). Counts and
+   * points only — like the rest of the snapshot it carries no item keys or subjects,
+   * which is why carry-over is a tally here rather than the app's list. Absent on older
+   * payloads, and when no sprint has been observed.
+   */
+  history?: {
+    reviews: SnapshotReview[];
+    /** The History tab's three statements, pre-worded: growth after a stream declared
+     *  its scope complete, work pulled into running sprints, and planning progress.
+     *  Narrowed to the shared streams, since the growth line names them. */
+    scope: { since: string; growth: string; injection: string | null; planning: string | null };
+    /** Still-open items that ended a sprint unfinished, in the shared streams. */
+    carryOver: { items: number; pts: number; chronic: number };
+  };
 }
 
 /** Options for {@link buildSnapshot}. `connectorLabel` is passed in (rather than
@@ -369,6 +413,16 @@ export function buildSnapshot(
 
   const sprintIdxById = sprintIndex(release.sprints);
 
+  // Recorded burn points, in the payload's tuple form. Spread into `burn` so a stream
+  // with no record carries no `actual` key at all rather than an empty array.
+  const actualFor = (wsId: string | null): { actual?: (SnapshotBurnPoint | null)[] } => {
+    const pts = recordedBurn(release, wsId ?? undefined, today);
+    if (wsId === null || pts.length === 0) return {};
+    return {
+      actual: pts.map((p) => (p ? [Math.round(p.x * 100) / 100, p.pts, p.scope, p.hollow ? 1 : 0] : null)),
+    };
+  };
+
   const outStreams: SnapshotStream[] = computed.map(({ ws, items: streamItems, series, health, forecast, runway }) => {
     const canForecast = (ws ? ws.engineersRequired : null) != null && health.totalPts > 0;
     return {
@@ -404,6 +458,7 @@ export function buildSnapshot(
             effectiveCap: forecast.effectiveCap,
             // Only the at-risk verdict reads as risk tone (mirrors verdictVars).
             tone: forecast.verdict === 'at-risk' ? 'risk' : 'ok',
+            ...actualFor(ws ? ws.id : null),
           }
         : null,
     };
@@ -451,6 +506,7 @@ export function buildSnapshot(
   const outOfScopeRequired = retro.streams
     .filter((s) => (visible ? !visible.has(s.ws.id) : false) && s.engineersRequired != null && s.totalPts > 0)
     .reduce((a, s) => a + (s.engineersRequired ?? 0), 0);
+  const historic = historicContention(release, retro);
   const retroOver = Math.max(0, retro.contention.totalRequired - retro.ledger.contributingCount);
   const retroHeadroom = Math.max(0, retro.ledger.contributingCount - retro.contention.totalRequired);
 
@@ -503,13 +559,15 @@ export function buildSnapshot(
       donePts: retro.donePts,
       overCommitted: retro.overCommitted,
       scopeGap: retro.totalPts - Math.round(retro.ledger.totalCap),
-      overbookedSprints: retro.overbookedSprints,
-      judgedSprints: retro.judgedSprints,
-      perSprint: retro.perSprint.map((s) => ({
+      // From the record where one exists, as the app's Whole release strip reads it.
+      overbookedSprints: historic.overbookedSprints,
+      judgedSprints: historic.judgedSprints,
+      perSprint: historic.perSprint.map((s) => ({
         totalRequired: s.contention.totalRequired,
         streamCount: s.streamCount,
         overAllocated: s.contention.overAllocated,
         idle: s.idle,
+        ...(s.source === 'recorded' ? { recorded: true as const, contributing: s.contributingCount } : {}),
       })),
       streams: visibleRetro
         .filter((s) => s.totalPts > 0)
@@ -537,6 +595,38 @@ export function buildSnapshot(
     },
     sprints,
     streams: outStreams,
+    ...historyBlock(release, items, visible, today),
+  };
+}
+
+/** The v10 `history` block, or nothing when no sprint has been observed. Reviews
+ *  describe the team's sprints and so ignore the share scope, like the sprint table;
+ *  scope and carry-over name or count streams, so they are narrowed to it. */
+function historyBlock(
+  release: Release,
+  items: WorkItem[],
+  visible: ReadonlySet<string> | null,
+  today: string,
+): { history?: NonNullable<SnapshotPayload['history']> } {
+  const scope = scopeChangeReadout(release, scopeChange(release, visible), sprintInjection(release, today));
+  if (!scope) return {};
+  const inScope = (id: string | null) => !visible || id === null || visible.has(id);
+  const carried = carryOver(release, items, today).filter((c) => inScope(c.workStreamId));
+  return {
+    history: {
+      reviews: release.sprints.map((sp): SnapshotReview => {
+        const r = sprintReview(release, sp, today);
+        if (!r) return null;
+        const { pts } = r;
+        return [pts.committed, pts.committedCompleted, pts.added, pts.removed, pts.completed, pts.unfinished, readingsIncomplete(sp, today) ? 1 : 0];
+      }),
+      scope,
+      carryOver: {
+        items: carried.length,
+        pts: carried.reduce((a, c) => a + (c.points ?? 0), 0),
+        chronic: carried.filter((c) => c.chronic).length,
+      },
+    },
   };
 }
 

@@ -37,6 +37,10 @@ export const closingStale = (sp: Sprint, today: string = todayISO()): boolean =>
   sp.endISO < today &&
   workdaysInRange(addDays(sp.closing.dateISO, 1), sp.endISO) > READING_TOLERANCE_WORKDAYS;
 
+/** Either reading is late or stale — the figures stand, but carry a caveat. */
+export const readingsIncomplete = (sp: Sprint, today: string = todayISO()): boolean =>
+  openingLate(sp) || closingStale(sp, today);
+
 // ── Muted streams ───────────────────────────────────────────────────────────
 // A muted stream is not this team's work (WorkStream.muted) and leaves every total
 // over live data; it leaves these too. Readings don't record the flag, so it is read
@@ -266,9 +270,15 @@ export interface ScopeChange {
  * everything in a reading that predates planning states being recorded, and the
  * no-stream bucket, which can never be declared complete. Muted streams are out, as
  * everywhere.
+ *
+ * `onlyStreamIds` narrows it to a scoped share's streams (the no-stream bucket stays,
+ * as it does in every scoped total): the per-stream list names streams, so an
+ * unscoped one would reveal what the sharer left out.
  */
-export function scopeChange(release: Release): ScopeChange {
-  const keep = counted(mutedIds(release));
+export function scopeChange(release: Release, onlyStreamIds: ReadonlySet<string> | null = null): ScopeChange {
+  const unmuted = counted(mutedIds(release));
+  const keep = (s: { workStreamId: string | null }) =>
+    unmuted(s) && (onlyStreamIds === null || s.workStreamId === null || onlyStreamIds.has(s.workStreamId));
   const timeline = release.sprints.flatMap((sp) =>
     (
       [
