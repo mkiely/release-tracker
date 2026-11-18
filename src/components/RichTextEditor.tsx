@@ -4,6 +4,7 @@ import { DOMParser as PMDOMParser } from '@tiptap/pm/model';
 import { markdownToHtml, looksLikeMarkdown } from '../lib/markdown';
 import { normalizeBlanks } from '../lib/htmlNormalize';
 import { richTextExtensions } from '../lib/richTextExtensions';
+import type { PresentColumns } from '../store/descriptionPresenter';
 import { Icon } from './Icon';
 import { IconButton } from './primitives';
 import styles from './RichTextEditor.module.css';
@@ -70,16 +71,27 @@ function Toolbar({ editor }: { editor: Editor }) {
  *  Parsing through ProseMirror's schema drops any tag/attribute the schema does
  *  not know, so connector HTML is sanitized on the way in without DOMPurify, and
  *  {@link https://tiptap.dev getHTML()} re-serializes a clean, schema-valid string.
- *  Renders read-only (selectable, no caret) when `editable` is false. */
+ *  Renders read-only (selectable, no caret) when `editable` is false.
+ *
+ *  `variant="present"` is the same document for the meeting presenter: no input
+ *  frame, so it fills its container, with the presenter styles from
+ *  RichTextEditor.module.css. A variant rather than a second renderer, so the
+ *  presented text is parsed, cleaned and styled exactly as the dialog shows it. */
 export function RichTextEditor({
   value,
   onChange,
   editable = true,
+  variant = 'field',
+  columns,
 }: {
   value: string;
   onChange?: (html: string) => void;
   editable?: boolean;
+  variant?: 'field' | 'present';
+  /** Present variant only: the column layout (see PresentColumns). */
+  columns?: PresentColumns;
 }) {
+  const present = variant === 'present';
   const editor = useEditor({
     extensions: richTextExtensions,
     content: normalizeBlanks(value),
@@ -87,7 +99,7 @@ export function RichTextEditor({
     // Avoid the strict-mode double-mount hydration warning; render in an effect.
     immediatelyRender: false,
     editorProps: {
-      attributes: { class: styles.content },
+      attributes: { class: present ? `${styles.content} ${styles.presentContent}` : styles.content },
       // Format pasted Markdown. We key off the plain-text flavor: if it looks like
       // Markdown we convert it, even when the clipboard also carries an HTML flavor
       // (most apps attach one for plain-text copies, which is just the literal
@@ -121,10 +133,12 @@ export function RichTextEditor({
     }
   }, [editor, value]);
 
+  const boxClass = [present ? styles.presentBox : styles.box, !editable && styles.readOnly].filter(Boolean).join(' ');
   return (
-    <div className={editable ? styles.box : `${styles.box} ${styles.readOnly}`}>
+    <div className={boxClass} data-columns={present ? (columns ?? '1') : undefined}>
       {editable && editor && <Toolbar editor={editor} />}
-      <div className={styles.editorScroll}>
+      {/* data-scroll marks the element the presenter measures to fit text to the screen. */}
+      <div className={styles.editorScroll} data-scroll="">
         <EditorContent editor={editor} />
       </div>
     </div>

@@ -10,6 +10,7 @@ import { displayValue, FieldControl } from '../components/fields/registry';
 import { useConnectorMeta } from '../hooks/useConnectorMeta';
 import { DirtyDot } from '../components/DirtyDot';
 import { RichTextEditor } from '../components/RichTextEditor';
+import { DescriptionPresenter } from '../components/DescriptionPresenter';
 import { copyRich, linkClipboard } from '../lib/copyLink';
 import { useApp } from '../app-context';
 import { Icon } from '../components/Icon';
@@ -36,6 +37,7 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(it?.assignedMemberId ?? null);
   const [typeLabel, setTypeLabel] = useState<string>(it?.itemType?.label ?? '');
   const [attrs, setAttrs] = useState<Record<string, AttrValue>>(it?.attributes ?? {});
+  const [presenting, setPresenting] = useState(false);
 
   if (!it || !r) {
     return (
@@ -234,6 +236,21 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
         </>
       }
     >
+      {presenting && (
+        <DescriptionPresenter
+          itemKey={it.key}
+          subject={subject.trim() || it.subject}
+          typeLabel={connectorRelease ? it.itemType?.label : typeLabel || undefined}
+          status={nextStatus}
+          statusLabel={nextStatusNative?.label}
+          points={points}
+          value={desc}
+          format={it.descriptionFormat === 'html' ? 'html' : 'text'}
+          editable={canWrite('description')}
+          onChange={setDesc}
+          onClose={() => setPresenting(false)}
+        />
+      )}
       <ModalSplit
         main={
           <>
@@ -263,7 +280,27 @@ export function WorkItemDetailModal({ itemId, onClose }: { itemId: string; onClo
             <PField label="Subject">
               <PInput value={subject} disabled={!canWrite('subject')} onChange={(e) => setSubject(e.target.value)} />
             </PField>
-            <PField fill label="Description">
+            <PField
+              fill
+              label={
+                <span className={styles.descLabel}>
+                  Description
+                  <button
+                    type="button"
+                    className={styles.presentBtn}
+                    onClick={(e) => {
+                      // Inside the field's <label>: keep the click from also focusing the editor.
+                      e.preventDefault();
+                      setPresenting(true);
+                    }}
+                    title="Present the description full-screen, for reading it together in a meeting"
+                  >
+                    {Icon.present}
+                    Present
+                  </button>
+                </span>
+              }
+            >
               {it.descriptionFormat === 'html' ? (
                 <RichTextEditor value={desc} editable={canWrite('description')} onChange={setDesc} />
               ) : (
